@@ -745,6 +745,26 @@ async def generate_report(req: GenerateRequest, current_user: dict = Depends(get
          "$set": {"latest_report_snapshot_id": snapshot_id,
                   "latest_report_generated_at": datetime.now(timezone.utc)}},
     )
+
+    # Mark corresponding CRM lead record as report generated
+    lead_query = []
+    if a.get("lead_id"):
+        lead_query.append({"id": a.get("lead_id")})
+    if a.get("client_email"):
+        lead_query.append({"email": a.get("client_email")})
+    if lead_query:
+        await db["leads"].update_many(
+            {"$or": lead_query},
+            {"$set": {
+                "report_generated": True,
+                "report_status": "generated",
+                "report_generated_at": datetime.now(timezone.utc),
+                "latest_report_snapshot_id": snapshot_id,
+                "assessment_report_id": snapshot_id,
+                "assessment_id": a.get("id"),
+            }}
+        )
+
     return _strip(doc)
 
 

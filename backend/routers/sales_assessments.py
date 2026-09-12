@@ -74,6 +74,7 @@ class SaveAssessmentRequest(BaseModel):
     resume_file_id: Optional[str] = None
     resume_filename: Optional[str] = None
     resume_url: Optional[str] = None
+    lead_id: Optional[str] = None
 
 
 @router.post("")
@@ -100,9 +101,11 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
     resume_fid = req.resume_file_id or (req.profile or {}).get("resume_file_id") or (req.profile or {}).get("primary_applicant", {}).get("resume_file_id")
     resume_fname = req.resume_filename or (req.profile or {}).get("resume_filename") or (req.profile or {}).get("primary_applicant", {}).get("resume_filename")
     resume_u = req.resume_url or (req.profile or {}).get("resume_url") or (req.profile or {}).get("resume_link")
+    lead_id = req.lead_id or (req.profile or {}).get("lead_id")
 
     doc = {
         "id": assessment_id,
+        "lead_id": lead_id,
         "client_name": c_name,
         "client_email": c_email,
         "client_phone": c_phone,
@@ -126,6 +129,16 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
         "updated_at": now,
     }
     await assessments_col.insert_one(doc)
+
+    if lead_id:
+        try:
+            await db["leads"].update_one(
+                {"id": lead_id},
+                {"$set": {"assessment_id": assessment_id, "updated_at": now}}
+            )
+        except Exception:
+            pass
+
     return _strip(doc)
 
 

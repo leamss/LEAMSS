@@ -82,6 +82,7 @@ export default function Cockpit() {
   const [activeStage, setActiveStage] = useState('all');
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('all'); // 'me' | 'all'
+  const [reportPendingOnly, setReportPendingOnly] = useState(false);
   const [sortMode, setSortMode] = useState('recent');
   const [selectedCard, setSelectedCard] = useState(null);
   const [cardDetail, setCardDetail] = useState(null);
@@ -146,12 +147,13 @@ export default function Cockpit() {
     }
   };
 
-  const handleSendToBulkAssessment = async (leadIds = [], paidOnly = false) => {
+  const handleSendToBulkAssessment = async (leadIds = [], paidOnly = false, reportPendingOnly = false) => {
     try {
       setBulkActionLoading(true);
       const res = await axios.post(`${API}/bulk-assessments/from-leads`, {
         lead_ids: leadIds.length ? leadIds : undefined,
         paid_only: paidOnly,
+        report_pending_only: reportPendingOnly,
         batch_name: paidOnly
           ? `Paid Registrations (${new Date().toLocaleDateString('en-GB')})`
           : `Website Registrations (${new Date().toLocaleDateString('en-GB')})`,
@@ -161,22 +163,34 @@ export default function Cockpit() {
       navigate('/sales/bulk-assessment');
     } catch (e) {
       setBulkActionLoading(false);
-      alert(e.response?.data?.detail || 'Failed to create bulk assessment batch');
+      alert(e.response?.data?.detail || 'Failed to add leads to bulk assessment batch');
     }
   };
 
   const selectSequence = (mode) => {
     const leadCards = cards.filter(c => c.type === 'lead');
+    const isPaid = (c) => c.payment_status === 'success' || c.payment_status === 'paid' || (c.payment_amount && c.payment_amount > 0);
+    const isUnassigned = (c) => !c.owner?.id || c.owner?.name === 'Unassigned' || !c.owner?.name;
+    const isReportPending = (c) => !c.report_generated;
+
     if (mode === 'all') {
       setSelectedLeadIds(leadCards.map(c => c.id));
     } else if (mode === 'paid') {
-      const paid = leadCards.filter(c =>
-        c.payment_status === 'success' || c.payment_status === 'paid' || (c.payment_amount && c.payment_amount > 0)
-      );
-      setSelectedLeadIds(paid.map(c => c.id));
+      setSelectedLeadIds(leadCards.filter(isPaid).map(c => c.id));
+    } else if (mode === 'paid_pending') {
+      setSelectedLeadIds(leadCards.filter(c => isPaid(c) && isReportPending(c)).map(c => c.id));
     } else if (mode === 'unassigned') {
-      const unassigned = leadCards.filter(c => !c.owner?.id || c.owner?.name === 'Unassigned');
-      setSelectedLeadIds(unassigned.map(c => c.id));
+      setSelectedLeadIds(leadCards.filter(isUnassigned).map(c => c.id));
+    } else if (mode === 'unassigned_1') {
+      setSelectedLeadIds(leadCards.filter(isUnassigned).slice(0, 1).map(c => c.id));
+    } else if (mode === 'unassigned_5') {
+      setSelectedLeadIds(leadCards.filter(isUnassigned).slice(0, 5).map(c => c.id));
+    } else if (mode === 'unassigned_10') {
+      setSelectedLeadIds(leadCards.filter(isUnassigned).slice(0, 10).map(c => c.id));
+    } else if (mode === 'unassigned_20') {
+      setSelectedLeadIds(leadCards.filter(isUnassigned).slice(0, 20).map(c => c.id));
+    } else if (mode === 'unassigned_50') {
+      setSelectedLeadIds(leadCards.filter(isUnassigned).slice(0, 50).map(c => c.id));
     } else if (mode === 'clear') {
       setSelectedLeadIds([]);
     } else if (Number(mode) > 0) {
@@ -273,12 +287,13 @@ export default function Cockpit() {
       if (activeStage !== 'all') params.set('stage', activeStage);
       if (search) params.set('search', search);
       if (ownerFilter !== 'all') params.set('owner', ownerFilter);
+      if (reportPendingOnly) params.set('filter', 'paid_report_pending');
       params.set('sort', sortMode);
       params.set('limit', '60');
       const r = await axios.get(`${API}/cockpit/cards?${params}`, { headers });
       setCards(r.data.items || []);
     } catch (e) { console.error('cards', e); }
-  }, [headers, activeStage, search, ownerFilter, sortMode]);
+  }, [headers, activeStage, search, ownerFilter, reportPendingOnly, sortMode]);
 
   const fetchBrief = useCallback(async () => {
     try {
@@ -518,6 +533,13 @@ export default function Cockpit() {
               testid="cockpit-filter-owner"
             />
             <FilterButton
+              icon={Zap}
+              label={reportPendingOnly ? '⚡ Paid (Report Pending: ON)' : '⚡ Paid (Report Pending)'}
+              onClick={() => setReportPendingOnly(!reportPendingOnly)}
+              active={reportPendingOnly}
+              testid="cockpit-filter-paid-pending"
+            />
+            <FilterButton
               icon={ArrowDownUp}
               label={
                 sortMode === 'recent'     ? 'Newest First' :
@@ -535,17 +557,31 @@ export default function Cockpit() {
             {/* Sequential Batch Select Dropdown */}
             <select
               onChange={(e) => { selectSequence(e.target.value); e.target.value = ''; }}
-              className="text-xs px-2.5 py-1.5 rounded-md border font-semibold outline-none cursor-pointer"
+              className="text-xs px-2.5 py-1.5 rounded-md border font-semibold outline-none cursor-pointer shadow-sm"
               style={{ borderColor: C.border, background: C.card, color: C.ink }}
             >
               <option value="">⚡ Select in Sequence...</option>
-              <option value="5">Select First 5 (Sequential)</option>
-              <option value="10">Select First 10 (Sequential)</option>
-              <option value="20">Select First 20 (Sequential)</option>
-              <option value="all">Select All Leads</option>
-              <option value="paid">Select Paid Only (Payment Success)</option>
-              <option value="unassigned">Select Unassigned Only</option>
-              <option value="clear">Deselect All</option>
+              <optgroup label="📋 Select Unassigned">
+                <option value="unassigned_1">Select 1 Unassigned</option>
+                <option value="unassigned_5">Select 5 Unassigned</option>
+                <option value="unassigned_10">Select 10 Unassigned</option>
+                <option value="unassigned_20">Select 20 Unassigned</option>
+                <option value="unassigned_50">Select 50 Unassigned</option>
+                <option value="unassigned">Select All Unassigned</option>
+              </optgroup>
+              <optgroup label="🔢 Sequential (First N)">
+                <option value="1">Select First 1 (Sequential)</option>
+                <option value="5">Select First 5 (Sequential)</option>
+                <option value="10">Select First 10 (Sequential)</option>
+                <option value="20">Select First 20 (Sequential)</option>
+                <option value="50">Select First 50 (Sequential)</option>
+                <option value="all">Select All Leads</option>
+              </optgroup>
+              <optgroup label="💰 Paid & Reports">
+                <option value="paid_pending">Select Paid (Report Pending Only)</option>
+                <option value="paid">Select Paid Only (All)</option>
+              </optgroup>
+              <option value="clear">✕ Deselect All</option>
             </select>
 
             <div className="relative">
@@ -560,23 +596,23 @@ export default function Cockpit() {
               />
             </div>
 
-            {/* Paid-Only Bulk Pre-Assessment */}
+            {/* Paid (Report Pending) Bulk Pre-Assessment */}
             <button
-              onClick={() => handleSendToBulkAssessment([], true)}
+              onClick={() => handleSendToBulkAssessment([], true, true)}
               className="px-3 py-1.5 rounded-md border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm hover:opacity-90"
               style={{ borderColor: C.teal, background: C.tealWash, color: C.tealDark }}
-              title="Process all Payment Success registrations in Bulk Pre-Assessment"
+              title="Process Paid registrations whose Client Assessment Report is not yet generated"
             >
-              <Zap className="h-3.5 w-3.5" /> 💰 Process Paid Only
+              <Zap className="h-3.5 w-3.5" /> 💰 Process Paid (Report Pending)
             </button>
 
             <button
-              onClick={() => handleSendToBulkAssessment(selectedLeadIds, false)}
+              onClick={() => handleSendToBulkAssessment(selectedLeadIds, false, false)}
               className="px-3 py-1.5 rounded-md border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm hover:opacity-90"
               style={{ borderColor: C.gold, background: C.goldWash, color: C.orangeDeep }}
-              title="Open Bulk Pre-Assessment with website registrations"
+              title="Add selected or all registrations to current Bulk Pre-Assessment queue"
             >
-              <Sparkles className="h-3.5 w-3.5" /> Bulk Assessment (All)
+              <Sparkles className="h-3.5 w-3.5" /> Bulk Assessment (Queue)
             </button>
           </div>
           <p className="text-xs" style={{ color: C.muted }}>
@@ -1321,15 +1357,27 @@ function PipelineCard({ card, onClick, isSelected, onToggleSelect, onConvertToPA
             <Sparkles className="h-3 w-3" />{card.score}
           </span>
         ) : (
-          <span
-            className="text-[10px] font-bold uppercase px-2 py-1 rounded-md whitespace-nowrap shrink-0"
-            style={{
-              background: card.payment_status === 'success' ? C.tealWash2 : C.borderSoft,
-              color: card.payment_status === 'success' ? C.tealDark : C.muted
-            }}
-          >
-            {card.type === 'lead' ? (card.payment_status === 'success' ? '✓ Paid' : 'New') : '—'}
-          </span>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {card.report_generated ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-sm">
+                ✓ Report Generated
+              </span>
+            ) : (card.payment_status === 'success' || (card.payment_amount && card.payment_amount > 0)) ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shadow-sm">
+                ⚡ Paid · Report Pending
+              </span>
+            ) : (
+              <span
+                className="text-[10px] font-bold uppercase px-2 py-1 rounded-md whitespace-nowrap"
+                style={{
+                  background: C.borderSoft,
+                  color: C.muted
+                }}
+              >
+                {card.type === 'lead' ? 'New' : '—'}
+              </span>
+            )}
+          </div>
         )}
       </div>
 

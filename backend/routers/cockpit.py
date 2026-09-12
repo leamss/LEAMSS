@@ -126,6 +126,7 @@ def _build_lead_card(d: Dict[str, Any]) -> Dict[str, Any]:
     unique_id = d.get("unique_id") or ""
     service = d.get("service_interested") or "New enquiry"
     score_label = f"{unique_id} · {service}" if unique_id else service
+    has_report = bool(d.get("report_generated") or d.get("assessment_report_id") or d.get("latest_report_snapshot_id"))
     return {
         "id": d.get("id"),
         "type": "lead",
@@ -142,9 +143,13 @@ def _build_lead_card(d: Dict[str, Any]) -> Dict[str, Any]:
         "payment_status": d.get("payment_status") or "",
         "payment_amount": d.get("payment_amount"),
         "resume_url": d.get("resume_url") or "",
-        "lifecycle": 0,
-        "next_action": "Start Eligibility Wizard",
-        "urgency": d.get("priority") or "medium",
+        "report_generated": has_report,
+        "report_status": d.get("report_status") or ("generated" if has_report else "pending"),
+        "report_generated_at": d.get("report_generated_at"),
+        "assessment_report_id": d.get("assessment_report_id") or d.get("latest_report_snapshot_id"),
+        "lifecycle": 2 if has_report else 0,
+        "next_action": "Start Eligibility Wizard" if not has_report else "Create Pre-Assessment",
+        "urgency": d.get("priority") or ("high" if not has_report and (d.get("payment_status") == "success" or (d.get("payment_amount") or 0) > 0) else "medium"),
         "owner": {
             "id": d.get("assigned_to"),
             "name": d.get("assigned_to_name") or "Unassigned",
@@ -257,6 +262,7 @@ async def get_funnel(current_user: dict = Depends(get_current_user)):
 async def get_cards(
     stage: Optional[str] = Query(None, description="leads|assessments|pa|proposals|cases|closed|all"),
     owner: Optional[str] = Query(None, description="me|all|<user_id>"),
+    filter: Optional[str] = Query(None, description="paid_report_pending|all"),
     search: Optional[str] = Query(None),
     sort: str = Query("recent", description="recent|oldest|score_desc|score_asc"),
     limit: int = Query(60, ge=1, le=200),
@@ -337,6 +343,14 @@ async def get_cards(
                 if st in members:
                     cards.append(_build_pa_card(d, group))
                     break
+
+    # Filter
+    if filter == "paid_report_pending":
+        cards = [
+            c for c in cards
+            if (c.get("payment_status") in ("success", "paid", "completed", "captured") or (c.get("payment_amount") or 0) > 0)
+            and not c.get("report_generated")
+        ]
 
     # Sort
     def _sort_key_recent(c):
