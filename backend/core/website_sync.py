@@ -108,26 +108,28 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
     lead_doc = {
         "unique_id": unique_id,
         "external_id": str(row.get("id") or unique_id),
-        "name": full_name or "Website Lead",
+        "name": full_name or row.get("name") or "Website Lead",
         "email": email,
         "phone": str(mobile),
-        "alternate_phone": "",
-        "address": "",
-        "city": "",
-        "service_interested": "Navratri Special Offer",
+        "alternate_phone": row.get("alternate_phone", ""),
+        "address": row.get("address", ""),
+        "city": row.get("city", ""),
+        "service_interested": row.get("service_interested") or "Navratri Special Offer",
         "country_of_interest": row.get("country_of_interest") or "AU",
-        "message": f"Registered for Navratri Offer. Experience: {row.get('experience', 'N/A')}, Qualification: {row.get('qualification', 'N/A')}",
-        "source": "Navratri Offer (leamss.com)",
-        "subsource": row.get("reference") or "Website Form",
-        "utm_source": "website_navratri",
-        "utm_medium": "web_form",
-        "utm_campaign": "navratri_offers_2026",
-        "stage": stage,
-        "priority": priority,
-        "date_of_birth": str(row.get("dob") or ""),
+        "message": row.get("message") or f"Registered for Navratri Offer. Experience: {row.get('experience', 'N/A')}, Qualification: {row.get('qualification', 'N/A')}",
+        "source": row.get("source") or "Navratri Offer (leamss.com)",
+        "subsource": row.get("subsource") or row.get("reference") or "Website Form",
+        "utm_source": row.get("utm_source") or "website_navratri",
+        "utm_medium": row.get("utm_medium") or "web_form",
+        "utm_campaign": row.get("utm_campaign") or "navratri_offers_2026",
+        "stage": row.get("stage") or stage,
+        "priority": row.get("priority") or priority,
+        "assigned_to": row.get("assigned_to"),
+        "assigned_to_name": row.get("assigned_to_name") or "Unassigned",
+        "date_of_birth": str(row.get("dob") or row.get("date_of_birth") or ""),
         "occupation": row.get("occupation") or "",
-        "total_work_experience": str(row.get("experience") or ""),
-        "latest_qualification": str(row.get("qualification") or ""),
+        "total_work_experience": str(row.get("experience") or row.get("total_work_experience") or ""),
+        "latest_qualification": str(row.get("qualification") or row.get("latest_qualification") or ""),
         "gender": str(row.get("gender") or ""),
         "marital_status": str(marital_status),
         "resume_path": resume_path,
@@ -161,15 +163,15 @@ async def upsert_website_lead(data: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
     unique_id = mapped.get("unique_id")
     phone = mapped.get("phone")
 
-    # Match by unique_id or (email if present)
+    # Match by unique_id, external_id, email or phone
     query_conditions = []
     if unique_id:
         query_conditions.append({"unique_id": unique_id})
         query_conditions.append({"external_id": mapped.get("external_id")})
     if email:
-        query_conditions.append({"email": email, "source": "Navratri Offer (leamss.com)"})
-    if phone and len(phone) >= 10:
-        query_conditions.append({"phone": phone, "source": "Navratri Offer (leamss.com)"})
+        query_conditions.append({"email": email})
+    if phone and len(str(phone).strip()) >= 7:
+        query_conditions.append({"phone": str(phone).strip()})
 
     existing = None
     if query_conditions:
@@ -220,8 +222,8 @@ async def upsert_website_lead(data: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
             "lead_number": lead_number,
             **mapped,
             "notes": [],
-            "assigned_to": None,
-            "assigned_to_name": "Unassigned",
+            "assigned_to": mapped.get("assigned_to"),
+            "assigned_to_name": mapped.get("assigned_to_name") or "Unassigned",
         }
         await leads_col.insert_one(new_lead)
         return new_lead, True

@@ -1,8 +1,9 @@
 """Leads & CRM Pipeline Router"""
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from core.database import db
 from core.auth import get_current_user
 from core.services import log_activity, create_notification
+from core.website_sync import upsert_website_lead
 from datetime import datetime, timezone
 import uuid
 
@@ -19,48 +20,52 @@ async def _next_lead_number():
 
 
 @router.post("/capture")
-async def capture_lead(data: dict):
-    """Create a lead — public (landing page) or authenticated (Add Lead form) use both hit this."""
-    lead_number = data.get("lead_number") or await _next_lead_number()
-    lead = {
-        "id": str(uuid.uuid4()),
-        "lead_number": lead_number,
-        "name": data.get("name", ""),
-        "email": data.get("email", ""),
-        "phone": data.get("phone", ""),
-        "alternate_phone": data.get("alternate_phone", ""),
-        "address": data.get("address", ""),
-        "city": data.get("city", ""),
-        "service_interested": data.get("service_interested", ""),
-        "country_of_interest": data.get("country_of_interest", ""),
-        "message": data.get("message", ""),
-        "source": data.get("source", "website"),
-        "subsource": data.get("subsource", ""),
-        "utm_source": data.get("utm_source", ""),
-        "utm_medium": data.get("utm_medium", ""),
-        "utm_campaign": data.get("utm_campaign", ""),
-        "stage": data.get("stage", "new"),
-        "assigned_to": data.get("assigned_to"),
-        "assigned_to_name": data.get("assigned_to_name", ""),
-        "priority": data.get("priority", "medium"),
-        "date_of_birth": data.get("date_of_birth", ""),
-        "occupation": data.get("occupation", ""),
-        "total_work_experience": data.get("total_work_experience", ""),
-        "backlogs": data.get("backlogs", ""),
-        "lead_type": data.get("lead_type", ""),
-        "latest_qualification": data.get("latest_qualification", ""),
-        "university": data.get("university", ""),
-        "course": data.get("course", ""),
-        "tags": [],
-        "notes": [],
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
-        "last_contacted_at": None,
-        "converted": False,
-        "converted_sale_id": None
+async def capture_lead(request_or_data: Request | dict | None = None):
+    """Create or update a lead — public website registration, landing page, Laravel, or authenticated."""
+    if isinstance(request_or_data, Request):
+        try:
+            data = await request_or_data.json()
+        except Exception:
+            form = await request_or_data.form()
+            data = dict(form)
+    elif isinstance(request_or_data, dict):
+        data = request_or_data
+    else:
+        data = {}
+
+    if not data:
+        raise HTTPException(status_code=400, detail="No lead registration payload provided")
+
+    lead_doc, is_new = await upsert_website_lead(data)
+    return {
+        "status": "success",
+        "message": "Lead saved successfully.",
+        "action": "created" if is_new else "updated",
+        "lead_id": lead_doc.get("id"),
+        "lead_number": lead_doc.get("lead_number"),
+        "unique_id": lead_doc.get("unique_id"),
+        "payment_status": lead_doc.get("payment_status"),
     }
-    await leads_col.insert_one(lead)
-    return {"message": "Lead saved successfully.", "lead_id": lead["id"], "lead_number": lead_number}
+
+
+@router.post("/register")
+async def register_lead_alias(request: Request):
+    return await capture_lead(request)
+
+
+@router.post("/registration")
+async def registration_lead_alias(request: Request):
+    return await capture_lead(request)
+
+
+@router.post("/navratri-registration")
+async def navratri_lead_alias(request: Request):
+    return await capture_lead(request)
+
+
+@router.post("/website-lead")
+async def website_lead_alias(request: Request):
+    return await capture_lead(request)
 
 
 @router.get("/")
