@@ -175,7 +175,7 @@ def _norm_qualification(raw: Any) -> Optional[str]:
         "postgrad", "postgraduate", "pg", "pgdm", "pgdca", "pgd", "mpharm", "mpt", "march",
         "llm", "med", "msw", "mdes", "ca", "icwa", "cma", "cfa"
     }
-    if tokens & master_tokens or "master" in s or "post graduate" in s or "post-graduate" in s:
+    if tokens & master_tokens or "master" in s or "post graduate" in s or "post-graduate" in s or "m.sc" in s or "m.tech" in s:
         return "master"
 
     # Bachelor / Undergrad / Professional degrees
@@ -183,9 +183,11 @@ def _norm_qualification(raw: Any) -> Optional[str]:
         "bachelor", "bachelors", "btech", "be", "bsc", "bs", "bcom", "bca", "ba",
         "bba", "bms", "bhm", "bpharm", "bds", "mbbs", "bpt", "barch", "llb",
         "bed", "bams", "bhms", "bsw", "bdes", "bvsc", "undergrad", "undergraduate",
-        "degree", "graduate", "graduation", "ug"
+        "degree", "graduate", "graduation", "ug", "cs", "it", "cse", "ece", "eee",
+        "mech", "civil", "computer", "computerscience", "informationtechnology",
+        "software", "engineering", "ai", "datascience", "b.sc", "b.tech", "b.e"
     }
-    if tokens & bachelor_tokens or "bachelor" in s or "engineering" in s or "under graduate" in s:
+    if tokens & bachelor_tokens or "bachelor" in s or "engineering" in s or "under graduate" in s or "computer" in s or s in ("cs", "it", "cse", "ece", "mech", "civil"):
         return "bachelor"
 
     # Diploma / Nursing diplomas (GNM / ANM)
@@ -235,7 +237,7 @@ def _parse_dob_to_age(raw: Any) -> Optional[int]:
                 return None
     today = date.today()
     age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-    if age < 0 or age > 100:
+    if age < 18 or age > 100:
         return None
     return age
 
@@ -274,10 +276,14 @@ async def _parse_and_validate_row(rowmap: Dict[str, str], r: pd.Series) -> Dict[
     raw_q = str(g("qualification") or "").strip()
     qualification = _norm_qualification(g("qualification"))
     if qualification is None:
-        if raw_q and not resume_link:
-            errors.append(f"Unrecognised qualification: '{raw_q}'")
+        if raw_q:
+            clean_q = raw_q.lower()
+            if any(k in clean_q for k in ("cs", "it", "eng", "tech", "grad", "degree", "bachelor", "master", "diploma", "msc", "mtech", "btech", "be", "bsc")):
+                qualification = "bachelor" if not any(m in clean_q for m in ("master", "msc", "mtech", "mba", "mca")) else "master"
+            else:
+                recoverable.append("Qualification")
         else:
-            recoverable.append("Qualification")  # AI will normalise it from the resume
+            recoverable.append("Qualification")
 
     experience = _to_float(g("experience"))
     if experience is None:
@@ -323,16 +329,11 @@ async def _parse_and_validate_row(rowmap: Dict[str, str], r: pd.Series) -> Dict[
         "english": eng,
         "enquiry_date": str(g("enquiry_date") or "").strip() or None,
     }
-    # Status: hard errors block. Blank fields are AI-recoverable if a Resume Link exists,
-    # otherwise they become hard errors.
+    # Status: hard errors block. Blank fields are AI-recoverable
     if errors:
         status = "error"
     elif recoverable:
-        if resume_link:
-            status = "needs_ai"
-        else:
-            status = "error"
-            errors = [f"Missing {r} (no Resume Link to auto-detect)" for r in recoverable]
+        status = "needs_ai"
     else:
         status = "valid"
     return {"parsed": parsed, "errors": errors, "status": status}
@@ -721,10 +722,51 @@ async def _enrich_from_text(p: Dict[str, Any], text: str) -> Dict[str, Any]:
 
 async def _enrich_one(row: Dict[str, Any]) -> Dict[str, Any]:
     p = dict(row["parsed"])
-    text, err = await fetch_resume_text(p.get("resume_link"))
+    resume_link = p.get("resume_link")
+    text = None
+    err = None
+    if resume_link:
+        text, err = await fetch_resume_text(resume_link)
+    
+    if text:
+        return await _enrich_from_text(p, text)
+
+    # Fallback AI enrichment: If resume download was unreadable or unavailable,
+    # match ANZSCO and fill fields using the client's registered qualification, title & experience
+    client_info = []
+    if p.get("qualification_raw"):
+        client_info.append(f"Qualification: {p.get('qualification_raw')}")
+    elif p.get("qualification"):
+        client_info.append(f"Qualification: {p.get('qualification')}")
+    if p.get("experience_total") is not None:
+        client_info.append(f"Work Experience: {p.get('experience_total')} years")
+    if p.get("occupation_title"):
+        client_info.append(f"Role: {p.get('occupation_title')}")
+    if p.get("name"):
+        client_info.append(f"Candidate: {p.get('name')}")
+
+    if client_info and not p.get("anzsco_code"):
+        try:
+            desc = "\n".join(client_info)
+            match = await match_anzsco(db, desc)
+            best = match.get("best")
+            if best and best.get("code"):
+                p["anzsco_code"] = best.get("code")
+                p["occupation_title"] = best.get("title")
+                p["anzsco_source"] = "ai"
+                p["ai_confidence"] = best.get("confidence") or "medium"
+                p["ai_reasoning"] = best.get("reasoning") or "Matched from candidate qualification & experience"
+                p["ai_alternatives"] = match.get("alternatives") or []
+                p["ai_enriched"] = True
+                status, errors = _revalidate_row(p)
+                return {"status": status, "parsed": p, "errors": errors,
+                        "ai_error": None if status == "valid" else "; ".join(errors)}
+        except Exception:
+            pass
+
     if err:
         return {"status": "needs_ai", "parsed": p, "ai_error": err}
-    return await _enrich_from_text(p, text)
+    return {"status": "needs_ai", "parsed": p, "ai_error": "Could not extract resume text"}
 
 
 async def _run_ai_enrich(batch_id: str, user: Dict[str, Any] | None = None):

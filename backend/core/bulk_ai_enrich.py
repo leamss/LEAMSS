@@ -26,8 +26,17 @@ logger = logging.getLogger(__name__)
 BULK_PARSE_MODEL = "sonar-pro"
 AI_MATCH_MODEL = "sonar-pro"
 
-_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+_UA = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/pdf",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
 
 # Many resume hosts (e.g. LiteSpeed on leamss.com) DROP connections under a concurrent
 # burst from one IP ("Server disconnected without sending a response"). A single request
@@ -41,6 +50,22 @@ _EXTRACT_SEM = asyncio.Semaphore(4)
 # ── Resume link → text ────────────────────────────────────────────
 def _normalize_resume_url(url: str) -> str:
     u = (url or "").strip()
+    if not u:
+        return ""
+
+    # Relative paths from leamss.com
+    if not u.startswith("http://") and not u.startswith("https://"):
+        if u.startswith("/"):
+            u = f"https://leamss.com{u}"
+        elif u.startswith("uploads/"):
+            u = f"https://leamss.com/{u}"
+        elif u.startswith("resumes/"):
+            u = f"https://leamss.com/uploads/{u}"
+        elif u.startswith("storage/"):
+            u = f"https://leamss.com/{u}"
+        else:
+            u = f"https://leamss.com/uploads/resumes/{u}"
+
     # Google Docs
     m_doc = re.search(r"docs\.google\.com/document/d/([A-Za-z0-9_-]+)", u)
     if m_doc:
@@ -109,6 +134,15 @@ async def fetch_resume_bytes(url: str) -> Tuple[Optional[bytes], Optional[str], 
         gdrive_id = m_gd.group(1)
 
     urls_to_try = [_normalize_resume_url(url)]
+    norm_url = urls_to_try[0]
+    if "leamss.com" in norm_url:
+        basename = norm_url.split("/")[-1]
+        urls_to_try.extend([
+            f"https://leamss.com/uploads/resumes/{basename}",
+            f"https://leamss.com/storage/resumes/{basename}",
+            f"https://leamss.com/uploads/{basename}",
+            f"https://leamss.com/storage/{basename}",
+        ])
     if gdrive_id:
         urls_to_try.extend([
             f"https://drive.google.com/uc?export=download&id={gdrive_id}&confirm=t",
