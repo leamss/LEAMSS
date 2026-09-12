@@ -192,15 +192,23 @@ async def get_targets(current_user: dict = Depends(get_current_user)):
     }
 
 
+STAGE_MAPPING = {
+    "payment_done": "payment_received",
+    "paid": "payment_received",
+    "converted": "case_created",
+}
+
+
 @router.get("/pipeline-summary")
 async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
-    """Get pre-assessment pipeline summary grouped by stage with full contact details for follow-up."""
+    """Get lead and pre-assessment pipeline summary grouped by stage with full contact details for follow-up."""
     role = current_user.get("role") or ""
     rbac_role = current_user.get("rbac_role") or ""
     is_admin = role in ("admin", "admin_owner") or rbac_role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
 
     if is_admin:
-        query = {}
+        pa_query = {}
+        lead_query = {}
     else:
         uid = current_user["id"]
         uemail = (current_user.get("email") or "").lower()
@@ -221,46 +229,119 @@ async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
         if pid:
             user_matches.append({"partner_id": pid})
             
-        lead_ids = []
-        lead_query = [{"assigned_to": uid}, {"partner_id": uid}]
-        if uemail:
-            lead_query.extend([{"assigned_to": uemail}, {"partner_id": uemail}])
-        if pid:
-            lead_query.append({"partner_id": pid})
-        async for l in db["leads"].find({"$or": lead_query}, {"id": 1, "pa_id": 1}):
-            if l.get("id"): lead_ids.append(l["id"])
-            if l.get("pa_id"): lead_ids.append(l["pa_id"])
-        if lead_ids:
-            user_matches.append({"lead_id": {"$in": lead_ids}})
-            user_matches.append({"id": {"$in": lead_ids}})
-            
-        query = {"$or": user_matches}
+        pa_query = {"$or": user_matches}
 
-    pipeline = [
-        {"$match": query},
-        {"$group": {
-            "_id": "$stage",
-            "count": {"$sum": 1},
-            "items": {"$push": {
-                "id": "$id", "pa_number": "$pa_number",
-                "client_name": "$client_name", "client_email": "$client_email",
-                "client_mobile": "$client_mobile", "country": "$country",
-                "service_type": "$service_type", "stage": "$stage",
-                "lead_id": "$lead_id", "fee_payment_status": "$fee_payment_status",
-                "notes": "$notes", "education": "$education", "work_experience": "$work_experience",
-                "created_at": "$created_at"
-            }}
-        }},
-        {"$sort": {"_id": 1}}
-    ]
-    stages = await pre_assessments_col.aggregate(pipeline).to_list(20)
+        lead_matches = [
+            {"partner_id": uid},
+            {"assigned_to": uid},
+            {"created_by": uid},
+        ]
+        if uemail:
+            lead_matches.extend([
+                {"partner_id": uemail},
+                {"assigned_to": uemail},
+            ])
+        if pid:
+            lead_matches.append({"partner_id": pid})
+        lead_query = {"$or": lead_matches}
+
+    # 1. Fetch PAs
+    pas = await pre_assessments_col.find(pa_query, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    
+    # 2. Fetch Leads
+    leads = await db["leads"].find(lead_query, {"_id": 0}).sort("created_at", -1).to_list(2000)
+
+    # 3. Merge without duplicates
+    items_by_id = {}
+    linked_lead_ids = set()
+
+    for pa in pas:
+        pa_id = pa.get("id")
+        lead_id = pa.get("lead_id")
+        if lead_id:
+            linked_lead_ids.add(lead_id)
+        
+        raw_stage = pa.get("stage") or "new"
+        stage = STAGE_MAPPING.get(raw_stage, raw_stage)
+        
+        created_at = pa.get("created_at")
+        if isinstance(created_at, datetime):
+            created_at = created_at.isoformat()
+
+        item = {
+            "id": pa_id,
+            "pa_number": pa.get("pa_number") or f"PA-{pa_id[:6].upper() if pa_id else 'N/A'}",
+            "client_name": pa.get("client_name") or "Unnamed Client",
+            "client_email": pa.get("client_email"),
+            "client_mobile": pa.get("client_mobile") or pa.get("client_phone"),
+            "country": pa.get("country") or "Global",
+            "service_type": pa.get("service_type") or "PR",
+            "stage": stage,
+            "raw_stage": raw_stage,
+            "lead_id": lead_id,
+            "fee_payment_status": pa.get("fee_payment_status"),
+            "notes": pa.get("notes") or "",
+            "education": pa.get("education") or "",
+            "work_experience": pa.get("work_experience") or "",
+            "created_at": created_at,
+            "assigned_to": pa.get("assigned_to"),
+            "assigned_to_name": pa.get("assigned_to_name"),
+            "partner_id": pa.get("partner_id"),
+            "partner_name": pa.get("partner_name"),
+            "item_type": "pre_assessment"
+        }
+        items_by_id[pa_id] = item
+
+    for l in leads:
+        l_id = l.get("id")
+        if l_id in linked_lead_ids or l.get("pa_id") in items_by_id:
+            target_pa_id = l.get("pa_id")
+            if target_pa_id and target_pa_id in items_by_id:
+                if not items_by_id[target_pa_id].get("client_mobile"):
+                    items_by_id[target_pa_id]["client_mobile"] = l.get("mobile_number") or l.get("mobile_full") or l.get("phone")
+                if not items_by_id[target_pa_id].get("education"):
+                    items_by_id[target_pa_id]["education"] = l.get("qualification")
+                if not items_by_id[target_pa_id].get("work_experience"):
+                    items_by_id[target_pa_id]["work_experience"] = l.get("experience")
+            continue
+
+        raw_stage = l.get("stage") or "new"
+        stage = STAGE_MAPPING.get(raw_stage, raw_stage)
+        
+        created_at = l.get("created_at")
+        if isinstance(created_at, datetime):
+            created_at = created_at.isoformat()
+
+        item = {
+            "id": l_id,
+            "pa_number": l.get("lead_number") or l.get("unique_id") or "LEAD",
+            "client_name": l.get("name") or l.get("client_name") or l.get("full_name") or "Unnamed Lead",
+            "client_email": l.get("email") or l.get("client_email"),
+            "client_mobile": l.get("mobile_number") or l.get("mobile_full") or l.get("phone") or l.get("client_mobile"),
+            "country": l.get("country") or l.get("destination_country") or "Global",
+            "service_type": l.get("service_type") or l.get("visa_type") or "PR",
+            "stage": stage,
+            "raw_stage": raw_stage,
+            "lead_id": l_id,
+            "fee_payment_status": l.get("payment_status") or ("paid" if stage == "payment_received" else "unpaid"),
+            "notes": l.get("notes") if isinstance(l.get("notes"), str) else "",
+            "education": l.get("qualification") or l.get("education") or "",
+            "work_experience": l.get("experience") or l.get("work_experience") or "",
+            "created_at": created_at,
+            "assigned_to": l.get("assigned_to"),
+            "assigned_to_name": l.get("assigned_to_name"),
+            "partner_id": l.get("partner_id"),
+            "partner_name": l.get("partner_name"),
+            "item_type": "lead"
+        }
+        items_by_id[f"lead_{l_id}"] = item
 
     result = {}
-    for stage in stages:
-        items = stage.get("items", [])
-        for item in items:
-            if item.get("created_at") and hasattr(item["created_at"], "isoformat"):
-                item["created_at"] = item["created_at"].isoformat()
-        result[stage["_id"]] = {"count": stage["count"], "items": items}
+    for item in items_by_id.values():
+        st = item["stage"]
+        if st not in result:
+            result[st] = {"count": 0, "items": []}
+        result[st]["count"] += 1
+        result[st]["items"].append(item)
 
     return result

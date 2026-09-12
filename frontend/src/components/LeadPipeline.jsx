@@ -15,6 +15,8 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const STAGES = [
   { key: 'new', label: 'New Leads', color: 'bg-slate-500', text: 'text-slate-700', border: 'border-slate-300', bg: 'bg-slate-50', dot: 'bg-slate-500', icon: Plus },
+  { key: 'contacted', label: 'Contacted', color: 'bg-sky-500', text: 'text-sky-700', border: 'border-sky-300', bg: 'bg-sky-50', dot: 'bg-sky-500', icon: Phone },
+  { key: 'not_connected', label: 'Not Connected', color: 'bg-amber-600', text: 'text-amber-800', border: 'border-amber-300', bg: 'bg-amber-50', dot: 'bg-amber-600', icon: Clock },
   { key: 'payment_pending', label: 'Payment Pending', color: 'bg-amber-500', text: 'text-amber-700', border: 'border-amber-300', bg: 'bg-amber-50', dot: 'bg-amber-500', icon: Clock },
   { key: 'payment_received', label: 'Paid', color: 'bg-blue-500', text: 'text-blue-700', border: 'border-blue-300', bg: 'bg-blue-50', dot: 'bg-blue-500', icon: CreditCard },
   { key: 'under_review', label: 'Under Review', color: 'bg-orange-500', text: 'text-orange-700', border: 'border-orange-300', bg: 'bg-orange-50', dot: 'bg-orange-500', icon: Eye },
@@ -23,6 +25,8 @@ const STAGES = [
   { key: 'proposal_paid', label: 'Proposal Paid', color: 'bg-cyan-500', text: 'text-cyan-700', border: 'border-cyan-300', bg: 'bg-cyan-50', dot: 'bg-cyan-500', icon: CreditCard },
   { key: 'awaiting_final_approval', label: 'Awaiting Approval', color: 'bg-indigo-500', text: 'text-indigo-700', border: 'border-indigo-300', bg: 'bg-indigo-50', dot: 'bg-indigo-500', icon: Clock },
   { key: 'case_created', label: 'Case Created', color: 'bg-green-600', text: 'text-green-700', border: 'border-green-300', bg: 'bg-green-50', dot: 'bg-green-600', icon: CheckCircle },
+  { key: 'prospect', label: 'Prospect', color: 'bg-purple-500', text: 'text-purple-700', border: 'border-purple-300', bg: 'bg-purple-50', dot: 'bg-purple-500', icon: Sparkles },
+  { key: 'not_interested', label: 'Not Interested', color: 'bg-stone-500', text: 'text-stone-700', border: 'border-stone-300', bg: 'bg-stone-50', dot: 'bg-stone-500', icon: XCircle },
   { key: 'rejected', label: 'Rejected', color: 'bg-rose-500', text: 'text-rose-700', border: 'border-rose-300', bg: 'bg-rose-50', dot: 'bg-rose-500', icon: XCircle },
   { key: 'refunded', label: 'Refunded', color: 'bg-gray-500', text: 'text-gray-700', border: 'border-gray-300', bg: 'bg-gray-50', dot: 'bg-gray-500', icon: XCircle },
 ];
