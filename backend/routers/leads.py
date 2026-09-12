@@ -20,18 +20,16 @@ async def _next_lead_number():
 
 
 @router.post("/capture")
-async def capture_lead(request_or_data: Request | dict | None = None):
+async def capture_lead(request: Request):
     """Create or update a lead — public website registration, landing page, Laravel, or authenticated."""
-    if isinstance(request_or_data, Request):
+    try:
+        data = await request.json()
+    except Exception:
         try:
-            data = await request_or_data.json()
-        except Exception:
-            form = await request_or_data.form()
+            form = await request.form()
             data = dict(form)
-    elif isinstance(request_or_data, dict):
-        data = request_or_data
-    else:
-        data = {}
+        except Exception:
+            data = {}
 
     if not data:
         raise HTTPException(status_code=400, detail="No lead registration payload provided")
