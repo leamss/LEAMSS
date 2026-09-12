@@ -163,33 +163,43 @@ async def upsert_website_lead(data: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
     unique_id = mapped.get("unique_id")
     phone = mapped.get("phone")
 
-    # Match by unique_id, external_id, email or phone
-    query_conditions = []
-    if unique_id:
-        query_conditions.append({"unique_id": unique_id})
-        query_conditions.append({"external_id": mapped.get("external_id")})
-    if email:
-        query_conditions.append({"email": email})
-    if phone and len(str(phone).strip()) >= 7:
-        query_conditions.append({"phone": str(phone).strip()})
-
+    # Match priority: 1) unique_id / external_id, 2) email, 3) phone
     existing = None
-    if query_conditions:
-        existing = await leads_col.find_one({"$or": query_conditions})
+    if unique_id:
+        existing = await leads_col.find_one({"$or": [{"unique_id": unique_id}, {"external_id": mapped.get("external_id")}]})
+    
+    if not existing and email:
+        existing = await leads_col.find_one({"email": email})
+        
+    if not existing and phone and len(str(phone).strip()) >= 7:
+        existing = await leads_col.find_one({"phone": str(phone).strip()})
 
     if existing:
+        # Determine updated stage: if re-submitting or paying, bring to active leads
+        current_stage = existing.get("stage")
+        if mapped["payment_status"] == "success":
+            new_stage = "payment_done"
+            new_priority = "high"
+        elif current_stage in ("converted", "not_interested", "closed") or not current_stage:
+            new_stage = "new"
+            new_priority = "medium"
+        else:
+            new_stage = current_stage
+            new_priority = existing.get("priority") or "medium"
+
         # Update existing lead with latest payment / details without wiping sales notes/assignment
         update_fields = {
             "name": mapped["name"] or existing.get("name"),
             "email": mapped["email"] or existing.get("email"),
             "phone": mapped["phone"] or existing.get("phone"),
+            "unique_id": mapped["unique_id"] or existing.get("unique_id"),
             "date_of_birth": mapped["date_of_birth"] or existing.get("date_of_birth"),
             "latest_qualification": mapped["latest_qualification"] or existing.get("latest_qualification"),
             "total_work_experience": mapped["total_work_experience"] or existing.get("total_work_experience"),
             "gender": mapped["gender"] or existing.get("gender"),
             "marital_status": mapped["marital_status"] or existing.get("marital_status"),
             "resume_url": mapped["resume_url"] or existing.get("resume_url"),
-            "payment_status": mapped["payment_status"],
+            "payment_status": mapped["payment_status"] or existing.get("payment_status"),
             "payment_mode": mapped["payment_mode"] or existing.get("payment_mode"),
             "payment_amount": mapped["payment_amount"] if mapped["payment_amount"] is not None else existing.get("payment_amount"),
             "razorpay_payment_id": mapped["razorpay_payment_id"] or existing.get("razorpay_payment_id"),
@@ -197,13 +207,10 @@ async def upsert_website_lead(data: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
             "paid_at": mapped["paid_at"] or existing.get("paid_at"),
             "sales_person_name": mapped["sales_person_name"] or existing.get("sales_person_name"),
             "reference": mapped["reference"] or existing.get("reference"),
+            "stage": new_stage,
+            "priority": new_priority,
             "updated_at": datetime.now(timezone.utc),
         }
-        
-        # If payment succeeded, upgrade stage
-        if mapped["payment_status"] == "success" and existing.get("stage") != "converted":
-            update_fields["stage"] = "payment_done"
-            update_fields["priority"] = "high"
 
         # Combine tags
         combined_tags = list(set(existing.get("tags", []) + mapped.get("tags", [])))
