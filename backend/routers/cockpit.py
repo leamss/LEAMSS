@@ -115,14 +115,25 @@ def _humanize_ago(dt: Optional[datetime]) -> str:
 def _build_lead_card(d: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize a `leads` doc into a cockpit card."""
     country = d.get("country_of_interest") or ""
+    unique_id = d.get("unique_id") or ""
+    service = d.get("service_interested") or "New enquiry"
+    score_label = f"{unique_id} · {service}" if unique_id else service
     return {
         "id": d.get("id"),
         "type": "lead",
         "name": d.get("name") or "Unnamed Lead",
+        "email": d.get("email") or "",
+        "phone": d.get("phone") or "",
+        "unique_id": unique_id,
         "stage": "leads",
         "countries": [country] if country else [],
         "score": None,
-        "score_label": d.get("service_interested") or "New enquiry",
+        "score_label": score_label,
+        "qualification": d.get("latest_qualification") or "",
+        "experience": d.get("total_work_experience") or "",
+        "payment_status": d.get("payment_status") or "",
+        "payment_amount": d.get("payment_amount"),
+        "resume_url": d.get("resume_url") or "",
         "lifecycle": 0,
         "next_action": "Start Eligibility Wizard",
         "urgency": d.get("priority") or "medium",
@@ -134,6 +145,7 @@ def _build_lead_card(d: Dict[str, Any]) -> Dict[str, Any]:
         "updated_at_human": _humanize_ago(d.get("updated_at") or d.get("created_at")),
         "source": d.get("source") or "website",
     }
+
 
 
 def _build_assessment_card(d: Dict[str, Any]) -> Dict[str, Any]:
@@ -403,12 +415,18 @@ async def get_card_detail(
             raise HTTPException(status_code=404, detail="Lead not found")
         if not _is_admin(current_user) and d.get("assigned_to") != current_user["id"]:
             raise HTTPException(status_code=403, detail="Not your lead")
+        # Format string date fields
+        for f in ("created_at", "updated_at", "paid_at", "last_contacted_at"):
+            if isinstance(d.get(f), datetime):
+                d[f] = d[f].isoformat()
         return {
             "kind": "lead",
             "record": d,
+            "deep_link": f"/sales/client-assessment?lead_id={d.get('id')}",
             "lifecycle": [{"key": "lead_captured", "label": "Lead Captured",
                           "completed": True, "timestamp": d.get("created_at")}],
         }
+
 
     if kind == "assessment":
         d = await db["sales_assessments"].find_one({"id": ref_id}, {"_id": 0})

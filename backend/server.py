@@ -127,6 +127,7 @@ from routers.vendor_portal import router as vendor_portal_router
 from routers.payouts import router as payouts_router
 from routers.people import router as people_router
 from routers.cockpit import router as cockpit_router
+from routers.website_sync import router as website_sync_router
 from routers.anz_intel import router as anz_intel_router
 from routers.public_atlas import router as public_atlas_router
 from routers.admin_public_pages import router as admin_public_pages_router, public_router as public_pages_read_router
@@ -649,7 +650,7 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           attendance_router, leaves_router, hr_admin_router, express_sales_router, vendors_router,
           pa_allocations_router, sales_commission_router,
           cm_earnings_router, partner_earnings_router, vendor_portal_router, payouts_router, people_router,
-          cockpit_router, anz_intel_router, public_atlas_router,
+          cockpit_router, website_sync_router, anz_intel_router, public_atlas_router,
           admin_public_pages_router, public_pages_read_router,
           feedback_requests_router, sales_compare_router, client_errors_router,
           notification_channels_router, seo_ssg_router, scrapers_router,

@@ -523,6 +523,76 @@ export default function Cockpit() {
                 </div>
               </SheetHeader>
               <div className="p-6 space-y-5">
+                {/* Lead-specific Profile Card if type is lead */}
+                {selectedCard.type === 'lead' && cardDetail?.record && (
+                  <div className="rounded-xl border p-4 space-y-3" style={{ background: C.bg, borderColor: C.border }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{
+                        background: cardDetail.record.payment_status === 'success' ? C.tealWash2 : C.goldWash,
+                        color: cardDetail.record.payment_status === 'success' ? C.tealDark : C.orangeDeep,
+                      }}>
+                        {cardDetail.record.payment_status === 'success' ? '✓ Payment Success' : (cardDetail.record.payment_status || 'Payment Pending')}
+                      </span>
+                      {cardDetail.record.unique_id && (
+                        <span className="font-mono text-xs font-bold" style={{ color: C.muted }}>
+                          {cardDetail.record.unique_id}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                      <div>
+                        <p className="text-[10px]" style={{ color: C.muted }}>Mobile</p>
+                        <p className="font-semibold" style={{ color: C.ink }}>{cardDetail.record.phone || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px]" style={{ color: C.muted }}>Email</p>
+                        <p className="font-semibold truncate" style={{ color: C.ink }}>{cardDetail.record.email || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px]" style={{ color: C.muted }}>Qualification</p>
+                        <p className="font-semibold" style={{ color: C.ink }}>{cardDetail.record.latest_qualification || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px]" style={{ color: C.muted }}>Experience</p>
+                        <p className="font-semibold" style={{ color: C.ink }}>{cardDetail.record.total_work_experience ? `${cardDetail.record.total_work_experience} yrs` : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px]" style={{ color: C.muted }}>DOB</p>
+                        <p className="font-semibold" style={{ color: C.ink }}>{cardDetail.record.date_of_birth || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px]" style={{ color: C.muted }}>Marital Status</p>
+                        <p className="font-semibold" style={{ color: C.ink }}>{cardDetail.record.marital_status || '—'}</p>
+                      </div>
+                    </div>
+
+                    {/* Payment details if present */}
+                    {cardDetail.record.razorpay_payment_id && (
+                      <div className="pt-2 border-t text-[11px]" style={{ borderColor: C.border }}>
+                        <p className="font-mono text-[10px]" style={{ color: C.muted }}>
+                          Razorpay: {cardDetail.record.razorpay_payment_id}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Resume link */}
+                    {cardDetail.record.resume_url && (
+                      <div className="pt-1">
+                        <a
+                          href={cardDetail.record.resume_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-semibold flex items-center gap-1 hover:underline"
+                          style={{ color: C.teal }}
+                        >
+                          <FileText className="h-3.5 w-3.5" /> View Uploaded Resume
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* 7-step Lifecycle */}
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: C.muted, letterSpacing: '0.08em' }}>
@@ -572,20 +642,28 @@ export default function Cockpit() {
                     onClick={() => {
                       const link = cardDetail?.deep_link;
                       if (link) navigate(link);
+                      else navigate(`/sales/client-assessment?name=${encodeURIComponent(selectedCard.name || '')}`);
                     }}
                     className="px-3 py-2 rounded-md font-bold text-xs flex items-center justify-center gap-2 shadow-sm"
                     style={{ background: C.teal, color: '#fff' }}
                     data-testid="cockpit-drill-openfull-btn"
                   >
-                    <FileText className="h-3.5 w-3.5" />Open Full View
+                    <FileText className="h-3.5 w-3.5" />{selectedCard.type === 'lead' ? 'Start Assessment' : 'Open Full View'}
                   </button>
-                  <button
+                  <a
+                    href={
+                      cardDetail?.record?.phone
+                        ? `https://wa.me/${cardDetail.record.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${selectedCard.name}, thank you for registering with LEAMSS for our Navratri Special Offer!`)}`
+                        : '#'
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="px-3 py-2 rounded-md font-bold text-xs flex items-center justify-center gap-2 border"
                     style={{ borderColor: C.border, color: C.body, background: '#fff' }}
                     data-testid="cockpit-drill-whatsapp-btn"
                   >
-                    <MessageSquare className="h-3.5 w-3.5" />Send WhatsApp
-                  </button>
+                    <MessageSquare className="h-3.5 w-3.5" style={{ color: '#25D366' }} />Send WhatsApp
+                  </a>
                 </div>
               </div>
             </>
