@@ -329,10 +329,11 @@ export default function BulkPreAssessment() {
         .filter(Boolean).join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
-    if (rowFilter === 'all') return true;
-    if (rowFilter === 'review') return r.parsed?.anzsco_source === 'ai' && !r.parsed?.ai_reviewed;
-    if (rowFilter === 'ai') return r.parsed?.anzsco_source === 'ai';
-    if (['eligible', 'improvable', 'ineligible', 'needs_resume'].includes(rowFilter)) return rowBucket(r) === rowFilter;
+    if (rowFilter === 'all') return r.status !== 'generated';
+    if (rowFilter === 'generated') return r.status === 'generated';
+    if (rowFilter === 'review') return r.parsed?.anzsco_source === 'ai' && !r.parsed?.ai_reviewed && r.status !== 'generated';
+    if (rowFilter === 'ai') return r.parsed?.anzsco_source === 'ai' && r.status !== 'generated';
+    if (['eligible', 'improvable', 'ineligible', 'needs_resume'].includes(rowFilter)) return rowBucket(r) === rowFilter && r.status !== 'generated';
     return r.status === rowFilter;
   });
   const sendableCount = rows.filter((r) => r.status === 'generated' && r.parsed?.email).length;
@@ -639,16 +640,16 @@ export default function BulkPreAssessment() {
               </div>
               <div className="flex items-center gap-1.5 flex-wrap" data-testid="row-filters">
               {[
-                ['all', `All (${rows.length})`],
-                ['review', `Review pending (${rows.filter((r) => r.parsed?.anzsco_source === 'ai' && !r.parsed?.ai_reviewed).length})`],
-                ['ai', `AI-detected (${rows.filter((r) => r.parsed?.anzsco_source === 'ai').length})`],
+                ['all', `All (${rows.filter((r) => r.status !== 'generated').length})`],
+                ['review', `Review pending (${rows.filter((r) => r.parsed?.anzsco_source === 'ai' && !r.parsed?.ai_reviewed && r.status !== 'generated').length})`],
+                ['ai', `AI-detected (${rows.filter((r) => r.parsed?.anzsco_source === 'ai' && r.status !== 'generated').length})`],
                 ['needs_ai', `Needs AI (${rows.filter((r) => r.status === 'needs_ai').length})`],
                 ['error', `Needs fix (${rows.filter((r) => r.status === 'error').length})`],
                 ['generated', `Generated (${rows.filter((r) => r.status === 'generated').length})`],
-                ['eligible', `✓ Eligible (${rows.filter((r) => rowBucket(r) === 'eligible').length})`],
-                ['improvable', `⚠ Not-Eligible Yet (${rows.filter((r) => rowBucket(r) === 'improvable').length})`],
-                ['ineligible', `✗ Age-Ineligible (${rows.filter((r) => rowBucket(r) === 'ineligible').length})`],
-                ['needs_resume', `Resume Needed (${rows.filter((r) => rowBucket(r) === 'needs_resume').length})`],
+                ['eligible', `✓ Eligible (${rows.filter((r) => rowBucket(r) === 'eligible' && r.status !== 'generated').length})`],
+                ['improvable', `⚠ Not-Eligible Yet (${rows.filter((r) => rowBucket(r) === 'improvable' && r.status !== 'generated').length})`],
+                ['ineligible', `✗ Age-Ineligible (${rows.filter((r) => rowBucket(r) === 'ineligible' && r.status !== 'generated').length})`],
+                ['needs_resume', `Resume Needed (${rows.filter((r) => rowBucket(r) === 'needs_resume' && r.status !== 'generated').length})`],
               ].map(([key, label]) => (
                 <button key={key} onClick={() => setRowFilter(key)}
                   className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${

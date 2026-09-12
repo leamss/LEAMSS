@@ -627,6 +627,8 @@ async def create_batch_from_leads(
     existing_emails = set()
     existing_row_count = 0
     if existing_batch:
+        # Purge any previously generated rows from the existing batch so the active queue only has fresh pending leads
+        await ROWS.delete_many({"batch_id": batch_id, "status": "generated"})
         async for r in ROWS.find({"batch_id": batch_id}, {"lead_id": 1, "parsed.email": 1}):
             if r.get("lead_id"):
                 existing_lead_ids.add(r["lead_id"])
@@ -703,28 +705,31 @@ async def create_batch_from_leads(
         await ROWS.insert_many(row_docs)
 
     if existing_batch:
+        total_in_db = await ROWS.count_documents({"batch_id": batch_id})
+        valid_in_db = await ROWS.count_documents({"batch_id": batch_id, "status": "valid"})
+        needs_ai_in_db = await ROWS.count_documents({"batch_id": batch_id, "status": "needs_ai"})
+        invalid_in_db = await ROWS.count_documents({"batch_id": batch_id, "status": "error"})
+        generated_in_db = await ROWS.count_documents({"batch_id": batch_id, "status": "generated"})
         await BATCHES.update_one(
             {"id": batch_id},
             {
-                "$inc": {
-                    "total": len(row_docs),
-                    "valid": valid,
-                    "needs_ai": needs_ai,
-                    "invalid": len(row_docs) - valid - needs_ai,
-                },
                 "$set": {
+                    "total": total_in_db,
+                    "valid": valid_in_db,
+                    "needs_ai": needs_ai_in_db,
+                    "invalid": invalid_in_db,
+                    "generated": generated_in_db,
                     "status": "ready" if existing_batch.get("status") in ("done", "draft") else existing_batch.get("status", "ready"),
                     "updated_at": now,
                 }
             }
         )
-        updated_batch = await BATCHES.find_one({"id": batch_id}, {"_id": 0})
         return {
             "batch_id": batch_id,
-            "total": updated_batch.get("total", len(row_docs)),
-            "valid": updated_batch.get("valid", valid),
-            "needs_ai": updated_batch.get("needs_ai", needs_ai),
-            "invalid": updated_batch.get("invalid", 0),
+            "total": total_in_db,
+            "valid": valid_in_db,
+            "needs_ai": needs_ai_in_db,
+            "invalid": invalid_in_db,
             "appended": len(row_docs),
         }
 
@@ -1979,6 +1984,26 @@ async def clear_generated_rows(batch_id: str, current_user: dict = Depends(get_c
         {"$set": {"total": total, "valid": valid, "needs_ai": needs_ai, "invalid": invalid, "generated": generated}}
     )
     return {"ok": True, "removed_count": res.deleted_count, "remaining_total": total}
+
+
+@router.post("/purge-all-generated")
+async def purge_all_generated(current_user: dict = Depends(get_current_user)):
+    """Remove all already-generated rows across all bulk batches so working queues only have pending rows."""
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    res = await ROWS.delete_many({"status": "generated"})
+    async for b in BATCHES.find({}):
+        bid = b["id"]
+        total = await ROWS.count_documents({"batch_id": bid})
+        valid = await ROWS.count_documents({"batch_id": bid, "status": "valid"})
+        needs_ai = await ROWS.count_documents({"batch_id": bid, "status": "needs_ai"})
+        invalid = await ROWS.count_documents({"batch_id": bid, "status": "error"})
+        generated = await ROWS.count_documents({"batch_id": bid, "status": "generated"})
+        await BATCHES.update_one(
+            {"id": bid},
+            {"$set": {"total": total, "valid": valid, "needs_ai": needs_ai, "invalid": invalid, "generated": generated}}
+        )
+    return {"ok": True, "deleted": res.deleted_count}
 
 
 @router.delete("/{batch_id}")
