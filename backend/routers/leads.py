@@ -9,6 +9,7 @@ import uuid
 router = APIRouter(prefix="/leads", tags=["leads"])
 leads_col = db["leads"]
 follow_ups_col = db["follow_ups"]
+users_col = db["users"]
 
 
 async def _next_lead_number():
@@ -235,14 +236,16 @@ async def convert_lead_to_pa(lead_id: str, payload: dict = None, current_user: d
     country_code = (p.get("country") or lead.get("country_of_interest") or "AU").upper()[:2]
     service_type = p.get("service_type") or lead.get("service_interested") or "General Skilled Migration"
 
-    partner_id = lead.get("assigned_to") or current_user["id"]
-    partner_name = lead.get("assigned_to_name") or current_user.get("name", "Admin")
+    partner_id = lead.get("partner_id") or lead.get("assigned_to") or current_user["id"]
+    partner_name = lead.get("partner_name") or lead.get("assigned_to_name") or current_user.get("name", "Admin")
 
     pa_doc = {
         "id": pa_id,
         "pa_number": pa_number,
         "partner_id": partner_id,
         "partner_name": partner_name,
+        "case_manager_id": lead.get("case_manager_id"),
+        "case_manager_name": lead.get("case_manager_name", ""),
         "created_by_user_id": current_user["id"],
         "created_by_role": current_user.get("role", "partner"),
         "created_by_user_type": current_user.get("user_type", "internal"),
@@ -335,11 +338,16 @@ async def bulk_create_pa(payload: dict, current_user: dict = Depends(get_current
         country_code = (lead.get("country_of_interest") or "AU").upper()[:2]
         service_type = lead.get("service_interested") or "General Skilled Migration"
 
+        partner_id = lead.get("partner_id") or lead.get("assigned_to") or current_user["id"]
+        partner_name = lead.get("partner_name") or lead.get("assigned_to_name") or current_user.get("name", "Admin")
+
         pa_doc = {
             "id": pa_id,
             "pa_number": pa_number,
-            "partner_id": lead.get("assigned_to") or current_user["id"],
-            "partner_name": lead.get("assigned_to_name") or current_user.get("name", "Admin"),
+            "partner_id": partner_id,
+            "partner_name": partner_name,
+            "case_manager_id": lead.get("case_manager_id"),
+            "case_manager_name": lead.get("case_manager_name", ""),
             "created_by_user_id": current_user["id"],
             "created_by_role": current_user.get("role", "partner"),
             "client_name": lead.get("name", "Client"),
@@ -406,52 +414,105 @@ async def bulk_create_pa(payload: dict, current_user: dict = Depends(get_current
 
 @router.post("/bulk-assign")
 async def bulk_assign_leads(payload: dict, current_user: dict = Depends(get_current_user)):
-    """Assign multiple leads to a team member."""
-    if current_user["role"] not in ["admin", "case_manager", "sales_manager", "sales_head"]:
+    """Assign multiple leads to a team member (Partner, Case Manager, or Sales Agent)."""
+    if current_user["role"] not in ["admin", "case_manager", "sales_manager", "sales_head", "partner"]:
         raise HTTPException(status_code=403, detail="Admin or manager access required for bulk assignment")
 
     lead_ids = payload.get("lead_ids", [])
-    assigned_to = payload.get("assigned_to")
+    assigned_to = payload.get("assigned_to") or payload.get("user_id")
     assigned_to_name = payload.get("assigned_to_name")
+    assignment_type = payload.get("assignment_type", "agent")  # "agent" | "partner" | "case_manager"
 
     if not lead_ids or not assigned_to:
         raise HTTPException(status_code=400, detail="lead_ids and assigned_to are required")
 
+    user = await users_col.find_one({"id": assigned_to}, {"_id": 0, "name": 1, "role": 1})
+    if user:
+        if not assigned_to_name:
+            assigned_to_name = user.get("name", "Assigned Member")
+        user_role = user.get("role", "")
+    else:
+        user_role = ""
+
+    update_doc = {
+        "updated_at": datetime.now(timezone.utc)
+    }
+
+    if assignment_type == "partner" or user_role == "partner":
+        update_doc["partner_id"] = assigned_to
+        update_doc["partner_name"] = assigned_to_name
+        update_doc["assigned_to"] = assigned_to
+        update_doc["assigned_to_name"] = assigned_to_name
+    elif assignment_type == "case_manager" or user_role == "case_manager":
+        update_doc["case_manager_id"] = assigned_to
+        update_doc["case_manager_name"] = assigned_to_name
+        update_doc["assigned_to"] = assigned_to
+        update_doc["assigned_to_name"] = assigned_to_name
+    else:
+        update_doc["assigned_to"] = assigned_to
+        update_doc["assigned_to_name"] = assigned_to_name
+
     result = await leads_col.update_many(
         {"id": {"$in": lead_ids}},
-        {"$set": {
-            "assigned_to": assigned_to,
-            "assigned_to_name": assigned_to_name or "Assigned Agent",
-            "updated_at": datetime.now(timezone.utc)
-        }}
+        {"$set": update_doc}
     )
 
     return {
         "status": "success",
         "updated_count": result.modified_count,
         "assigned_to_name": assigned_to_name,
+        "assignment_type": assignment_type,
     }
 
 
 @router.put("/{lead_id}/assign")
 async def assign_single_lead(lead_id: str, payload: dict, current_user: dict = Depends(get_current_user)):
-    """Assign a single lead to a team member."""
-    assigned_to = payload.get("assigned_to")
+    """Assign a single lead to a team member (Partner, Case Manager, or Sales Agent)."""
+    assigned_to = payload.get("assigned_to") or payload.get("user_id")
     assigned_to_name = payload.get("assigned_to_name")
+    assignment_type = payload.get("assignment_type", "agent")  # "agent" | "partner" | "case_manager"
 
     if not assigned_to:
         raise HTTPException(status_code=400, detail="assigned_to is required")
 
+    user = await users_col.find_one({"id": assigned_to}, {"_id": 0, "name": 1, "role": 1})
+    if user:
+        if not assigned_to_name:
+            assigned_to_name = user.get("name", "Assigned Member")
+        user_role = user.get("role", "")
+    else:
+        user_role = ""
+
+    update_doc = {
+        "updated_at": datetime.now(timezone.utc)
+    }
+
+    if assignment_type == "partner" or user_role == "partner":
+        update_doc["partner_id"] = assigned_to
+        update_doc["partner_name"] = assigned_to_name
+        update_doc["assigned_to"] = assigned_to
+        update_doc["assigned_to_name"] = assigned_to_name
+    elif assignment_type == "case_manager" or user_role == "case_manager":
+        update_doc["case_manager_id"] = assigned_to
+        update_doc["case_manager_name"] = assigned_to_name
+        update_doc["assigned_to"] = assigned_to
+        update_doc["assigned_to_name"] = assigned_to_name
+    else:
+        update_doc["assigned_to"] = assigned_to
+        update_doc["assigned_to_name"] = assigned_to_name
+
     await leads_col.update_one(
         {"id": lead_id},
-        {"$set": {
-            "assigned_to": assigned_to,
-            "assigned_to_name": assigned_to_name or "Assigned Agent",
-            "updated_at": datetime.now(timezone.utc)
-        }}
+        {"$set": update_doc}
     )
 
-    return {"status": "success", "message": "Lead assigned successfully"}
+    return {
+        "status": "success",
+        "message": "Lead assigned successfully",
+        "assigned_to_name": assigned_to_name,
+        "assignment_type": assignment_type,
+        "lead_id": lead_id
+    }
 
 
 @router.delete("/{lead_id}")

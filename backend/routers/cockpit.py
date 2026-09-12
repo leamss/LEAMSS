@@ -141,6 +141,14 @@ def _build_lead_card(d: Dict[str, Any]) -> Dict[str, Any]:
             "id": d.get("assigned_to"),
             "name": d.get("assigned_to_name") or "Unassigned",
         },
+        "partner": {
+            "id": d.get("partner_id"),
+            "name": d.get("partner_name") or "Unassigned",
+        },
+        "case_manager": {
+            "id": d.get("case_manager_id"),
+            "name": d.get("case_manager_name") or "Unassigned",
+        },
         "updated_at": d.get("updated_at") or d.get("created_at"),
         "updated_at_human": _humanize_ago(d.get("updated_at") or d.get("created_at")),
         "source": d.get("source") or "website",

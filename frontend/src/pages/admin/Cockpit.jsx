@@ -93,6 +93,7 @@ export default function Cockpit() {
   const [convertingPA, setConvertingPA] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [bulkAssignTarget, setBulkAssignTarget] = useState('');
+  const [bulkAssignRole, setBulkAssignRole] = useState('agent'); // 'agent' | 'partner' | 'case_manager'
 
   const headers = useMemo(() => {
     const t = localStorage.getItem('token');
@@ -105,7 +106,8 @@ export default function Cockpit() {
       try {
         const r = await axios.get(`${API}/users`, { headers });
         if (Array.isArray(r.data)) {
-          setTeamMembers(r.data.filter(u => ['sales_executive', 'sr_sales_executive', 'partner', 'admin', 'case_manager'].includes(u.role)));
+          // Filter all active staff (partners, case managers, sales executives, admins)
+          setTeamMembers(r.data.filter(u => u.role !== 'client' && u.status !== 'inactive'));
         }
       } catch (e) {
         console.error('Failed to load team members for lead assignment', e);
@@ -197,14 +199,29 @@ export default function Cockpit() {
     navigate(`/sales/client-assessment?${params.toString()}`);
   };
 
-  const handleAssignLead = async (leadId, agentId, agentName) => {
+  const handleAssignLead = async (leadId, targetId, targetName, assignmentType = 'agent') => {
     try {
-      await axios.put(`${API}/leads/${leadId}/assign`, { assigned_to: agentId, assigned_to_name: agentName }, { headers });
+      await axios.put(`${API}/leads/${leadId}/assign`, {
+        assigned_to: targetId,
+        assigned_to_name: targetName,
+        assignment_type: assignmentType,
+      }, { headers });
       fetchAll();
       if (cardDetail?.record) {
+        const updated = { ...cardDetail.record };
+        if (assignmentType === 'partner') {
+          updated.partner_id = targetId;
+          updated.partner_name = targetName;
+        } else if (assignmentType === 'case_manager') {
+          updated.case_manager_id = targetId;
+          updated.case_manager_name = targetName;
+        } else {
+          updated.assigned_to = targetId;
+          updated.assigned_to_name = targetName;
+        }
         setCardDetail({
           ...cardDetail,
-          record: { ...cardDetail.record, assigned_to: agentId, assigned_to_name: agentName }
+          record: updated,
         });
       }
     } catch (e) {
@@ -215,18 +232,19 @@ export default function Cockpit() {
   const handleBulkAssign = async () => {
     if (!selectedLeadIds.length || !bulkAssignTarget) return;
     const targetUser = teamMembers.find(u => u.id === bulkAssignTarget);
-    const targetName = targetUser?.name || 'Assigned Agent';
+    const targetName = targetUser?.name || 'Assigned Member';
     try {
       setBulkActionLoading(true);
       await axios.post(`${API}/leads/bulk-assign`, {
         lead_ids: selectedLeadIds,
         assigned_to: bulkAssignTarget,
-        assigned_to_name: targetName
+        assigned_to_name: targetName,
+        assignment_type: bulkAssignRole,
       }, { headers });
       setBulkActionLoading(false);
       setSelectedLeadIds([]);
       fetchAll();
-      alert(`Successfully assigned ${selectedLeadIds.length} leads to ${targetName}`);
+      alert(`Successfully assigned ${selectedLeadIds.length} leads to ${targetName} (${bulkAssignRole.replace('_', ' ')})`);
     } catch (e) {
       setBulkActionLoading(false);
       alert(e.response?.data?.detail || 'Bulk assign failed');
@@ -592,37 +610,48 @@ export default function Cockpit() {
           {/* FLOATING BULK ACTIONS TOOLBAR */}
           {selectedLeadIds.length > 0 && (
             <div
-              className="sticky bottom-4 left-0 right-0 mx-auto max-w-2xl bg-white border rounded-xl shadow-2xl p-3.5 z-40 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4"
+              className="sticky bottom-4 left-0 right-0 mx-auto max-w-3xl bg-white border rounded-xl shadow-2xl p-3.5 z-40 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4"
               style={{ borderColor: C.teal, background: '#FFFFFF', boxShadow: '0 10px 25px -5px rgba(15, 118, 110, 0.2), 0 8px 10px -6px rgba(15, 118, 110, 0.2)' }}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <span className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs" style={{ background: C.tealWash, color: C.tealDark }}>
                   {selectedLeadIds.length}
                 </span>
                 <p className="text-xs font-bold" style={{ color: C.ink }}>
-                  Leads selected
+                  Selected
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Bulk Assign Dropdown */}
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {/* Assignment Role Selector */}
+                <select
+                  value={bulkAssignRole}
+                  onChange={(e) => setBulkAssignRole(e.target.value)}
+                  className="text-xs px-2.5 py-1.5 rounded-lg border outline-none font-bold cursor-pointer"
+                  style={{ borderColor: C.teal, background: C.tealWash, color: C.tealDark }}
+                  title="Choose assignment target role"
+                >
+                  <option value="agent">Role: Lead Owner</option>
+                  <option value="partner">Role: Partner</option>
+                  <option value="case_manager">Role: Case Manager</option>
+                </select>
+
+                {/* Target User Dropdown */}
                 <select
                   value={bulkAssignTarget}
                   onChange={(e) => setBulkAssignTarget(e.target.value)}
-                  className="text-xs px-2.5 py-1.5 rounded-lg border outline-none font-medium"
+                  className="text-xs px-2.5 py-1.5 rounded-lg border outline-none font-medium max-w-[190px] cursor-pointer"
                   style={{ borderColor: C.border, background: C.bg, color: C.ink }}
                 >
-                  <option value="">Assign to Agent...</option>
-                  {teamMembers.map(tm => (
-                    <option key={tm.id} value={tm.id}>{tm.name} ({tm.role})</option>
-                  ))}
+                  <option value="">Select Member / User...</option>
+                  {renderUserOptions(teamMembers)}
                 </select>
 
                 <button
                   onClick={handleBulkAssign}
                   disabled={!bulkAssignTarget || bulkActionLoading}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors disabled:opacity-50"
-                  style={{ borderColor: C.border, background: C.card, color: C.body }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-colors disabled:opacity-50 shadow-sm"
+                  style={{ background: C.teal }}
                 >
                   Assign
                 </button>
@@ -632,10 +661,10 @@ export default function Cockpit() {
                   onClick={handleBulkConvertToPA}
                   disabled={bulkActionLoading}
                   className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50"
-                  style={{ background: C.teal }}
+                  style={{ background: C.tealDark }}
                 >
                   <Zap className={`h-3.5 w-3.5 ${bulkActionLoading ? 'animate-spin' : ''}`} />
-                  {bulkActionLoading ? 'Creating...' : 'Bulk Pre-Assessments'}
+                  {bulkActionLoading ? 'Creating...' : 'Bulk PA'}
                 </button>
 
                 {/* Bulk Assessment Reports */}
@@ -646,7 +675,7 @@ export default function Cockpit() {
                   style={{ background: C.orange }}
                 >
                   <Sparkles className={`h-3.5 w-3.5 ${bulkActionLoading ? 'animate-spin' : ''}`} />
-                  {bulkActionLoading ? 'Processing...' : 'Bulk Assessment (Reports)'}
+                  {bulkActionLoading ? 'Processing...' : 'Bulk Reports'}
                 </button>
 
                 <button
@@ -853,26 +882,82 @@ export default function Cockpit() {
                       </div>
                     )}
 
-                    {/* Owner Assignment Dropdown */}
-                    <div className="pt-2 border-t space-y-1.5" style={{ borderColor: C.border }}>
-                      <label className="text-[10px] uppercase font-bold flex items-center gap-1" style={{ color: C.muted }}>
-                        <UserPlus className="h-3 w-3" /> Lead Owner (Assigned Agent)
-                      </label>
-                      <select
-                        value={cardDetail.record.assigned_to || ''}
-                        onChange={(e) => {
-                          const agentId = e.target.value;
-                          const agent = teamMembers.find(u => u.id === agentId);
-                          handleAssignLead(selectedCard.id, agentId, agent?.name || 'Assigned Agent');
-                        }}
-                        className="w-full text-xs px-3 py-2 rounded-lg border font-medium outline-none"
-                        style={{ borderColor: C.border, background: C.card, color: C.ink }}
-                      >
-                        <option value="">Unassigned</option>
-                        {teamMembers.map(tm => (
-                          <option key={tm.id} value={tm.id}>{tm.name} ({tm.role})</option>
-                        ))}
-                      </select>
+                    {/* Multi-Role Staff & Partner Assignment */}
+                    <div className="pt-3 border-t space-y-3" style={{ borderColor: C.border }}>
+                      <p className="text-[10px] uppercase font-bold tracking-wider flex items-center gap-1" style={{ color: C.tealDark }}>
+                        <Users className="h-3.5 w-3.5" /> Staff & Partner Assignment
+                      </p>
+
+                      <div className="space-y-2.5">
+                        {/* Lead Owner / Agent */}
+                        <div>
+                          <div className="flex items-center justify-between text-[10px] uppercase font-bold mb-1" style={{ color: C.muted }}>
+                            <span className="flex items-center gap-1"><UserPlus className="h-3 w-3" /> Lead Owner (Agent)</span>
+                            {cardDetail.record.assigned_to_name && cardDetail.record.assigned_to_name !== 'Unassigned' && (
+                              <span className="font-semibold capitalize" style={{ color: C.tealDeep }}>{cardDetail.record.assigned_to_name}</span>
+                            )}
+                          </div>
+                          <select
+                            value={cardDetail.record.assigned_to || ''}
+                            onChange={(e) => {
+                              const uId = e.target.value;
+                              const user = teamMembers.find(u => u.id === uId);
+                              handleAssignLead(selectedCard.id, uId, user?.name || 'Assigned Agent', 'agent');
+                            }}
+                            className="w-full text-xs px-2.5 py-1.5 rounded-lg border font-medium outline-none cursor-pointer"
+                            style={{ borderColor: C.border, background: C.card, color: C.ink }}
+                          >
+                            <option value="">Select Lead Owner / Agent...</option>
+                            {renderUserOptions(teamMembers)}
+                          </select>
+                        </div>
+
+                        {/* Assigned Partner */}
+                        <div>
+                          <div className="flex items-center justify-between text-[10px] uppercase font-bold mb-1" style={{ color: C.muted }}>
+                            <span className="flex items-center gap-1">🤝 Assigned Partner</span>
+                            {cardDetail.record.partner_name && (
+                              <span className="font-semibold capitalize" style={{ color: C.orangeDeep }}>{cardDetail.record.partner_name}</span>
+                            )}
+                          </div>
+                          <select
+                            value={cardDetail.record.partner_id || ''}
+                            onChange={(e) => {
+                              const uId = e.target.value;
+                              const user = teamMembers.find(u => u.id === uId);
+                              handleAssignLead(selectedCard.id, uId, user?.name || 'Assigned Partner', 'partner');
+                            }}
+                            className="w-full text-xs px-2.5 py-1.5 rounded-lg border font-medium outline-none cursor-pointer"
+                            style={{ borderColor: C.border, background: C.card, color: C.ink }}
+                          >
+                            <option value="">Select Partner...</option>
+                            {renderUserOptions(teamMembers)}
+                          </select>
+                        </div>
+
+                        {/* Assigned Case Manager */}
+                        <div>
+                          <div className="flex items-center justify-between text-[10px] uppercase font-bold mb-1" style={{ color: C.muted }}>
+                            <span className="flex items-center gap-1">📋 Assigned Case Manager</span>
+                            {cardDetail.record.case_manager_name && (
+                              <span className="font-semibold capitalize" style={{ color: C.tealDark }}>{cardDetail.record.case_manager_name}</span>
+                            )}
+                          </div>
+                          <select
+                            value={cardDetail.record.case_manager_id || ''}
+                            onChange={(e) => {
+                              const uId = e.target.value;
+                              const user = teamMembers.find(u => u.id === uId);
+                              handleAssignLead(selectedCard.id, uId, user?.name || 'Case Manager', 'case_manager');
+                            }}
+                            className="w-full text-xs px-2.5 py-1.5 rounded-lg border font-medium outline-none cursor-pointer"
+                            style={{ borderColor: C.border, background: C.card, color: C.ink }}
+                          >
+                            <option value="">Select Case Manager...</option>
+                            {renderUserOptions(teamMembers)}
+                          </select>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Payment transaction details */}
@@ -1091,6 +1176,54 @@ export default function Cockpit() {
 }
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
+function renderUserOptions(members = []) {
+  const partners = members.filter(u => u.role === 'partner');
+  const caseManagers = members.filter(u => u.role === 'case_manager');
+  const salesTeam = members.filter(u => ['sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head'].includes(u.role));
+  const admins = members.filter(u => ['admin', 'admin_owner'].includes(u.role));
+  const others = members.filter(u => !['partner', 'case_manager', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'admin', 'admin_owner', 'client'].includes(u.role));
+
+  return (
+    <>
+      {partners.length > 0 && (
+        <optgroup label="🤝 Partners">
+          {partners.map(u => (
+            <option key={u.id} value={u.id}>{u.name} (Partner)</option>
+          ))}
+        </optgroup>
+      )}
+      {caseManagers.length > 0 && (
+        <optgroup label="📋 Case Managers">
+          {caseManagers.map(u => (
+            <option key={u.id} value={u.id}>{u.name} (Case Manager)</option>
+          ))}
+        </optgroup>
+      )}
+      {salesTeam.length > 0 && (
+        <optgroup label="💼 Sales Executives & Agents">
+          {salesTeam.map(u => (
+            <option key={u.id} value={u.id}>{u.name} ({u.role?.replace(/_/g, ' ')})</option>
+          ))}
+        </optgroup>
+      )}
+      {admins.length > 0 && (
+        <optgroup label="🛡️ Administrators">
+          {admins.map(u => (
+            <option key={u.id} value={u.id}>{u.name} (Admin)</option>
+          ))}
+        </optgroup>
+      )}
+      {others.length > 0 && (
+        <optgroup label="👤 Staff">
+          {others.map(u => (
+            <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+          ))}
+        </optgroup>
+      )}
+    </>
+  );
+}
+
 function FunnelChip({ label, count, icon: Icon, active, onClick, testid }) {
   return (
     <button
@@ -1136,46 +1269,71 @@ function FilterButton({ icon: Icon, label, onClick, active, testid }) {
   );
 }
 
-function PipelineCard({ card, onClick }) {
+function PipelineCard({ card, onClick, isSelected, onToggleSelect, onConvertToPA }) {
   const ringColor = URGENCY_RING[card.urgency] || C.teal;
   const flags = (card.countries || []).map(c => COUNTRY_FLAG[c] || c).join(' ');
   return (
     <div
       onClick={onClick}
-      className="bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-3 group"
-      style={{ borderColor: C.border }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.teal)}
-      onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.border)}
+      className="p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-3 group relative"
+      style={{
+        borderColor: isSelected ? C.teal : C.border,
+        background:  isSelected ? C.tealWash : '#FFFFFF',
+        boxShadow:   isSelected ? '0 0 0 2px rgba(15, 118, 110, 0.25)' : undefined,
+      }}
+      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = C.teal; }}
+      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = C.border; }}
       data-testid={`cockpit-card-${card.type}-${card.id}`}
     >
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-base font-bold leading-tight tracking-tight truncate" style={{ color: C.ink }}>
-            {card.name}
-          </h3>
-          <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: C.body }}>
-            {flags && <span>{flags}</span>}
-            <span style={{ color: C.muted }}>·</span>
-            <span className="font-mono text-[10px] truncate">{card.id?.slice(0, 16)}</span>
-          </p>
+      <div className="flex justify-between items-start gap-2">
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          {onToggleSelect && (
+            <button
+              type="button"
+              onClick={onToggleSelect}
+              className="mt-0.5 p-0.5 rounded hover:bg-black/5 transition-colors shrink-0"
+              title={isSelected ? 'Deselect lead' : 'Select lead'}
+            >
+              {isSelected ? (
+                <CheckSquare className="h-4 w-4" style={{ color: C.teal }} />
+              ) : (
+                <Square className="h-4 w-4" style={{ color: C.muted }} />
+              )}
+            </button>
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-bold leading-tight tracking-tight truncate" style={{ color: C.ink }}>
+              {card.name}
+            </h3>
+            <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: C.body }}>
+              {flags && <span>{flags}</span>}
+              <span style={{ color: C.muted }}>·</span>
+              <span className="font-mono text-[10px] truncate">{card.id?.slice(0, 16)}</span>
+            </p>
+          </div>
         </div>
         {card.score !== null && card.score !== undefined ? (
           <span
-            className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md border whitespace-nowrap"
+            className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md border whitespace-nowrap shrink-0"
             style={{ color: C.orangeDeep, background: C.goldWash, borderColor: C.goldLight }}
           >
             <Sparkles className="h-3 w-3" />{card.score}
           </span>
         ) : (
-          <span className="text-[10px] font-bold uppercase px-2 py-1 rounded-md whitespace-nowrap"
-                style={{ background: C.borderSoft, color: C.muted }}>
-            {card.type === 'lead' ? 'New' : '—'}
+          <span
+            className="text-[10px] font-bold uppercase px-2 py-1 rounded-md whitespace-nowrap shrink-0"
+            style={{
+              background: card.payment_status === 'success' ? C.tealWash2 : C.borderSoft,
+              color: card.payment_status === 'success' ? C.tealDark : C.muted
+            }}
+          >
+            {card.type === 'lead' ? (card.payment_status === 'success' ? '✓ Paid' : 'New') : '—'}
           </span>
         )}
       </div>
 
-      {/* Score label */}
+      {/* Score / Service label */}
       <p className="text-xs truncate" style={{ color: C.body }}>
         <strong>{card.score_label}</strong>
       </p>
@@ -1203,30 +1361,56 @@ function PipelineCard({ card, onClick }) {
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                style={{ background: C.tealWash, color: C.tealDeep, border: `1px solid ${C.tealWash2}` }}>
-            {(card.owner?.name || '—').slice(0, 1).toUpperCase()}
+            {(card.owner?.name || card.partner?.name || '—').slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold leading-none truncate" style={{ color: C.ink }}>{card.owner?.name || '—'}</p>
+            <p className="text-[10px] font-bold leading-none truncate" style={{ color: C.ink }}>
+              {card.owner?.name || card.partner?.name || 'Unassigned'}
+            </p>
             <p className="text-[10px] leading-none mt-0.5" style={{ color: C.muted }}>{card.updated_at_human}</p>
           </div>
         </div>
-        <span
-          className="text-[10px] font-bold flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5"
-          style={{ color: ringColor, background: `${ringColor}15` }}
-        >
-          ● {card.urgency}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {card.partner?.name && card.partner?.name !== 'Unassigned' && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: C.goldWash, color: C.orangeDeep }} title={`Assigned Partner: ${card.partner.name}`}>
+              Partner
+            </span>
+          )}
+          {card.case_manager?.name && card.case_manager?.name !== 'Unassigned' && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: C.tealWash2, color: C.tealDark }} title={`Case Manager: ${card.case_manager.name}`}>
+              CM
+            </span>
+          )}
+          <span
+            className="text-[10px] font-bold flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5"
+            style={{ color: ringColor, background: `${ringColor}15` }}
+          >
+            ● {card.urgency}
+          </span>
+        </div>
       </div>
 
       {/* Next action CTA */}
-      <button
-        className="text-xs font-bold flex items-center justify-between w-full pt-1 transition-colors"
-        style={{ color: C.teal }}
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
-      >
-        <span>{card.next_action}</span>
-        <ChevronRight className="h-3 w-3" />
-      </button>
+      <div className="flex items-center justify-between pt-1">
+        <button
+          className="text-xs font-bold flex items-center gap-1 transition-colors"
+          style={{ color: C.teal }}
+          onClick={(e) => { e.stopPropagation(); onClick(); }}
+        >
+          <span>{card.next_action}</span>
+          <ChevronRight className="h-3 w-3" />
+        </button>
+        {onConvertToPA && (
+          <button
+            onClick={onConvertToPA}
+            className="text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1 text-white hover:opacity-90"
+            style={{ background: C.orange }}
+            title="Convert to Pre-Assessment in 1-click"
+          >
+            <Zap className="h-2.5 w-2.5" /> PA
+          </button>
+        )}
+      </div>
     </div>
   );
 }
