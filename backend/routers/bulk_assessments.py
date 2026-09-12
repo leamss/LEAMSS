@@ -566,8 +566,37 @@ async def create_batch_from_leads(
     cursor = db["leads"].find(query).sort("created_at", -1).limit(500)
     leads = await cursor.to_list(length=500)
 
-    if not leads:
-        raise HTTPException(status_code=404, detail="No matching leads found to add to bulk assessment batch.")
+    # Collect all IDs/emails of generated reports across bulk_rows and sales_assessments
+    gen_leads_set: set = set()
+    gen_emails_set: set = set()
+    async for r in ROWS.find(
+        {"$or": [{"status": "generated"}, {"snapshot_id": {"$exists": True, "$ne": None}}]},
+        {"lead_id": 1, "parsed.email": 1}
+    ):
+        if r.get("lead_id"): gen_leads_set.add(r["lead_id"])
+        em = (r.get("parsed") or {}).get("email")
+        if em: gen_emails_set.add(str(em).strip().lower())
+
+    async for a in ASSESSMENTS.find(
+        {"$or": [{"latest_report_snapshot_id": {"$exists": True, "$ne": None}}, {"report_snapshot_ids": {"$exists": True, "$ne": []}}]},
+        {"lead_id": 1, "client_email": 1}
+    ):
+        if a.get("lead_id"): gen_leads_set.add(a["lead_id"])
+        if a.get("client_email"): gen_emails_set.add(str(a["client_email"]).strip().lower())
+
+    # If report_pending_only is requested, exclude any lead whose report is already generated
+    if report_pending_only:
+        leads = [
+            l for l in leads
+            if not (
+                l.get("report_generated") is True
+                or l.get("report_status") == "generated"
+                or l.get("latest_report_snapshot_id")
+                or l.get("assessment_report_id")
+                or (l.get("id") and l.get("id") in gen_leads_set)
+                or (str(l.get("email") or "").strip().lower() in gen_emails_set)
+            )
+        ]
 
     # Check for existing active or open batch to append to instead of creating duplicate batches
     existing_batch = await BATCHES.find_one(
@@ -576,6 +605,19 @@ async def create_batch_from_leads(
     )
     if not existing_batch:
         existing_batch = await BATCHES.find_one({}, sort=[("created_at", -1)])
+
+    if not leads:
+        if existing_batch:
+            return {
+                "batch_id": existing_batch["id"],
+                "total": existing_batch.get("total", 0),
+                "valid": existing_batch.get("valid", 0),
+                "needs_ai": existing_batch.get("needs_ai", 0),
+                "invalid": existing_batch.get("invalid", 0),
+                "appended": 0,
+                "message": "All matching leads already have Client Assessment Reports generated."
+            }
+        raise HTTPException(status_code=404, detail="No matching leads pending report generation found.")
 
     now = datetime.now(timezone.utc)
     batch_id = existing_batch["id"] if existing_batch else f"BATCH-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"

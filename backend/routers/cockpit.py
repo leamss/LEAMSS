@@ -120,13 +120,24 @@ def _humanize_ago(dt: Optional[datetime]) -> str:
     return dt.strftime("%d %b %Y")
 
 
-def _build_lead_card(d: Dict[str, Any]) -> Dict[str, Any]:
+def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_emails: Optional[set] = None) -> Dict[str, Any]:
     """Normalize a `leads` doc into a cockpit card."""
     country = d.get("country_of_interest") or ""
     unique_id = d.get("unique_id") or ""
     service = d.get("service_interested") or "New enquiry"
     score_label = f"{unique_id} · {service}" if unique_id else service
-    has_report = bool(d.get("report_generated") or d.get("assessment_report_id") or d.get("latest_report_snapshot_id"))
+    
+    lid = d.get("id")
+    lemail = str(d.get("email") or "").strip().lower()
+    
+    has_report = bool(
+        d.get("report_generated") is True
+        or d.get("report_status") == "generated"
+        or d.get("assessment_report_id")
+        or d.get("latest_report_snapshot_id")
+        or (gen_leads and lid and lid in gen_leads)
+        or (gen_emails and lemail and lemail in gen_emails)
+    )
     return {
         "id": d.get("id"),
         "type": "lead",
@@ -144,11 +155,11 @@ def _build_lead_card(d: Dict[str, Any]) -> Dict[str, Any]:
         "payment_amount": d.get("payment_amount"),
         "resume_url": d.get("resume_url") or "",
         "report_generated": has_report,
-        "report_status": d.get("report_status") or ("generated" if has_report else "pending"),
+        "report_status": "generated" if has_report else (d.get("report_status") or "pending"),
         "report_generated_at": d.get("report_generated_at"),
         "assessment_report_id": d.get("assessment_report_id") or d.get("latest_report_snapshot_id"),
         "lifecycle": 2 if has_report else 0,
-        "next_action": "Start Eligibility Wizard" if not has_report else "Create Pre-Assessment",
+        "next_action": "Create Pre-Assessment" if has_report else "Start Eligibility Wizard",
         "urgency": d.get("priority") or ("high" if not has_report and (d.get("payment_status") == "success" or (d.get("payment_amount") or 0) > 0) else "medium"),
         "owner": {
             "id": d.get("assigned_to"),
@@ -300,13 +311,31 @@ async def get_cards(
 
     want_all = (not stage) or stage == "all"
 
+    # Collect all IDs/emails of generated reports across bulk_rows and sales_assessments
+    gen_leads_set: set = set()
+    gen_emails_set: set = set()
+    async for r in db["bulk_rows"].find(
+        {"$or": [{"status": "generated"}, {"snapshot_id": {"$exists": True, "$ne": None}}]},
+        {"lead_id": 1, "parsed.email": 1}
+    ):
+        if r.get("lead_id"): gen_leads_set.add(r["lead_id"])
+        em = (r.get("parsed") or {}).get("email")
+        if em: gen_emails_set.add(str(em).strip().lower())
+
+    async for a in db["sales_assessments"].find(
+        {"$or": [{"latest_report_snapshot_id": {"$exists": True, "$ne": None}}, {"report_snapshot_ids": {"$exists": True, "$ne": []}}]},
+        {"lead_id": 1, "client_email": 1}
+    ):
+        if a.get("lead_id"): gen_leads_set.add(a["lead_id"])
+        if a.get("client_email"): gen_emails_set.add(str(a["client_email"]).strip().lower())
+
     # 1) Leads
     if want_all or stage == "leads":
         q = own_filter_lead | {"stage": {"$ne": "converted"}}
         if text_re:
             q["$or"] = [{"name": text_re}, {"email": text_re}, {"phone": text_re}]
         async for d in db["leads"].find(q, {"_id": 0}).sort("updated_at", -1).limit(limit):
-            cards.append(_build_lead_card(d))
+            cards.append(_build_lead_card(d, gen_leads_set, gen_emails_set))
 
     # 2) Sales assessments (no PA yet)
     if want_all or stage == "assessments":
