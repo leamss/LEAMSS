@@ -793,10 +793,10 @@ export default function Cockpit() {
 
       {/* DRILL-IN DRAWER */}
       <Sheet open={!!selectedCard} onOpenChange={(open) => !open && setSelectedCard(null)}>
-        <SheetContent className="w-full sm:max-w-lg p-0" style={{ background: C.card }} data-testid="cockpit-drill-drawer">
+        <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col h-full overflow-hidden" style={{ background: C.card }} data-testid="cockpit-drill-drawer">
           {selectedCard && (
             <>
-              <SheetHeader className="px-6 py-4 border-b" style={{ borderColor: C.border }}>
+              <SheetHeader className="px-6 py-4 border-b shrink-0" style={{ borderColor: C.border }}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <SheetTitle className="text-lg font-bold tracking-tight" style={{ color: C.tealDark }}>
@@ -811,7 +811,7 @@ export default function Cockpit() {
                   </SheetClose>
                 </div>
               </SheetHeader>
-              <div className="p-6 space-y-5">
+              <div className="p-6 space-y-5 flex-1 overflow-y-auto min-h-0">
                 {/* Lead-specific Profile Card if type is lead */}
                 {selectedCard.type === 'lead' && cardDetail?.record && (
                   <div className="rounded-xl border p-4 space-y-4 shadow-sm" style={{ background: C.bg, borderColor: C.border }}>
