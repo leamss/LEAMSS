@@ -537,11 +537,20 @@ async def create_batch_from_leads(
         raise HTTPException(status_code=403, detail="Not authorised")
 
     lead_ids = payload.get("lead_ids", [])
-    batch_name = payload.get("batch_name") or f"Website Registrations ({datetime.now(timezone.utc).strftime('%d %b %Y')})"
+    paid_only = payload.get("paid_only") or payload.get("payment_status") == "success"
+    default_name = f"Paid Registrations ({datetime.now(timezone.utc).strftime('%d %b %Y')})" if paid_only else f"Website Registrations ({datetime.now(timezone.utc).strftime('%d %b %Y')})"
+    batch_name = payload.get("batch_name") or default_name
 
     query = {}
     if lead_ids:
         query["id"] = {"$in": lead_ids}
+    elif paid_only:
+        query["$or"] = [
+            {"payment_status": {"$in": ["success", "paid", "completed", "captured"]}},
+            {"stage": "payment_done"},
+            {"tags": "Payment Success"},
+            {"payment_amount": {"$gt": 0}}
+        ]
     else:
         query["$or"] = [
             {"source": "website"},

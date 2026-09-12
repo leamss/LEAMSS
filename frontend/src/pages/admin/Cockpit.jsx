@@ -144,12 +144,15 @@ export default function Cockpit() {
     }
   };
 
-  const handleSendToBulkAssessment = async (leadIds = []) => {
+  const handleSendToBulkAssessment = async (leadIds = [], paidOnly = false) => {
     try {
       setBulkActionLoading(true);
       const res = await axios.post(`${API}/bulk-assessments/from-leads`, {
         lead_ids: leadIds.length ? leadIds : undefined,
-        batch_name: `Website Registrations (${new Date().toLocaleDateString('en-GB')})`,
+        paid_only: paidOnly,
+        batch_name: paidOnly
+          ? `Paid Registrations (${new Date().toLocaleDateString('en-GB')})`
+          : `Website Registrations (${new Date().toLocaleDateString('en-GB')})`,
       }, { headers });
       setBulkActionLoading(false);
       setSelectedLeadIds([]);
@@ -157,6 +160,25 @@ export default function Cockpit() {
     } catch (e) {
       setBulkActionLoading(false);
       alert(e.response?.data?.detail || 'Failed to create bulk assessment batch');
+    }
+  };
+
+  const selectSequence = (mode) => {
+    const leadCards = cards.filter(c => c.type === 'lead');
+    if (mode === 'all') {
+      setSelectedLeadIds(leadCards.map(c => c.id));
+    } else if (mode === 'paid') {
+      const paid = leadCards.filter(c =>
+        c.payment_status === 'success' || c.payment_status === 'paid' || (c.payment_amount && c.payment_amount > 0)
+      );
+      setSelectedLeadIds(paid.map(c => c.id));
+    } else if (mode === 'unassigned') {
+      const unassigned = leadCards.filter(c => !c.owner?.id || c.owner?.name === 'Unassigned');
+      setSelectedLeadIds(unassigned.map(c => c.id));
+    } else if (mode === 'clear') {
+      setSelectedLeadIds([]);
+    } else if (Number(mode) > 0) {
+      setSelectedLeadIds(leadCards.slice(0, Number(mode)).map(c => c.id));
     }
   };
 
@@ -480,16 +502,34 @@ export default function Cockpit() {
             <FilterButton
               icon={ArrowDownUp}
               label={
-                sortMode === 'recent'     ? 'Recent First' :
-                sortMode === 'oldest'     ? 'Oldest First' :
+                sortMode === 'recent'     ? 'Newest First' :
+                sortMode === 'oldest'     ? 'Oldest First (FIFO)' :
+                sortMode === 'paid_first' ? '💰 Paid First' :
                 sortMode === 'score_desc' ? 'Highest Score' : 'Lowest Score'
               }
               onClick={() => {
-                const order = ['recent', 'oldest', 'score_desc', 'score_asc'];
+                const order = ['recent', 'oldest', 'paid_first', 'score_desc', 'score_asc'];
                 setSortMode(order[(order.indexOf(sortMode) + 1) % order.length]);
               }}
               testid="cockpit-filter-sort"
             />
+
+            {/* Sequential Batch Select Dropdown */}
+            <select
+              onChange={(e) => { selectSequence(e.target.value); e.target.value = ''; }}
+              className="text-xs px-2.5 py-1.5 rounded-md border font-semibold outline-none cursor-pointer"
+              style={{ borderColor: C.border, background: C.card, color: C.ink }}
+            >
+              <option value="">⚡ Select in Sequence...</option>
+              <option value="5">Select First 5 (Sequential)</option>
+              <option value="10">Select First 10 (Sequential)</option>
+              <option value="20">Select First 20 (Sequential)</option>
+              <option value="all">Select All Leads</option>
+              <option value="paid">Select Paid Only (Payment Success)</option>
+              <option value="unassigned">Select Unassigned Only</option>
+              <option value="clear">Deselect All</option>
+            </select>
+
             <div className="relative">
               <Search className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2" style={{ color: C.muted }} />
               <input
@@ -497,17 +537,28 @@ export default function Cockpit() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name..."
                 className="pl-7 pr-3 py-1.5 rounded-md border text-xs outline-none"
-                style={{ background: C.card, borderColor: C.border, color: C.ink, width: '200px' }}
+                style={{ background: C.card, borderColor: C.border, color: C.ink, width: '180px' }}
                 data-testid="cockpit-search-input"
               />
             </div>
+
+            {/* Paid-Only Bulk Pre-Assessment */}
             <button
-              onClick={() => handleSendToBulkAssessment(selectedLeadIds)}
+              onClick={() => handleSendToBulkAssessment([], true)}
+              className="px-3 py-1.5 rounded-md border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm hover:opacity-90"
+              style={{ borderColor: C.teal, background: C.tealWash, color: C.tealDark }}
+              title="Process all Payment Success registrations in Bulk Pre-Assessment"
+            >
+              <Zap className="h-3.5 w-3.5" /> 💰 Process Paid Only
+            </button>
+
+            <button
+              onClick={() => handleSendToBulkAssessment(selectedLeadIds, false)}
               className="px-3 py-1.5 rounded-md border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm hover:opacity-90"
               style={{ borderColor: C.gold, background: C.goldWash, color: C.orangeDeep }}
               title="Open Bulk Pre-Assessment with website registrations"
             >
-              <Sparkles className="h-3.5 w-3.5" /> Bulk Assessment (Reports)
+              <Sparkles className="h-3.5 w-3.5" /> Bulk Assessment (All)
             </button>
           </div>
           <p className="text-xs" style={{ color: C.muted }}>

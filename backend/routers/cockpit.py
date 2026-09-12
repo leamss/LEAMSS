@@ -318,7 +318,12 @@ async def get_cards(
             except ValueError: u = None
         return u or datetime.min.replace(tzinfo=timezone.utc)
 
-    if sort == "oldest":
+    if sort == "paid_first":
+        cards.sort(key=lambda c: (
+            1 if c.get("payment_status") in ("success", "paid", "completed", "captured") or (c.get("payment_amount") or 0) > 0 else 0,
+            _sort_key_recent(c)
+        ), reverse=True)
+    elif sort == "oldest":
         cards.sort(key=_sort_key_recent)
     elif sort == "score_desc":
         cards.sort(key=lambda c: c.get("score") or -1, reverse=True)
