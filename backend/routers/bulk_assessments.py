@@ -1941,6 +1941,46 @@ async def get_batch(batch_id: str, current_user: dict = Depends(get_current_user
     return {"batch": batch, "rows": rows}
 
 
+@router.delete("/row/{row_id}")
+async def delete_row(row_id: str, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    row = await ROWS.find_one({"id": row_id})
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    batch_id = row.get("batch_id")
+    await ROWS.delete_one({"id": row_id})
+    if batch_id:
+        total = await ROWS.count_documents({"batch_id": batch_id})
+        valid = await ROWS.count_documents({"batch_id": batch_id, "status": "valid"})
+        needs_ai = await ROWS.count_documents({"batch_id": batch_id, "status": "needs_ai"})
+        invalid = await ROWS.count_documents({"batch_id": batch_id, "status": "error"})
+        generated = await ROWS.count_documents({"batch_id": batch_id, "status": "generated"})
+        await BATCHES.update_one(
+            {"id": batch_id},
+            {"$set": {"total": total, "valid": valid, "needs_ai": needs_ai, "invalid": invalid, "generated": generated}}
+        )
+    return {"ok": True, "deleted_row_id": row_id}
+
+
+@router.post("/{batch_id}/clear-generated")
+async def clear_generated_rows(batch_id: str, current_user: dict = Depends(get_current_user)):
+    """Remove already-generated rows from this bulk batch so only pending/unprocessed rows remain."""
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    res = await ROWS.delete_many({"batch_id": batch_id, "status": "generated"})
+    total = await ROWS.count_documents({"batch_id": batch_id})
+    valid = await ROWS.count_documents({"batch_id": batch_id, "status": "valid"})
+    needs_ai = await ROWS.count_documents({"batch_id": batch_id, "status": "needs_ai"})
+    invalid = await ROWS.count_documents({"batch_id": batch_id, "status": "error"})
+    generated = await ROWS.count_documents({"batch_id": batch_id, "status": "generated"})
+    await BATCHES.update_one(
+        {"id": batch_id},
+        {"$set": {"total": total, "valid": valid, "needs_ai": needs_ai, "invalid": invalid, "generated": generated}}
+    )
+    return {"ok": True, "removed_count": res.deleted_count, "remaining_total": total}
+
+
 @router.delete("/{batch_id}")
 async def delete_batch(batch_id: str, current_user: dict = Depends(get_current_user)):
     if not _can(current_user):

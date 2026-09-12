@@ -277,6 +277,25 @@ export default function BulkPreAssessment() {
     } catch (e) { toast.error(formatApiError(e, 'Could not update eligibility')); }
   };
 
+  const deleteRow = async (row) => {
+    if (!window.confirm(`Remove ${row.parsed?.name || 'this client'} from this batch?`)) return;
+    try {
+      await axios.delete(`${API}/bulk-assessments/row/${row.id}`, { headers });
+      toast.success('Removed client from batch');
+      await loadBatch(batch.id);
+    } catch (e) { toast.error(formatApiError(e, 'Could not remove client from batch')); }
+  };
+
+  const clearGeneratedRows = async () => {
+    if (!batch) return;
+    if (!window.confirm(`Remove all ${batch.generated || 0} clients whose reports are already generated from this batch?`)) return;
+    try {
+      const r = await axios.post(`${API}/bulk-assessments/${batch.id}/clear-generated`, {}, { headers });
+      toast.success(`Removed ${r.data.removed_count} completed clients from batch`);
+      await loadBatch(batch.id);
+    } catch (e) { toast.error(formatApiError(e, 'Could not clear generated clients')); }
+  };
+
   const assignConsultant = async (rowIds, email) => {
     try {
       const body = { consultant_email: email || '' };
@@ -590,8 +609,12 @@ export default function BulkPreAssessment() {
                   <Mail className="h-4 w-4 mr-1" />Request Resume ({resumeReqCount})
                 </Button>
               )}
-              {batch.email_status === 'sending' && (
-                <Button disabled className="bg-indigo-600"><Loader2 className="h-4 w-4 mr-1 animate-spin" />Emailing…</Button>
+              {batch.generated > 0 && (
+                <Button variant="outline" onClick={clearGeneratedRows}
+                  className="text-slate-600 border-slate-300 hover:bg-slate-100" data-testid="clear-generated-btn"
+                  title="Remove all already-generated clients from this working batch">
+                  <Trash2 className="h-4 w-4 mr-1 text-slate-500" />Clear Generated ({batch.generated})
+                </Button>
               )}
               <Button variant="outline" onClick={() => loadBatch(batch.id)}><RefreshCw className="h-4 w-4 mr-1" />Refresh</Button>
             </div>
@@ -837,6 +860,10 @@ export default function BulkPreAssessment() {
                                       )}
                                     </>
                                   )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => deleteRow(r)} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50" data-testid={`delete-row-${r.row_index}`}>
+                                    <Trash2 className="h-3.5 w-3.5 mr-2" />Remove from Batch
+                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </>
