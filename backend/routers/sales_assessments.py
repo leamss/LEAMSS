@@ -1558,6 +1558,8 @@ async def send_assessment_whatsapp(
         upload_whatsapp_media,
         send_whatsapp_document_by_id,
         send_whatsapp_image_by_id,
+        send_whatsapp_document_by_url,
+        send_whatsapp_image_by_url,
     )
     from core.report_email import get_resume_attachment
     from routers.email_settings import get_settings, read_asset_bytes
@@ -1584,7 +1586,7 @@ async def send_assessment_whatsapp(
             {"$set": {"share_token": share_token, "share_expires_at": exp}},
         )
 
-    base_origin = (os.environ.get("FRONTEND_URL") or str(request.base_url).rstrip("/")).rstrip("/")
+    base_origin = (os.environ.get("FRONTEND_URL") or os.environ.get("PUBLIC_BASE_URL") or str(request.base_url).rstrip("/")).rstrip("/")
     public_url = f"{base_origin}/sales/report/{share_token}"
 
     client_name = doc.get("client_name") or "Applicant"
@@ -1706,56 +1708,88 @@ async def send_assessment_whatsapp(
         logger.warning("WhatsApp API text dispatch for assessment %s encountered: %s", id, send_error)
         raise HTTPException(status_code=400, detail=send_error)
 
-    # 2. Attach Assessment Report PDF (23 pages)
+    cfg = await get_whatsapp_config()
+    is_twilio_mode = cfg.get("provider") == "twilio" or cfg.get("is_twilio")
+
+    # 2. Attach Assessment Report PDF
     if attach_report_flag:
         try:
-            snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
-            pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
-            if pdf_bytes:
-                rep_fname = _report_filename(doc.get("client_name"), id)
-                up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
-                if up_rep.get("id"):
-                    await send_whatsapp_document_by_id(
-                        to_phone=clean_phone,
-                        media_id=up_rep["id"],
-                        filename=rep_fname,
-                        caption=f"📄 Pre-Assessment Report — {client_name}",
-                    )
-                    dispatched_attachments.append("report_pdf")
+            rep_fname = _report_filename(doc.get("client_name"), id)
+            if is_twilio_mode:
+                pdf_report_url = f"{base_origin}/api/assessment-reports/public/{share_token}/pdf"
+                await send_whatsapp_document_by_url(
+                    to_phone=clean_phone,
+                    document_url=pdf_report_url,
+                    filename=rep_fname,
+                    caption=f"📄 Pre-Assessment Report — {client_name}",
+                )
+                dispatched_attachments.append("report_pdf")
+            else:
+                snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
+                pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+                if pdf_bytes:
+                    up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
+                    if up_rep.get("id"):
+                        await send_whatsapp_document_by_id(
+                            to_phone=clean_phone,
+                            media_id=up_rep["id"],
+                            filename=rep_fname,
+                            caption=f"📄 Pre-Assessment Report — {client_name}",
+                        )
+                        dispatched_attachments.append("report_pdf")
         except Exception as e:
             logger.warning("Failed to dispatch WhatsApp Report PDF attachment: %s", e)
 
     # 3. Attach Service Level Agreement (SLA PDF)
     if attach_sla_flag and s.get("sla_file_id"):
         try:
-            sla_bytes = await read_asset_bytes(s["sla_file_id"])
-            if sla_bytes:
-                sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
-                up_sla = await upload_whatsapp_media(sla_bytes, mime_type="application/pdf", filename=sla_fname)
-                if up_sla.get("id"):
-                    await send_whatsapp_document_by_id(
-                        to_phone=clean_phone,
-                        media_id=up_sla["id"],
-                        filename=sla_fname,
-                        caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
-                    )
-                    dispatched_attachments.append("sla_pdf")
+            sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+            if is_twilio_mode:
+                sla_url = f"{base_origin}/api/email-settings/asset/sla"
+                await send_whatsapp_document_by_url(
+                    to_phone=clean_phone,
+                    document_url=sla_url,
+                    filename=sla_fname,
+                    caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
+                )
+                dispatched_attachments.append("sla_pdf")
+            else:
+                sla_bytes = await read_asset_bytes(s["sla_file_id"])
+                if sla_bytes:
+                    up_sla = await upload_whatsapp_media(sla_bytes, mime_type="application/pdf", filename=sla_fname)
+                    if up_sla.get("id"):
+                        await send_whatsapp_document_by_id(
+                            to_phone=clean_phone,
+                            media_id=up_sla["id"],
+                            filename=sla_fname,
+                            caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
+                        )
+                        dispatched_attachments.append("sla_pdf")
         except Exception as e:
             logger.warning("Failed to dispatch WhatsApp SLA attachment: %s", e)
 
     # 4. Attach Payment QR Image
     if attach_qr_flag and s.get("qr_file_id"):
         try:
-            qr_bytes = await read_asset_bytes(s["qr_file_id"])
-            if qr_bytes:
-                up_qr = await upload_whatsapp_media(qr_bytes, mime_type="image/png", filename="LEAMSS-Payment-QR.png")
-                if up_qr.get("id"):
-                    await send_whatsapp_image_by_id(
-                        to_phone=clean_phone,
-                        media_id=up_qr["id"],
-                        caption="💳 LEAMSS Official Payment QR & Banking Details",
-                    )
-                    dispatched_attachments.append("payment_qr")
+            if is_twilio_mode:
+                qr_url = f"{base_origin}/api/email-settings/asset/qr"
+                await send_whatsapp_image_by_url(
+                    to_phone=clean_phone,
+                    image_url=qr_url,
+                    caption="💳 LEAMSS Official Payment QR & Banking Details",
+                )
+                dispatched_attachments.append("payment_qr")
+            else:
+                qr_bytes = await read_asset_bytes(s["qr_file_id"])
+                if qr_bytes:
+                    up_qr = await upload_whatsapp_media(qr_bytes, mime_type="image/png", filename="LEAMSS-Payment-QR.png")
+                    if up_qr.get("id"):
+                        await send_whatsapp_image_by_id(
+                            to_phone=clean_phone,
+                            media_id=up_qr["id"],
+                            caption="💳 LEAMSS Official Payment QR & Banking Details",
+                        )
+                        dispatched_attachments.append("payment_qr")
         except Exception as e:
             logger.warning("Failed to dispatch WhatsApp QR attachment: %s", e)
 
@@ -1789,15 +1823,24 @@ async def send_assessment_whatsapp(
                 r_bytes = resume_att["bytes"]
                 r_name = resume_att.get("filename") or f"{client_name}_Resume.pdf"
                 r_mime = "application/pdf" if r_name.lower().endswith(".pdf") else "application/octet-stream"
-                up_res = await upload_whatsapp_media(r_bytes, mime_type=r_mime, filename=r_name)
-                if up_res.get("id"):
-                    await send_whatsapp_document_by_id(
+                if is_twilio_mode and resume_link:
+                    await send_whatsapp_document_by_url(
                         to_phone=clean_phone,
-                        media_id=up_res["id"],
+                        document_url=resume_link,
                         filename=r_name,
                         caption=f"📄 Candidate Resume — {client_name}",
                     )
                     dispatched_attachments.append("resume_file")
+                else:
+                    up_res = await upload_whatsapp_media(r_bytes, mime_type=r_mime, filename=r_name)
+                    if up_res.get("id"):
+                        await send_whatsapp_document_by_id(
+                            to_phone=clean_phone,
+                            media_id=up_res["id"],
+                            filename=r_name,
+                            caption=f"📄 Candidate Resume — {client_name}",
+                        )
+                        dispatched_attachments.append("resume_file")
         except Exception as e:
             logger.warning("Failed to dispatch WhatsApp Resume attachment: %s", e)
 

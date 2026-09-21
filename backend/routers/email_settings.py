@@ -115,10 +115,14 @@ DEFAULTS: Dict[str, Any] = {
     "attach_resume": True,
     "qr_file_id": None,
     "offer_banner_file_id": None,
-    # WhatsApp Cloud API Settings & Editable Message Templates
-    "whatsapp_phone_number_id": "552459977946600",
-    "whatsapp_access_token": "EAAW0FmF4ZAp8BSdhIfgwvsBuDjL3tKQVd2mWAaLbvsD1kHZBjIBEZB9TEzltKv5OFPEQEFZAVwx3phvGB2AsfSMXi28ZBUZAusQa7gdkzV88AYQDI3pZAPhkVXvhJUUax7JVCcQD0d8qnbu8YZBOGHrQofKJgXt7LZB3ZCtRXrZCUXCosfdhFmeLuVZCRMZATgiOSKcA6swZDZD",
-    "whatsapp_waba_id": "28283386151278316",
+    # WhatsApp / Twilio Settings & Editable Message Templates
+    "whatsapp_provider": "twilio",
+    "twilio_account_sid": os.environ.get("TWILIO_ACCOUNT_SID", ""),
+    "twilio_auth_token": os.environ.get("TWILIO_AUTH_TOKEN", ""),
+    "twilio_phone_number": os.environ.get("TWILIO_PHONE_NUMBER", "+919619992427"),
+    "whatsapp_phone_number_id": os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "552459977946600"),
+    "whatsapp_access_token": os.environ.get("WHATSAPP_ACCESS_TOKEN", ""),
+    "whatsapp_waba_id": os.environ.get("WHATSAPP_WABA_ID", "28283386151278316"),
     "whatsapp_sender_display": "+91 96199 92427 (LEAMSS Official)",
     "whatsapp_template_report": (
         "Hello {name},\n\n"
@@ -157,6 +161,7 @@ _EDITABLE = {
     "payment_enabled", "payment_intro", "payment_link", "upi_id", "bank_domestic",
     "banks_international", "calendly_link", "indicative_note", "closing", "contact_phone",
     "contact_email", "website", "attach_report", "attach_sla", "sla_filename", "attach_resume",
+    "whatsapp_provider", "twilio_account_sid", "twilio_auth_token", "twilio_phone_number",
     "whatsapp_phone_number_id", "whatsapp_access_token", "whatsapp_waba_id", "whatsapp_sender_display",
     "whatsapp_template_report", "whatsapp_template_sla", "whatsapp_template_consultation",
 }
@@ -347,9 +352,10 @@ async def send_test_whatsapp(req: TestWhatsAppRequest, current_user: dict = Depe
     if not clean_phone or len(clean_phone) < 8:
         raise HTTPException(status_code=400, detail="Enter a valid recipient phone number with country code (e.g. +91 9876543210)")
 
+    provider = cfg.get("provider", "twilio")
     test_msg = req.message or (
         "🌟 *LEAMSS WhatsApp Integration Test*\n\n"
-        "This is a test notification confirming that Meta WhatsApp Cloud API is properly connected to your LEAMSS portal.\n\n"
+        f"This is a test notification confirming that Twilio WhatsApp API is properly connected to your LEAMSS portal.\n\n"
         "LEAMSS — We Value Emotions ❤️\nToll-Free: 1800-210-2427 · www.leamss.com"
     )
 
@@ -358,6 +364,7 @@ async def send_test_whatsapp(req: TestWhatsAppRequest, current_user: dict = Depe
         return {
             "ok": True,
             "sent_to": clean_phone,
+            "provider": provider,
             "is_simulated": res.get("status") == "simulated",
             "is_configured": cfg["is_configured"],
             "result": res,

@@ -405,27 +405,69 @@ export default function EmailSettingsDialog({ headers, onClose }) {
                   <p className="text-[10px] text-slate-400">Placeholders: <code>{"{name}"}</code>, <code>{"{id}"}</code>, <code>{"{country}"}</code>, <code>{"{score}"}</code>, <code>{"{report_url}"}</code></p>
                 </div>
 
-                {/* META API CONFIGURATION */}
+                {/* TWILIO API CONFIGURATION */}
                 <div className="border rounded-lg p-3 bg-slate-50 space-y-3">
-                  <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    ⚙️ Meta WhatsApp Cloud API Credentials
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      ⚙️ Twilio WhatsApp API Credentials
+                    </p>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                      Twilio Programmable Messaging
+                    </span>
+                  </div>
 
-                  <Field label="Phone Number ID (Meta Graph API)" hint="From Meta Developer App -> WhatsApp -> API Setup">
-                    <Input placeholder="e.g. 1333562563181243" value={st.whatsapp_phone_number_id || ''} onChange={(e) => up('whatsapp_phone_number_id', e.target.value)} className="text-xs font-mono bg-white" data-testid="es-whatsapp-phone-id" />
+                  <Field label="Twilio Account SID" hint="From Twilio Console Dashboard (starts with AC...)">
+                    <Input
+                      placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={st.twilio_account_sid || ''}
+                      onChange={(e) => up('twilio_account_sid', e.target.value)}
+                      className="text-xs font-mono bg-white"
+                      data-testid="es-twilio-account-sid"
+                    />
                   </Field>
 
-                  <Field label="WhatsApp System User Permanent Access Token" hint="Meta Business Manager -> System Users -> WhatsApp Message Send Token">
-                    <Input type="password" placeholder="EAA..." value={st.whatsapp_access_token || ''} onChange={(e) => up('whatsapp_access_token', e.target.value)} className="text-xs font-mono bg-white" data-testid="es-whatsapp-token" />
+                  <Field label="Twilio Auth Token" hint="From Twilio Console Dashboard">
+                    <Input
+                      type="password"
+                      placeholder="Your Twilio Auth Token"
+                      value={st.twilio_auth_token || ''}
+                      onChange={(e) => up('twilio_auth_token', e.target.value)}
+                      className="text-xs font-mono bg-white"
+                      data-testid="es-twilio-auth-token"
+                    />
                   </Field>
 
                   <div className="grid grid-cols-2 gap-2">
-                    <Field label="WhatsApp Business Account ID (WABA ID)">
-                      <Input placeholder="e.g. 2844277542613884" value={st.whatsapp_waba_id || ''} onChange={(e) => up('whatsapp_waba_id', e.target.value)} className="text-xs font-mono bg-white" data-testid="es-whatsapp-waba-id" />
+                    <Field label="Twilio WhatsApp Sender Number" hint="Sandbox: +14155238886 or your approved Twilio number">
+                      <Input
+                        placeholder="+14155238886"
+                        value={st.twilio_phone_number || ''}
+                        onChange={(e) => up('twilio_phone_number', e.target.value)}
+                        className="text-xs font-mono bg-white"
+                        data-testid="es-twilio-phone-number"
+                      />
                     </Field>
-                    <Field label="Official Sender Display Name / Number">
-                      <Input placeholder="+91 77188 82427 (LEAMSS Official)" value={st.whatsapp_sender_display || ''} onChange={(e) => up('whatsapp_sender_display', e.target.value)} className="text-xs bg-white" data-testid="es-whatsapp-sender" />
+                    <Field label="Official Sender Display Name / Info">
+                      <Input
+                        placeholder="+91 77383 52427 (LEAMSS Official)"
+                        value={st.whatsapp_sender_display || ''}
+                        onChange={(e) => up('whatsapp_sender_display', e.target.value)}
+                        className="text-xs bg-white"
+                        data-testid="es-whatsapp-sender"
+                      />
                     </Field>
+                  </div>
+
+                  <div className="rounded border border-indigo-100 bg-indigo-50/50 p-2 text-[11px] text-indigo-900 space-y-1">
+                    <p className="font-semibold text-indigo-950 flex items-center gap-1">
+                      🔗 Twilio WhatsApp Inbound Webhook URL:
+                    </p>
+                    <code className="block bg-white px-2 py-1 rounded border border-indigo-200 text-[10px] font-mono select-all text-slate-800">
+                      {window.location.origin}/api/whatsapp-chat/webhook
+                    </code>
+                    <p className="text-[10px] text-indigo-700">
+                      Copy this into <strong>Twilio Console &gt; Messaging &gt; Senders &gt; WhatsApp Senders (or Sandbox Settings) &gt; &quot;WHEN A MESSAGE COMES IN&quot; (HTTP POST)</strong> to receive live inbound replies in Live Chat.
+                    </p>
                   </div>
                 </div>
 

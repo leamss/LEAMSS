@@ -388,7 +388,7 @@ async def send_chat_message(
 
     if cfg.get("is_configured"):
         try:
-            await send_whatsapp_text(to_phone=phone, text=text_to_send)
+            await send_whatsapp_text(to_phone=phone, text=text_to_send, media_url=req.media_url)
             send_status = "sent"
         except Exception as exc:
             logger.warning("Live WhatsApp send encountered error: %s (recording message to chat thread)", exc)
@@ -634,13 +634,13 @@ async def list_canned_templates(current_user: dict = Depends(get_current_user)):
     return {"templates": templates}
 
 
-# ── Meta Cloud API Webhook Handling ──────────────────────────────────────────
+# ── Webhook Handling (Twilio & Meta) ─────────────────────────────────────────
 
 @router.get("/webhook")
-async def meta_webhook_verify(
+async def webhook_verify(
     request: Request,
 ):
-    """Meta Webhook Challenge Verification (GET)."""
+    """Webhook verification for Meta / health check."""
     params = dict(request.query_params)
     mode = params.get("hub.mode")
     token = params.get("hub.verify_token")
@@ -649,22 +649,59 @@ async def meta_webhook_verify(
     expected_token = os.environ.get("WHATSAPP_WEBHOOK_VERIFY_TOKEN") or "leamss_whatsapp_verify_token_2026"
 
     if mode == "subscribe" and token == expected_token:
-        logger.info("Meta WhatsApp Webhook successfully verified!")
+        logger.info("WhatsApp Webhook challenge successfully verified!")
         return Response(content=challenge, media_type="text/plain")
 
-    logger.warning("Meta WhatsApp Webhook verification failed. Received token: %s", token)
-    raise HTTPException(status_code=403, detail="Verification token mismatch")
+    return {"status": "ok", "service": "LEAMSS WhatsApp Webhook Receiver"}
 
 
 @router.post("/webhook")
-async def meta_webhook_receive(request: Request):
-    """Meta Webhook Inbound Event Receiver (POST)."""
+@router.post("/twilio-webhook")
+async def unified_whatsapp_webhook(request: Request):
+    """Unified WhatsApp Webhook Receiver for incoming Twilio & Meta messages."""
+    content_type = request.headers.get("content-type", "").lower()
+
+    # ── 1. Twilio Webhook (application/x-www-form-urlencoded or multipart) ───
+    if "form" in content_type or "urlencoded" in content_type:
+        try:
+            form_data = await request.form()
+            from_phone_raw = form_data.get("From") or ""
+            body_text = (form_data.get("Body") or "").strip()
+            profile_name = form_data.get("ProfileName") or "WhatsApp User"
+            msg_sid = form_data.get("MessageSid") or form_data.get("SmsSid")
+            msg_status = form_data.get("MessageStatus") or form_data.get("SmsStatus") or "received"
+            num_media = int(form_data.get("NumMedia") or 0)
+            media_url = form_data.get("MediaUrl0") if num_media > 0 else None
+
+            logger.info("Twilio WhatsApp Webhook received from %s (SID: %s): %s", from_phone_raw, msg_sid, body_text)
+
+            clean_phone = normalize_phone_number(from_phone_raw)
+            if clean_phone and (body_text or media_url):
+                await record_chat_message(
+                    phone=clean_phone,
+                    text=body_text or "[Media Attachment]",
+                    direction="inbound",
+                    sender_type="client",
+                    sender_name=profile_name,
+                    client_name=profile_name,
+                    status="received",
+                    media_url=str(media_url) if media_url else None,
+                )
+
+            # Return standard empty TwiML response
+            twiml_resp = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+            return Response(content=twiml_resp, media_type="application/xml")
+        except Exception as exc:
+            logger.error("Error processing Twilio WhatsApp webhook: %s", exc)
+            return Response(content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml")
+
+    # ── 2. Meta JSON Webhook (Fallback) ──────────────────────────────────────
     try:
         body = await request.json()
     except Exception:
         return {"status": "ignored_non_json"}
 
-    logger.info("WhatsApp Webhook payload received: %s", body)
+    logger.info("WhatsApp JSON Webhook payload received: %s", body)
 
     entries = body.get("entry") or []
     for entry in entries:
@@ -719,7 +756,7 @@ async def meta_webhook_receive(request: Request):
                     except Exception as e:
                         logger.error("Error recording inbound WhatsApp message: %s", e)
 
-            # Handle status delivery receipts (sent, delivered, read)
+            # Handle status delivery receipts
             statuses = value.get("statuses") or []
             for st in statuses:
                 st_id = st.get("id")
