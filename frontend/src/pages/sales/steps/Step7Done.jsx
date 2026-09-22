@@ -938,6 +938,21 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
 
     const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
+
+    // Auto-download PDF report to user's computer for instant attachment in WhatsApp Web
+    if (attachReport && assessment?.id) {
+      try {
+        const downloadUrl = `${API}/sales/assessments/public/${assessment?.share_token || assessment?.id}/report.pdf`;
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `LEAMSS_Assessment_Report_${clientName.replace(/\s+/g, '_')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (e) {
+        console.warn('Auto-download report failed:', e);
+      }
+    }
   };
 
   const handleSend = async () => {

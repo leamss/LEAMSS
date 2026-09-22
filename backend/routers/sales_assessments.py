@@ -1902,52 +1902,57 @@ async def send_assessment_whatsapp(
     is_simulated = False
     dispatched_attachments = []
 
-    # 1. Send Main Text Message
-    try:
-        res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
-        is_simulated = res.get("status") == "simulated"
-    except Exception as exc:
-        send_error = str(exc)
-        logger.warning("WhatsApp API text dispatch for assessment %s encountered: %s", id, send_error)
-        raise HTTPException(status_code=400, detail=send_error)
-
     cfg = await get_whatsapp_config()
     is_twilio_mode = cfg.get("provider") == "twilio" or cfg.get("is_twilio")
 
-    # 2. Attach Assessment Report PDF
+    rep_fname = _report_filename(doc.get("client_name"), id)
+    if not rep_fname.lower().endswith(".pdf"):
+        rep_fname = f"{rep_fname}.pdf"
+
+    pdf_bytes = None
+    pdf_report_url = None
     if attach_report_flag:
         try:
-            rep_fname = _report_filename(doc.get("client_name"), id)
-            if not rep_fname.lower().endswith(".pdf"):
-                rep_fname = f"{rep_fname}.pdf"
-
-            # Pre-render / load PDF into GridFS cache so Twilio downloads in <20ms
             pdf_bytes = await _get_or_render_assessment_pdf(doc)
+            pdf_report_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/report.pdf"
+        except Exception as err:
+            logger.warning("Failed pre-rendering PDF report: %s", err)
 
+    # 1. Send Main WhatsApp Message (Auto-attached with Pre-Assessment Report PDF)
+    try:
+        if attach_report_flag and pdf_report_url:
             if is_twilio_mode:
-                pdf_report_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/report.pdf"
-                await send_whatsapp_document_by_url(
+                res = await send_whatsapp_text(
                     to_phone=clean_phone,
-                    document_url=pdf_report_url,
-                    filename=rep_fname,
-                    caption=f"📄 Pre-Assessment Report — {client_name}",
+                    text=msg_text,
+                    media_url=pdf_report_url,
                 )
                 dispatched_attachments.append("report_pdf")
             else:
                 if pdf_bytes:
                     up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
                     if up_rep.get("id"):
-                        await send_whatsapp_document_by_id(
+                        res = await send_whatsapp_document_by_id(
                             to_phone=clean_phone,
                             media_id=up_rep["id"],
                             filename=rep_fname,
-                            caption=f"📄 Pre-Assessment Report — {client_name}",
+                            caption=msg_text[:1000],
                         )
                         dispatched_attachments.append("report_pdf")
-        except Exception as e:
-            logger.warning("Failed to dispatch WhatsApp Report PDF attachment: %s", e)
+                    else:
+                        res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+                else:
+                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+        else:
+            res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+        
+        is_simulated = res.get("status") == "simulated"
+    except Exception as exc:
+        send_error = str(exc)
+        logger.warning("WhatsApp API text dispatch for assessment %s encountered: %s", id, send_error)
+        raise HTTPException(status_code=400, detail=send_error)
 
-    # 3. Attach Service Level Agreement (SLA PDF)
+    # 2. Attach Service Level Agreement (SLA PDF)
     if attach_sla_flag and s.get("sla_file_id"):
         try:
             sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
