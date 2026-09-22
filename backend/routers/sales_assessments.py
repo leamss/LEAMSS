@@ -19,7 +19,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, File, UploadFile, Response
 from pydantic import BaseModel, Field
 
 from core.auth import get_current_user
@@ -1042,6 +1042,88 @@ async def public_share_view(token: str, request: Request):
     return payload
 
 
+@router.get("/public/{token}/pdf")
+async def public_assessment_report_pdf(token: str):
+    """Public PDF endpoint for Twilio media delivery and candidate direct downloads."""
+    doc = await assessments_col.find_one({"share_token": token})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment link not found")
+    if doc.get("share_revoked"):
+        raise HTTPException(status_code=410, detail="Share link revoked")
+    
+    from routers.assessment_reports import _build_snapshot
+    from core.report_v2.renderer import render_pdf_v2
+    from routers.bulk_assessments import _report_filename
+
+    snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
+    pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+    if not pdf_bytes:
+        raise HTTPException(status_code=500, detail="Could not render Assessment Report PDF")
+    
+    filename = _report_filename(doc.get("client_name"), doc.get("id"))
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
+
+@router.get("/public/{token}/resume")
+async def public_assessment_resume_stream(token: str):
+    """Public Resume endpoint for Twilio WhatsApp media delivery."""
+    doc = await assessments_col.find_one({"share_token": token})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment link not found")
+    if doc.get("share_revoked"):
+        raise HTTPException(status_code=410, detail="Share link revoked")
+    
+    from core.report_email import get_resume_attachment
+    resume_fid = (
+        doc.get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
+    )
+    resume_link = (
+        doc.get("resume_url")
+        or doc.get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("resume_url")
+        or (doc.get("profile_snapshot") or {}).get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_url")
+    )
+    resume_fname = (
+        doc.get("resume_filename")
+        or (doc.get("profile_snapshot") or {}).get("resume_filename")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
+    )
+    resume_att = await get_resume_attachment(
+        file_id=resume_fid,
+        link=resume_link,
+        filename=resume_fname,
+        client_name=doc.get("client_name"),
+    )
+    if not resume_att or not resume_att.get("bytes"):
+        raise HTTPException(status_code=404, detail="Resume file not found")
+    
+    r_bytes = resume_att["bytes"]
+    r_name = resume_att.get("filename") or "Resume.pdf"
+    r_mime = "application/pdf" if r_name.lower().endswith(".pdf") else "application/octet-stream"
+    return Response(
+        content=r_bytes,
+        media_type=r_mime,
+        headers={
+            "Content-Disposition": f'inline; filename="{r_name}"',
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # Individual Assessment Email Send (matches bulk email engine & templates)
 # ────────────────────────────────────────────────────────────────────────────
@@ -1589,8 +1671,17 @@ async def send_assessment_whatsapp(
             {"$set": {"share_token": share_token, "share_expires_at": exp}},
         )
 
-    base_origin = (os.environ.get("FRONTEND_URL") or os.environ.get("PUBLIC_BASE_URL") or str(request.base_url).rstrip("/")).rstrip("/")
-    public_url = f"{base_origin}/sales/report/{share_token}"
+    frontend_origin = (os.environ.get("FRONTEND_URL") or "https://app.leamss.com").rstrip("/")
+    public_url = f"{frontend_origin}/sales/report/{share_token}"
+
+    api_base_origin = (
+        os.environ.get("PUBLIC_API_URL")
+        or os.environ.get("PUBLIC_BASE_URL")
+        or os.environ.get("BACKEND_URL")
+        or "https://api.leamss.com"
+    ).rstrip("/")
+    if "localhost" in api_base_origin or "127.0.0.1" in api_base_origin:
+        api_base_origin = "https://api.leamss.com"
 
     client_name = doc.get("client_name") or "Applicant"
     occ = doc.get("occupation") or {}
@@ -1719,7 +1810,7 @@ async def send_assessment_whatsapp(
         try:
             rep_fname = _report_filename(doc.get("client_name"), id)
             if is_twilio_mode:
-                pdf_report_url = f"{base_origin}/api/assessment-reports/public/{share_token}/pdf"
+                pdf_report_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/pdf"
                 await send_whatsapp_document_by_url(
                     to_phone=clean_phone,
                     document_url=pdf_report_url,
@@ -1748,7 +1839,7 @@ async def send_assessment_whatsapp(
         try:
             sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
             if is_twilio_mode:
-                sla_url = f"{base_origin}/api/email-settings/asset/sla"
+                sla_url = f"{api_base_origin}/api/email-settings/asset/sla"
                 await send_whatsapp_document_by_url(
                     to_phone=clean_phone,
                     document_url=sla_url,
@@ -1775,7 +1866,7 @@ async def send_assessment_whatsapp(
     if attach_qr_flag and s.get("qr_file_id"):
         try:
             if is_twilio_mode:
-                qr_url = f"{base_origin}/api/email-settings/asset/qr"
+                qr_url = f"{api_base_origin}/api/email-settings/asset/qr"
                 await send_whatsapp_image_by_url(
                     to_phone=clean_phone,
                     image_url=qr_url,
@@ -1826,10 +1917,11 @@ async def send_assessment_whatsapp(
                 r_bytes = resume_att["bytes"]
                 r_name = resume_att.get("filename") or f"{client_name}_Resume.pdf"
                 r_mime = "application/pdf" if r_name.lower().endswith(".pdf") else "application/octet-stream"
-                if is_twilio_mode and resume_link:
+                if is_twilio_mode:
+                    resume_stream_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/resume"
                     await send_whatsapp_document_by_url(
                         to_phone=clean_phone,
-                        document_url=resume_link,
+                        document_url=resume_stream_url,
                         filename=r_name,
                         caption=f"📄 Candidate Resume — {client_name}",
                     )

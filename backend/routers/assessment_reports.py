@@ -959,7 +959,24 @@ async def public_report_meta(share_token: str):
 async def public_pdf(share_token: str):
     share = await REPORT_SHARES.find_one({"share_token": share_token})
     if not share:
-        raise HTTPException(status_code=404, detail="Invalid share link")
+        # Fallback check in sales_assessments
+        doc = await ASSESSMENTS.find_one({"share_token": share_token})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Invalid share link")
+        if doc.get("share_revoked"):
+            raise HTTPException(status_code=410, detail="Share link has been revoked")
+        snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
+        pdf_bytes = render_pdf(snap_data)
+        filename = f"LEAMSS_Report_{(doc.get('client_name') or 'client').replace(' ', '_')}.pdf"
+        return Response(
+            content=pdf_bytes, media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+            },
+        )
     if share.get("revoked"):
         raise HTTPException(status_code=410, detail="Share link has been revoked")
     if _expired(share):
