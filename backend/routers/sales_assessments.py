@@ -1099,7 +1099,21 @@ async def _get_or_render_assessment_pdf(doc: dict) -> Optional[bytes]:
 @router.get("/public/{token}/assessment-report.pdf")
 async def public_assessment_report_pdf(token: str):
     """Public PDF endpoint for Twilio media delivery and candidate direct downloads."""
-    doc = await assessments_col.find_one({"share_token": token})
+    doc = await assessments_col.find_one({
+        "$or": [
+            {"share_token": token},
+            {"id": token},
+            {"report_snapshot_id": token},
+            {"snapshot_id": token},
+        ]
+    })
+    if not doc:
+        doc = await db["pre_assessments"].find_one({
+            "$or": [
+                {"share_token": token},
+                {"id": token},
+            ]
+        })
     if not doc:
         raise HTTPException(status_code=404, detail="Assessment link not found")
     if doc.get("share_revoked"):
@@ -1728,6 +1742,8 @@ async def send_assessment_whatsapp(
             {"id": id},
             {"$set": {"share_token": share_token, "share_expires_at": exp}},
         )
+        doc["share_token"] = share_token
+        doc["share_expires_at"] = exp
 
     frontend_origin = (os.environ.get("FRONTEND_URL") or "https://app.leamss.com").rstrip("/")
     public_url = f"{frontend_origin}/sales/report/{share_token}"
