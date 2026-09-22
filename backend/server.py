@@ -232,9 +232,17 @@ async def startup():
         client.get_io_loop = asyncio.get_running_loop
     except Exception:
         pass
-    await init_db()
 
-    await seed_atlas_countries(db)
+    try:
+        await init_db()
+    except Exception as e:
+        print(f"[Init DB WARN] {e}")
+
+    try:
+        await seed_atlas_countries(db)
+    except Exception as e:
+        print(f"[Seed Atlas Countries WARN] {e}")
+
     try:
         from seeds.assessing_authorities_au import ensure_seeded_in_db
         await ensure_seeded_in_db(db)
@@ -247,13 +255,17 @@ async def startup():
         await seed_banks()
     except Exception as e:
         print(f"[Bank Seeder WARN] {e}")
-    # Auto-seed if database is empty
-    from core.database import users_col
-    count = await users_col.count_documents({})
-    if count == 0:
-        print("Database empty, seeding...")
-        await seed_database()
-        print("Database seeded successfully!")
+
+    try:
+        # Auto-seed if database is empty
+        from core.database import users_col
+        count = await users_col.count_documents({})
+        if count == 0:
+            print("Database empty, seeding...")
+            await seed_database()
+            print("Database seeded successfully!")
+    except Exception as e:
+        print(f"[Database Seeder WARN] {e}")
     
     # Run RBAC Phase 1 migration (idempotent — safe on every boot)
     try:
