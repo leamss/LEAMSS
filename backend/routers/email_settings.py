@@ -121,9 +121,9 @@ DEFAULTS: Dict[str, Any] = {
     "twilio_account_sid": os.environ.get("TWILIO_ACCOUNT_SID", ""),
     "twilio_auth_token": os.environ.get("TWILIO_AUTH_TOKEN", ""),
     "twilio_phone_number": os.environ.get("TWILIO_PHONE_NUMBER", "+919619992427"),
-    "whatsapp_phone_number_id": os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "552459977946600"),
+    "whatsapp_phone_number_id": os.environ.get("WHATSAPP_PHONE_NUMBER_ID", ""),
     "whatsapp_access_token": os.environ.get("WHATSAPP_ACCESS_TOKEN", ""),
-    "whatsapp_waba_id": os.environ.get("WHATSAPP_WABA_ID", "28283386151278316"),
+    "whatsapp_waba_id": os.environ.get("WHATSAPP_WABA_ID", ""),
     "whatsapp_sender_display": "+91 96199 92427 (LEAMSS Official)",
     "whatsapp_template_report": (
         "Hello {name},\n\n"
