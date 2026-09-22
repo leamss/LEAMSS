@@ -389,33 +389,11 @@ async def send_chat_message(
     api_error = None
 
     if cfg.get("is_configured"):
-        # Check if 24h customer window is active
-        last_inbound = conv.get("last_inbound_at")
-        now_dt = datetime.now(timezone.utc)
-        is_window_open = False
-        if last_inbound:
-            if isinstance(last_inbound, str):
-                try:
-                    last_inbound = datetime.fromisoformat(last_inbound)
-                except Exception:
-                    pass
-            if isinstance(last_inbound, datetime):
-                # Ensure timezone-aware
-                if last_inbound.tzinfo is None:
-                    last_inbound = last_inbound.replace(tzinfo=timezone.utc)
-                if (now_dt - last_inbound).total_seconds() < 24 * 3600:
-                    is_window_open = True
-
-        target_sid = None if is_window_open else "HX1d68628464c71e8899343d6d3f2a68fe"
-        target_vars = None if is_window_open else {"1": conv.get("client_name") or "Applicant"}
-
         try:
             await send_whatsapp_text(
                 to_phone=phone,
                 text=text_to_send,
                 media_url=req.media_url,
-                content_sid=target_sid,
-                content_variables=target_vars,
                 client_name=conv.get("client_name"),
             )
             send_status = "sent"

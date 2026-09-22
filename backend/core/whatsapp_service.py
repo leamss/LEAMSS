@@ -210,21 +210,6 @@ async def send_whatsapp_text(
                     err_code = err_json.get("code")
                     err_msg = err_json.get("message") or resp.text
 
-                    # If outside 24-hour customer window, automatically deliver via approved template
-                    if err_code == 63016 and not content_sid:
-                        logger.info("Outside 24h window for +%s, delivering via approved Twilio Content Template...", clean_phone)
-                        import json
-                        tmpl_vars = {"1": client_name or "Applicant"}
-                        tmpl_data = {
-                            "From": from_wa,
-                            "To": to_wa,
-                            "ContentSid": "HX1d68628464c71e8899343d6d3f2a68fe",
-                            "ContentVariables": json.dumps(tmpl_vars),
-                        }
-                        retry_resp = await client.post(url, data=tmpl_data, auth=(account_sid, auth_token))
-                        if retry_resp.status_code < 400:
-                            return retry_resp.json()
-
                     if err_code == 20003:
                         err_msg = "Twilio Authentication Error: Invalid Account SID or Auth Token."
                     elif err_code == 21211:
