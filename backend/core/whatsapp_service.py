@@ -114,15 +114,29 @@ async def get_whatsapp_config() -> Dict[str, Any]:
     is_twilio = bool(twilio_account_sid and twilio_auth_token)
     is_meta = bool(phone_number_id and access_token)
 
-    preferred_provider = settings_doc.get("whatsapp_provider") or "twilio"
-    if preferred_provider == "meta" and is_meta:
-        provider = "meta"
-    elif is_twilio:
+    # Twilio is the primary provider for LEAMSS WhatsApp
+    if is_twilio:
         provider = "twilio"
     elif is_meta:
         provider = "meta"
     else:
         provider = "twilio"
+
+    # If DB settings doc has outdated provider or missing Twilio keys, sync it in background
+    if is_twilio and (settings_doc.get("whatsapp_provider") != "twilio" or not settings_doc.get("twilio_account_sid")):
+        try:
+            await db["email_settings"].update_one(
+                {"id": "global"},
+                {"$set": {
+                    "whatsapp_provider": "twilio",
+                    "twilio_account_sid": twilio_account_sid,
+                    "twilio_auth_token": twilio_auth_token,
+                    "twilio_phone_number": twilio_phone_number,
+                }},
+                upsert=True,
+            )
+        except Exception:
+            pass
 
     return {
         "provider": provider,
