@@ -5,6 +5,7 @@ optional offer banner) in a GridFS bucket. The report email template reads these
 """
 from __future__ import annotations
 
+import os
 import io
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
