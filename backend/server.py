@@ -688,7 +688,13 @@ async def health():
     from core.database import client as mongo_client
     try:
         await mongo_client.admin.command("ping")
-        return {"status": "healthy", "database": "connected", "service": "LEAMSS Portal API v3.0 (MongoDB)"}
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "service": "LEAMSS Portal API v3.0 (MongoDB)",
+            "version": "3.1.2",
+            "provider": "twilio",
+        }
     except Exception:
         return {"status": "unhealthy", "database": "disconnected"}
 
