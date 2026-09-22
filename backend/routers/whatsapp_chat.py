@@ -628,6 +628,40 @@ async def list_assignable_users(current_user: dict = Depends(get_current_user)):
     return {"users": users}
 
 
+DEFAULT_CANNED_TEMPLATES = [
+    {
+        "id": "tpl-welcome-intro",
+        "name": "👋 Welcome & Initial Consultation",
+        "category": "greeting",
+        "body": "Hello {{client_name}}, thank you for connecting with LEAMSS Overseas Careers & Immigration Consultancy. We have received your inquiry and our senior consultant is ready to assist you with global migration opportunities. How can we help you today?",
+    },
+    {
+        "id": "tpl-eligibility-report",
+        "name": "📊 Share Eligibility Assessment Link",
+        "category": "assessment",
+        "body": "Hello {{client_name}}, we evaluated your migration profile. You can check your eligibility score, CRS calculator breakdown, and recommended visa streams here: {{assessment_link}}",
+    },
+    {
+        "id": "tpl-document-request",
+        "name": "📑 Document & Resume Request",
+        "category": "follow_up",
+        "body": "Hi {{client_name}}, to proceed with your eligibility verification and file preparation, please share your updated CV/Resume and educational documents with us here on WhatsApp.",
+    },
+    {
+        "id": "tpl-slot-booking",
+        "name": "📅 Consultation Slot Booking",
+        "category": "scheduling",
+        "body": "Hello {{client_name}}, we would like to schedule a dedicated 1-on-1 migration consultation for you with our senior advisor. Please let us know your preferred date and time slot.",
+    },
+    {
+        "id": "tpl-thank-you",
+        "name": "🙏 Thank You & Next Steps",
+        "category": "closing",
+        "body": "Thank you {{client_name}} for speaking with the LEAMSS team today! We are following up on your application and will share the next milestone details shortly.",
+    },
+]
+
+
 @router.get("/canned-templates")
 async def list_canned_templates(current_user: dict = Depends(get_current_user)):
     """Fetch saved templates from whatsapp_templates collection for one-click chat insertion."""
@@ -638,6 +672,10 @@ async def list_canned_templates(current_user: dict = Depends(get_current_user)):
     templates = []
     async for doc in cursor:
         templates.append(_clean_doc(doc))
+
+    if not templates:
+        templates = DEFAULT_CANNED_TEMPLATES
+
     return {"templates": templates}
 
 
@@ -684,6 +722,25 @@ async def unified_whatsapp_webhook(request: Request):
 
             clean_phone = normalize_phone_number(from_phone_raw)
             if clean_phone and (body_text or media_url):
+                # Check if first contact or new session (>24h since last inbound)
+                conv = await CONVERSATIONS.find_one({"phone": clean_phone})
+                is_first_contact = False
+                now_dt = datetime.now(timezone.utc)
+                if not conv or not conv.get("last_inbound_at"):
+                    is_first_contact = True
+                else:
+                    last_inb = conv.get("last_inbound_at")
+                    if isinstance(last_inb, str):
+                        try:
+                            last_inb = datetime.fromisoformat(last_inb)
+                        except Exception:
+                            pass
+                    if isinstance(last_inb, datetime):
+                        if last_inb.tzinfo is None:
+                            last_inb = last_inb.replace(tzinfo=timezone.utc)
+                        if (now_dt - last_inb).total_seconds() > 24 * 3600:
+                            is_first_contact = True
+
                 await record_chat_message(
                     phone=clean_phone,
                     text=body_text or "[Media Attachment]",
@@ -694,6 +751,31 @@ async def unified_whatsapp_webhook(request: Request):
                     status="received",
                     media_url=str(media_url) if media_url else None,
                 )
+
+                # Send automated Thank You / Welcome greeting on first inbound contact
+                if is_first_contact:
+                    greeting_name = profile_name if profile_name and profile_name != "WhatsApp User" else "there"
+                    welcome_reply = (
+                        f"Hello {greeting_name}! 👋\n\n"
+                        "Thank you for contacting *LEAMSS Overseas Careers & Immigration*! 🌍\n\n"
+                        "We have received your message. Our expert migration consultant is reviewing your query and will connect with you shortly.\n\n"
+                        "In the meantime, feel free to reply with your target country and qualification."
+                    )
+                    try:
+                        await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=welcome_reply,
+                        )
+                        await record_chat_message(
+                            phone=clean_phone,
+                            text=welcome_reply,
+                            direction="outbound",
+                            sender_type="system",
+                            sender_name="LEAMSS Assistant",
+                            status="sent",
+                        )
+                    except Exception as e_send:
+                        logger.warning("Could not dispatch automated welcome to +%s: %s", clean_phone, e_send)
 
             # Return standard empty TwiML response
             twiml_resp = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
