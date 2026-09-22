@@ -16,6 +16,7 @@ import os
 import uuid
 import secrets
 import asyncio
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, File, UploadFile
@@ -26,6 +27,8 @@ from core.database import db
 from core.sales_calculator import calculate, calculate_with_rules
 from core.sales_checklist import build_checklist
 from core.share_audit import record_share_event
+
+logger = logging.getLogger("sales_assessments")
 
 router = APIRouter(prefix="/sales/assessments", tags=["Smart Sales Helper - Assessments"])
 
