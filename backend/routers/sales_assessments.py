@@ -1063,10 +1063,38 @@ async def _get_or_render_assessment_pdf(doc: dict) -> Optional[bytes]:
         except Exception:
             pass
 
-    # Render fresh PDF bytes asynchronously
-    snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
+    # 1. Check if assessment has an existing report snapshot in report_snapshots
+    snap_data = None
+    snap_id = doc.get("report_snapshot_id") or doc.get("snapshot_id")
+    if snap_id:
+        try:
+            snap_doc = await db["report_snapshots"].find_one({"snapshot_id": snap_id})
+            if snap_doc and snap_doc.get("data"):
+                snap_data = dict(snap_doc["data"])
+                snap_data["snapshot_id"] = snap_id
+                snap_data.setdefault("render_tier", "full")
+        except Exception as e:
+            logger.warning("Could not load existing snapshot %s: %s", snap_id, e)
+
+    # 2. If no snapshot found, build fresh snapshot from assessment document
+    if not snap_data:
+        try:
+            snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=True)
+        except Exception as e:
+            logger.warning("_build_snapshot failed: %s", e)
+            snap_data = {
+                "snapshot_id": doc.get("id") or "SAH-REPORT",
+                "client_name": doc.get("client_name") or "Applicant",
+                "render_tier": "full",
+                "countries": doc.get("results") or [],
+                "best_country": doc.get("best_country_code") or "AU",
+                "points": doc.get("best_total") or 65,
+                "occupation": doc.get("occupation") or {},
+            }
+
     if not snap_data.get("snapshot_id"):
-        snap_data["snapshot_id"] = doc.get("id") or doc.get("share_token") or "SAH-REPORT"
+        snap_data["snapshot_id"] = snap_id or doc.get("id") or doc.get("share_token") or "SAH-REPORT"
+    snap_data.setdefault("render_tier", "full")
 
     pdf_bytes = None
     try:
@@ -1363,8 +1391,10 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
     sender_name = s.get("sender_name") or "Ladhani Education & Migration Services"
 
     # Generate 23-page PDF Report Bytes asynchronously in thread pool
-    snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
-    pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+    pdf_bytes = await _get_or_render_assessment_pdf(doc)
+    if not pdf_bytes:
+        snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=True)
+        pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
 
     occ = doc.get("occupation") or {}
     results = doc.get("results") or []
