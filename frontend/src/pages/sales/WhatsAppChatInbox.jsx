@@ -18,7 +18,8 @@ import {
   MessageSquare, Send, Search, UserCheck, UserPlus, Phone, Mail, Clock,
   CheckCheck, Paperclip, Sparkles, RefreshCw, ChevronRight, User, ShieldAlert,
   FileText, ExternalLink, PlusCircle, StickyNote, Filter, CheckCircle2,
-  AlertCircle, ChevronDown, ArrowLeft, Bot, PhoneCall
+  AlertCircle, ChevronDown, ArrowLeft, Bot, PhoneCall, Megaphone, Users, History,
+  UploadCloud, Copy, Check
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 
@@ -90,6 +91,18 @@ export default function WhatsAppChatInbox() {
   const [newChatName, setNewChatName] = useState('');
   const [newChatInitial, setNewChatInitial] = useState('');
   const [creatingChat, setCreatingChat] = useState(false);
+
+  // Broadcast Campaign State
+  const [showBroadcastDialog, setShowBroadcastDialog] = useState(false);
+  const [broadcastTab, setBroadcastTab] = useState('compose'); // 'compose' | 'history'
+  const [campaignName, setCampaignName] = useState('');
+  const [recipientInput, setRecipientInput] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastMediaUrl, setBroadcastMediaUrl] = useState('');
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState(null);
+  const [broadcastHistory, setBroadcastHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Staff note state
   const [noteText, setNoteText] = useState('');
@@ -351,6 +364,101 @@ export default function WhatsAppChatInbox() {
     }
   };
 
+  // ── Broadcast Logic ──
+  const parsedRecipients = useMemo(() => {
+    if (!recipientInput.trim()) return [];
+    const lines = recipientInput.split(/[\n,;]+/);
+    const seen = new Set();
+    const list = [];
+    for (let raw of lines) {
+      raw = raw.trim();
+      if (!raw) continue;
+      let phonePart = raw;
+      let namePart = 'Client';
+      if (raw.includes('-')) {
+        const parts = raw.split('-');
+        phonePart = parts[0].trim();
+        namePart = parts.slice(1).join('-').trim() || 'Client';
+      } else if (raw.includes(':')) {
+        const parts = raw.split(':');
+        phonePart = parts[0].trim();
+        namePart = parts.slice(1).join(':').trim() || 'Client';
+      }
+      const cleaned = phonePart.replace(/[^\d+]/g, '');
+      if (cleaned && cleaned.length >= 7 && !seen.has(cleaned)) {
+        seen.add(cleaned);
+        list.push({ phone: cleaned, name: namePart });
+      }
+    }
+    return list;
+  }, [recipientInput]);
+
+  const handleImportLeads = async () => {
+    try {
+      const res = await axios.get(`${API}/sales-assessments/list?limit=50`, { headers });
+      const assessments = res.data?.assessments || res.data || [];
+      const lines = [];
+      for (const a of assessments) {
+        const phone = a.client_phone || a.phone || a.whatsapp_to;
+        if (phone) {
+          lines.push(`${phone} - ${a.client_name || 'Client'}`);
+        }
+      }
+      if (lines.length > 0) {
+        setRecipientInput((prev) => (prev ? prev + '\n' + lines.join('\n') : lines.join('\n')));
+        toast.success(`Imported ${lines.length} lead contacts from CRM assessments`);
+      } else {
+        toast.info('No phone numbers found in recent assessments');
+      }
+    } catch (err) {
+      toast.error('Could not import CRM leads');
+    }
+  };
+
+  const fetchBroadcastHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await axios.get(`${API}/whatsapp-chat/broadcasts`, { headers });
+      setBroadcastHistory(res.data?.campaigns || []);
+    } catch (err) {
+      toast.error('Failed to load campaign history');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleSendBroadcast = async () => {
+    if (parsedRecipients.length === 0) {
+      toast.error('Please enter at least one valid recipient phone number');
+      return;
+    }
+    if (!broadcastMessage.trim()) {
+      toast.error('Please enter a broadcast message');
+      return;
+    }
+    setBroadcasting(true);
+    setBroadcastResult(null);
+    try {
+      const res = await axios.post(
+        `${API}/whatsapp-chat/broadcast`,
+        {
+          campaign_name: campaignName.trim() || `Campaign ${new Date().toLocaleDateString()}`,
+          recipients: parsedRecipients,
+          message: broadcastMessage.trim(),
+          media_url: broadcastMediaUrl.trim() || undefined,
+        },
+        { headers }
+      );
+      setBroadcastResult(res.data);
+      toast.success(`Broadcast completed! (${res.data?.sent || 0} sent, ${res.data?.failed || 0} failed)`);
+      fetchConversations(true);
+    } catch (err) {
+      toast.error(formatApiError(err, 'Failed to dispatch broadcast campaign'));
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col bg-slate-100 dark:bg-slate-950 font-sans overflow-hidden">
       {/* ── Top Header Bar ── */}
@@ -405,6 +513,18 @@ export default function WhatsAppChatInbox() {
             onClick={() => navigate('/sales/whatsapp-templates')}
           >
             <FileText className="w-3.5 h-3.5 mr-1" /> Template Manager
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs border-indigo-300 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950 dark:border-indigo-800 dark:text-indigo-300 font-semibold"
+            onClick={() => {
+              setShowBroadcastDialog(true);
+              setBroadcastResult(null);
+            }}
+          >
+            <Megaphone className="w-3.5 h-3.5 mr-1 text-indigo-600 dark:text-indigo-400" /> Broadcast Marketing
           </Button>
 
           <Button
@@ -1033,6 +1153,251 @@ export default function WhatsAppChatInbox() {
             >
               {creatingChat ? 'Opening...' : 'Start Conversation'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog 4: WhatsApp Bulk Marketing Broadcast ── */}
+      <Dialog open={showBroadcastDialog} onOpenChange={setShowBroadcastDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold flex items-center justify-between">
+              <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
+                <Megaphone className="w-4 h-4" />
+                <span>WhatsApp Marketing Broadcast Campaign</span>
+              </div>
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded text-xs">
+                <button
+                  className={`px-2.5 py-1 rounded font-medium transition-all ${
+                    broadcastTab === 'compose' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm font-bold' : 'text-slate-600'
+                  }`}
+                  onClick={() => setBroadcastTab('compose')}
+                >
+                  New Campaign
+                </button>
+                <button
+                  className={`px-2.5 py-1 rounded font-medium transition-all ${
+                    broadcastTab === 'history' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm font-bold' : 'text-slate-600'
+                  }`}
+                  onClick={() => {
+                    setBroadcastTab('history');
+                    fetchBroadcastHistory();
+                  }}
+                >
+                  <History className="w-3 h-3 inline mr-1" /> Past Logs
+                </button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          {broadcastTab === 'compose' ? (
+            <div className="space-y-4 py-2 text-xs">
+              {/* Campaign Title */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Campaign Title / Internal Reference
+                </label>
+                <Input
+                  placeholder="e.g. Express Entry & PNP Express Drive - Sept 2026"
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
+                  className="text-xs"
+                />
+              </div>
+
+              {/* Recipient Input */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-indigo-600" />
+                    Recipient Phone Numbers
+                    <Badge variant="outline" className="text-[10px] ml-1 bg-indigo-50 text-indigo-700 border-indigo-200">
+                      {parsedRecipients.length} Recognized
+                    </Badge>
+                  </label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-[11px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 p-1"
+                    onClick={handleImportLeads}
+                  >
+                    <UploadCloud className="w-3 h-3 mr-1" /> Import CRM Assessment Leads
+                  </Button>
+                </div>
+                <textarea
+                  rows={4}
+                  placeholder={`Paste numbers (comma, newline, or separated):\n919876543210 - Rahul Sharma\n917083057910 - Amit Patel\n+918108326013`}
+                  className="w-full text-xs p-2.5 font-mono rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  value={recipientInput}
+                  onChange={(e) => setRecipientInput(e.target.value)}
+                />
+                <p className="text-[10px] text-slate-500">
+                  Accepts formats: <code className="text-slate-700 dark:text-slate-300">919876543210</code>, <code className="text-slate-700 dark:text-slate-300">+919876543210</code>, or <code className="text-slate-700 dark:text-slate-300">919876543210 - Client Name</code>
+                </p>
+              </div>
+
+              {/* Message Content */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Marketing Message Body
+                  </label>
+                  {/* Template Quick Picks */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-slate-500">Quick Insert:</span>
+                    <button
+                      type="button"
+                      className="text-[10px] bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 hover:text-indigo-600 px-1.5 py-0.5 rounded transition-all"
+                      onClick={() => setBroadcastMessage((prev) => prev + ' {{client_name}}')}
+                    >
+                      + Name Tag
+                    </button>
+                    {cannedTemplates.slice(0, 2).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className="text-[10px] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-1.5 py-0.5 rounded transition-all max-w-[120px] truncate"
+                        onClick={() => setBroadcastMessage(t.body)}
+                        title={t.name}
+                      >
+                        {t.name.split(' ')[0]} {t.name.split(' ')[1] || 'Tmpl'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <textarea
+                  rows={4}
+                  placeholder="Hello {{client_name}}! Greetings from LEAMSS Overseas Careers. We are hosting an exclusive consultation drive for Canada PR & German Opportunity Card this week. Reply 'YES' to secure your slot."
+                  className="w-full text-xs p-2.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                />
+              </div>
+
+              {/* Media URL Attachment */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Promotional Media Flyer / Image URL (Optional)
+                </label>
+                <Input
+                  placeholder="https://example.com/assets/promo-flyer.png"
+                  value={broadcastMediaUrl}
+                  onChange={(e) => setBroadcastMediaUrl(e.target.value)}
+                  className="text-xs"
+                />
+              </div>
+
+              {/* Real-Time Results Summary */}
+              {broadcastResult && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Broadcast Summary
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">
+                        {broadcastResult.sent} Sent
+                      </Badge>
+                      {broadcastResult.failed > 0 && (
+                        <Badge className="bg-rose-100 text-rose-800 text-[10px]">
+                          {broadcastResult.failed} Failed
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="max-h-32 overflow-y-auto space-y-1 font-mono text-[10px]">
+                    {broadcastResult.results?.map((r, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between p-1 rounded ${
+                          r.status === 'sent' || r.status === 'simulated'
+                            ? 'bg-emerald-50/70 text-emerald-800 dark:bg-emerald-950/30'
+                            : 'bg-rose-50/70 text-rose-800 dark:bg-rose-950/30'
+                        }`}
+                      >
+                        <span>+{r.phone} ({r.name})</span>
+                        <span>{r.status.toUpperCase()} {r.error ? `- ${r.error}` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* History Tab */
+            <div className="py-2 text-xs space-y-2.5">
+              {loadingHistory ? (
+                <div className="text-center py-8 text-slate-400">Loading campaign logs...</div>
+              ) : broadcastHistory.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">No broadcast campaigns recorded yet.</div>
+              ) : (
+                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                  {broadcastHistory.map((c) => (
+                    <div
+                      key={c.id}
+                      className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">
+                          {c.campaign_name}
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          {new Date(c.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 italic bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded">
+                        "{c.message}"
+                      </p>
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <span className="text-slate-500 text-[10px]">
+                          By: {c.created_by_name || 'Marketing'}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-[10px]">
+                            {c.total_recipients} Total
+                          </Badge>
+                          <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">
+                            {c.sent_count} Delivered
+                          </Badge>
+                          {c.failed_count > 0 && (
+                            <Badge className="bg-rose-100 text-rose-800 text-[10px]">
+                              {c.failed_count} Failed
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button size="sm" variant="ghost" onClick={() => setShowBroadcastDialog(false)}>
+              Close
+            </Button>
+            {broadcastTab === 'compose' && (
+              <Button
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                disabled={parsedRecipients.length === 0 || !broadcastMessage.trim() || broadcasting}
+                onClick={handleSendBroadcast}
+              >
+                {broadcasting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Broadcasting ({parsedRecipients.length})...
+                  </>
+                ) : (
+                  <>
+                    <Megaphone className="w-3.5 h-3.5 mr-1.5" />
+                    Send Broadcast to {parsedRecipients.length} Numbers
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

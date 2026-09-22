@@ -34,6 +34,7 @@ MESSAGES = db["whatsapp_messages"]
 USERS = db["users"]
 TEMPLATES = db["whatsapp_templates"]
 ASSESSMENTS = db["sales_assessments"]
+BROADCASTS = db["whatsapp_broadcasts"]
 
 ADMIN_ROLES = {"admin", "admin_owner", "super_admin"}
 ALLOWED_ROLES = {
@@ -91,6 +92,22 @@ class SimulateInboundRequest(BaseModel):
     phone: str
     client_name: Optional[str] = "Applicant"
     text: str
+
+
+class BroadcastRecipient(BaseModel):
+    phone: str
+    name: Optional[str] = "Client"
+    email: Optional[str] = None
+
+
+class BroadcastRequest(BaseModel):
+    campaign_name: Optional[str] = "WhatsApp Marketing Broadcast"
+    recipients: List[BroadcastRecipient]
+    message: str
+    media_url: Optional[str] = None
+    media_filename: Optional[str] = None
+    content_sid: Optional[str] = None
+    content_variables: Optional[Dict[str, Any]] = None
 
 
 # ── Helper to record message & upsert conversation ───────────────────────────
@@ -602,6 +619,147 @@ async def create_or_get_conversation(
         )
 
     return {"conversation": _clean_doc(conv), "is_new": True}
+
+
+# ── Bulk WhatsApp Marketing Broadcast Endpoints ───────────────────────────────
+
+@router.post("/broadcast")
+async def broadcast_whatsapp_campaign(
+    req: BroadcastRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Send bulk WhatsApp marketing broadcast to a list of numbers."""
+    if not _has_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to send broadcasts")
+
+    if not req.recipients:
+        raise HTTPException(status_code=400, detail="Recipients list cannot be empty")
+
+    base_message = req.message.strip()
+    if not base_message and not req.content_sid:
+        raise HTTPException(status_code=400, detail="Broadcast message text cannot be empty")
+
+    broadcast_id = str(uuid.uuid4())
+    sender_name = current_user.get("name") or current_user.get("email") or "LEAMSS Marketing"
+    sender_id = current_user.get("id")
+    now = datetime.now(timezone.utc)
+
+    results = []
+    sent_count = 0
+    failed_count = 0
+
+    cfg = await get_whatsapp_config()
+
+    for item in req.recipients:
+        raw_phone = item.phone
+        clean_phone = normalize_phone_number(raw_phone)
+        client_name = item.name or "Client"
+
+        if not clean_phone:
+            results.append({
+                "phone": raw_phone,
+                "name": client_name,
+                "status": "failed",
+                "error": "Invalid phone number format",
+            })
+            failed_count += 1
+            continue
+
+        # Personalize text template variables if present
+        personalized_text = base_message.replace("{{client_name}}", client_name).replace("{{name}}", client_name)
+
+        send_status = "sent"
+        err_msg = None
+
+        if cfg.get("is_configured"):
+            try:
+                await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=personalized_text,
+                    media_url=req.media_url,
+                    content_sid=req.content_sid,
+                    content_variables=req.content_variables,
+                    client_name=client_name,
+                )
+                sent_count += 1
+            except Exception as exc:
+                logger.warning("Broadcast send failed for +%s: %s", clean_phone, exc)
+                send_status = "failed"
+                err_msg = str(exc)
+                failed_count += 1
+        else:
+            send_status = "simulated"
+            sent_count += 1
+
+        # Record to conversation and messages history
+        try:
+            await record_chat_message(
+                phone=clean_phone,
+                text=personalized_text,
+                direction="outbound",
+                sender_type="staff",
+                sender_id=sender_id,
+                sender_name=sender_name,
+                client_name=client_name,
+                client_email=item.email,
+                status=send_status,
+                media_url=req.media_url,
+                media_filename=req.media_filename,
+            )
+        except Exception as e_rec:
+            logger.error("Error logging broadcast chat message: %s", e_rec)
+
+        results.append({
+            "phone": clean_phone,
+            "name": client_name,
+            "status": send_status,
+            "error": err_msg,
+        })
+
+        # Non-blocking pacing between broadcasts
+        await asyncio.sleep(0.1)
+
+    # Save campaign log in DB
+    campaign_doc = {
+        "id": broadcast_id,
+        "campaign_name": req.campaign_name or "WhatsApp Marketing Broadcast",
+        "message": base_message,
+        "media_url": req.media_url,
+        "total_recipients": len(req.recipients),
+        "sent_count": sent_count,
+        "failed_count": failed_count,
+        "created_by": sender_id,
+        "created_by_name": sender_name,
+        "created_at": now.isoformat(),
+        "results": results,
+    }
+    await BROADCASTS.insert_one(campaign_doc)
+
+    return {
+        "success": True,
+        "broadcast_id": broadcast_id,
+        "total": len(req.recipients),
+        "sent": sent_count,
+        "failed": failed_count,
+        "results": results,
+    }
+
+
+@router.get("/broadcasts")
+async def list_broadcast_campaigns(
+    skip: int = 0,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user),
+):
+    """List historical WhatsApp marketing broadcasts."""
+    if not _has_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    cursor = BROADCASTS.find({}).sort("created_at", -1).skip(skip).limit(limit)
+    items = []
+    async for doc in cursor:
+        items.append(_clean_doc(doc))
+    return {"campaigns": items, "count": len(items)}
 
 
 # ── Metadata & Directory Endpoints ───────────────────────────────────────────
