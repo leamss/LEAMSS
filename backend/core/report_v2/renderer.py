@@ -245,6 +245,8 @@ def render_pdf_v2(snapshot: Dict[str, Any]) -> bytes:
     """
     snap = dict(snapshot)  # shallow copy — never mutate caller's payload
     snap.setdefault("render_tier", "full")
+    if not snap.get("snapshot_id"):
+        snap["snapshot_id"] = snap.get("assessment_id") or "SAH-REPORT"
     snap = _enrich_snapshot(snap)
 
     css_text = _load_css()

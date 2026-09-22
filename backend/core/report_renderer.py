@@ -828,11 +828,11 @@ def render_pdf(snapshot: Dict[str, Any]) -> bytes:
         pagesize=A4,
         leftMargin=1.6 * cm, rightMargin=1.6 * cm,
         topMargin=2.0 * cm, bottomMargin=1.4 * cm,
-        title=f"LEAMSS Assessment Report — {snapshot.get('snapshot_id')}",
+        title=f"LEAMSS Assessment Report — {snapshot.get('snapshot_id') or snapshot.get('assessment_id') or 'Draft'}",
         author=COMPANY,
     )
-    doc._snapshot_ref = snapshot.get("snapshot_id", "—")[:14]
-    doc._generated_date = snapshot.get("generated_on_human", "")
+    doc._snapshot_ref = str(snapshot.get("snapshot_id") or snapshot.get("assessment_id") or "—")[:14]
+    doc._generated_date = snapshot.get("generated_on_human") or now_human()
 
     main_frame = Frame(
         doc.leftMargin, doc.bottomMargin,

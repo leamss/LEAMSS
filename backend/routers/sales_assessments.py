@@ -1049,6 +1049,7 @@ async def _get_or_render_assessment_pdf(doc: dict) -> Optional[bytes]:
     from motor.motor_asyncio import AsyncIOMotorGridFSBucket
     from routers.assessment_reports import _build_snapshot
     from core.report_v2.renderer import render_pdf_v2
+    from core.report_renderer import render_pdf as render_pdf_v1
 
     gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="assessment_reports")
     cached_fid = doc.get("cached_pdf_file_id")
@@ -1064,7 +1065,19 @@ async def _get_or_render_assessment_pdf(doc: dict) -> Optional[bytes]:
 
     # Render fresh PDF bytes asynchronously
     snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
-    pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+    if not snap_data.get("snapshot_id"):
+        snap_data["snapshot_id"] = doc.get("id") or doc.get("share_token") or "SAH-REPORT"
+
+    pdf_bytes = None
+    try:
+        pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+    except Exception as e:
+        logger.warning("render_pdf_v2 failed (%s), falling back to render_pdf_v1", e)
+        try:
+            pdf_bytes = await asyncio.to_thread(render_pdf_v1, snap_data)
+        except Exception as e2:
+            logger.error("render_pdf_v1 also failed: %s", e2)
+
     if pdf_bytes:
         try:
             fid = await gridfs.upload_from_stream(
