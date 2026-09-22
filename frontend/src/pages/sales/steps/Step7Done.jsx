@@ -984,8 +984,15 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
       }
     } catch (e) {
       console.error('Send WhatsApp dispatch:', e);
-      const errMsg = e.response?.data?.detail || e.response?.data?.error || formatApiError(e, 'WhatsApp Error');
-      toast.error(errMsg);
+      let errMsg = e.response?.data?.detail || e.response?.data?.error;
+      if (!errMsg) {
+        if (e.message === 'Network Error' || e.code === 'ECONNABORTED') {
+          errMsg = 'Server connection issue. Please ensure the backend is running, or click "Open WhatsApp Web ↗" to send directly.';
+        } else {
+          errMsg = formatApiError(e, 'Failed to send WhatsApp message');
+        }
+      }
+      toast.error(errMsg, { duration: 8000 });
     } finally {
       setSending(false);
     }
