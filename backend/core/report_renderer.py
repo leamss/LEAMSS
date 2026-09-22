@@ -176,6 +176,8 @@ def _draw_page_frame(canvas, doc):
 def _section_cover(snap: Dict[str, Any], styles) -> List:
     client = snap.get("client") or {}
     best = snap.get("best_country") or {}
+    if isinstance(best, str):
+        best = {"country_code": best, "country_name": best, "total": snap.get("best_total") or snap.get("points") or 65}
     flow = []
     flow.append(Spacer(1, 4 * cm))
     flow.append(Paragraph("ASSESSMENT", styles["cover_title"]))
@@ -200,6 +202,8 @@ def _section_cover(snap: Dict[str, Any], styles) -> List:
 
 def _section_executive_summary(snap, styles):
     best = snap.get("best_country") or {}
+    if isinstance(best, str):
+        best = {"country_code": best, "country_name": best, "total": snap.get("best_total") or snap.get("points") or 65, "pass_mark": 65}
     countries = snap.get("countries") or []
     flow = [Paragraph("SECTION 1 — EXECUTIVE SUMMARY", styles["h1"])]
     flow.append(Paragraph(

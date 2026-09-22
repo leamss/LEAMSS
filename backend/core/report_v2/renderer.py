@@ -82,8 +82,21 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
     from routers.eoi_backlog import _build_indicative_eoi
 
     best = snap.get("best_country") or (snap.get("countries", [{}])[0] if snap.get("countries") else {})
-    cc = (best.get("country_code") or "AU").upper()
-    client_pts = best.get("total") or snap.get("best_total") or snap.get("points") or 80
+    if isinstance(best, str):
+        cc = best.upper()
+        best_subclass = "189"
+        client_pts = snap.get("best_total") or snap.get("points") or 80
+        best_dict = {"country_code": cc, "country_name": cc, "visa_subclass": best_subclass, "total": client_pts}
+    elif isinstance(best, dict):
+        cc = (best.get("country_code") or "AU").upper()
+        best_subclass = best.get("visa_subclass") or "189"
+        client_pts = best.get("total") or snap.get("best_total") or snap.get("points") or 80
+        best_dict = best
+    else:
+        cc = "AU"
+        best_subclass = "189"
+        client_pts = 80
+        best_dict = {"country_code": cc, "country_name": "Australia", "visa_subclass": best_subclass, "total": client_pts}
 
     # 1) Ensure Country Guides are present (Pages 15-17)
     has_valid_cg = bool(snap.get("country_guides") and any(
@@ -96,11 +109,15 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
 
     # 2) Extract or fallback primary occupation
     primary_occ = snap.get("occupation")
-    if not primary_occ and snap.get("countries"):
-        primary_occ = snap["countries"][0].get("occupation")
-    if not primary_occ:
+    if not primary_occ and snap.get("countries") and isinstance(snap["countries"], list):
+        first_c = snap["countries"][0]
+        if isinstance(first_c, dict):
+            primary_occ = first_c.get("occupation")
+    if isinstance(primary_occ, str):
+        primary_occ = {"code": primary_occ, "title": "Professional", "country_code": cc}
+    elif not isinstance(primary_occ, dict):
         primary_occ = {"code": "133111", "title": "Construction Project Manager", "country_code": cc}
-        snap["occupation"] = primary_occ
+    snap["occupation"] = primary_occ
 
     clean_code = str(primary_occ.get("code") or "133111").strip()
     clean_title = primary_occ.get("title") or "Construction Project Manager"
@@ -133,7 +150,10 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
 
     # 4) Ensure Subclass Points table is present (Page 6)
     if not snap.get("au_subclass_points"):
-        base_pts = int(client_pts)
+        try:
+            base_pts = int(client_pts)
+        except Exception:
+            base_pts = 65
         snap["au_subclass_points"] = {
             "pass_mark": 65,
             "occupation_code": clean_code,
@@ -201,8 +221,8 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
         snap["eligibility_verdict"] = {
             "verdict": "eligible",
             "headline": "You Meet the Eligibility Threshold",
-            "sub": f"{client_pts} points on your best pathway (Subclass {best.get('visa_subclass') or '491'}) — at or above the 65-point pass mark",
-            "best_subclass": best.get("visa_subclass") or "491",
+            "sub": f"{client_pts} points on your best pathway (Subclass {best_subclass or '491'}) — at or above the 65-point pass mark",
+            "best_subclass": best_subclass or "491",
             "best_points": client_pts,
             "pass_mark": 65,
         }
@@ -213,7 +233,7 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
         snap["cost_estimator"] = {
             "currency": "INR",
             "items": [
-                {"category": "Government Fees", "label": f"Visa Application Fee (Subclass {best.get('visa_subclass') or '189'})", "amount": 4770, "currency": "AUD", "is_estimated": True},
+                {"category": "Government Fees", "label": f"Visa Application Fee (Subclass {best_subclass or '189'})", "amount": 4770, "currency": "AUD", "is_estimated": True},
                 {"category": "Skill Assessment", "label": f"{clean_title} Assessment", "amount": 1225, "currency": "AUD", "is_estimated": True},
                 {"category": "English Test", "label": "IELTS / PTE / TOEFL", "amount": 22000, "currency": "INR", "is_estimated": True},
             ],
@@ -223,10 +243,11 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
         }
     else:
         ce = snap["cost_estimator"]
-        pkgs = ce.get("service_packages") or ce.get("packages")
-        if not pkgs:
-            ce["service_packages"] = DEFAULT_PACKAGES
-            ce["packages"] = DEFAULT_PACKAGES
+        if isinstance(ce, dict):
+            pkgs = ce.get("service_packages") or ce.get("packages")
+            if not pkgs:
+                ce["service_packages"] = DEFAULT_PACKAGES
+                ce["packages"] = DEFAULT_PACKAGES
 
     return snap
 
