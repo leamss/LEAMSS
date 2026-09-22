@@ -1778,13 +1778,21 @@ async def send_assessment_whatsapp(
     frontend_origin = (os.environ.get("FRONTEND_URL") or "https://app.leamss.com").rstrip("/")
     public_url = f"{frontend_origin}/sales/report/{share_token}"
 
+    s = await get_settings()
+    payment_link = s.get("payment_link") or "https://rzp.io/rzp/IndepdenceJjMJwx1"
+
     api_base_origin = (
-        os.environ.get("PUBLIC_API_URL")
+        s.get("backend_url")
+        or os.environ.get("PUBLIC_API_URL")
         or os.environ.get("PUBLIC_BASE_URL")
         or os.environ.get("BACKEND_URL")
         or "https://api.leamss.com"
     ).rstrip("/")
-    if "localhost" in api_base_origin or "127.0.0.1" in api_base_origin:
+    req_host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+    req_proto = request.headers.get("x-forwarded-proto") or "https"
+    if req_host and "leamss.com" in req_host:
+        api_base_origin = f"{req_proto}://{req_host}".rstrip("/")
+    elif "localhost" in api_base_origin or "127.0.0.1" in api_base_origin:
         api_base_origin = "https://api.leamss.com"
 
     client_name = doc.get("client_name") or "Applicant"
@@ -1793,9 +1801,6 @@ async def send_assessment_whatsapp(
     best_res = max(results, key=lambda r: r.get("total", 0)) if results else {}
     best_country = doc.get("best_country_code") or "AU"
     best_total = best_res.get("total") or doc.get("best_total") or 0
-
-    s = await get_settings()
-    payment_link = s.get("payment_link") or "https://rzp.io/rzp/IndepdenceJjMJwx1"
 
     def _render(tmpl: str) -> str:
         res = (
