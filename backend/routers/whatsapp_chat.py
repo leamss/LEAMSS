@@ -388,7 +388,12 @@ async def send_chat_message(
 
     if cfg.get("is_configured"):
         try:
-            await send_whatsapp_text(to_phone=phone, text=text_to_send, media_url=req.media_url)
+            await send_whatsapp_text(
+                to_phone=phone,
+                text=text_to_send,
+                media_url=req.media_url,
+                client_name=conv.get("client_name"),
+            )
             send_status = "sent"
         except Exception as exc:
             logger.warning("Live WhatsApp send encountered error: %s (recording message to chat thread)", exc)

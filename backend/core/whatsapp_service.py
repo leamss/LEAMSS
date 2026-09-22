@@ -158,6 +158,9 @@ async def send_whatsapp_text(
     text: str,
     preview_url: bool = True,
     media_url: Optional[str] = None,
+    content_sid: Optional[str] = None,
+    content_variables: Optional[Dict[str, Any]] = None,
+    client_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Send a WhatsApp text or media message to recipient via Twilio (or Meta fallback)."""
     cfg = await get_whatsapp_config()
@@ -174,7 +177,7 @@ async def send_whatsapp_text(
     if cfg["provider"] == "twilio" or cfg["is_twilio"]:
         account_sid = cfg["twilio_account_sid"]
         auth_token = cfg["twilio_auth_token"]
-        raw_from = cfg["twilio_phone_number"] or "+14155238886"
+        raw_from = cfg["twilio_phone_number"] or "+919619992427"
         from_wa = format_twilio_whatsapp_number(raw_from)
         to_wa = format_twilio_whatsapp_number(clean_phone)
 
@@ -182,10 +185,17 @@ async def send_whatsapp_text(
         data: Dict[str, Any] = {
             "From": from_wa,
             "To": to_wa,
-            "Body": text,
         }
-        if media_url:
-            data["MediaUrl"] = media_url
+
+        if content_sid:
+            data["ContentSid"] = content_sid
+            if content_variables:
+                import json
+                data["ContentVariables"] = json.dumps(content_variables)
+        else:
+            data["Body"] = text
+            if media_url:
+                data["MediaUrl"] = media_url
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
@@ -200,6 +210,21 @@ async def send_whatsapp_text(
                     err_code = err_json.get("code")
                     err_msg = err_json.get("message") or resp.text
 
+                    # If outside 24-hour customer window, automatically deliver via approved template
+                    if err_code == 63016 and not content_sid:
+                        logger.info("Outside 24h window for +%s, delivering via approved Twilio Content Template...", clean_phone)
+                        import json
+                        tmpl_vars = {"1": client_name or "Applicant"}
+                        tmpl_data = {
+                            "From": from_wa,
+                            "To": to_wa,
+                            "ContentSid": "HX1d68628464c71e8899343d6d3f2a68fe",
+                            "ContentVariables": json.dumps(tmpl_vars),
+                        }
+                        retry_resp = await client.post(url, data=tmpl_data, auth=(account_sid, auth_token))
+                        if retry_resp.status_code < 400:
+                            return retry_resp.json()
+
                     if err_code == 20003:
                         err_msg = "Twilio Authentication Error: Invalid Account SID or Auth Token."
                     elif err_code == 21211:
@@ -211,8 +236,8 @@ async def send_whatsapp_text(
                         )
                     elif err_code == 63016:
                         err_msg = (
-                            f"Cannot send plain text outside 24-hour customer window to +{clean_phone}. "
-                            "A pre-approved WhatsApp template is required by WhatsApp."
+                            f"Outside 24-hour customer window for +{clean_phone}. "
+                            "Customer must message the number or receive an approved WhatsApp template."
                         )
                     elif err_code == 63007:
                         err_msg = f"Twilio WhatsApp Sender {raw_from} is not active or not approved on WhatsApp."
