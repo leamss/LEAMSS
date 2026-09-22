@@ -38,6 +38,9 @@ else
     DC="sudo docker compose"
 fi
 
+# Ensure backend/.env exists so docker-compose env_file never fails
+touch backend/.env || true
+
 # Build & restart containers with zero downtime
 if [ -f "docker-compose.prod.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker production containers..."
