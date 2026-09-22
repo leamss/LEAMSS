@@ -45,6 +45,8 @@ touch backend/.env || true
 if [ -f "docker-compose.prod.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker production containers..."
     $DC -f docker-compose.prod.yml build
+    $DC -f docker-compose.prod.yml stop backend || true
+    sudo fuser -k 8001/tcp || true
     $DC -f docker-compose.prod.yml up -d --remove-orphans
 elif [ -f "docker-compose.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker containers..."
