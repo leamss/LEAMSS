@@ -1756,6 +1756,8 @@ async def send_assessment_whatsapp(
 
     doc = await assessments_col.find_one({"id": id})
     if not doc:
+        doc = await db["pre_assessments"].find_one({"id": id})
+    if not doc:
         raise HTTPException(status_code=404, detail="Assessment not found")
 
     raw_phone = req.recipient_phone or await _resolve_assessment_phone(doc)
