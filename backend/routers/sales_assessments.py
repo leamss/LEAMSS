@@ -1042,7 +1042,48 @@ async def public_share_view(token: str, request: Request):
     return payload
 
 
+async def _get_or_render_assessment_pdf(doc: dict) -> Optional[bytes]:
+    """Get pre-rendered PDF bytes from GridFS or render & cache for instant streaming."""
+    import io
+    from bson import ObjectId
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    from routers.assessment_reports import _build_snapshot
+    from core.report_v2.renderer import render_pdf_v2
+
+    gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="assessment_reports")
+    cached_fid = doc.get("cached_pdf_file_id")
+    if cached_fid:
+        try:
+            buf = io.BytesIO()
+            await gridfs.download_to_stream(ObjectId(cached_fid), buf)
+            val = buf.getvalue()
+            if val and len(val) > 1000:
+                return val
+        except Exception:
+            pass
+
+    # Render fresh PDF bytes asynchronously
+    snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
+    pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+    if pdf_bytes:
+        try:
+            fid = await gridfs.upload_from_stream(
+                f"report-{doc.get('id')}.pdf",
+                io.BytesIO(pdf_bytes),
+                metadata={"assessment_id": doc.get("id"), "share_token": doc.get("share_token")},
+            )
+            await assessments_col.update_one(
+                {"id": doc.get("id")},
+                {"$set": {"cached_pdf_file_id": str(fid)}}
+            )
+        except Exception as err:
+            logger.warning("Failed to cache report PDF to GridFS: %s", err)
+    return pdf_bytes
+
+
 @router.get("/public/{token}/pdf")
+@router.get("/public/{token}/report.pdf")
+@router.get("/public/{token}/assessment-report.pdf")
 async def public_assessment_report_pdf(token: str):
     """Public PDF endpoint for Twilio media delivery and candidate direct downloads."""
     doc = await assessments_col.find_one({"share_token": token})
@@ -1051,21 +1092,22 @@ async def public_assessment_report_pdf(token: str):
     if doc.get("share_revoked"):
         raise HTTPException(status_code=410, detail="Share link revoked")
     
-    from routers.assessment_reports import _build_snapshot
-    from core.report_v2.renderer import render_pdf_v2
     from routers.bulk_assessments import _report_filename
-
-    snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
-    pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+    pdf_bytes = await _get_or_render_assessment_pdf(doc)
     if not pdf_bytes:
         raise HTTPException(status_code=500, detail="Could not render Assessment Report PDF")
     
     filename = _report_filename(doc.get("client_name"), doc.get("id"))
+    if not filename.lower().endswith(".pdf"):
+        filename = f"{filename}.pdf"
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="{filename}"',
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+            "Cache-Control": "public, max-age=86400",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
             "Access-Control-Allow-Headers": "*",
@@ -1074,6 +1116,7 @@ async def public_assessment_report_pdf(token: str):
 
 
 @router.get("/public/{token}/resume")
+@router.get("/public/{token}/resume.pdf")
 async def public_assessment_resume_stream(token: str):
     """Public Resume endpoint for Twilio WhatsApp media delivery."""
     doc = await assessments_col.find_one({"share_token": token})
@@ -1116,7 +1159,9 @@ async def public_assessment_resume_stream(token: str):
         content=r_bytes,
         media_type=r_mime,
         headers={
-            "Content-Disposition": f'inline; filename="{r_name}"',
+            "Content-Disposition": f'attachment; filename="{r_name}"',
+            "Content-Length": str(len(r_bytes)),
+            "Cache-Control": "public, max-age=86400",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
             "Access-Control-Allow-Headers": "*",
@@ -1809,8 +1854,14 @@ async def send_assessment_whatsapp(
     if attach_report_flag:
         try:
             rep_fname = _report_filename(doc.get("client_name"), id)
+            if not rep_fname.lower().endswith(".pdf"):
+                rep_fname = f"{rep_fname}.pdf"
+
+            # Pre-render / load PDF into GridFS cache so Twilio downloads in <20ms
+            pdf_bytes = await _get_or_render_assessment_pdf(doc)
+
             if is_twilio_mode:
-                pdf_report_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/pdf"
+                pdf_report_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/report.pdf"
                 await send_whatsapp_document_by_url(
                     to_phone=clean_phone,
                     document_url=pdf_report_url,
@@ -1819,8 +1870,6 @@ async def send_assessment_whatsapp(
                 )
                 dispatched_attachments.append("report_pdf")
             else:
-                snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
-                pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
                 if pdf_bytes:
                     up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
                     if up_rep.get("id"):
