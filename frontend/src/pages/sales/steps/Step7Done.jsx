@@ -910,75 +910,6 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
     }
   };
 
-  const handleDirectWebShare = (overridePhone) => {
-    const raw = (overridePhone || recipientPhone || '').replace(/[^\d]/g, '');
-    const cleanPhone = raw.length === 10 ? `91${raw}` : raw;
-    const clientName = assessment?.client_name || 'Applicant';
-    const score = assessment?.best_total || '';
-    const country = assessment?.best_country_code || 'AU';
-    const reportUrl = data?.public_url || `${window.location.origin}/sales/report/${assessment?.share_token || assessment?.id}`;
-    const paymentUrl = data?.payment_link || 'https://rzp.io/rzp/IndepdenceJjMJwx1';
-
-    let msg = customMessage;
-    if (!msg) {
-      const activeTmpl = (data?.templates || []).find(t => t.id === selectedTemplate);
-      if (activeTmpl?.template_body) {
-        msg = activeTmpl.template_body
-          .replace(/\{name\}/g, clientName)
-          .replace(/\{client_name\}/g, clientName)
-          .replace(/\{id\}/g, assessment?.id || '')
-          .replace(/\{country\}/g, country)
-          .replace(/\{score\}/g, String(score))
-          .replace(/\{points\}/g, String(score))
-          .replace(/\{pass_mark\}/g, "65")
-          .replace(/\{report_url\}/g, reportUrl)
-          .replace(/\{payment_link\}/g, paymentUrl);
-      } else if (selectedTemplate === 'sla_payment') {
-        msg = `Dear ${clientName},\n\n`
-          + `Thank you for completing your migration profile assessment with LEAMSS.\n\n`
-          + `📋 *Assessment ID:* ${assessment?.id}\n`
-          + `🏆 *Outcome:* Positive (${country} · ${score} pts)\n\n`
-          + `🔗 *View Full Report:* ${reportUrl}\n`
-          + `💳 *Secure Payment Link:* ${paymentUrl}\n\n`
-          + `Please reply once payment is initiated to activate your dedicated Case Manager.\n`
-          + `LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com`;
-      } else if (selectedTemplate === 'consultation_followup') {
-        msg = `Hi ${clientName}! 🌟\n\n`
-          + `Our migration experts have completed your evaluation for ${country} with a score of ${score} points.\n\n`
-          + `📎 *Review your report here:* ${reportUrl}\n\n`
-          + `Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly.\n`
-          + `LEAMSS — www.leamss.com`;
-      } else {
-        msg = `Hello ${clientName},\n\n`
-          + `🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n`
-          + `📋 *Client:* ${clientName}\n`
-          + `🆔 *Assessment ID:* ${assessment?.id}\n`
-          + `🏆 *Best Country:* ${country} (Score: ${score} pts)\n\n`
-          + `📎 *Access Your Branded Assessment Report (Read-only):*\n${reportUrl}\n\n`
-          + `Our migration strategy team is available to assist with your next steps.\n`
-          + `LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com`;
-      }
-    }
-
-    const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-
-    // Auto-download PDF report to user's computer for instant attachment in WhatsApp Web
-    if (attachReport && assessment?.id) {
-      try {
-        const downloadUrl = `${API}/sales/assessments/public/${assessment?.share_token || assessment?.id}/report.pdf`;
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = `LEAMSS_Assessment_Report_${clientName.replace(/\s+/g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } catch (e) {
-        console.warn('Auto-download report failed:', e);
-      }
-    }
-  };
-
   const handleSend = async () => {
     const raw = (recipientPhone || '').replace(/[^\d]/g, '');
     const cleanPhone = raw.length === 10 ? `91${raw}` : raw;
@@ -996,11 +927,11 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
         attach_resume: attachResume,
         attach_sla: attachSla,
         attach_qr: attachQr,
-      }, { headers: authHeaders, timeout: 45000 });
+      }, { headers: authHeaders, timeout: 60000 });
 
       if (r.data?.ok) {
         const attCount = (r.data?.attachments_sent || []).length;
-        toast.success(`Message and ${attCount} attachment(s) sent to +${r.data.sent_to || cleanPhone} on WhatsApp!`);
+        toast.success(`Message and ${attCount} attachment(s) sent directly to +${r.data.sent_to || cleanPhone} on WhatsApp!`);
         onSent?.();
         onClose();
       } else {
@@ -1158,30 +1089,18 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 justify-between items-center pt-2 border-t">
+        <div className="flex justify-end items-center gap-2 pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
           <Button
-            type="button"
-            variant="outline"
             size="sm"
-            className="border-emerald-500 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold"
-            onClick={() => handleDirectWebShare()}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
+            onClick={handleSend}
+            disabled={sending || loading}
+            data-testid="confirm-send-whatsapp-btn"
           >
-            <MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-            Open WhatsApp Web ↗
+            {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5 mr-1.5" />}
+            {sending ? 'Sending…' : 'Send on WhatsApp'}
           </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
-            <Button
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
-              onClick={handleSend}
-              disabled={sending || loading}
-              data-testid="confirm-send-whatsapp-btn"
-            >
-              {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5 mr-1.5" />}
-              {sending ? 'Sending…' : 'Send on WhatsApp'}
-            </Button>
-          </div>
         </div>
       </Card>
     </div>
