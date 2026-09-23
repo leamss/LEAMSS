@@ -3242,6 +3242,118 @@ def _has_phone(row: Dict[str, Any]) -> Optional[str]:
     return phone if phone else None
 
 
+async def _send_row_whatsapp(row: Dict[str, Any], phone: str, template_id: Optional[str] = None) -> Dict[str, Any]:
+    from core.whatsapp_service import send_whatsapp_text, normalize_phone_number
+    from routers.email_settings import get_settings
+
+    p = row.get("parsed") or {}
+    client_name = p.get("name") or "Candidate"
+    clean_phone = normalize_phone_number(phone)
+    if not clean_phone:
+        raise ValueError("Invalid phone number")
+
+    s = await get_settings()
+    base_origin = (os.environ.get("FRONTEND_URL") or "https://app.leamss.com").rstrip("/")
+    api_origin = (s.get("backend_url") or os.environ.get("BACKEND_URL") or "https://api.leamss.com").rstrip("/")
+    if "localhost" in api_origin or "127.0.0.1" in api_origin:
+        api_origin = "https://api.leamss.com"
+
+    status = row.get("status")
+    pts = row.get("points") or {}
+    score_491 = pts.get("491") or 0
+    occ = p.get("occupation_title") or p.get("anzsco_code") or "Professional"
+
+    resume_upload_url = f"{base_origin}/upload-resume/{row.get('id')}"
+    public_pdf_url = f"{api_origin}/api/bulk-assessments/public/row/{row.get('id')}/report.pdf"
+
+    if status in ("needs_ai", "error") or bucket_for_row(row) == "needs_resume":
+        kind = "resume_request"
+        msg_text = (
+            f"Hello {client_name}, this is LEAMSS Immigration Services. "
+            f"We are processing your Australian PR Pre-Assessment and require your updated resume. "
+            f"Please upload your resume here: {resume_upload_url} or reply directly to this message."
+        )
+        await send_whatsapp_text(
+            to_phone=clean_phone,
+            text=msg_text,
+            client_name=client_name,
+        )
+        return {"sent_to": clean_phone, "kind": kind, "attachments": []}
+
+    elif bucket_for_row(row) in ("improvable", "ineligible"):
+        kind = "not_eligible"
+        msg_text = (
+            f"Hello {client_name}, your Australian PR Pre-Assessment has been evaluated. "
+            f"Current Score: {score_491} pts for {occ}. "
+            f"View your report details here: {public_pdf_url}. Reply to connect with our senior advisor."
+        )
+        await send_whatsapp_text(
+            to_phone=clean_phone,
+            text=msg_text,
+            media_url=public_pdf_url if row.get("pdf_file_id") else None,
+            client_name=client_name,
+        )
+        return {"sent_to": clean_phone, "kind": kind, "attachments": ["report_pdf"] if row.get("pdf_file_id") else []}
+
+    else:
+        kind = "eligible_report"
+        msg_text = (
+            f"Hello {client_name}, congratulations! Your Australian PR Pre-Assessment is ready. "
+            f"Score: {score_491}/65 pts (Eligible) for {occ}. "
+            f"View your full 23-page report here: {public_pdf_url}. Reply to this message to start your migration process."
+        )
+        await send_whatsapp_text(
+            to_phone=clean_phone,
+            text=msg_text,
+            media_url=public_pdf_url if row.get("pdf_file_id") else None,
+            client_name=client_name,
+        )
+        return {"sent_to": clean_phone, "kind": kind, "attachments": ["report_pdf"] if row.get("pdf_file_id") else []}
+
+
+class RowWhatsAppRequest(BaseModel):
+    template_id: Optional[str] = None
+    phone_override: Optional[str] = None
+
+
+@router.post("/row/{row_id}/whatsapp")
+async def send_single_row_whatsapp(
+    row_id: str,
+    req: RowWhatsAppRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    row = await ROWS.find_one({"id": row_id})
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    phone = req.phone_override or _has_phone(row)
+    if not phone:
+        raise HTTPException(status_code=400, detail="Please provide a valid recipient WhatsApp number.")
+
+    now = datetime.now(timezone.utc)
+    try:
+        meta = await _send_row_whatsapp(row, phone, template_id=req.template_id)
+        await ROWS.update_one({"id": row_id}, {"$set": {
+            "whatsapp_status": "sent",
+            "whatsapp_to": meta.get("sent_to"),
+            "whatsapp_sent_at": now,
+            "whatsapp_error": None,
+            "whatsapp_kind": meta.get("kind"),
+            "whatsapp_attachments": meta.get("attachments"),
+            "parsed.phone": phone,
+        }})
+        return {"ok": True, "sent_to": meta.get("sent_to"), "kind": meta.get("kind")}
+    except Exception as e:
+        await ROWS.update_one({"id": row_id}, {"$set": {
+            "whatsapp_status": "failed",
+            "whatsapp_error": str(e)[:400],
+            "whatsapp_attempted_at": now,
+        }})
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 async def _run_whatsapp_all(batch_id: str):
     rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0}).sort("row_index", 1).to_list(100000)
     done = 0
