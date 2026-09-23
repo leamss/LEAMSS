@@ -2008,12 +2008,16 @@ async def send_assessment_whatsapp(
                         "points": str(best_total),
                         "occ": str(occ.get("title") or "Australia PR"),
                     })
+                    pa_summary = (
+                        f"Your profile evaluation for {occ.get('title') or 'Australia PR'} is complete with {best_total} Points.\n\n"
+                        f"📄 To receive your complete 23-Page Official Assessment Report PDF, Service Level Agreement (SLA), and document pack directly on WhatsApp, please reply 'YES' to this message."
+                    )
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
-                        text=detail_txt,
+                        text=pa_summary,
                         client_name=client_name,
-                        content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
-                        content_variables={"1": client_name, "2": str(id)[:20], "3": detail_txt},
+                        content_sid="HX64476ead028a5c3f2eab0c2d2e52f502",
+                        content_variables={"1": client_name, "2": pa_summary},
                     )
                     if attach_report_flag:
                         dispatched_attachments.append("report_pdf")

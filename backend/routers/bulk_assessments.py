@@ -2749,12 +2749,16 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
                         "occ": str(occ or "Australia PR"),
                     },
                 )
+                pa_summary = (
+                    f"Your profile evaluation for {occ or 'Australia PR'} is complete with {best_pts} Points ({subclass}).\n\n"
+                    f"📄 To receive your complete 23-Page Official Assessment Report PDF, Service Level Agreement (SLA), and document pack directly on WhatsApp, please reply 'YES' to this message."
+                )
                 res = await send_whatsapp_text(
                     to_phone=clean_phone,
-                    text=detail_txt,
+                    text=pa_summary,
                     client_name=name,
-                    content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
-                    content_variables={"1": name, "2": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:20], "3": detail_txt},
+                    content_sid="HX64476ead028a5c3f2eab0c2d2e52f502",
+                    content_variables={"1": name, "2": pa_summary},
                 )
                 if attach_report_flag and pdf_report_url:
                     dispatched_attachments.append("report_pdf")
