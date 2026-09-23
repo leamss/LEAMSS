@@ -291,10 +291,15 @@ export default function BulkPreAssessment() {
   };
 
   const whatsAppRow = async (row, templateId = null) => {
-    if (!row.parsed?.phone) { toast.error(`${row.parsed?.name || 'This client'} has no phone number`); return; }
+    let phone = (row.parsed?.phone || '').trim();
+    if (!phone) {
+      phone = window.prompt(`Enter WhatsApp mobile number for ${row.parsed?.name || 'this client'} (with country code, e.g. +91 9876543210):`);
+      if (!phone || !phone.trim()) return;
+      phone = phone.trim();
+    }
     setWhatsAppingRow(row.id);
     try {
-      const body = {};
+      const body = { phone_override: phone };
       if (templateId) body.template_id = templateId;
       const r = await axios.post(`${API}/bulk-assessments/row/${row.id}/whatsapp`, body, { headers });
       const kindLabel = { eligible: 'Report', improvable: 'Not-Eligible report', ineligible: 'Not-Eligible report', needs_resume: 'Resume-upload request' }[r.data.kind] || 'WhatsApp message';
@@ -658,18 +663,18 @@ export default function BulkPreAssessment() {
                   <MessageSquare className="h-4 w-4 mr-1 text-emerald-600" />WhatsApp Not-Eligible ({notEligibleWhatsAppCount})
                 </Button>
               )}
-              {batch.email_status !== 'sending' && resumeReqCount > 0 && (
+              {batch.email_status !== 'sending' && (resumeReqCount > 0 || rows.some((r) => r.status === 'needs_ai' || r.status === 'error')) && (
                 <Button onClick={() => emailCategory('resume_request')}
                   className="bg-rose-600 hover:bg-rose-700 text-white" data-testid="bulk-email-resume-btn"
                   title={`Ask ${resumeReqCount} client(s) to upload their resume via email`}>
                   <Mail className="h-4 w-4 mr-1" />Request Resume (Email) ({resumeReqCount})
                 </Button>
               )}
-              {resumeReqWhatsAppCount > 0 && (
+              {(resumeReqWhatsAppCount > 0 || rows.some((r) => r.status === 'needs_ai' || r.status === 'error')) && (
                 <Button onClick={() => whatsAppCategory('resume_request')}
-                  className="bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="bulk-whatsapp-resume-btn"
-                  title={`Ask ${resumeReqWhatsAppCount} client(s) to upload their resume via WhatsApp`}>
-                  <MessageSquare className="h-4 w-4 mr-1" />Request Resume (WhatsApp) ({resumeReqWhatsAppCount})
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="bulk-whatsapp-resume-btn"
+                  title={`Ask client(s) to upload their resume via WhatsApp`}>
+                  <MessageSquare className="h-4 w-4 mr-1" />Request Resume (WhatsApp) ({resumeReqWhatsAppCount || resumeReqCount})
                 </Button>
               )}
               {batch.generated > 0 && (
@@ -872,20 +877,18 @@ export default function BulkPreAssessment() {
                               <FileText className="h-3.5 w-3.5" />
                             </Button>
                           )}
-                          {r.parsed?.phone && (
-                            <TooltipProvider delayDuration={100}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
-                                    disabled={whatsAppingRow === r.id}
-                                    onClick={() => whatsAppRow(r)} data-testid={`whatsapp-row-${r.row_index}`}>
-                                    {whatsAppingRow === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p className="text-[11px]">Send {rowBucket(r) === 'needs_resume' ? 'resume upload request' : 'report'} directly on WhatsApp to {r.parsed.phone}</p></TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+                                  disabled={whatsAppingRow === r.id}
+                                  onClick={() => whatsAppRow(r)} data-testid={`whatsapp-row-${r.row_index}`}>
+                                  {whatsAppingRow === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p className="text-[11px]">Send {rowBucket(r) === 'needs_resume' ? 'resume upload request' : 'report'} directly on WhatsApp {r.parsed?.phone ? `to ${r.parsed.phone}` : ''}</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                           {r.parsed?.email && (
                             <TooltipProvider delayDuration={100}>
                               <Tooltip>
@@ -902,84 +905,78 @@ export default function BulkPreAssessment() {
                               </Tooltip>
                             </TooltipProvider>
                           )}
-                          {(r.parsed?.phone || r.parsed?.email || r.status === 'generated') && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button size="sm" variant="ghost" className="h-7 px-1.5" data-testid={`row-actions-${r.row_index}`}>
-                                  <MoreVertical className="h-3.5 w-3.5" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-56">
-                                {r.parsed?.phone && (
-                                  <>
-                                    <DropdownMenuLabel className="text-[11px]">Send WhatsApp</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => whatsAppRow(r)} data-testid={`send-wa-auto-${r.row_index}`}>
-                                      <MessageSquare className="h-3.5 w-3.5 mr-2 text-emerald-600" />Send on WhatsApp (Auto)
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-7 px-1.5" data-testid={`row-actions-${r.row_index}`}>
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                              <DropdownMenuLabel className="text-[11px]">Send WhatsApp</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => whatsAppRow(r)} data-testid={`send-wa-auto-${r.row_index}`}>
+                                <MessageSquare className="h-3.5 w-3.5 mr-2 text-emerald-600" />Send on WhatsApp (Auto)
+                              </DropdownMenuItem>
+                              {whatsAppTemplates.length > 0 && (
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger>
+                                    <MessageSquare className="h-3.5 w-3.5 mr-2 text-emerald-600" />WhatsApp with template
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuPortal>
+                                    <DropdownMenuSubContent className="w-64">
+                                      {whatsAppTemplates.map((t) => (
+                                        <DropdownMenuItem key={t.id} onClick={() => whatsAppRow(r, t.id)} data-testid={`send-wa-tpl-${t.id}-${r.row_index}`}>
+                                          <span className="truncate">{t.name}</span>
+                                        </DropdownMenuItem>
+                                      ))}
+                                    </DropdownMenuSubContent>
+                                  </DropdownMenuPortal>
+                                </DropdownMenuSub>
+                              )}
+                              <DropdownMenuSeparator />
+                              {r.parsed?.email && (
+                                <>
+                                  <DropdownMenuLabel className="text-[11px]">Send Email</DropdownMenuLabel>
+                                  <DropdownMenuItem disabled={!emailCfg?.configured} onClick={() => emailRow(r)} data-testid={`send-auto-${r.row_index}`}>
+                                    <Send className="h-3.5 w-3.5 mr-2" />Send on Email (Auto)
+                                  </DropdownMenuItem>
+                                  {templates.length > 0 && (
+                                    <DropdownMenuSub>
+                                      <DropdownMenuSubTrigger disabled={!emailCfg?.configured}>
+                                        <LayoutTemplate className="h-3.5 w-3.5 mr-2" />Send with template
+                                      </DropdownMenuSubTrigger>
+                                      <DropdownMenuPortal>
+                                        <DropdownMenuSubContent className="w-64">
+                                          {templates.map((t) => (
+                                            <DropdownMenuItem key={t.id} onClick={() => emailRow(r, t.id)} data-testid={`send-tpl-${t.id}-${r.row_index}`}>
+                                              <span className="truncate">{t.name}</span>
+                                            </DropdownMenuItem>
+                                          ))}
+                                        </DropdownMenuSubContent>
+                                      </DropdownMenuPortal>
+                                    </DropdownMenuSub>
+                                  )}
+                                </>
+                              )}
+                              {r.status === 'generated' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuLabel className="text-[11px]">Eligibility</DropdownMenuLabel>
+                                  <DropdownMenuItem onClick={() => setMarkRow(r)} data-testid={`mark-not-eligible-${r.row_index}`}>
+                                    <Ban className="h-3.5 w-3.5 mr-2 text-rose-600" />Mark Not-Eligible…
+                                  </DropdownMenuItem>
+                                  {r.manual_eligibility && (
+                                    <DropdownMenuItem onClick={() => markEligibility(r, 'auto')} data-testid={`reset-eligibility-${r.row_index}`}>
+                                      <RotateCcw className="h-3.5 w-3.5 mr-2" />Reset to Auto
                                     </DropdownMenuItem>
-                                    {whatsAppTemplates.length > 0 && (
-                                      <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>
-                                          <MessageSquare className="h-3.5 w-3.5 mr-2 text-emerald-600" />WhatsApp with template
-                                        </DropdownMenuSubTrigger>
-                                        <DropdownMenuPortal>
-                                          <DropdownMenuSubContent className="w-64">
-                                            {whatsAppTemplates.map((t) => (
-                                              <DropdownMenuItem key={t.id} onClick={() => whatsAppRow(r, t.id)} data-testid={`send-wa-tpl-${t.id}-${r.row_index}`}>
-                                                <span className="truncate">{t.name}</span>
-                                              </DropdownMenuItem>
-                                            ))}
-                                          </DropdownMenuSubContent>
-                                        </DropdownMenuPortal>
-                                      </DropdownMenuSub>
-                                    )}
-                                    <DropdownMenuSeparator />
-                                  </>
-                                )}
-                                {r.parsed?.email && (
-                                  <>
-                                    <DropdownMenuLabel className="text-[11px]">Send Email</DropdownMenuLabel>
-                                    <DropdownMenuItem disabled={!emailCfg?.configured} onClick={() => emailRow(r)} data-testid={`send-auto-${r.row_index}`}>
-                                      <Send className="h-3.5 w-3.5 mr-2" />Send on Email (Auto)
-                                    </DropdownMenuItem>
-                                    {templates.length > 0 && (
-                                      <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger disabled={!emailCfg?.configured}>
-                                          <LayoutTemplate className="h-3.5 w-3.5 mr-2" />Send with template
-                                        </DropdownMenuSubTrigger>
-                                        <DropdownMenuPortal>
-                                          <DropdownMenuSubContent className="w-64">
-                                            {templates.map((t) => (
-                                              <DropdownMenuItem key={t.id} onClick={() => emailRow(r, t.id)} data-testid={`send-tpl-${t.id}-${r.row_index}`}>
-                                                <span className="truncate">{t.name}</span>
-                                              </DropdownMenuItem>
-                                            ))}
-                                          </DropdownMenuSubContent>
-                                        </DropdownMenuPortal>
-                                      </DropdownMenuSub>
-                                    )}
-                                  </>
-                                )}
-                                {r.status === 'generated' && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuLabel className="text-[11px]">Eligibility</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => setMarkRow(r)} data-testid={`mark-not-eligible-${r.row_index}`}>
-                                      <Ban className="h-3.5 w-3.5 mr-2 text-rose-600" />Mark Not-Eligible…
-                                    </DropdownMenuItem>
-                                    {r.manual_eligibility && (
-                                      <DropdownMenuItem onClick={() => markEligibility(r, 'auto')} data-testid={`reset-eligibility-${r.row_index}`}>
-                                        <RotateCcw className="h-3.5 w-3.5 mr-2" />Reset to Auto
-                                      </DropdownMenuItem>
-                                    )}
-                                  </>
-                                )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => deleteRow(r)} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50" data-testid={`delete-row-${r.row_index}`}>
-                                  <Trash2 className="h-3.5 w-3.5 mr-2" />Remove from Batch
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
+                                  )}
+                                </>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => deleteRow(r)} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50" data-testid={`delete-row-${r.row_index}`}>
+                                <Trash2 className="h-3.5 w-3.5 mr-2" />Remove from Batch
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
