@@ -255,13 +255,19 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
     client_name = conv.get("client_name") or profile_name or "there"
     norm_text = re.sub(r"[^\w\s]", "", body_text.strip().lower())
 
-    is_yes = any(norm_text == y or norm_text.startswith(f"{y} ") or norm_text.endswith(f" {y}")
-                 for y in ["yes", "y", "ok", "okay", "sure", "yeah", "yep", "send", "upload", "ha", "haa", "haan", "pls", "please"])
+    yes_words = {"yes", "y", "ok", "okay", "sure", "yeah", "yep", "send", "upload", "ha", "haa", "haan", "pls", "please", "1", "interested", "proceed", "send report", "upload resume", "send pdf", "yes please", "yes send"}
+    is_yes = (
+        norm_text in yes_words
+        or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text for w in ["yes", "ok", "sure", "send", "upload", "haan", "please"])
+    )
 
-    is_no = any(norm_text == n or norm_text.startswith(f"{n} ") or norm_text.endswith(f" {n}")
-                for n in ["no", "n", "nope", "nah", "cancel", "stop", "dont", "not now", "not interested", "na"])
+    no_words = {"no", "n", "nope", "nah", "cancel", "stop", "dont", "not now", "not interested", "na", "2", "dont send", "dont upload", "no thanks", "no need"}
+    is_no = (
+        norm_text in no_words
+        or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text for w in ["no", "nope", "cancel", "stop", "not interested", "dont send", "dont upload"])
+    )
 
-    from core.whatsapp_service import send_whatsapp_text, send_whatsapp_document_by_url
+    from core.whatsapp_service import send_whatsapp_text, send_whatsapp_document_by_url, send_whatsapp_image_by_url
 
     if flow == "resume_request":
         if is_yes:
@@ -321,6 +327,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
             except Exception as e_send:
                 logger.warning("Could not dispatch report breakdown to +%s: %s", clean_phone, e_send)
 
+            # 1. Report PDF
             pdf_url = conv.get("pending_pdf_url")
             if pdf_url:
                 try:
@@ -333,8 +340,34 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                 except Exception as e_pdf:
                     logger.warning("Could not dispatch report PDF attachment: %s", e_pdf)
 
+            # 2. SLA PDF
+            sla_url = conv.get("pending_sla_url")
+            if sla_url:
+                try:
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=sla_url,
+                        filename="LEAMSS-Service-Level-Agreement.pdf",
+                        caption="📑 Official Service Level Agreement (SLA) — LEAMSS"
+                    )
+                except Exception as e_sla:
+                    logger.warning("Could not dispatch SLA document attachment: %s", e_sla)
+
+            # 3. Payment QR Image
+            qr_url = conv.get("pending_qr_url")
+            if qr_url:
+                try:
+                    await send_whatsapp_image_by_url(
+                        to_phone=clean_phone,
+                        image_url=qr_url,
+                        caption="💳 LEAMSS Official Payment QR & Banking Details"
+                    )
+                except Exception as e_qr:
+                    logger.warning("Could not dispatch QR image attachment: %s", e_qr)
+
             await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {
                 "pending_flow": "", "pending_report_url": "", "pending_pdf_url": "",
+                "pending_sla_url": "", "pending_qr_url": "",
                 "pending_points": "", "pending_occ": ""
             }})
             return True
@@ -353,6 +386,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                 logger.warning("Could not dispatch thank you to +%s: %s", clean_phone, e_send)
             await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {
                 "pending_flow": "", "pending_report_url": "", "pending_pdf_url": "",
+                "pending_sla_url": "", "pending_qr_url": "",
                 "pending_points": "", "pending_occ": ""
             }})
             return True

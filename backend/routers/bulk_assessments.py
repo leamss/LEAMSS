@@ -2582,10 +2582,26 @@ def _render_row_whatsapp_text(row: Dict[str, Any], tmpl_body: str, upload_url: O
     return out
 
 
+def _has_phone(row: Dict[str, Any]) -> Optional[str]:
+    p = row.get("parsed") or {}
+    phone = (p.get("phone") or row.get("phone") or "").strip()
+    clean = normalize_phone_number(phone)
+    return clean if clean else None
+
+
 async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Optional[str] = None, custom_text: Optional[str] = None):
     clean_phone = normalize_phone_number(to_phone)
     if not clean_phone:
         raise ValueError("Invalid phone number")
+
+    p = row.get("parsed") or {}
+    name = p.get("name") or "Applicant"
+    occ = p.get("occupation_title") or ""
+    code = p.get("anzsco_code") or ""
+    points = row.get("points") or {}
+    best_pts = max([points.get("189") or 0, points.get("190") or 0, points.get("491") or 0, 0])
+    subclass = "189" if (points.get("189") or 0) >= 65 else ("190" if (points.get("190") or 0) >= 65 else "491")
+    rep_url = f"https://app.leamss.com/sales/report/{row.get('id')}"
 
     bucket = bucket_for_row(row)
     upload_url = None
@@ -2649,32 +2665,86 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
     cfg = await get_whatsapp_config()
     is_twilio_mode = cfg.get("provider") == "twilio" or cfg.get("is_twilio")
 
+    from routers.whatsapp_chat import is_in_24h_window, set_pending_flow
+    has_active_session = await is_in_24h_window(clean_phone)
+
     dispatched_attachments = []
-    if attach_report_flag and pdf_report_url:
-        if is_twilio_mode:
-            res = await send_whatsapp_text(
-                to_phone=clean_phone,
-                text=msg_text,
-                media_url=pdf_report_url,
-            )
-            dispatched_attachments.append("report_pdf")
+
+    if is_twilio_mode:
+        if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
+            # Resume Request Flow
+            if has_active_session:
+                res = await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=msg_text,
+                    client_name=name,
+                )
+            else:
+                # Cold outreach: Send approved Utility Template asking for permission to send upload link
+                await set_pending_flow(
+                    clean_phone,
+                    flow="resume_request",
+                    client_name=name,
+                    extra_data={"resume_url": upload_url or "https://app.leamss.com"},
+                )
+                res = await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=f"Please reply YES to upload your resume (Ref: {str(row.get('assessment_id') or row.get('id') or 'LEAMSS-PR')[:20]})",
+                    client_name=name,
+                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                    content_variables={"1": name, "2": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:20]},
+                )
         else:
-            if pdf_bytes:
-                up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
-                if up_rep.get("id"):
-                    res = await send_whatsapp_document_by_id(
-                        to_phone=clean_phone,
-                        media_id=up_rep["id"],
-                        filename=rep_fname,
-                        caption=msg_text[:1000],
-                    )
+            # Pre-Assessment Report Flow
+            if has_active_session:
+                res = await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=msg_text,
+                    client_name=name,
+                    media_url=pdf_report_url if (attach_report_flag and pdf_report_url) else None,
+                )
+                if attach_report_flag and pdf_report_url:
                     dispatched_attachments.append("report_pdf")
-                else:
-                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+            else:
+                # Cold outreach: Send approved Utility Template asking for permission to receive full report & docs
+                detail_txt = f"Score: {best_pts} pts ({subclass}) for {occ or 'Australia PR'}"
+                await set_pending_flow(
+                    clean_phone,
+                    flow="send_report",
+                    client_name=name,
+                    extra_data={
+                        "report_url": rep_url,
+                        "pdf_url": pdf_report_url,
+                        "points": str(best_pts),
+                        "occ": str(occ or "Australia PR"),
+                    },
+                )
+                res = await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=detail_txt,
+                    client_name=name,
+                    content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
+                    content_variables={"1": name, "2": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:20], "3": detail_txt},
+                    media_url=pdf_report_url if (attach_report_flag and pdf_report_url) else None,
+                )
+                if attach_report_flag and pdf_report_url:
+                    dispatched_attachments.append("report_pdf")
+    else:
+        # Meta Cloud API Mode
+        if attach_report_flag and pdf_bytes:
+            up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
+            if up_rep.get("id"):
+                res = await send_whatsapp_document_by_id(
+                    to_phone=clean_phone,
+                    media_id=up_rep["id"],
+                    filename=rep_fname,
+                    caption=msg_text[:1000],
+                )
+                dispatched_attachments.append("report_pdf")
             else:
                 res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
-    else:
-        res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+        else:
+            res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
 
     return {
         "sent_to": clean_phone,

@@ -1664,6 +1664,14 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
         "LEAMSS — www.leamss.com"
     )
 
+    tmpl_resume = (
+        "Hello {name},\n\n"
+        "To complete your Australia Migration Pre-Assessment (Subclass 189/190/491), our migration team needs your updated resume/CV.\n\n"
+        "📎 *Please upload your resume securely here:*\n{upload_url}\n\n"
+        "Once uploaded, our AI and migration experts will immediately evaluate your ANZSCO occupation and points eligibility.\n\n"
+        "LEAMSS — Toll-Free: 1800-210-2427 · www.leamss.com"
+    )
+
     templates = [
         {
             "id": "report_summary",
@@ -1673,6 +1681,15 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
             "attach_report": True,
             "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
             "attach_qr": bool(settings.get("qr_file_id")),
+        },
+        {
+            "id": "resume_request",
+            "name": "Request Resume / Document Upload",
+            "description": "Requests candidate to upload their latest resume/CV",
+            "template_body": tmpl_resume,
+            "attach_report": False,
+            "attach_sla": False,
+            "attach_qr": False,
         },
         {
             "id": "sla_payment",
@@ -1814,6 +1831,9 @@ async def send_assessment_whatsapp(
     best_country = doc.get("best_country_code") or "AU"
     best_total = best_res.get("total") or doc.get("best_total") or 0
 
+    token = doc.get("resume_token") or doc.get("share_token") or id
+    resume_upload_url = f"{frontend_origin}/upload-resume/{token}"
+
     def _render(tmpl: str) -> str:
         res = (
             tmpl
@@ -1828,6 +1848,9 @@ async def send_assessment_whatsapp(
             .replace("{code}", str(occ.get("code") or ""))
             .replace("{best_subclass}", str(best_res.get("subclass") or "189"))
             .replace("{report_url}", public_url)
+            .replace("{upload_url}", resume_upload_url)
+            .replace("{resume_upload_url}", resume_upload_url)
+            .replace("{resume_url}", resume_upload_url)
             .replace("{payment_link}", payment_link)
             .replace("{upi_id}", str(s.get("upi_id") or "7738352427@okbizaxis"))
             .replace("{consultant_name}", str(s.get("sender_name") or "LEAMSS Migration Team"))
@@ -1848,6 +1871,7 @@ async def send_assessment_whatsapp(
     attach_qr_flag = req.attach_qr
     attach_resume_flag = req.attach_resume
 
+    custom_t = None
     if req.custom_message and req.custom_message.strip():
         msg_text = _render(req.custom_message.strip())
     elif req.template_id:
@@ -1863,6 +1887,16 @@ async def send_assessment_whatsapp(
                 attach_qr_flag = bool(custom_t["attach_qr"])
             if "attach_resume" in custom_t:
                 attach_resume_flag = bool(custom_t["attach_resume"])
+        elif req.template_id == "resume_request":
+            raw_tmpl = (
+                "Hello {name},\n\n"
+                "To complete your Australia Migration Pre-Assessment (Subclass 189/190/491), our migration team needs your updated resume/CV.\n\n"
+                "📎 *Please upload your resume securely here:*\n{upload_url}\n\n"
+                "Once uploaded, our AI and migration experts will immediately evaluate your ANZSCO occupation and points eligibility.\n\n"
+                "LEAMSS — Toll-Free: 1800-210-2427 · www.leamss.com"
+            )
+            msg_text = _render(raw_tmpl)
+            attach_report_flag = False
         elif req.template_id == "sla_payment":
             raw_tmpl = s.get("whatsapp_template_sla") or (
                 "Dear {name},\n\n"
@@ -1930,34 +1964,61 @@ async def send_assessment_whatsapp(
         except Exception as err:
             logger.warning("Failed pre-rendering PDF report: %s", err)
 
-    # 1. Send Main WhatsApp Message (Auto-attached with Pre-Assessment Report PDF via approved Utility Template)
+    # 1. Send Main WhatsApp Message
     try:
         from routers.whatsapp_chat import is_in_24h_window, set_pending_flow
         has_active_session = await is_in_24h_window(clean_phone)
         detail_txt = f"Score: {best_total} pts for {occ.get('title') or 'Australia PR'}. View report: {public_url}"
+        is_resume_flow = req.template_id == "resume_request" or (custom_t and custom_t.get("category") == "resume")
 
         if is_twilio_mode:
-            if has_active_session:
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=msg_text,
-                    client_name=client_name,
-                    media_url=pdf_report_url if attach_report_flag else None,
-                )
+            if is_resume_flow:
+                if has_active_session:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=client_name,
+                    )
+                else:
+                    await set_pending_flow(clean_phone, "resume_request", client_name=client_name, extra_data={
+                        "resume_url": resume_upload_url
+                    })
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=f"Please reply YES to upload your resume (Ref: {str(id)[:20]})",
+                        client_name=client_name,
+                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                        content_variables={"1": client_name, "2": str(id)[:20]},
+                    )
             else:
-                await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
-                    "report_url": public_url, "pdf_url": pdf_report_url, "points": str(best_total), "occ": str(occ.get("title") or "Australia PR")
-                })
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=detail_txt,
-                    client_name=client_name,
-                    content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
-                    content_variables={"1": client_name, "2": str(id)[:20], "3": detail_txt},
-                    media_url=pdf_report_url if attach_report_flag else None,
-                )
-            if attach_report_flag:
-                dispatched_attachments.append("report_pdf")
+                if has_active_session:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=client_name,
+                        media_url=pdf_report_url if attach_report_flag else None,
+                    )
+                else:
+                    sla_url = f"{api_base_origin}/api/email-settings/asset/sla" if (attach_sla_flag and s.get("sla_file_id")) else None
+                    qr_url = f"{api_base_origin}/api/email-settings/asset/qr" if (attach_qr_flag and s.get("qr_file_id")) else None
+                    await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
+                        "report_url": public_url,
+                        "pdf_url": pdf_report_url,
+                        "sla_url": sla_url,
+                        "qr_url": qr_url,
+                        "points": str(best_total),
+                        "occ": str(occ.get("title") or "Australia PR"),
+                    })
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=detail_txt,
+                        client_name=client_name,
+                        content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
+                        content_variables={"1": client_name, "2": str(id)[:20], "3": detail_txt},
+                        media_url=pdf_report_url if attach_report_flag else None,
+                    )
+                if attach_report_flag:
+                    dispatched_attachments.append("report_pdf")
         else:
             if attach_report_flag and pdf_bytes:
                 up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
