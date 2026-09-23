@@ -3377,6 +3377,7 @@ async def _run_whatsapp_all(batch_id: str):
             await ROWS.update_one({"id": row["id"]}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
             failed += 1
         await BATCHES.update_one({"id": batch_id}, {"$set": {"whatsapp_done": done, "whatsapp_failed": failed}})
+        await asyncio.sleep(0.15)
     await BATCHES.update_one({"id": batch_id}, {"$set": {
         "whatsapp_status": "done", "whatsapp_done": done, "whatsapp_failed": failed,
         "whatsapp_skipped": skipped, "whatsapp_completed_at": datetime.now(timezone.utc),
@@ -3408,6 +3409,7 @@ async def _run_whatsapp_category(batch_id: str, kind: str, template_id: Optional
             await ROWS.update_one({"id": row["id"]}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
             failed += 1
         await BATCHES.update_one({"id": batch_id}, {"$set": {"whatsapp_done": done, "whatsapp_failed": failed}})
+        await asyncio.sleep(0.15)
     await BATCHES.update_one({"id": batch_id}, {"$set": {
         "whatsapp_status": "done", "whatsapp_done": done, "whatsapp_failed": failed,
         "whatsapp_skipped": skipped, "whatsapp_completed_at": datetime.now(timezone.utc),

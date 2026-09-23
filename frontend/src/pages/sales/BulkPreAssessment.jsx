@@ -594,6 +594,21 @@ export default function BulkPreAssessment() {
               </p>
             )}
 
+            {batch.whatsapp_status === 'sending' && (
+              <div data-testid="bulk-whatsapp-progress">
+                <div className="flex justify-between text-[11px] text-emerald-700 mb-1">
+                  <span className="flex items-center gap-1"><MessageSquare className="h-3.5 w-3.5" />Broadcasting WhatsApp messages to clients…</span>
+                  <span>{(batch.whatsapp_done || 0) + (batch.whatsapp_failed || 0)} / {batch.whatsapp_total || 0}</span>
+                </div>
+                <Progress value={batch.whatsapp_total ? Math.round((((batch.whatsapp_done || 0) + (batch.whatsapp_failed || 0)) / batch.whatsapp_total) * 100) : 0} className="h-2 bg-emerald-100" />
+              </div>
+            )}
+            {batch.whatsapp_status === 'done' && (
+              <p className="text-[11px] text-slate-600 flex items-center gap-2" data-testid="bulk-whatsapp-summary">
+                <span className="flex items-center gap-1"><MessageSquare className="h-3.5 w-3.5 text-emerald-600" />WhatsApp Broadcast: {batch.whatsapp_done || 0} sent · {batch.whatsapp_failed || 0} failed{batch.whatsapp_skipped ? ` · ${batch.whatsapp_skipped} skipped (no phone)` : ''}</span>
+              </p>
+            )}
+
             <div className="flex gap-2 flex-wrap">
               {rows.some((r) => r.parsed?.anzsco_source === 'ai') && batch.status !== 'enriching' && (
                 <Button onClick={() => setShowAiReview(true)} variant="outline" className="border-violet-400 text-violet-700 hover:bg-violet-50" data-testid="ai-review-btn">
