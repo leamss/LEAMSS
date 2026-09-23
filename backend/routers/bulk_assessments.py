@@ -2682,74 +2682,89 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
     cfg = await get_whatsapp_config()
     is_twilio_mode = cfg.get("provider") == "twilio" or cfg.get("is_twilio")
 
-    from routers.whatsapp_chat import is_in_24h_window, set_pending_flow
-    has_active_session = await is_in_24h_window(clean_phone)
+    from routers.whatsapp_chat import set_pending_flow
+    from core.whatsapp_service import send_whatsapp_document_by_url
 
     dispatched_attachments = []
 
     if is_twilio_mode:
         if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
             # Resume Request Flow
-            if has_active_session:
+            try:
                 res = await send_whatsapp_text(
                     to_phone=clean_phone,
                     text=msg_text,
                     client_name=name,
                 )
-            else:
-                # Cold outreach: Send approved Utility Template asking for permission to send upload link
-                await set_pending_flow(
-                    clean_phone,
-                    flow="resume_request",
-                    client_name=name,
-                    extra_data={
-                        "resume_url": upload_url or "https://app.leamss.com",
-                        "selected_msg": msg_text,
-                    },
-                )
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=f"Please reply YES to upload your resume (Ref: {str(row.get('assessment_id') or row.get('id') or 'LEAMSS-PR')[:20]})",
-                    client_name=name,
-                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                    content_variables={"1": name, "2": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:20]},
-                )
+            except Exception as e_direct:
+                err_str = str(e_direct)
+                if "63016" in err_str or "Outside 24-hour" in err_str:
+                    await set_pending_flow(
+                        clean_phone,
+                        flow="resume_request",
+                        client_name=name,
+                        extra_data={
+                            "resume_url": upload_url or "https://app.leamss.com",
+                            "selected_msg": msg_text,
+                        },
+                    )
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=f"Please reply YES to upload your resume (Ref: {str(row.get('assessment_id') or row.get('id') or 'LEAMSS-PR')[:20]})",
+                        client_name=name,
+                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                        content_variables={"1": name, "2": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:20]},
+                    )
+                else:
+                    raise e_direct
         else:
             # Pre-Assessment Report Flow
-            if has_active_session:
+            try:
                 res = await send_whatsapp_text(
                     to_phone=clean_phone,
                     text=msg_text,
                     client_name=name,
-                    media_url=pdf_report_url if (attach_report_flag and pdf_report_url) else None,
                 )
                 if attach_report_flag and pdf_report_url:
-                    dispatched_attachments.append("report_pdf")
-            else:
-                # Cold outreach: Send approved Utility Template asking for permission to receive full report & docs
-                detail_txt = f"Score: {best_pts} pts ({subclass}) for {occ or 'Australia PR'}"
-                await set_pending_flow(
-                    clean_phone,
-                    flow="send_report",
-                    client_name=name,
-                    extra_data={
-                        "report_url": rep_url,
-                        "pdf_url": pdf_report_url,
-                        "selected_msg": msg_text,
-                        "points": str(best_pts),
-                        "occ": str(occ or "Australia PR"),
-                    },
-                )
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=detail_txt,
-                    client_name=name,
-                    content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
-                    content_variables={"1": name, "2": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:20], "3": detail_txt},
-                    media_url=pdf_report_url if (attach_report_flag and pdf_report_url) else None,
-                )
-                if attach_report_flag and pdf_report_url:
-                    dispatched_attachments.append("report_pdf")
+                    import asyncio
+                    await asyncio.sleep(0.5)
+                    try:
+                        await send_whatsapp_document_by_url(
+                            to_phone=clean_phone,
+                            document_url=pdf_report_url,
+                            filename=rep_fname,
+                            caption=f"📄 Pre-Assessment Report — {name}",
+                        )
+                        dispatched_attachments.append("report_pdf")
+                    except Exception as e_pdf:
+                        logger.warning("Failed to dispatch Report PDF in bulk row: %s", e_pdf)
+            except Exception as e_direct:
+                err_str = str(e_direct)
+                if "63016" in err_str or "Outside 24-hour" in err_str:
+                    detail_txt = f"Score: {best_pts} pts ({subclass}) for {occ or 'Australia PR'}"
+                    await set_pending_flow(
+                        clean_phone,
+                        flow="send_report",
+                        client_name=name,
+                        extra_data={
+                            "report_url": rep_url,
+                            "pdf_url": pdf_report_url,
+                            "selected_msg": msg_text,
+                            "points": str(best_pts),
+                            "occ": str(occ or "Australia PR"),
+                        },
+                    )
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=detail_txt,
+                        client_name=name,
+                        content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
+                        content_variables={"1": name, "2": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:20], "3": detail_txt},
+                    )
+                    if attach_report_flag and pdf_report_url:
+                        dispatched_attachments.append("report_pdf")
+                else:
+                    raise e_direct
     else:
         # Meta Cloud API Mode
         if attach_report_flag and pdf_bytes:

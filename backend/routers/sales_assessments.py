@@ -1960,88 +1960,60 @@ async def send_assessment_whatsapp(
     qr_url = f"{api_base_origin}/api/email-settings/asset/qr" if (attach_qr_flag and s.get("qr_file_id")) else None
     resume_stream_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/resume" if attach_resume_flag else None
 
-    # 1. Send Main WhatsApp Message
+    # 1. Send Main WhatsApp Message (Selected Template)
+    is_permission_template = False
     try:
-        from routers.whatsapp_chat import is_in_24h_window, set_pending_flow
-        has_active_session = await is_in_24h_window(clean_phone)
+        from routers.whatsapp_chat import set_pending_flow
         detail_txt = f"Score: {best_total} pts for {occ.get('title') or 'Australia PR'}. View report: {public_url}"
         is_resume_flow = req.template_id == "resume_request" or (custom_t and custom_t.get("category") == "resume")
 
         if is_twilio_mode:
-            if is_resume_flow:
-                if has_active_session:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=client_name,
-                    )
+            try:
+                # Always attempt direct dispatch of selected template first
+                res = await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=msg_text,
+                    client_name=client_name,
+                )
+            except Exception as e_direct:
+                err_str = str(e_direct)
+                # If strictly outside 24-hour window, fall back to approved Meta/Twilio permission template
+                if "63016" in err_str or "Outside 24-hour" in err_str:
+                    is_permission_template = True
+                    if is_resume_flow:
+                        await set_pending_flow(clean_phone, "resume_request", client_name=client_name, extra_data={
+                            "resume_url": resume_upload_url,
+                            "selected_msg": msg_text,
+                        })
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=f"Please reply YES to upload your resume (Ref: {str(id)[:20]})",
+                            client_name=client_name,
+                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                            content_variables={"1": client_name, "2": str(id)[:20]},
+                        )
+                    else:
+                        await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
+                            "report_url": public_url,
+                            "pdf_url": pdf_report_url if attach_report_flag else None,
+                            "sla_url": sla_url if attach_sla_flag else None,
+                            "qr_url": qr_url if attach_qr_flag else None,
+                            "resume_url": resume_stream_url if attach_resume_flag else None,
+                            "selected_msg": msg_text,
+                            "points": str(best_total),
+                            "occ": str(occ.get("title") or "Australia PR"),
+                        })
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=detail_txt,
+                            client_name=client_name,
+                            content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
+                            content_variables={"1": client_name, "2": str(id)[:20], "3": detail_txt},
+                        )
                 else:
-                    await set_pending_flow(clean_phone, "resume_request", client_name=client_name, extra_data={
-                        "resume_url": resume_upload_url,
-                        "selected_msg": msg_text,
-                    })
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=f"Please reply YES to upload your resume (Ref: {str(id)[:20]})",
-                        client_name=client_name,
-                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                        content_variables={"1": client_name, "2": str(id)[:20]},
-                    )
-            else:
-                if has_active_session:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=client_name,
-                    )
-                    if attach_report_flag and pdf_report_url:
-                        import asyncio
-                        await asyncio.sleep(0.5)
-                        try:
-                            await send_whatsapp_document_by_url(
-                                to_phone=clean_phone,
-                                document_url=pdf_report_url,
-                                filename=rep_fname,
-                                caption=f"📄 Official 23-Page Australia PR Assessment Report — {client_name}",
-                            )
-                            dispatched_attachments.append("report_pdf")
-                        except Exception as e_pdf:
-                            logger.warning("Could not dispatch report PDF in active session: %s", e_pdf)
-                else:
-                    await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
-                        "report_url": public_url,
-                        "pdf_url": pdf_report_url if attach_report_flag else None,
-                        "sla_url": sla_url if attach_sla_flag else None,
-                        "qr_url": qr_url if attach_qr_flag else None,
-                        "resume_url": resume_stream_url if attach_resume_flag else None,
-                        "selected_msg": msg_text,
-                        "points": str(best_total),
-                        "occ": str(occ.get("title") or "Australia PR"),
-                    })
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=detail_txt,
-                        client_name=client_name,
-                        content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
-                        content_variables={"1": client_name, "2": str(id)[:20], "3": detail_txt},
-                    )
-                    if attach_report_flag:
-                        dispatched_attachments.append("report_pdf")
+                    raise e_direct
         else:
-            if attach_report_flag and pdf_bytes:
-                up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
-                if up_rep.get("id"):
-                    res = await send_whatsapp_document_by_id(
-                        to_phone=clean_phone,
-                        media_id=up_rep["id"],
-                        filename=rep_fname,
-                        caption=msg_text[:1000],
-                    )
-                    dispatched_attachments.append("report_pdf")
-                else:
-                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
-            else:
-                res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
+            res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
         
         is_simulated = res.get("status") == "simulated"
     except Exception as exc:
@@ -2056,15 +2028,40 @@ async def send_assessment_whatsapp(
         }})
         raise HTTPException(status_code=400, detail=send_error)
 
-    # For active session (or Meta Cloud API mode), dispatch remaining selected attachments sequentially
-    if has_active_session or not is_twilio_mode:
+    # 2. Dispatch all selected attachments directly if not gated by permission template
+    if not is_permission_template:
         import asyncio
-        # 2. Attach Service Level Agreement (SLA PDF)
+        # 2a. Attach Report PDF
+        if attach_report_flag and (pdf_report_url or pdf_bytes):
+            try:
+                await asyncio.sleep(0.5)
+                if is_twilio_mode and pdf_report_url:
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=pdf_report_url,
+                        filename=rep_fname,
+                        caption=f"📄 Official 23-Page Australia PR Assessment Report — {client_name}",
+                    )
+                    dispatched_attachments.append("report_pdf")
+                elif pdf_bytes:
+                    up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
+                    if up_rep.get("id"):
+                        await send_whatsapp_document_by_id(
+                            to_phone=clean_phone,
+                            media_id=up_rep["id"],
+                            filename=rep_fname,
+                            caption=f"📄 Assessment Report — {client_name}",
+                        )
+                        dispatched_attachments.append("report_pdf")
+            except Exception as e_pdf:
+                logger.warning("Failed to dispatch Report PDF: %s", e_pdf)
+
+        # 2b. Attach Service Level Agreement (SLA PDF)
         if attach_sla_flag and s.get("sla_file_id"):
             try:
                 await asyncio.sleep(0.5)
                 sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
-                if is_twilio_mode:
+                if is_twilio_mode and sla_url:
                     await send_whatsapp_document_by_url(
                         to_phone=clean_phone,
                         document_url=sla_url,
@@ -2087,11 +2084,11 @@ async def send_assessment_whatsapp(
             except Exception as e:
                 logger.warning("Failed to dispatch WhatsApp SLA attachment: %s", e)
 
-        # 3. Attach Payment QR Image
+        # 2c. Attach Payment QR Image
         if attach_qr_flag and s.get("qr_file_id"):
             try:
                 await asyncio.sleep(0.5)
-                if is_twilio_mode:
+                if is_twilio_mode and qr_url:
                     await send_whatsapp_image_by_url(
                         to_phone=clean_phone,
                         image_url=qr_url,
@@ -2112,7 +2109,7 @@ async def send_assessment_whatsapp(
             except Exception as e:
                 logger.warning("Failed to dispatch WhatsApp QR attachment: %s", e)
 
-        # 4. Attach Candidate Uploaded Resume (if available & requested)
+        # 2d. Attach Candidate Uploaded Resume (if available & requested)
         if attach_resume_flag:
             try:
                 await asyncio.sleep(0.5)
@@ -2143,7 +2140,7 @@ async def send_assessment_whatsapp(
                     r_bytes = resume_att["bytes"]
                     r_name = resume_att.get("filename") or f"{client_name}_Resume.pdf"
                     r_mime = "application/pdf" if r_name.lower().endswith(".pdf") else "application/octet-stream"
-                    if is_twilio_mode:
+                    if is_twilio_mode and resume_stream_url:
                         await send_whatsapp_document_by_url(
                             to_phone=clean_phone,
                             document_url=resume_stream_url,
