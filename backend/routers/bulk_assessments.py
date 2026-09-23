@@ -3268,44 +3268,38 @@ async def _send_row_whatsapp(row: Dict[str, Any], phone: str, template_id: Optio
 
     if status in ("needs_ai", "error") or bucket_for_row(row) == "needs_resume":
         kind = "resume_request"
-        msg_text = (
-            f"Hello {client_name}, this is LEAMSS Immigration Services. "
-            f"We are processing your Australian PR Pre-Assessment and require your updated resume. "
-            f"Please upload your resume here: {resume_upload_url} or reply directly to this message."
-        )
-        await send_whatsapp_text(
+        # Dedicated Meta Approved UTILITY Template for Resume Requests (HXecdec14cc27a0857c49274c92f26d366)
+        res = await send_whatsapp_text(
             to_phone=clean_phone,
-            text=msg_text,
+            text=f"Please upload your resume: {resume_upload_url}",
+            content_sid="HXecdec14cc27a0857c49274c92f26d366",
+            content_variables={"1": client_name, "2": resume_upload_url},
             client_name=client_name,
         )
         return {"sent_to": clean_phone, "kind": kind, "attachments": []}
 
     elif bucket_for_row(row) in ("improvable", "ineligible"):
         kind = "not_eligible"
-        msg_text = (
-            f"Hello {client_name}, your Australian PR Pre-Assessment has been evaluated. "
-            f"Current Score: {score_491} pts for {occ}. "
-            f"View your report details here: {public_pdf_url}. Reply to connect with our senior advisor."
-        )
-        await send_whatsapp_text(
+        # Dedicated Meta Approved UTILITY Template for Assessment Notice (HX8760730e0b3b3a1a839ab18ba60dd7c9)
+        detail_msg = f"Score: {score_491} pts for {occ}. View report: {public_pdf_url}"
+        res = await send_whatsapp_text(
             to_phone=clean_phone,
-            text=msg_text,
-            media_url=public_pdf_url if row.get("pdf_file_id") else None,
+            text=detail_msg,
+            content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
+            content_variables={"1": client_name, "2": str(occ)[:25], "3": detail_msg},
             client_name=client_name,
         )
         return {"sent_to": clean_phone, "kind": kind, "attachments": ["report_pdf"] if row.get("pdf_file_id") else []}
 
     else:
         kind = "eligible_report"
-        msg_text = (
-            f"Hello {client_name}, congratulations! Your Australian PR Pre-Assessment is ready. "
-            f"Score: {score_491}/65 pts (Eligible) for {occ}. "
-            f"View your full 23-page report here: {public_pdf_url}. Reply to this message to start your migration process."
-        )
-        await send_whatsapp_text(
+        # Dedicated Meta Approved UTILITY Template for Pre-Assessment Reports (HX8760730e0b3b3a1a839ab18ba60dd7c9)
+        detail_msg = f"Score: {score_491}/65 pts (Eligible). View 23-page report: {public_pdf_url}"
+        res = await send_whatsapp_text(
             to_phone=clean_phone,
-            text=msg_text,
-            media_url=public_pdf_url if row.get("pdf_file_id") else None,
+            text=detail_msg,
+            content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
+            content_variables={"1": client_name, "2": str(occ)[:25], "3": detail_msg},
             client_name=client_name,
         )
         return {"sent_to": clean_phone, "kind": kind, "attachments": ["report_pdf"] if row.get("pdf_file_id") else []}

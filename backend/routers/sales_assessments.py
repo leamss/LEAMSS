@@ -1930,33 +1930,35 @@ async def send_assessment_whatsapp(
         except Exception as err:
             logger.warning("Failed pre-rendering PDF report: %s", err)
 
-    # 1. Send Main WhatsApp Message (Auto-attached with Pre-Assessment Report PDF)
+    # 1. Send Main WhatsApp Message (Auto-attached with Pre-Assessment Report PDF via approved Utility Template)
     try:
-        if attach_report_flag and pdf_report_url:
-            if is_twilio_mode:
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=msg_text,
-                    media_url=pdf_report_url,
-                )
+        detail_txt = f"Score: {best_total} pts for {occ.get('title') or 'Australia PR'}. View report: {public_url}"
+        if is_twilio_mode:
+            res = await send_whatsapp_text(
+                to_phone=clean_phone,
+                text=detail_txt,
+                client_name=client_name,
+                content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
+                content_variables={"1": client_name, "2": str(id)[:20], "3": detail_txt},
+                media_url=pdf_report_url if attach_report_flag else None,
+            )
+            if attach_report_flag:
                 dispatched_attachments.append("report_pdf")
-            else:
-                if pdf_bytes:
-                    up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
-                    if up_rep.get("id"):
-                        res = await send_whatsapp_document_by_id(
-                            to_phone=clean_phone,
-                            media_id=up_rep["id"],
-                            filename=rep_fname,
-                            caption=msg_text[:1000],
-                        )
-                        dispatched_attachments.append("report_pdf")
-                    else:
-                        res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
-                else:
-                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
         else:
-            res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+            if attach_report_flag and pdf_bytes:
+                up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
+                if up_rep.get("id"):
+                    res = await send_whatsapp_document_by_id(
+                        to_phone=clean_phone,
+                        media_id=up_rep["id"],
+                        filename=rep_fname,
+                        caption=msg_text[:1000],
+                    )
+                    dispatched_attachments.append("report_pdf")
+                else:
+                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
+            else:
+                res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
         
         is_simulated = res.get("status") == "simulated"
     except Exception as exc:
