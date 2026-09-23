@@ -204,10 +204,35 @@ async def send_whatsapp_text(
                 auth=(account_sid, auth_token),
             )
             if resp.status_code >= 400:
-                logger.error("Twilio WhatsApp API error (%s): %s", resp.status_code, resp.text)
+                err_json = {}
                 try:
                     err_json = resp.json()
-                    err_code = err_json.get("code")
+                except Exception:
+                    pass
+                err_code = err_json.get("code")
+
+                # If outside 24-hour window, retry automatically using approved WhatsApp Content Template
+                if err_code == 63016 and not content_sid:
+                    logger.info("Outside 24h window for +%s. Retrying with approved WhatsApp Content Template...", clean_phone)
+                    clean_text = re.sub(r"[\r\n]+", " ", text).strip()
+                    if len(clean_text) > 280:
+                        clean_text = clean_text[:277] + "..."
+                    fallback_sid = "HX813f83bd5dd7f84680a55442bf34b081"
+                    fallback_vars = {"1": client_name or "Client", "2": clean_text}
+                    import json
+                    fallback_data = {
+                        "From": from_wa,
+                        "To": to_wa,
+                        "ContentSid": fallback_sid,
+                        "ContentVariables": json.dumps(fallback_vars),
+                    }
+                    retry_resp = await client.post(url, data=fallback_data, auth=(account_sid, auth_token))
+                    if retry_resp.status_code < 400:
+                        return retry_resp.json()
+                    logger.error("Fallback Content Template error (%s): %s", retry_resp.status_code, retry_resp.text)
+
+                logger.error("Twilio WhatsApp API error (%s): %s", resp.status_code, resp.text)
+                try:
                     err_msg = err_json.get("message") or resp.text
 
                     if err_code == 20003:
@@ -223,6 +248,11 @@ async def send_whatsapp_text(
                         err_msg = (
                             f"Outside 24-hour customer window for +{clean_phone}. "
                             "Customer must message the number or receive an approved WhatsApp template."
+                        )
+                    elif err_code == 63049:
+                        err_msg = (
+                            f"Meta WhatsApp rate-limit or frequency limit reached for +{clean_phone}. "
+                            "Please wait before sending another automated template to this number."
                         )
                     elif err_code == 63007:
                         err_msg = f"Twilio WhatsApp Sender {raw_from} is not active or not approved on WhatsApp."
