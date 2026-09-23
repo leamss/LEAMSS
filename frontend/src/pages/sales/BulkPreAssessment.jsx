@@ -13,6 +13,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import EmailSettingsDialog from './EmailSettingsDialog';
 import { EmailPreviewDialog, EmailSummaryDialog } from './EmailSendDialogs';
+import { WhatsAppPreviewDialog } from './WhatsAppSendDialogs';
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,7 +92,10 @@ export default function BulkPreAssessment() {
   const [showEmailSettings, setShowEmailSettings] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [showEmailSummary, setShowEmailSummary] = useState(false);
+  const [showWhatsAppPreview, setShowWhatsAppPreview] = useState(false);
+  const [whatsAppingRow, setWhatsAppingRow] = useState(null);
   const [templates, setTemplates] = useState([]);
+  const [whatsAppTemplates, setWhatsAppTemplates] = useState([]);
   const [markRow, setMarkRow] = useState(null);
   const fileRef = useRef(null);
   const pollRef = useRef(null);
@@ -103,6 +107,14 @@ export default function BulkPreAssessment() {
     } catch (e) { /* silent */ }
   }, [headers]);
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
+
+  const loadWhatsAppTemplates = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API}/whatsapp-templates`, { headers });
+      setWhatsAppTemplates(r.data.templates || r.data || []);
+    } catch (e) { /* silent */ }
+  }, [headers]);
+  useEffect(() => { loadWhatsAppTemplates(); }, [loadWhatsAppTemplates]);
 
   const loadBatches = useCallback(async () => {
     try {
@@ -267,6 +279,31 @@ export default function BulkPreAssessment() {
     finally { setEmailingRow(null); }
   };
 
+  const whatsAppCategory = async (kind) => {
+    if (!batch) return;
+    const ep = kind === 'not_eligible' ? 'whatsapp-not-eligible' : 'whatsapp-resume-request';
+    const label = kind === 'not_eligible' ? 'Not-Eligible reports (WhatsApp)' : 'Resume-upload requests (WhatsApp)';
+    try {
+      const r = await axios.post(`${API}/bulk-assessments/${batch.id}/${ep}`, {}, { headers });
+      toast.success(`Queued ${r.data.queued} ${label}`);
+      await loadBatch(batch.id);
+    } catch (e) { toast.error(formatApiError(e, `Could not send ${label}`)); }
+  };
+
+  const whatsAppRow = async (row, templateId = null) => {
+    if (!row.parsed?.phone) { toast.error(`${row.parsed?.name || 'This client'} has no phone number`); return; }
+    setWhatsAppingRow(row.id);
+    try {
+      const body = {};
+      if (templateId) body.template_id = templateId;
+      const r = await axios.post(`${API}/bulk-assessments/row/${row.id}/whatsapp`, body, { headers });
+      const kindLabel = { eligible: 'Report', improvable: 'Not-Eligible report', ineligible: 'Not-Eligible report', needs_resume: 'Resume-upload request' }[r.data.kind] || 'WhatsApp message';
+      toast.success(`${kindLabel} sent directly on WhatsApp to ${r.data.sent_to}`);
+      await loadBatch(batch.id);
+    } catch (e) { toast.error(formatApiError(e, 'Could not send WhatsApp message')); }
+    finally { setWhatsAppingRow(null); }
+  };
+
   const markEligibility = async (row, kind, reason = null) => {
     try {
       const r = await axios.post(`${API}/bulk-assessments/row/${row.id}/set-eligibility`, { kind, reason }, { headers });
@@ -329,17 +366,21 @@ export default function BulkPreAssessment() {
         .filter(Boolean).join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
-    if (rowFilter === 'all') return r.status !== 'generated';
+    if (rowFilter === 'all') return true;
     if (rowFilter === 'generated') return r.status === 'generated';
-    if (rowFilter === 'review') return r.parsed?.anzsco_source === 'ai' && !r.parsed?.ai_reviewed && r.status !== 'generated';
-    if (rowFilter === 'ai') return r.parsed?.anzsco_source === 'ai' && r.status !== 'generated';
-    if (['eligible', 'improvable', 'ineligible', 'needs_resume'].includes(rowFilter)) return rowBucket(r) === rowFilter && r.status !== 'generated';
+    if (rowFilter === 'review') return r.parsed?.anzsco_source === 'ai' && !r.parsed?.ai_reviewed;
+    if (rowFilter === 'ai') return r.parsed?.anzsco_source === 'ai';
+    if (['eligible', 'improvable', 'ineligible', 'needs_resume'].includes(rowFilter)) return rowBucket(r) === rowFilter;
     return r.status === rowFilter;
   });
   const sendableCount = rows.filter((r) => r.status === 'generated' && r.parsed?.email).length;
   const notEligibleCount = rows.filter((r) => r.status === 'generated' && ['improvable', 'ineligible'].includes(rowBucket(r)) && r.parsed?.email).length;
   const resumeReqCount = rows.filter((r) => (r.status === 'needs_ai' || r.status === 'error') && r.parsed?.email).length;
   const reminderCount = rows.filter((r) => r.status === 'generated' && r.email_status === 'sent' && rowBucket(r) === 'eligible' && r.pdf_file_id && r.parsed?.email).length;
+
+  const sendableWhatsAppCount = rows.filter((r) => r.status === 'generated' && r.parsed?.phone).length;
+  const notEligibleWhatsAppCount = rows.filter((r) => r.status === 'generated' && ['improvable', 'ineligible'].includes(rowBucket(r)) && r.parsed?.phone).length;
+  const resumeReqWhatsAppCount = rows.filter((r) => (r.status === 'needs_ai' || r.status === 'error') && r.parsed?.phone).length;
   const activeSenders = (emailCfg?.senders || []).filter((s) => s.active);
 
   // Categorise why 'needs AI' rows failed, so the user knows what to do (retry vs manual).
@@ -586,7 +627,14 @@ export default function BulkPreAssessment() {
                 <Button onClick={() => { if (!emailCfg?.configured) { toast.error('Email not set up yet — see the setup banner'); return; } setShowEmailPreview(true); }} disabled={sendableCount === 0}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50" data-testid="bulk-email-all-btn"
                   title={sendableCount === 0 ? 'No generated reports have a client email' : `Email ${sendableCount} report(s)`}>
-                  <Send className="h-4 w-4 mr-1" />Email All ({sendableCount})
+                  <Mail className="h-4 w-4 mr-1" />Email All ({sendableCount})
+                </Button>
+              )}
+              {batch.generated > 0 && (
+                <Button onClick={() => setShowWhatsAppPreview(true)} disabled={sendableWhatsAppCount === 0}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50" data-testid="bulk-whatsapp-all-btn"
+                  title={sendableWhatsAppCount === 0 ? 'No generated reports have a client phone number' : `Send WhatsApp to ${sendableWhatsAppCount} client(s)`}>
+                  <MessageSquare className="h-4 w-4 mr-1" />WhatsApp All ({sendableWhatsAppCount})
                 </Button>
               )}
               {batch.email_status !== 'sending' && reminderCount > 0 && (
@@ -600,14 +648,28 @@ export default function BulkPreAssessment() {
                 <Button onClick={() => emailCategory('not_eligible')}
                   className="bg-amber-600 hover:bg-amber-700 text-white" data-testid="bulk-email-not-eligible-btn"
                   title={`Email ${notEligibleCount} Not-Eligible report(s) with reasoning`}>
-                  <Send className="h-4 w-4 mr-1" />Email Not-Eligible ({notEligibleCount})
+                  <Mail className="h-4 w-4 mr-1" />Email Not-Eligible ({notEligibleCount})
+                </Button>
+              )}
+              {batch.generated > 0 && notEligibleWhatsAppCount > 0 && (
+                <Button onClick={() => whatsAppCategory('not_eligible')}
+                  className="border-emerald-600 text-emerald-700 hover:bg-emerald-50" variant="outline" data-testid="bulk-whatsapp-not-eligible-btn"
+                  title={`Send ${notEligibleWhatsAppCount} Not-Eligible report(s) on WhatsApp`}>
+                  <MessageSquare className="h-4 w-4 mr-1 text-emerald-600" />WhatsApp Not-Eligible ({notEligibleWhatsAppCount})
                 </Button>
               )}
               {batch.email_status !== 'sending' && resumeReqCount > 0 && (
                 <Button onClick={() => emailCategory('resume_request')}
                   className="bg-rose-600 hover:bg-rose-700 text-white" data-testid="bulk-email-resume-btn"
-                  title={`Ask ${resumeReqCount} client(s) to upload their resume`}>
-                  <Mail className="h-4 w-4 mr-1" />Request Resume ({resumeReqCount})
+                  title={`Ask ${resumeReqCount} client(s) to upload their resume via email`}>
+                  <Mail className="h-4 w-4 mr-1" />Request Resume (Email) ({resumeReqCount})
+                </Button>
+              )}
+              {resumeReqWhatsAppCount > 0 && (
+                <Button onClick={() => whatsAppCategory('resume_request')}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="bulk-whatsapp-resume-btn"
+                  title={`Ask ${resumeReqWhatsAppCount} client(s) to upload their resume via WhatsApp`}>
+                  <MessageSquare className="h-4 w-4 mr-1" />Request Resume (WhatsApp) ({resumeReqWhatsAppCount})
                 </Button>
               )}
               {batch.generated > 0 && (
@@ -640,16 +702,16 @@ export default function BulkPreAssessment() {
               </div>
               <div className="flex items-center gap-1.5 flex-wrap" data-testid="row-filters">
               {[
-                ['all', `All (${rows.filter((r) => r.status !== 'generated').length})`],
-                ['review', `Review pending (${rows.filter((r) => r.parsed?.anzsco_source === 'ai' && !r.parsed?.ai_reviewed && r.status !== 'generated').length})`],
-                ['ai', `AI-detected (${rows.filter((r) => r.parsed?.anzsco_source === 'ai' && r.status !== 'generated').length})`],
+                ['all', `All (${rows.length})`],
+                ['review', `Review pending (${rows.filter((r) => r.parsed?.anzsco_source === 'ai' && !r.parsed?.ai_reviewed).length})`],
+                ['ai', `AI-detected (${rows.filter((r) => r.parsed?.anzsco_source === 'ai').length})`],
                 ['needs_ai', `Needs AI (${rows.filter((r) => r.status === 'needs_ai').length})`],
                 ['error', `Needs fix (${rows.filter((r) => r.status === 'error').length})`],
                 ['generated', `Generated (${rows.filter((r) => r.status === 'generated').length})`],
-                ['eligible', `✓ Eligible (${rows.filter((r) => rowBucket(r) === 'eligible' && r.status !== 'generated').length})`],
-                ['improvable', `⚠ Not-Eligible Yet (${rows.filter((r) => rowBucket(r) === 'improvable' && r.status !== 'generated').length})`],
-                ['ineligible', `✗ Age-Ineligible (${rows.filter((r) => rowBucket(r) === 'ineligible' && r.status !== 'generated').length})`],
-                ['needs_resume', `Resume Needed (${rows.filter((r) => rowBucket(r) === 'needs_resume' && r.status !== 'generated').length})`],
+                ['eligible', `✓ Eligible (${rows.filter((r) => rowBucket(r) === 'eligible').length})`],
+                ['improvable', `⚠ Not-Eligible Yet (${rows.filter((r) => rowBucket(r) === 'improvable').length})`],
+                ['ineligible', `✗ Age-Ineligible (${rows.filter((r) => rowBucket(r) === 'ineligible').length})`],
+                ['needs_resume', `Resume Needed (${rows.filter((r) => rowBucket(r) === 'needs_resume').length})`],
               ].map(([key, label]) => (
                 <button key={key} onClick={() => setRowFilter(key)}
                   className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
@@ -757,6 +819,12 @@ export default function BulkPreAssessment() {
                         {r.email_status === 'failed' && (
                           <p className="text-[9px] text-rose-500 mt-0.5" title={r.email_error} data-testid={`email-failed-${r.row_index}`}>email failed</p>
                         )}
+                        {r.whatsapp_status === 'sent' && (
+                          <p className="text-[9px] text-emerald-600 mt-0.5 font-medium" data-testid={`whatsapp-sent-${r.row_index}`}>✓ sent on whatsapp</p>
+                        )}
+                        {r.whatsapp_status === 'failed' && (
+                          <p className="text-[9px] text-rose-500 mt-0.5" title={r.whatsapp_error} data-testid={`whatsapp-failed-${r.row_index}`}>whatsapp failed</p>
+                        )}
                         {r.status === 'error' && (
                           <p className="text-[9px] text-rose-500 mt-0.5 max-w-[200px]">{(r.errors || []).join('; ')}</p>
                         )}
@@ -804,70 +872,113 @@ export default function BulkPreAssessment() {
                               <FileText className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          {r.parsed?.phone && (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+                                    disabled={whatsAppingRow === r.id}
+                                    onClick={() => whatsAppRow(r)} data-testid={`whatsapp-row-${r.row_index}`}>
+                                    {whatsAppingRow === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p className="text-[11px]">Send {rowBucket(r) === 'needs_resume' ? 'resume upload request' : 'report'} directly on WhatsApp to {r.parsed.phone}</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                           {r.parsed?.email && (
-                            <>
-                              <TooltipProvider delayDuration={100}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button size="sm" variant="ghost" className="h-7 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
-                                      disabled={emailingRow === r.id || !emailCfg?.configured}
-                                      onClick={() => emailRow(r)} data-testid={`email-row-${r.row_index}`}>
-                                      {emailingRow === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p className="text-[11px]">{emailCfg?.configured
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+                                    disabled={emailingRow === r.id || !emailCfg?.configured}
+                                    onClick={() => emailRow(r)} data-testid={`email-row-${r.row_index}`}>
+                                    {emailingRow === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p className="text-[11px]">{emailCfg?.configured
                                     ? `Send ${rowBucket(r) === 'needs_resume' ? 'resume request' : rowBucket(r) === 'eligible' ? 'report' : 'not-eligible report'} to ${r.parsed.email}`
                                     : 'Set up Gmail first (see banner)'}</p></TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button size="sm" variant="ghost" className="h-7 px-1.5" data-testid={`row-actions-${r.row_index}`}>
-                                    <MoreVertical className="h-3.5 w-3.5" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
-                                  <DropdownMenuLabel className="text-[11px]">Send email</DropdownMenuLabel>
-                                  <DropdownMenuItem disabled={!emailCfg?.configured} onClick={() => emailRow(r)} data-testid={`send-auto-${r.row_index}`}>
-                                    <Send className="h-3.5 w-3.5 mr-2" />Send (Auto)
-                                  </DropdownMenuItem>
-                                  {templates.length > 0 && (
-                                    <DropdownMenuSub>
-                                      <DropdownMenuSubTrigger disabled={!emailCfg?.configured}>
-                                        <LayoutTemplate className="h-3.5 w-3.5 mr-2" />Send with template
-                                      </DropdownMenuSubTrigger>
-                                      <DropdownMenuPortal>
-                                        <DropdownMenuSubContent className="w-64">
-                                          {templates.map((t) => (
-                                            <DropdownMenuItem key={t.id} onClick={() => emailRow(r, t.id)} data-testid={`send-tpl-${t.id}-${r.row_index}`}>
-                                              <span className="truncate">{t.name}</span>
-                                            </DropdownMenuItem>
-                                          ))}
-                                        </DropdownMenuSubContent>
-                                      </DropdownMenuPortal>
-                                    </DropdownMenuSub>
-                                  )}
-                                  {r.status === 'generated' && (
-                                    <>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuLabel className="text-[11px]">Eligibility</DropdownMenuLabel>
-                                      <DropdownMenuItem onClick={() => setMarkRow(r)} data-testid={`mark-not-eligible-${r.row_index}`}>
-                                        <Ban className="h-3.5 w-3.5 mr-2 text-rose-600" />Mark Not-Eligible…
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {(r.parsed?.phone || r.parsed?.email || r.status === 'generated') && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-7 px-1.5" data-testid={`row-actions-${r.row_index}`}>
+                                  <MoreVertical className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-56">
+                                {r.parsed?.phone && (
+                                  <>
+                                    <DropdownMenuLabel className="text-[11px]">Send WhatsApp</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => whatsAppRow(r)} data-testid={`send-wa-auto-${r.row_index}`}>
+                                      <MessageSquare className="h-3.5 w-3.5 mr-2 text-emerald-600" />Send on WhatsApp (Auto)
+                                    </DropdownMenuItem>
+                                    {whatsAppTemplates.length > 0 && (
+                                      <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>
+                                          <MessageSquare className="h-3.5 w-3.5 mr-2 text-emerald-600" />WhatsApp with template
+                                        </DropdownMenuSubTrigger>
+                                        <DropdownMenuPortal>
+                                          <DropdownMenuSubContent className="w-64">
+                                            {whatsAppTemplates.map((t) => (
+                                              <DropdownMenuItem key={t.id} onClick={() => whatsAppRow(r, t.id)} data-testid={`send-wa-tpl-${t.id}-${r.row_index}`}>
+                                                <span className="truncate">{t.name}</span>
+                                              </DropdownMenuItem>
+                                            ))}
+                                          </DropdownMenuSubContent>
+                                        </DropdownMenuPortal>
+                                      </DropdownMenuSub>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+                                {r.parsed?.email && (
+                                  <>
+                                    <DropdownMenuLabel className="text-[11px]">Send Email</DropdownMenuLabel>
+                                    <DropdownMenuItem disabled={!emailCfg?.configured} onClick={() => emailRow(r)} data-testid={`send-auto-${r.row_index}`}>
+                                      <Send className="h-3.5 w-3.5 mr-2" />Send on Email (Auto)
+                                    </DropdownMenuItem>
+                                    {templates.length > 0 && (
+                                      <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger disabled={!emailCfg?.configured}>
+                                          <LayoutTemplate className="h-3.5 w-3.5 mr-2" />Send with template
+                                        </DropdownMenuSubTrigger>
+                                        <DropdownMenuPortal>
+                                          <DropdownMenuSubContent className="w-64">
+                                            {templates.map((t) => (
+                                              <DropdownMenuItem key={t.id} onClick={() => emailRow(r, t.id)} data-testid={`send-tpl-${t.id}-${r.row_index}`}>
+                                                <span className="truncate">{t.name}</span>
+                                              </DropdownMenuItem>
+                                            ))}
+                                          </DropdownMenuSubContent>
+                                        </DropdownMenuPortal>
+                                      </DropdownMenuSub>
+                                    )}
+                                  </>
+                                )}
+                                {r.status === 'generated' && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel className="text-[11px]">Eligibility</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => setMarkRow(r)} data-testid={`mark-not-eligible-${r.row_index}`}>
+                                      <Ban className="h-3.5 w-3.5 mr-2 text-rose-600" />Mark Not-Eligible…
+                                    </DropdownMenuItem>
+                                    {r.manual_eligibility && (
+                                      <DropdownMenuItem onClick={() => markEligibility(r, 'auto')} data-testid={`reset-eligibility-${r.row_index}`}>
+                                        <RotateCcw className="h-3.5 w-3.5 mr-2" />Reset to Auto
                                       </DropdownMenuItem>
-                                      {r.manual_eligibility && (
-                                        <DropdownMenuItem onClick={() => markEligibility(r, 'auto')} data-testid={`reset-eligibility-${r.row_index}`}>
-                                          <RotateCcw className="h-3.5 w-3.5 mr-2" />Reset to Auto
-                                        </DropdownMenuItem>
-                                      )}
-                                    </>
-                                  )}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => deleteRow(r)} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50" data-testid={`delete-row-${r.row_index}`}>
-                                    <Trash2 className="h-3.5 w-3.5 mr-2" />Remove from Batch
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </>
+                                    )}
+                                  </>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => deleteRow(r)} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50" data-testid={`delete-row-${r.row_index}`}>
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" />Remove from Batch
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </div>
                       </td>
@@ -948,6 +1059,12 @@ export default function BulkPreAssessment() {
       {showEmailSummary && (
         <EmailSummaryDialog batchId={batch.id} headers={headers}
           onClose={() => setShowEmailSummary(false)} />
+      )}
+
+      {showWhatsAppPreview && (
+        <WhatsAppPreviewDialog batchId={batch.id} headers={headers}
+          onClose={() => setShowWhatsAppPreview(false)}
+          onConfirmed={() => loadBatch(batch.id)} />
       )}
 
       {showDefaults && batch && (

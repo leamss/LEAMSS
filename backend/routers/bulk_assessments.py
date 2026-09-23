@@ -45,6 +45,16 @@ from core.gmail_dwd import (
     sa_client_id as gmail_sa_client_id, sa_client_email as gmail_sa_client_email,
     delegated_domain as gmail_domain,
 )
+import logging
+from core.whatsapp_service import (
+    get_whatsapp_config,
+    normalize_phone_number,
+    send_whatsapp_text,
+    upload_whatsapp_media,
+    send_whatsapp_document_by_id,
+)
+
+logger = logging.getLogger("bulk_assessments")
 
 router = APIRouter(prefix="/bulk-assessments", tags=["bulk-assessments"])
 
@@ -2508,6 +2518,205 @@ async def email_row(row_id: str, req: RowEmailRequest, current_user: dict = Depe
             "resume_attached": meta.get("resume_attached"), "resume_error": meta.get("resume_error")}
 
 
+DEFAULT_WHATSAPP_RESUME_TEXT = (
+    "Hello {name},\n\n"
+    "To complete your Australia Migration Pre-Assessment (Subclass 189/190/491), our migration team needs your updated resume/CV.\n\n"
+    "📎 *Please upload your resume securely here:*\n{upload_url}\n\n"
+    "Once uploaded, our AI and migration experts will immediately evaluate your ANZSCO occupation and points eligibility.\n\n"
+    "LEAMSS — Toll-Free: 1800-210-2427 · www.leamss.com"
+)
+
+DEFAULT_WHATSAPP_ELIGIBLE_TEXT = (
+    "Hello {name},\n\n"
+    "🎉 *Congratulations!* Your Australia Migration Pre-Assessment from LEAMSS has been completed.\n\n"
+    "📋 *Candidate:* {name}\n"
+    "🎯 *Nominated Occupation:* {occupation} (ANZSCO {code})\n"
+    "🏆 *Immigration Points:* {points} pts (Pass Mark: 65)\n"
+    "🌟 *Recommended Pathway:* Subclass {best_subclass}\n\n"
+    "📎 *Your official Pre-Assessment Report is attached with this message.*\n\n"
+    "Our migration strategy team is available to assist with your next steps.\n"
+    "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+)
+
+DEFAULT_WHATSAPP_NOT_ELIGIBLE_TEXT = (
+    "Hello {name},\n\n"
+    "Thank you for completing your Australia Migration Pre-Assessment evaluation with LEAMSS.\n\n"
+    "📋 *Candidate:* {name}\n"
+    "🎯 *Nominated Occupation:* {occupation} (ANZSCO {code})\n\n"
+    "📎 *Your official Pre-Assessment Report and detailed improvement roadmap are attached with this message.*\n\n"
+    "Please review the report for recommended action steps to meet the eligibility threshold.\n"
+    "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+)
+
+
+def _render_row_whatsapp_text(row: Dict[str, Any], tmpl_body: str, upload_url: Optional[str] = None) -> str:
+    p = row.get("parsed") or {}
+    points = row.get("points") or {}
+    best_pts = max([points.get("189") or 0, points.get("190") or 0, points.get("491") or 0, 0])
+    subclass = "189" if (points.get("189") or 0) >= 65 else ("190" if (points.get("190") or 0) >= 65 else "491")
+    rep_url = f"https://app.leamss.com/sales/report/{row.get('id')}"
+    name = p.get("name") or "Applicant"
+    occ = p.get("occupation_title") or ""
+    code = p.get("anzsco_code") or ""
+    cname = p.get("consultant_name") or "LEAMSS Migration Team"
+
+    replacements = {
+        "{name}": name,
+        "{client_name}": name,
+        "{occupation}": occ,
+        "{code}": code,
+        "{points}": str(best_pts),
+        "{best_subclass}": subclass,
+        "{pass_mark}": "65",
+        "{report_url}": rep_url,
+        "{upload_url}": upload_url or "",
+        "{resume_upload_url}": upload_url or "",
+        "{resume_url}": upload_url or "",
+        "{consultant_name}": cname,
+        "{company}": "LEAMSS",
+        "{phone}": "+91 77188 82427",
+    }
+    out = tmpl_body
+    for k, v in replacements.items():
+        out = out.replace(k, str(v))
+    return out
+
+
+async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Optional[str] = None, custom_text: Optional[str] = None):
+    clean_phone = normalize_phone_number(to_phone)
+    if not clean_phone:
+        raise ValueError("Invalid phone number")
+
+    bucket = bucket_for_row(row)
+    upload_url = None
+    if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
+        token = row.get("resume_token")
+        if not token:
+            token = uuid.uuid4().hex
+            await ROWS.update_one({"id": row["id"]}, {"$set": {"resume_token": token}})
+        upload_url = _resume_upload_url(token)
+
+    msg_text = ""
+    attach_report_flag = True
+
+    if custom_text and custom_text.strip():
+        msg_text = _render_row_whatsapp_text(row, custom_text.strip(), upload_url)
+    elif template_id:
+        custom_t = await db["whatsapp_templates"].find_one({"id": template_id})
+        if custom_t:
+            msg_text = _render_row_whatsapp_text(row, custom_t.get("body") or "", upload_url)
+            if "attach_report" in custom_t:
+                attach_report_flag = bool(custom_t["attach_report"])
+
+    if not msg_text:
+        cat = "resume" if (bucket == "needs_resume" or row.get("status") in ("needs_ai", "error")) else ("not_eligible" if bucket in ("improvable", "ineligible") else "eligible")
+        default_t = await db["whatsapp_templates"].find_one({"category": cat, "is_default": True})
+        if not default_t:
+            default_t = await db["whatsapp_templates"].find_one({"category": cat})
+        if default_t:
+            msg_text = _render_row_whatsapp_text(row, default_t.get("body") or "", upload_url)
+            if "attach_report" in default_t:
+                attach_report_flag = bool(default_t["attach_report"])
+        else:
+            if cat == "resume":
+                msg_text = _render_row_whatsapp_text(row, DEFAULT_WHATSAPP_RESUME_TEXT, upload_url)
+                attach_report_flag = False
+            elif cat == "not_eligible":
+                msg_text = _render_row_whatsapp_text(row, DEFAULT_WHATSAPP_NOT_ELIGIBLE_TEXT, upload_url)
+            else:
+                msg_text = _render_row_whatsapp_text(row, DEFAULT_WHATSAPP_ELIGIBLE_TEXT, upload_url)
+
+    pdf_report_url = None
+    pdf_bytes = None
+    rep_fname = f"PreAssessment_{re.sub(r'[^A-Za-z0-9_-]', '_', (row.get('parsed') or {}).get('name') or 'Client')[:30]}.pdf"
+
+    if attach_report_flag and row.get("pdf_file_id"):
+        api_base_origin = (
+            os.environ.get("BACKEND_PUBLIC_URL")
+            or os.environ.get("BACKEND_URL")
+            or os.environ.get("REACT_APP_BACKEND_URL")
+            or ""
+        ).strip().rstrip("/")
+        if not api_base_origin or "localhost" in api_base_origin or "127.0.0.1" in api_base_origin:
+            api_base_origin = "https://api.leamss.com"
+        pdf_report_url = f"{api_base_origin}/api/bulk-assessments/public/row/{row['id']}/report.pdf"
+        try:
+            stream = await _gridfs.open_download_stream(ObjectId(row["pdf_file_id"]))
+            pdf_bytes = await stream.read()
+        except Exception as e:
+            logger.warning(f"Could not read PDF from GridFS: {e}")
+
+    cfg = await get_whatsapp_config()
+    is_twilio_mode = cfg.get("provider") == "twilio" or cfg.get("is_twilio")
+
+    dispatched_attachments = []
+    if attach_report_flag and pdf_report_url:
+        if is_twilio_mode:
+            res = await send_whatsapp_text(
+                to_phone=clean_phone,
+                text=msg_text,
+                media_url=pdf_report_url,
+            )
+            dispatched_attachments.append("report_pdf")
+        else:
+            if pdf_bytes:
+                up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
+                if up_rep.get("id"):
+                    res = await send_whatsapp_document_by_id(
+                        to_phone=clean_phone,
+                        media_id=up_rep["id"],
+                        filename=rep_fname,
+                        caption=msg_text[:1000],
+                    )
+                    dispatched_attachments.append("report_pdf")
+                else:
+                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+            else:
+                res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+    else:
+        res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+
+    return {
+        "sent_to": clean_phone,
+        "kind": bucket,
+        "attachments": dispatched_attachments,
+        "res": res,
+    }
+
+
+class RowWhatsAppRequest(BaseModel):
+    phone_override: Optional[str] = None
+    template_id: Optional[str] = None
+    custom_message: Optional[str] = None
+
+
+@router.post("/row/{row_id}/whatsapp")
+async def whatsapp_row(row_id: str, req: RowWhatsAppRequest, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    row = await ROWS.find_one({"id": row_id})
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    p = row.get("parsed") or {}
+    phone = (req.phone_override or p.get("phone") or "").strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="This client has no phone number. Add one and try again.")
+    bucket = bucket_for_row(row)
+    if bucket != "needs_resume" and row.get("status") not in ("needs_ai", "error") and not row.get("pdf_file_id"):
+        raise HTTPException(status_code=400, detail="No generated report to send — generate the report first.")
+    now = datetime.now(timezone.utc)
+    try:
+        meta = await _send_row_whatsapp(row, phone, template_id=req.template_id, custom_text=req.custom_message)
+    except Exception as e:
+        await ROWS.update_one({"id": row_id}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
+        raise HTTPException(status_code=500, detail=str(e))
+    await ROWS.update_one({"id": row_id}, {"$set": {
+        "whatsapp_status": "sent", "whatsapp_to": meta.get("sent_to"), "whatsapp_sent_at": now, "whatsapp_error": None,
+        "whatsapp_kind": meta.get("kind"), "whatsapp_attachments": meta.get("attachments"),
+    }})
+    return {"ok": True, "sent_to": meta.get("sent_to"), "kind": meta.get("kind"), "attachments": meta.get("attachments")}
+
+
 class RowEligibilityRequest(BaseModel):
     kind: str  # 'auto' | 'improvable' | 'ineligible'
     reason: Optional[str] = None
@@ -3025,3 +3234,174 @@ async def row_pdf(row_id: str, current_user: dict = Depends(get_current_user)):
     base = re.sub(r"[^A-Za-z0-9_-]", "_", row["parsed"]["name"])[:40] or "client"
     return StreamingResponse(io.BytesIO(data), media_type="application/pdf",
                              headers={"Content-Disposition": f'inline; filename="{base}.pdf"'})
+
+
+def _has_phone(row: Dict[str, Any]) -> Optional[str]:
+    p = row.get("parsed") or {}
+    phone = (p.get("phone") or "").strip()
+    return phone if phone else None
+
+
+async def _run_whatsapp_all(batch_id: str):
+    rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0}).sort("row_index", 1).to_list(100000)
+    done = 0
+    failed = 0
+    skipped = 0
+    for row in rows:
+        p = row.get("parsed") or {}
+        phone = (p.get("phone") or "").strip()
+        if not row.get("pdf_file_id") or not phone:
+            skipped += 1
+            continue
+        now = datetime.now(timezone.utc)
+        try:
+            meta = await _send_row_whatsapp(row, phone)
+            await ROWS.update_one({"id": row["id"]}, {"$set": {
+                "whatsapp_status": "sent", "whatsapp_to": meta.get("sent_to"), "whatsapp_sent_at": now, "whatsapp_error": None,
+                "whatsapp_kind": meta.get("kind"), "whatsapp_attachments": meta.get("attachments"),
+            }})
+            done += 1
+        except Exception as e:
+            await ROWS.update_one({"id": row["id"]}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
+            failed += 1
+        await BATCHES.update_one({"id": batch_id}, {"$set": {"whatsapp_done": done, "whatsapp_failed": failed}})
+    await BATCHES.update_one({"id": batch_id}, {"$set": {
+        "whatsapp_status": "done", "whatsapp_done": done, "whatsapp_failed": failed,
+        "whatsapp_skipped": skipped, "whatsapp_completed_at": datetime.now(timezone.utc),
+    }})
+
+
+async def _run_whatsapp_category(batch_id: str, kind: str, template_id: Optional[str] = None):
+    if kind == "not_eligible":
+        rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0}).sort("row_index", 1).to_list(100000)
+        rows = [r for r in rows if bucket_for_row(r) in ("improvable", "ineligible")]
+    else:  # resume_request
+        rows = await ROWS.find({"batch_id": batch_id, "status": {"$in": ["needs_ai", "error"]}}, {"_id": 0}).sort("row_index", 1).to_list(100000)
+    done = failed = skipped = 0
+    for row in rows:
+        p = row.get("parsed") or {}
+        phone = (p.get("phone") or "").strip()
+        if not phone or (kind == "not_eligible" and not row.get("pdf_file_id")):
+            skipped += 1
+            continue
+        now = datetime.now(timezone.utc)
+        try:
+            meta = await _send_row_whatsapp(row, phone, template_id=template_id)
+            await ROWS.update_one({"id": row["id"]}, {"$set": {
+                "whatsapp_status": "sent", "whatsapp_to": meta.get("sent_to"), "whatsapp_sent_at": now, "whatsapp_error": None,
+                "whatsapp_kind": kind, "whatsapp_attachments": meta.get("attachments"),
+            }})
+            done += 1
+        except Exception as e:
+            await ROWS.update_one({"id": row["id"]}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
+            failed += 1
+        await BATCHES.update_one({"id": batch_id}, {"$set": {"whatsapp_done": done, "whatsapp_failed": failed}})
+    await BATCHES.update_one({"id": batch_id}, {"$set": {
+        "whatsapp_status": "done", "whatsapp_done": done, "whatsapp_failed": failed,
+        "whatsapp_skipped": skipped, "whatsapp_completed_at": datetime.now(timezone.utc),
+    }})
+
+
+class CategoryWhatsAppRequest(BaseModel):
+    template_id: Optional[str] = None
+
+
+@router.post("/{batch_id}/whatsapp-all")
+async def whatsapp_all(batch_id: str, req: CategoryWhatsAppRequest, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    batch = await BATCHES.find_one({"id": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    if batch.get("whatsapp_status") == "sending":
+        raise HTTPException(status_code=400, detail="WhatsApp messages are already being sent for this batch.")
+    rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0, "pdf_file_id": 1, "parsed.phone": 1}).to_list(100000)
+    sendable = [r for r in rows if r.get("pdf_file_id") and ((r.get("parsed") or {}).get("phone") or "").strip()]
+    if not sendable:
+        raise HTTPException(status_code=400, detail="No generated reports with a valid phone number to send.")
+    await BATCHES.update_one({"id": batch_id}, {"$set": {
+        "whatsapp_status": "sending", "whatsapp_total": len(sendable), "whatsapp_done": 0,
+        "whatsapp_failed": 0, "whatsapp_skipped": 0, "whatsapp_started_at": datetime.now(timezone.utc),
+    }})
+    asyncio.create_task(_run_whatsapp_all(batch_id))
+    return {"ok": True, "queued": len(sendable)}
+
+
+@router.post("/{batch_id}/whatsapp-not-eligible")
+async def whatsapp_not_eligible(batch_id: str, req: CategoryWhatsAppRequest, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    batch = await BATCHES.find_one({"id": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    if batch.get("whatsapp_status") == "sending":
+        raise HTTPException(status_code=400, detail="WhatsApp messages are already being sent for this batch.")
+    rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0}).to_list(100000)
+    sendable = [r for r in rows if bucket_for_row(r) in ("improvable", "ineligible") and _has_phone(r) and r.get("pdf_file_id")]
+    if not sendable:
+        raise HTTPException(status_code=400, detail="No Not-Eligible clients with a generated report and valid phone number to send.")
+    await BATCHES.update_one({"id": batch_id}, {"$set": {
+        "whatsapp_status": "sending", "whatsapp_total": len(sendable), "whatsapp_done": 0,
+        "whatsapp_failed": 0, "whatsapp_skipped": 0, "whatsapp_started_at": datetime.now(timezone.utc),
+    }})
+    asyncio.create_task(_run_whatsapp_category(batch_id, "not_eligible", req.template_id))
+    return {"ok": True, "queued": len(sendable)}
+
+
+@router.post("/{batch_id}/whatsapp-resume-request")
+async def whatsapp_resume_request(batch_id: str, req: CategoryWhatsAppRequest, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    batch = await BATCHES.find_one({"id": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    if batch.get("whatsapp_status") == "sending":
+        raise HTTPException(status_code=400, detail="WhatsApp messages are already being sent for this batch.")
+    rows = await ROWS.find({"batch_id": batch_id, "status": {"$in": ["needs_ai", "error"]}}, {"_id": 0}).to_list(100000)
+    sendable = [r for r in rows if _has_phone(r)]
+    if not sendable:
+        raise HTTPException(status_code=400, detail="No resume-pending clients with a valid phone number to send.")
+    await BATCHES.update_one({"id": batch_id}, {"$set": {
+        "whatsapp_status": "sending", "whatsapp_total": len(sendable), "whatsapp_done": 0,
+        "whatsapp_failed": 0, "whatsapp_skipped": 0, "whatsapp_started_at": datetime.now(timezone.utc),
+    }})
+    asyncio.create_task(_run_whatsapp_category(batch_id, "resume_request", req.template_id))
+    return {"ok": True, "queued": len(sendable)}
+
+
+@router.get("/{batch_id}/whatsapp-preview")
+async def whatsapp_preview(batch_id: str, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    cfg = await get_whatsapp_config()
+    rows = await ROWS.find({"batch_id": batch_id, "status": "generated"},
+                           {"_id": 0, "parsed.phone": 1, "parsed.name": 1, "pdf_file_id": 1}).to_list(100000)
+    sendable, missing = [], []
+    for r in rows:
+        p = r.get("parsed") or {}
+        phone = (p.get("phone") or "").strip()
+        if not r.get("pdf_file_id") or not phone:
+            missing.append(p.get("name") or "(unnamed)")
+            continue
+        sendable.append(r)
+    return {
+        "configured": cfg.get("is_configured", False),
+        "provider": cfg.get("provider", "twilio"),
+        "total_generated": len(rows),
+        "sendable": len(sendable),
+        "missing_phone": len(missing),
+        "missing_sample": missing[:15],
+    }
+
+
+@router.get("/public/row/{row_id}/report.pdf")
+async def public_row_pdf(row_id: str):
+    row = await ROWS.find_one({"id": row_id})
+    if not row or not row.get("pdf_file_id"):
+        raise HTTPException(status_code=404, detail="No PDF for this row")
+    stream = await _gridfs.open_download_stream(ObjectId(row["pdf_file_id"]))
+    data = await stream.read()
+    base = re.sub(r"[^A-Za-z0-9_-]", "_", (row.get("parsed") or {}).get("name") or "client")[:40]
+    return StreamingResponse(io.BytesIO(data), media_type="application/pdf",
+                             headers={"Content-Disposition": f'inline; filename="{base}.pdf"'})
+
