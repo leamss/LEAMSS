@@ -213,6 +213,7 @@ async def send_whatsapp_text(
                 except Exception:
                     pass
                 err_code = err_json.get("code")
+                err_msg = err_json.get("message") or err_json.get("detail") or resp.text
                 if err_code == 20003:
                     err_msg = "Twilio Authentication Error: Invalid Account SID or Auth Token."
                 elif err_code == 21211:
