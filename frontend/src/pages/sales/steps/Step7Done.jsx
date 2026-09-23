@@ -996,22 +996,24 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
         attach_resume: attachResume,
         attach_sla: attachSla,
         attach_qr: attachQr,
-      }, { headers: authHeaders, timeout: 60000 });
+      }, { headers: authHeaders, timeout: 45000 });
 
-      if (r.data?.ok) {
+      if (r.data?.ok && !r.data?.requires_web_open && !r.data?.is_simulated && r.data?.status !== 'web_fallback') {
         const attCount = (r.data?.attachments_sent || []).length;
         toast.success(`Message and ${attCount} attachment(s) sent to +${r.data.sent_to || cleanPhone} on WhatsApp!`);
         onSent?.();
         onClose();
       } else {
-        toast.info('Automated WhatsApp dispatch unavailable. Opening WhatsApp Web with your message...');
+        toast.success(`Opening WhatsApp Web for +${cleanPhone}...`);
         handleDirectWebShare(cleanPhone);
+        onSent?.();
         onClose();
       }
     } catch (e) {
-      console.error('Send WhatsApp dispatch:', e);
-      toast.info('Opening WhatsApp Web with your message and attachments...');
+      console.warn('Send WhatsApp dispatch exception, falling back to Web:', e);
+      toast.success(`Opening WhatsApp Web for +${cleanPhone}...`);
       handleDirectWebShare(cleanPhone);
+      onSent?.();
       onClose();
     } finally {
       setSending(false);
