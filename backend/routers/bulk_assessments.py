@@ -2606,7 +2606,16 @@ def _has_phone(row: Dict[str, Any]) -> Optional[str]:
     return clean if clean else None
 
 
-async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Optional[str] = None, custom_text: Optional[str] = None):
+async def _send_row_whatsapp(
+    row: Dict[str, Any],
+    to_phone: str,
+    template_id: Optional[str] = None,
+    custom_text: Optional[str] = None,
+    attach_report: Optional[bool] = True,
+    attach_sla: Optional[bool] = True,
+    attach_qr: Optional[bool] = True,
+    attach_resume: Optional[bool] = True,
+):
     clean_phone = normalize_phone_number(to_phone)
     if not clean_phone:
         raise ValueError("Invalid phone number")
@@ -2630,7 +2639,10 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
         upload_url = _resume_upload_url(token)
 
     msg_text = ""
-    attach_report_flag = True
+    attach_report_flag = True if attach_report is None else bool(attach_report)
+    attach_sla_flag = True if attach_sla is None else bool(attach_sla)
+    attach_qr_flag = True if attach_qr is None else bool(attach_qr)
+    attach_resume_flag = True if attach_resume is None else bool(attach_resume)
 
     if custom_text and custom_text.strip():
         msg_text = _render_row_whatsapp_text(row, custom_text.strip(), upload_url)
@@ -2640,6 +2652,12 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
             msg_text = _render_row_whatsapp_text(row, custom_t.get("body") or "", upload_url)
             if "attach_report" in custom_t:
                 attach_report_flag = bool(custom_t["attach_report"])
+            if "attach_sla" in custom_t:
+                attach_sla_flag = bool(custom_t["attach_sla"])
+            if "attach_qr" in custom_t:
+                attach_qr_flag = bool(custom_t["attach_qr"])
+            if "attach_resume" in custom_t:
+                attach_resume_flag = bool(custom_t["attach_resume"])
 
     if not msg_text:
         cat = "resume" if (bucket == "needs_resume" or row.get("status") in ("needs_ai", "error")) else ("not_eligible" if bucket in ("improvable", "ineligible") else "eligible")
@@ -2650,6 +2668,12 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
             msg_text = _render_row_whatsapp_text(row, default_t.get("body") or "", upload_url)
             if "attach_report" in default_t:
                 attach_report_flag = bool(default_t["attach_report"])
+            if "attach_sla" in default_t:
+                attach_sla_flag = bool(default_t["attach_sla"])
+            if "attach_qr" in default_t:
+                attach_qr_flag = bool(default_t["attach_qr"])
+            if "attach_resume" in default_t:
+                attach_resume_flag = bool(default_t["attach_resume"])
         else:
             if cat == "resume":
                 msg_text = _render_row_whatsapp_text(row, DEFAULT_WHATSAPP_RESUME_TEXT, upload_url)
@@ -2659,19 +2683,24 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
             else:
                 msg_text = _render_row_whatsapp_text(row, DEFAULT_WHATSAPP_ELIGIBLE_TEXT, upload_url)
 
+    from routers.email_settings import get_settings, read_asset_bytes
+    from core.report_email import get_resume_attachment
+    s = await get_settings()
+
+    api_base_origin = (
+        os.environ.get("BACKEND_PUBLIC_URL")
+        or os.environ.get("BACKEND_URL")
+        or os.environ.get("REACT_APP_BACKEND_URL")
+        or ""
+    ).strip().rstrip("/")
+    if not api_base_origin or "localhost" in api_base_origin or "127.0.0.1" in api_base_origin:
+        api_base_origin = "https://api.leamss.com"
+
     pdf_report_url = None
     pdf_bytes = None
     rep_fname = f"PreAssessment_{re.sub(r'[^A-Za-z0-9_-]', '_', (row.get('parsed') or {}).get('name') or 'Client')[:30]}.pdf"
 
     if attach_report_flag and row.get("pdf_file_id"):
-        api_base_origin = (
-            os.environ.get("BACKEND_PUBLIC_URL")
-            or os.environ.get("BACKEND_URL")
-            or os.environ.get("REACT_APP_BACKEND_URL")
-            or ""
-        ).strip().rstrip("/")
-        if not api_base_origin or "localhost" in api_base_origin or "127.0.0.1" in api_base_origin:
-            api_base_origin = "https://api.leamss.com"
         pdf_report_url = f"{api_base_origin}/api/bulk-assessments/public/row/{row['id']}/report.pdf"
         try:
             stream = await _gridfs.open_download_stream(ObjectId(row["pdf_file_id"]))
@@ -2679,11 +2708,30 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
         except Exception as e:
             logger.warning(f"Could not read PDF from GridFS: {e}")
 
+    sla_url = f"{api_base_origin}/api/email-settings/asset/sla" if (attach_sla_flag and s.get("sla_file_id")) else None
+    qr_url = f"{api_base_origin}/api/email-settings/asset/qr" if (attach_qr_flag and s.get("qr_file_id")) else None
+
+    # Check candidate resume availability
+    has_resume = bool(
+        p.get("resume_file_id")
+        or row.get("resume_file_id")
+        or p.get("resume_link")
+        or row.get("resume_link")
+    )
+    resume_stream_url = f"{api_base_origin}/api/bulk-assessments/public/row/{row['id']}/resume" if (attach_resume_flag and has_resume) else None
+
     cfg = await get_whatsapp_config()
     is_twilio_mode = cfg.get("provider") == "twilio" or cfg.get("is_twilio")
 
     from routers.whatsapp_chat import is_in_24h_window, set_pending_flow
-    from core.whatsapp_service import send_whatsapp_document_by_url
+    from core.whatsapp_service import (
+        send_whatsapp_text,
+        send_whatsapp_document_by_url,
+        send_whatsapp_image_by_url,
+        send_whatsapp_document_by_id,
+        send_whatsapp_image_by_id,
+        upload_whatsapp_media,
+    )
 
     has_active_session = await is_in_24h_window(clean_phone)
     dispatched_attachments = []
@@ -2722,8 +2770,9 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
                     text=msg_text,
                     client_name=name,
                 )
+                import asyncio
+                # 1. Report PDF
                 if attach_report_flag and pdf_report_url:
-                    import asyncio
                     await asyncio.sleep(0.5)
                     try:
                         await send_whatsapp_document_by_url(
@@ -2735,15 +2784,60 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
                         dispatched_attachments.append("report_pdf")
                     except Exception as e_pdf:
                         logger.warning("Failed to dispatch Report PDF in bulk row: %s", e_pdf)
+
+                # 2. SLA PDF
+                if attach_sla_flag and sla_url:
+                    await asyncio.sleep(0.5)
+                    try:
+                        sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+                        await send_whatsapp_document_by_url(
+                            to_phone=clean_phone,
+                            document_url=sla_url,
+                            filename=sla_fname,
+                            caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
+                        )
+                        dispatched_attachments.append("sla_pdf")
+                    except Exception as e_sla:
+                        logger.warning("Failed to dispatch SLA PDF in bulk row: %s", e_sla)
+
+                # 3. Payment QR Image
+                if attach_qr_flag and qr_url:
+                    await asyncio.sleep(0.5)
+                    try:
+                        await send_whatsapp_image_by_url(
+                            to_phone=clean_phone,
+                            image_url=qr_url,
+                            caption="💳 LEAMSS Official Payment QR & Banking Details",
+                        )
+                        dispatched_attachments.append("payment_qr")
+                    except Exception as e_qr:
+                        logger.warning("Failed to dispatch QR image in bulk row: %s", e_qr)
+
+                # 4. Candidate Resume
+                if attach_resume_flag and resume_stream_url:
+                    await asyncio.sleep(0.5)
+                    try:
+                        r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
+                        await send_whatsapp_document_by_url(
+                            to_phone=clean_phone,
+                            document_url=resume_stream_url,
+                            filename=r_name,
+                            caption=f"📄 Candidate Resume — {name}",
+                        )
+                        dispatched_attachments.append("resume_file")
+                    except Exception as e_res:
+                        logger.warning("Failed to dispatch resume in bulk row: %s", e_res)
             else:
-                detail_txt = f"Score: {best_pts} pts ({subclass}) for {occ or 'Australia PR'}. Reply YES to receive your full 23-page Assessment Report PDF, SLA, and documents on WhatsApp."
                 await set_pending_flow(
                     clean_phone,
                     flow="send_report",
                     client_name=name,
                     extra_data={
                         "report_url": rep_url,
-                        "pdf_url": pdf_report_url,
+                        "pdf_url": pdf_report_url if attach_report_flag else None,
+                        "sla_url": sla_url if attach_sla_flag else None,
+                        "qr_url": qr_url if attach_qr_flag else None,
+                        "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
                         "selected_msg": msg_text,
                         "points": str(best_pts),
                         "occ": str(occ or "Australia PR"),
@@ -2759,6 +2853,12 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
                 )
                 if attach_report_flag and pdf_report_url:
                     dispatched_attachments.append("report_pdf")
+                if attach_sla_flag and sla_url:
+                    dispatched_attachments.append("sla_pdf")
+                if attach_qr_flag and qr_url:
+                    dispatched_attachments.append("payment_qr")
+                if attach_resume_flag and resume_stream_url:
+                    dispatched_attachments.append("resume_file")
     else:
         # Meta Cloud API Mode
         if attach_report_flag and pdf_bytes:
@@ -2788,6 +2888,10 @@ class RowWhatsAppRequest(BaseModel):
     phone_override: Optional[str] = None
     template_id: Optional[str] = None
     custom_message: Optional[str] = None
+    attach_report: Optional[bool] = True
+    attach_sla: Optional[bool] = True
+    attach_qr: Optional[bool] = True
+    attach_resume: Optional[bool] = True
 
 
 @router.post("/row/{row_id}/whatsapp")
@@ -2806,7 +2910,16 @@ async def whatsapp_row(row_id: str, req: RowWhatsAppRequest, current_user: dict 
         raise HTTPException(status_code=400, detail="No generated report to send — generate the report first.")
     now = datetime.now(timezone.utc)
     try:
-        meta = await _send_row_whatsapp(row, phone, template_id=req.template_id, custom_text=req.custom_message)
+        meta = await _send_row_whatsapp(
+            row,
+            phone,
+            template_id=req.template_id,
+            custom_text=req.custom_message,
+            attach_report=req.attach_report,
+            attach_sla=req.attach_sla,
+            attach_qr=req.attach_qr,
+            attach_resume=req.attach_resume,
+        )
     except Exception as e:
         await ROWS.update_one({"id": row_id}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
         raise HTTPException(status_code=500, detail=str(e))
@@ -3343,7 +3456,15 @@ async def row_pdf(row_id: str, current_user: dict = Depends(get_current_user)):
                              headers={"Content-Disposition": f'inline; filename="{base}.pdf"'})
 
 
-async def _run_whatsapp_all(batch_id: str):
+async def _run_whatsapp_all(
+    batch_id: str,
+    template_id: Optional[str] = None,
+    custom_message: Optional[str] = None,
+    attach_report: Optional[bool] = True,
+    attach_sla: Optional[bool] = True,
+    attach_qr: Optional[bool] = True,
+    attach_resume: Optional[bool] = True,
+):
     rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0}).sort("row_index", 1).to_list(100000)
     done = 0
     failed = 0
@@ -3356,7 +3477,16 @@ async def _run_whatsapp_all(batch_id: str):
             continue
         now = datetime.now(timezone.utc)
         try:
-            meta = await _send_row_whatsapp(row, phone)
+            meta = await _send_row_whatsapp(
+                row,
+                phone,
+                template_id=template_id,
+                custom_text=custom_message,
+                attach_report=attach_report,
+                attach_sla=attach_sla,
+                attach_qr=attach_qr,
+                attach_resume=attach_resume,
+            )
             await ROWS.update_one({"id": row["id"]}, {"$set": {
                 "whatsapp_status": "sent", "whatsapp_to": meta.get("sent_to"), "whatsapp_sent_at": now, "whatsapp_error": None,
                 "whatsapp_kind": meta.get("kind"), "whatsapp_attachments": meta.get("attachments"),
@@ -3373,7 +3503,16 @@ async def _run_whatsapp_all(batch_id: str):
     }})
 
 
-async def _run_whatsapp_category(batch_id: str, kind: str, template_id: Optional[str] = None):
+async def _run_whatsapp_category(
+    batch_id: str,
+    kind: str,
+    template_id: Optional[str] = None,
+    custom_message: Optional[str] = None,
+    attach_report: Optional[bool] = True,
+    attach_sla: Optional[bool] = True,
+    attach_qr: Optional[bool] = True,
+    attach_resume: Optional[bool] = True,
+):
     if kind == "not_eligible":
         rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0}).sort("row_index", 1).to_list(100000)
         rows = [r for r in rows if bucket_for_row(r) in ("improvable", "ineligible")]
@@ -3388,7 +3527,16 @@ async def _run_whatsapp_category(batch_id: str, kind: str, template_id: Optional
             continue
         now = datetime.now(timezone.utc)
         try:
-            meta = await _send_row_whatsapp(row, phone, template_id=template_id)
+            meta = await _send_row_whatsapp(
+                row,
+                phone,
+                template_id=template_id,
+                custom_text=custom_message,
+                attach_report=attach_report,
+                attach_sla=attach_sla,
+                attach_qr=attach_qr,
+                attach_resume=attach_resume,
+            )
             await ROWS.update_one({"id": row["id"]}, {"$set": {
                 "whatsapp_status": "sent", "whatsapp_to": meta.get("sent_to"), "whatsapp_sent_at": now, "whatsapp_error": None,
                 "whatsapp_kind": kind, "whatsapp_attachments": meta.get("attachments"),
@@ -3407,6 +3555,11 @@ async def _run_whatsapp_category(batch_id: str, kind: str, template_id: Optional
 
 class CategoryWhatsAppRequest(BaseModel):
     template_id: Optional[str] = None
+    custom_message: Optional[str] = None
+    attach_report: Optional[bool] = True
+    attach_sla: Optional[bool] = True
+    attach_qr: Optional[bool] = True
+    attach_resume: Optional[bool] = True
 
 
 @router.post("/{batch_id}/whatsapp-all")
@@ -3426,7 +3579,15 @@ async def whatsapp_all(batch_id: str, req: CategoryWhatsAppRequest, current_user
         "whatsapp_status": "sending", "whatsapp_total": len(sendable), "whatsapp_done": 0,
         "whatsapp_failed": 0, "whatsapp_skipped": 0, "whatsapp_started_at": datetime.now(timezone.utc),
     }})
-    asyncio.create_task(_run_whatsapp_all(batch_id))
+    asyncio.create_task(_run_whatsapp_all(
+        batch_id,
+        template_id=req.template_id,
+        custom_message=req.custom_message,
+        attach_report=req.attach_report,
+        attach_sla=req.attach_sla,
+        attach_qr=req.attach_qr,
+        attach_resume=req.attach_resume,
+    ))
     return {"ok": True, "queued": len(sendable)}
 
 
@@ -3447,7 +3608,16 @@ async def whatsapp_not_eligible(batch_id: str, req: CategoryWhatsAppRequest, cur
         "whatsapp_status": "sending", "whatsapp_total": len(sendable), "whatsapp_done": 0,
         "whatsapp_failed": 0, "whatsapp_skipped": 0, "whatsapp_started_at": datetime.now(timezone.utc),
     }})
-    asyncio.create_task(_run_whatsapp_category(batch_id, "not_eligible", req.template_id))
+    asyncio.create_task(_run_whatsapp_category(
+        batch_id,
+        "not_eligible",
+        template_id=req.template_id,
+        custom_message=req.custom_message,
+        attach_report=req.attach_report,
+        attach_sla=req.attach_sla,
+        attach_qr=req.attach_qr,
+        attach_resume=req.attach_resume,
+    ))
     return {"ok": True, "queued": len(sendable)}
 
 
@@ -3468,7 +3638,16 @@ async def whatsapp_resume_request(batch_id: str, req: CategoryWhatsAppRequest, c
         "whatsapp_status": "sending", "whatsapp_total": len(sendable), "whatsapp_done": 0,
         "whatsapp_failed": 0, "whatsapp_skipped": 0, "whatsapp_started_at": datetime.now(timezone.utc),
     }})
-    asyncio.create_task(_run_whatsapp_category(batch_id, "resume_request", req.template_id))
+    asyncio.create_task(_run_whatsapp_category(
+        batch_id,
+        "resume_request",
+        template_id=req.template_id,
+        custom_message=req.custom_message,
+        attach_report=req.attach_report,
+        attach_sla=req.attach_sla,
+        attach_qr=req.attach_qr,
+        attach_resume=req.attach_resume,
+    ))
     return {"ok": True, "queued": len(sendable)}
 
 
@@ -3477,9 +3656,13 @@ async def whatsapp_preview(batch_id: str, current_user: dict = Depends(get_curre
     if not _can(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
     cfg = await get_whatsapp_config()
+    from routers.email_settings import get_settings
+    s = await get_settings()
+
     rows = await ROWS.find({"batch_id": batch_id, "status": "generated"},
-                           {"_id": 0, "parsed.phone": 1, "parsed.name": 1, "pdf_file_id": 1}).to_list(100000)
+                           {"_id": 0, "parsed.phone": 1, "parsed.name": 1, "parsed.resume_link": 1, "parsed.resume_file_id": 1, "resume_link": 1, "resume_file_id": 1, "pdf_file_id": 1}).to_list(100000)
     sendable, missing = [], []
+    with_resume = 0
     for r in rows:
         p = r.get("parsed") or {}
         phone = (p.get("phone") or "").strip()
@@ -3487,6 +3670,45 @@ async def whatsapp_preview(batch_id: str, current_user: dict = Depends(get_curre
             missing.append(p.get("name") or "(unnamed)")
             continue
         sendable.append(r)
+        if p.get("resume_file_id") or r.get("resume_file_id") or p.get("resume_link") or r.get("resume_link"):
+            with_resume += 1
+
+    cursor = db["whatsapp_templates"].find({}, {"_id": 0}).sort("name", 1)
+    templates = await cursor.to_list(100)
+    if not templates:
+        templates = [
+            {
+                "id": "report_summary",
+                "name": "Full Assessment Outcome & Report",
+                "category": "eligible",
+                "description": "Sends congratulations, score breakdown, and attachments",
+                "attach_report": True,
+                "attach_sla": True,
+                "attach_qr": True,
+                "attach_resume": True,
+            },
+            {
+                "id": "sla_payment",
+                "name": "SLA & Payment Instructions",
+                "category": "eligible",
+                "description": "Sends payment details, service agreement, and onboarding info",
+                "attach_report": True,
+                "attach_sla": True,
+                "attach_qr": True,
+                "attach_resume": True,
+            },
+            {
+                "id": "consultation_followup",
+                "name": "Consultation Follow-up & Booking",
+                "category": "eligible",
+                "description": "Follow-up message with link to schedule free consultation",
+                "attach_report": True,
+                "attach_sla": True,
+                "attach_qr": True,
+                "attach_resume": True,
+            },
+        ]
+
     return {
         "configured": cfg.get("is_configured", False),
         "provider": cfg.get("provider", "twilio"),
@@ -3494,6 +3716,11 @@ async def whatsapp_preview(batch_id: str, current_user: dict = Depends(get_curre
         "sendable": len(sendable),
         "missing_phone": len(missing),
         "missing_sample": missing[:15],
+        "with_resume": with_resume,
+        "without_resume": len(sendable) - with_resume,
+        "templates": templates,
+        "has_sla_asset": bool(s.get("sla_file_id")),
+        "has_qr_asset": bool(s.get("qr_file_id")),
     }
 
 
@@ -3507,4 +3734,26 @@ async def public_row_pdf(row_id: str):
     base = re.sub(r"[^A-Za-z0-9_-]", "_", (row.get("parsed") or {}).get("name") or "client")[:40]
     return StreamingResponse(io.BytesIO(data), media_type="application/pdf",
                              headers={"Content-Disposition": f'inline; filename="{base}.pdf"'})
+
+
+@router.get("/public/row/{row_id}/resume")
+async def public_row_resume(row_id: str):
+    row = await ROWS.find_one({"id": row_id})
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    p = row.get("parsed") or {}
+    from core.report_email import get_resume_attachment
+    resume_fid = p.get("resume_file_id") or row.get("resume_file_id")
+    resume_link = p.get("resume_link") or row.get("resume_link")
+    resume_fname = p.get("resume_filename") or row.get("resume_filename") or "Resume.pdf"
+    name = p.get("name") or "Applicant"
+    resume_att = await get_resume_attachment(file_id=resume_fid, link=resume_link, filename=resume_fname, client_name=name)
+    if not resume_att or not resume_att.get("bytes"):
+        raise HTTPException(status_code=404, detail="No resume available")
+    m_type = "application/pdf" if str(resume_fname).lower().endswith(".pdf") else "application/octet-stream"
+    return StreamingResponse(
+        io.BytesIO(resume_att["bytes"]),
+        media_type=m_type,
+        headers={"Content-Disposition": f'inline; filename="{resume_fname}"'}
+    )
 
