@@ -378,6 +378,9 @@ export default function BulkPreAssessment() {
     if (['eligible', 'improvable', 'ineligible', 'needs_resume'].includes(rowFilter)) return rowBucket(r) === rowFilter;
     return r.status === rowFilter;
   });
+  const validCount = rows.filter((r) => r.status === 'valid').length;
+  const generatedCount = rows.filter((r) => r.status === 'generated').length;
+  const hasGenerated = (batch?.generated || 0) > 0 || generatedCount > 0;
   const sendableCount = rows.filter((r) => r.status === 'generated' && r.parsed?.email).length;
   const notEligibleCount = rows.filter((r) => r.status === 'generated' && ['improvable', 'ineligible'].includes(rowBucket(r)) && r.parsed?.email).length;
   const resumeReqCount = rows.filter((r) => (r.status === 'needs_ai' || r.status === 'error') && r.parsed?.email).length;
@@ -622,9 +625,9 @@ export default function BulkPreAssessment() {
                 </Button>
               )}
               {batch.status !== 'generating' && batch.status !== 'enriching' && (
-                <Button onClick={startGenerate} disabled={batch.valid === 0} className="bg-teal-600 hover:bg-teal-700" data-testid="bulk-generate-btn">
+                <Button onClick={startGenerate} disabled={validCount === 0 && !hasGenerated} className="bg-teal-600 hover:bg-teal-700" data-testid="bulk-generate-btn">
                   <Play className="h-4 w-4 mr-1" />
-                  {batch.generated > 0 ? 'Re-generate All' : `Generate ${batch.valid} Reports`}
+                  {hasGenerated ? (validCount > 0 ? `Generate ${validCount} & Re-evaluate` : 'Re-generate All') : `Generate ${validCount || batch.valid || 0} Reports`}
                 </Button>
               )}
               {batch.status === 'enriching' && (
@@ -638,19 +641,19 @@ export default function BulkPreAssessment() {
               {batch.status === 'generating' && (
                 <Button disabled className="bg-teal-600"><Loader2 className="h-4 w-4 mr-1 animate-spin" />Generating…</Button>
               )}
-              {batch.generated > 0 && (
+              {hasGenerated && (
                 <Button variant="outline" onClick={exportZip} data-testid="bulk-export-btn">
                   <Package className="h-4 w-4 mr-1" />Download ZIP + Summary
                 </Button>
               )}
-              {batch.generated > 0 && batch.email_status !== 'sending' && (
+              {hasGenerated && batch.email_status !== 'sending' && (
                 <Button onClick={() => { if (!emailCfg?.configured) { toast.error('Email not set up yet — see the setup banner'); return; } setShowEmailPreview(true); }} disabled={sendableCount === 0}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50" data-testid="bulk-email-all-btn"
                   title={sendableCount === 0 ? 'No generated reports have a client email' : `Email ${sendableCount} report(s)`}>
                   <Mail className="h-4 w-4 mr-1" />Email All ({sendableCount})
                 </Button>
               )}
-              {batch.generated > 0 && (
+              {hasGenerated && (
                 <Button onClick={() => setShowWhatsAppPreview(true)} disabled={sendableWhatsAppCount === 0}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50" data-testid="bulk-whatsapp-all-btn"
                   title={sendableWhatsAppCount === 0 ? 'No generated reports have a client phone number' : `Send WhatsApp to ${sendableWhatsAppCount} client(s)`}>
@@ -664,14 +667,14 @@ export default function BulkPreAssessment() {
                   <RefreshCw className="h-4 w-4 mr-1" />Send Reminder ({reminderCount})
                 </Button>
               )}
-              {batch.generated > 0 && batch.email_status !== 'sending' && notEligibleCount > 0 && (
+              {hasGenerated && batch.email_status !== 'sending' && notEligibleCount > 0 && (
                 <Button onClick={() => emailCategory('not_eligible')}
                   className="bg-amber-600 hover:bg-amber-700 text-white" data-testid="bulk-email-not-eligible-btn"
                   title={`Email ${notEligibleCount} Not-Eligible report(s) with reasoning`}>
                   <Mail className="h-4 w-4 mr-1" />Email Not-Eligible ({notEligibleCount})
                 </Button>
               )}
-              {batch.generated > 0 && notEligibleWhatsAppCount > 0 && (
+              {hasGenerated && notEligibleWhatsAppCount > 0 && (
                 <Button onClick={() => whatsAppCategory('not_eligible')}
                   className="border-emerald-600 text-emerald-700 hover:bg-emerald-50" variant="outline" data-testid="bulk-whatsapp-not-eligible-btn"
                   title={`Send ${notEligibleWhatsAppCount} Not-Eligible report(s) on WhatsApp`}>
@@ -692,11 +695,11 @@ export default function BulkPreAssessment() {
                   <MessageSquare className="h-4 w-4 mr-1" />Request Resume (WhatsApp) ({resumeReqWhatsAppCount || resumeReqCount})
                 </Button>
               )}
-              {batch.generated > 0 && (
+              {hasGenerated && (
                 <Button variant="outline" onClick={clearGeneratedRows}
                   className="text-slate-600 border-slate-300 hover:bg-slate-100" data-testid="clear-generated-btn"
                   title="Remove all already-generated clients from this working batch">
-                  <Trash2 className="h-4 w-4 mr-1 text-slate-500" />Clear Generated ({batch.generated})
+                  <Trash2 className="h-4 w-4 mr-1 text-slate-500" />Clear Generated ({generatedCount || batch.generated})
                 </Button>
               )}
               <Button variant="outline" onClick={() => loadBatch(batch.id)}><RefreshCw className="h-4 w-4 mr-1" />Refresh</Button>
