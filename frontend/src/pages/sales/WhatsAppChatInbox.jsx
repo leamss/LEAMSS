@@ -23,7 +23,8 @@ import {
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 const STATUS_CONFIG = {
   open: { label: 'Open', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },

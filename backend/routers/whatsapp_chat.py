@@ -558,13 +558,20 @@ async def get_conversation_messages(
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Reset unread counter since staff is viewing the thread
-    await CONVERSATIONS.update_one({"id": conv_id}, {"$set": {"unread_count": 0}})
+    phone = conv.get("phone")
+    query: Dict[str, Any] = {"conversation_id": conv_id}
+    if phone:
+        query = {"$or": [{"conversation_id": conv_id}, {"phone": phone}]}
 
-    cursor = MESSAGES.find({"conversation_id": conv_id}).sort("created_at", 1).limit(limit)
+    cursor = MESSAGES.find(query).sort("created_at", 1).limit(limit)
     messages = []
+    seen_ids = set()
     async for m in cursor:
-        messages.append(_clean_doc(m))
+        doc = _clean_doc(m)
+        m_id = doc.get("id") or str(doc.get("_id", ""))
+        if m_id and m_id not in seen_ids:
+            seen_ids.add(m_id)
+            messages.append(doc)
 
     return {
         "conversation_id": conv_id,

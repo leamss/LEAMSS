@@ -9,7 +9,8 @@ import {
   Loader2, Send, Users, FileWarning, MessageSquare, FileText, CheckCircle2, XCircle,
 } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 const Stat = ({ label, value, color = 'text-slate-800', testid }) => (
   <div className="rounded-lg border bg-white px-3 py-2 text-center" data-testid={testid}>
