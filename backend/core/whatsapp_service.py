@@ -187,22 +187,13 @@ async def send_whatsapp_text(
             "To": to_wa,
         }
 
-        # Default to approved Twilio WhatsApp Content Template for 100% broadcast delivery
-        if not content_sid:
-            content_sid = "HX813f83bd5dd7f84680a55442bf34b081"
-            clean_text = re.sub(r"[\r\n]+", " ", text).strip()
-            if len(clean_text) > 300:
-                clean_text = clean_text[:297] + "..."
-            content_variables = {
-                "1": client_name or "Client",
-                "2": clean_text,
-            }
-
         if content_sid:
             data["ContentSid"] = content_sid
             if content_variables:
                 import json
                 data["ContentVariables"] = json.dumps(content_variables)
+            if media_url:
+                data["MediaUrl"] = media_url
         else:
             data["Body"] = text
             if media_url:

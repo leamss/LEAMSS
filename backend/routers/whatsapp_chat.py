@@ -329,10 +329,12 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
             except Exception as e_send:
                 logger.warning("Could not dispatch report breakdown to +%s: %s", clean_phone, e_send)
 
+            import asyncio
             # 1. Report PDF
             pdf_url = conv.get("pending_pdf_url")
             if pdf_url:
                 try:
+                    await asyncio.sleep(0.5)
                     await send_whatsapp_document_by_url(
                         to_phone=clean_phone,
                         document_url=pdf_url,
@@ -346,6 +348,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
             sla_url = conv.get("pending_sla_url")
             if sla_url:
                 try:
+                    await asyncio.sleep(0.5)
                     await send_whatsapp_document_by_url(
                         to_phone=clean_phone,
                         document_url=sla_url,
@@ -359,6 +362,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
             qr_url = conv.get("pending_qr_url")
             if qr_url:
                 try:
+                    await asyncio.sleep(0.5)
                     await send_whatsapp_image_by_url(
                         to_phone=clean_phone,
                         image_url=qr_url,
@@ -371,6 +375,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
             resume_url = conv.get("pending_resume_url")
             if resume_url:
                 try:
+                    await asyncio.sleep(0.5)
                     await send_whatsapp_document_by_url(
                         to_phone=clean_phone,
                         document_url=resume_url,
