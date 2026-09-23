@@ -1603,6 +1603,8 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
 
     doc = await assessments_col.find_one({"id": id})
     if not doc:
+        doc = await db["pre_assessments"].find_one({"id": id})
+    if not doc:
         raise HTTPException(status_code=404, detail="Assessment not found")
 
     cfg = await get_whatsapp_config()

@@ -20,6 +20,9 @@ export function formatApiError(e, fallback = 'Request failed') {
   const rawDetail = e?.response?.data?.detail ?? e?.data?.detail ?? e?.detail ?? e;
 
   if (typeof rawDetail === 'string') {
+    if (rawDetail === 'Network Error' || rawDetail === 'Failed to fetch' || rawDetail.toLowerCase().includes('network error')) {
+      return fallback !== 'Request failed' ? fallback : 'Unable to reach the server. Please check your connection or try WhatsApp Web.';
+    }
     if (
       rawDetail.includes("Expecting ',' delimiter") ||
       rawDetail.includes("JSONDecodeError") ||
@@ -58,7 +61,12 @@ export function formatApiError(e, fallback = 'Request failed') {
 
     // If it's an Axios Error object itself
     if (e?.response?.data?.message) return String(e.response.data.message);
-    if (e?.message) return String(e.message);
+    if (e?.message) {
+      if (e.message === 'Network Error' || e.message === 'Failed to fetch' || e.message.toLowerCase().includes('network error')) {
+        return fallback !== 'Request failed' ? fallback : 'Unable to reach the server. Please check your connection or retry.';
+      }
+      return String(e.message);
+    }
 
     try {
       return JSON.stringify(rawDetail);

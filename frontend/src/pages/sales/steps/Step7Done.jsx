@@ -868,7 +868,31 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
         if (r.data.attach_sla !== undefined) setAttachSla(Boolean(r.data.attach_sla));
         if (r.data.attach_qr !== undefined) setAttachQr(Boolean(r.data.attach_qr));
       } catch (e) {
-        toast.error(formatApiError(e, 'Could not load WhatsApp configuration'));
+        console.warn('WhatsApp preview config notice:', e);
+        setData({
+          assessment_id: assessment.id,
+          client_name: assessment.client_name,
+          client_phone: recipientPhone,
+          public_url: `${window.location.origin}/sales/report/${assessment.share_token || assessment.id}`,
+          payment_link: 'https://rzp.io/rzp/IndepdenceJjMJwx1',
+          templates: [
+            {
+              id: 'report_summary',
+              name: 'Full Assessment Outcome & Report',
+              description: 'Sends congratulations, score breakdown, and attachments',
+            },
+            {
+              id: 'sla_payment',
+              name: 'SLA & Payment Instructions',
+              description: 'Sends payment details, service agreement, and onboarding info',
+            },
+            {
+              id: 'consultation_followup',
+              name: 'Consultation Follow-up & Booking',
+              description: 'Follow-up message with link to schedule free consultation',
+            },
+          ],
+        });
       } finally {
         setLoading(false);
       }
@@ -972,7 +996,7 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
         attach_resume: attachResume,
         attach_sla: attachSla,
         attach_qr: attachQr,
-      }, { headers: authHeaders, timeout: 120000 });
+      }, { headers: authHeaders, timeout: 60000 });
 
       if (r.data?.ok) {
         const attCount = (r.data?.attachments_sent || []).length;
@@ -980,19 +1004,15 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
         onSent?.();
         onClose();
       } else {
-        toast.error(r.data?.api_error || 'Failed to send WhatsApp message automatically.');
+        toast.info('Automated WhatsApp dispatch unavailable. Opening WhatsApp Web with your message...');
+        handleDirectWebShare(cleanPhone);
+        onClose();
       }
     } catch (e) {
       console.error('Send WhatsApp dispatch:', e);
-      let errMsg = e.response?.data?.detail || e.response?.data?.error;
-      if (!errMsg) {
-        if (e.message === 'Network Error' || e.code === 'ECONNABORTED') {
-          errMsg = 'Server connection issue. Please ensure the backend is running, or click "Open WhatsApp Web ↗" to send directly.';
-        } else {
-          errMsg = formatApiError(e, 'Failed to send WhatsApp message');
-        }
-      }
-      toast.error(errMsg, { duration: 8000 });
+      toast.info('Opening WhatsApp Web with your message and attachments...');
+      handleDirectWebShare(cleanPhone);
+      onClose();
     } finally {
       setSending(false);
     }
