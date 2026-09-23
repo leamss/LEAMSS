@@ -134,7 +134,10 @@ async def record_chat_message(
     now = datetime.now(timezone.utc)
 
     # 1. Find or create conversation
-    conv = await CONVERSATIONS.find_one({"phone": clean_phone})
+    phone_candidates = [clean_phone, f"+{clean_phone}", phone, phone.lstrip("+")]
+    if len(clean_phone) > 10 and clean_phone.startswith("91"):
+        phone_candidates.extend([clean_phone[2:], f"+91{clean_phone[2:]}"])
+    conv = await CONVERSATIONS.find_one({"phone": {"$in": phone_candidates}})
     if not conv:
         # Check if we can infer client name or assessment from sales_assessments
         ass_doc = None
@@ -492,11 +495,18 @@ async def list_conversations(
 
     cursor = CONVERSATIONS.find(query).sort("last_message_at", -1).skip(skip).limit(limit)
     items = []
+    seen_phones = set()
     async for doc in cursor:
+        p_raw = doc.get("phone")
+        p_norm = normalize_phone_number(p_raw) or p_raw
+        if p_norm and p_norm in seen_phones:
+            continue
+        if p_norm:
+            seen_phones.add(p_norm)
         items.append(_clean_doc(doc))
 
     # Calculate global counters
-    total_all = await CONVERSATIONS.count_documents({})
+    total_all = len(items) if search else await CONVERSATIONS.count_documents({})
     total_open = await CONVERSATIONS.count_documents({"status": "open"})
     total_unassigned = await CONVERSATIONS.count_documents({
         "$or": [{"assigned_to": None}, {"assigned_to": ""}, {"assigned_to": {"$exists": False}}]
@@ -581,13 +591,25 @@ async def get_conversation_messages(
     clean_p = normalize_phone_number(phone) if phone else None
     raw_p = phone.replace("+", "").strip() if phone else None
 
-    query_or = [{"conversation_id": conv_id}]
+    query_or: List[Dict[str, Any]] = [{"conversation_id": conv_id}]
+    phone_filter: List[Dict[str, Any]] = []
     if phone:
-        query_or.append({"phone": phone})
+        phone_filter.append({"phone": phone})
+        phone_filter.append({"phone": f"+{phone.lstrip('+')}"})
+        phone_filter.append({"phone": phone.lstrip("+")})
     if clean_p and clean_p != phone:
-        query_or.append({"phone": clean_p})
-    if raw_p and raw_p != phone:
-        query_or.append({"phone": raw_p})
+        phone_filter.append({"phone": clean_p})
+        phone_filter.append({"phone": f"+{clean_p}"})
+        if len(clean_p) > 10 and clean_p.startswith("91"):
+            phone_filter.append({"phone": clean_p[2:]})
+            phone_filter.append({"phone": f"+91{clean_p[2:]}"})
+
+    if phone_filter:
+        query_or.extend(phone_filter)
+        matching_convs = await CONVERSATIONS.find({"$or": phone_filter}, {"id": 1}).to_list(100)
+        for mc in matching_convs:
+            if mc.get("id"):
+                query_or.append({"conversation_id": mc["id"]})
 
     cursor = MESSAGES.find({"$or": query_or}).sort("created_at", 1).limit(limit)
     messages = []
