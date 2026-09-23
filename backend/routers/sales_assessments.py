@@ -13,6 +13,7 @@ Endpoints:
   GET    /api/sales/assessments/public/{token}          — public read-only view (no auth)
 """
 import os
+import re
 import uuid
 import secrets
 import asyncio
@@ -39,6 +40,13 @@ ROLE_SALES = {
     "admin", "admin_owner", "sales_executive", "sr_sales_executive",
     "sales_manager", "sales_head", "partner", "case_manager",
 }
+
+
+def _report_filename(name: str, assessment_id: Optional[str]) -> str:
+    clean_name = re.sub(r"[^\w\s-]", "", str(name or "Applicant")).strip()
+    clean_name = re.sub(r"[-\s]+", "_", clean_name)
+    aid = assessment_id or "REPORT"
+    return f"{clean_name}_PreAssessment_{aid}.pdf"
 
 
 def _user_role(user: dict) -> str:
