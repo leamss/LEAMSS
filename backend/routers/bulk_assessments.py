@@ -2876,6 +2876,21 @@ async def _send_row_whatsapp(
         else:
             res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
 
+    try:
+        from routers.whatsapp_chat import record_chat_message
+        await record_chat_message(
+            phone=clean_phone,
+            text=msg_text or f"Pre-Assessment Evaluation Report dispatched ({best_pts} pts)",
+            direction="outbound",
+            sender_type="staff",
+            sender_name="LEAMSS Team",
+            client_name=name,
+            assessment_id=str(row.get("assessment_id") or row.get("id") or ""),
+            status="sent",
+        )
+    except Exception as e_rec:
+        logger.warning("Could not record chat message in bulk row: %s", e_rec)
+
     return {
         "sent_to": clean_phone,
         "kind": bucket,

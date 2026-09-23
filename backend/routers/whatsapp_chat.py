@@ -196,6 +196,25 @@ async def record_chat_message(
 
         await CONVERSATIONS.update_one({"id": conv_id}, update_ops)
 
+    # 2. Insert into MESSAGES collection
+    msg_id = str(uuid.uuid4())
+    msg_doc = {
+        "id": msg_id,
+        "conversation_id": conv_id,
+        "phone": clean_phone,
+        "direction": direction,
+        "sender_type": sender_type,
+        "sender_id": sender_id,
+        "sender_name": sender_name or (client_name if direction == "inbound" else "LEAMSS Staff"),
+        "body": text,
+        "media_url": media_url,
+        "media_filename": media_filename,
+        "status": status,
+        "created_at": now,
+    }
+    await MESSAGES.insert_one(msg_doc)
+    return msg_doc
+
 async def is_in_24h_window(phone: str) -> bool:
     """Check if recipient has sent an inbound message within the last 24 hours."""
     clean_phone = normalize_phone_number(phone)
@@ -559,11 +578,18 @@ async def get_conversation_messages(
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     phone = conv.get("phone")
-    query: Dict[str, Any] = {"conversation_id": conv_id}
-    if phone:
-        query = {"$or": [{"conversation_id": conv_id}, {"phone": phone}]}
+    clean_p = normalize_phone_number(phone) if phone else None
+    raw_p = phone.replace("+", "").strip() if phone else None
 
-    cursor = MESSAGES.find(query).sort("created_at", 1).limit(limit)
+    query_or = [{"conversation_id": conv_id}]
+    if phone:
+        query_or.append({"phone": phone})
+    if clean_p and clean_p != phone:
+        query_or.append({"phone": clean_p})
+    if raw_p and raw_p != phone:
+        query_or.append({"phone": raw_p})
+
+    cursor = MESSAGES.find({"$or": query_or}).sort("created_at", 1).limit(limit)
     messages = []
     seen_ids = set()
     async for m in cursor:
@@ -572,6 +598,27 @@ async def get_conversation_messages(
         if m_id and m_id not in seen_ids:
             seen_ids.add(m_id)
             messages.append(doc)
+
+    # If no messages in MESSAGES collection yet, but conv has last_message, synthesize/backfill it
+    if not messages and conv.get("last_message"):
+        dir_val = conv.get("last_message_direction", "inbound")
+        synth_msg = {
+            "id": str(uuid.uuid4()),
+            "conversation_id": conv_id,
+            "phone": clean_p or phone,
+            "direction": dir_val,
+            "sender_type": "client" if dir_val == "inbound" else "staff",
+            "sender_name": conv.get("client_name") if dir_val == "inbound" else "Staff",
+            "body": conv.get("last_message"),
+            "status": "received" if dir_val == "inbound" else "sent",
+            "created_at": conv.get("last_message_at") or conv.get("created_at") or datetime.now(timezone.utc),
+        }
+        await MESSAGES.insert_one(synth_msg)
+        messages.append(_clean_doc(synth_msg))
+
+    # Clear unread count when messages are viewed
+    if conv.get("unread_count", 0) > 0:
+        await CONVERSATIONS.update_one({"id": conv_id}, {"$set": {"unread_count": 0}})
 
     return {
         "conversation_id": conv_id,
