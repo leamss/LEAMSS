@@ -1932,16 +1932,30 @@ async def send_assessment_whatsapp(
 
     # 1. Send Main WhatsApp Message (Auto-attached with Pre-Assessment Report PDF via approved Utility Template)
     try:
+        from routers.whatsapp_chat import is_in_24h_window, set_pending_flow
+        has_active_session = await is_in_24h_window(clean_phone)
         detail_txt = f"Score: {best_total} pts for {occ.get('title') or 'Australia PR'}. View report: {public_url}"
+
         if is_twilio_mode:
-            res = await send_whatsapp_text(
-                to_phone=clean_phone,
-                text=detail_txt,
-                client_name=client_name,
-                content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
-                content_variables={"1": client_name, "2": str(id)[:20], "3": detail_txt},
-                media_url=pdf_report_url if attach_report_flag else None,
-            )
+            if has_active_session:
+                res = await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=msg_text,
+                    client_name=client_name,
+                    media_url=pdf_report_url if attach_report_flag else None,
+                )
+            else:
+                await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
+                    "report_url": public_url, "pdf_url": pdf_report_url, "points": str(best_total), "occ": str(occ.get("title") or "Australia PR")
+                })
+                res = await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=detail_txt,
+                    client_name=client_name,
+                    content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
+                    content_variables={"1": client_name, "2": str(id)[:20], "3": detail_txt},
+                    media_url=pdf_report_url if attach_report_flag else None,
+                )
             if attach_report_flag:
                 dispatched_attachments.append("report_pdf")
         else:

@@ -196,25 +196,168 @@ async def record_chat_message(
 
         await CONVERSATIONS.update_one({"id": conv_id}, update_ops)
 
-    # 2. Insert message
-    msg_id = str(uuid.uuid4())
-    msg_doc = {
-        "id": msg_id,
-        "conversation_id": conv_id,
-        "phone": clean_phone,
-        "direction": direction,
-        "sender_type": sender_type,
-        "sender_id": sender_id,
-        "sender_name": sender_name or ("Client" if direction == "inbound" else "LEAMSS Team"),
-        "body": text,
-        "media_url": media_url,
-        "media_filename": media_filename,
-        "status": status,
-        "created_at": now,
-    }
-    await MESSAGES.insert_one(msg_doc)
+async def is_in_24h_window(phone: str) -> bool:
+    """Check if recipient has sent an inbound message within the last 24 hours."""
+    clean_phone = normalize_phone_number(phone)
+    if not clean_phone:
+        return False
+    conv = await CONVERSATIONS.find_one({"phone": clean_phone})
+    if not conv or not conv.get("last_inbound_at"):
+        return False
+    last_inb = conv.get("last_inbound_at")
+    if isinstance(last_inb, str):
+        try:
+            last_inb = datetime.fromisoformat(last_inb)
+        except Exception:
+            return False
+    if isinstance(last_inb, datetime):
+        if last_inb.tzinfo is None:
+            last_inb = last_inb.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - last_inb).total_seconds() <= 24 * 3600
+    return False
 
-    return msg_doc
+
+async def set_pending_flow(
+    phone: str,
+    flow: str,  # "resume_request" | "send_report"
+    client_name: Optional[str] = None,
+    extra_data: Optional[Dict[str, Any]] = None,
+):
+    """Set pending interactive conversation flow for a cold outreach message."""
+    clean_phone = normalize_phone_number(phone)
+    if not clean_phone:
+        return
+    now = datetime.now(timezone.utc)
+    set_ops: Dict[str, Any] = {
+        "pending_flow": flow,
+        "pending_flow_set_at": now,
+    }
+    if client_name:
+        set_ops["client_name"] = client_name
+    if extra_data:
+        for k, v in extra_data.items():
+            set_ops[f"pending_{k}"] = v
+
+    await CONVERSATIONS.update_one(
+        {"phone": clean_phone},
+        {"$set": set_ops, "$setOnInsert": {"id": str(uuid.uuid4()), "phone": clean_phone, "status": "open", "created_at": now}},
+        upsert=True,
+    )
+
+
+async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile_name: str) -> bool:
+    """Handles automated Yes/No responses for Resume Request and Pre-Assessment Report flows."""
+    conv = await CONVERSATIONS.find_one({"phone": clean_phone})
+    if not conv or not conv.get("pending_flow"):
+        return False
+
+    flow = conv.get("pending_flow")
+    client_name = conv.get("client_name") or profile_name or "there"
+    norm_text = re.sub(r"[^\w\s]", "", body_text.strip().lower())
+
+    is_yes = any(norm_text == y or norm_text.startswith(f"{y} ") or norm_text.endswith(f" {y}")
+                 for y in ["yes", "y", "ok", "okay", "sure", "yeah", "yep", "send", "upload", "ha", "haa", "haan", "pls", "please"])
+
+    is_no = any(norm_text == n or norm_text.startswith(f"{n} ") or norm_text.endswith(f" {n}")
+                for n in ["no", "n", "nope", "nah", "cancel", "stop", "dont", "not now", "not interested", "na"])
+
+    from core.whatsapp_service import send_whatsapp_text, send_whatsapp_document_by_url
+
+    if flow == "resume_request":
+        if is_yes:
+            resume_url = conv.get("pending_resume_url") or "https://app.leamss.com"
+            reply_msg = (
+                f"Thank you, {client_name}! 🎉\n\n"
+                f"Please click the secure link below to upload your resume (PDF or Word):\n"
+                f"👉 {resume_url}\n\n"
+                f"Or you can simply attach and send your resume file directly here in this WhatsApp chat."
+            )
+            try:
+                await send_whatsapp_text(to_phone=clean_phone, text=reply_msg, client_name=client_name)
+                await record_chat_message(
+                    phone=clean_phone, text=reply_msg, direction="outbound",
+                    sender_type="system", sender_name="LEAMSS Assistant", status="sent"
+                )
+            except Exception as e_send:
+                logger.warning("Could not dispatch resume upload link to +%s: %s", clean_phone, e_send)
+            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {"pending_flow": "", "pending_resume_url": ""}})
+            return True
+        elif is_no:
+            reply_msg = (
+                f"Thank you for letting us know, {client_name}! 🙏\n\n"
+                f"If you would like to evaluate your Australia PR eligibility in the future, feel free to message us anytime. Have a wonderful day! — LEAMSS Team"
+            )
+            try:
+                await send_whatsapp_text(to_phone=clean_phone, text=reply_msg, client_name=client_name)
+                await record_chat_message(
+                    phone=clean_phone, text=reply_msg, direction="outbound",
+                    sender_type="system", sender_name="LEAMSS Assistant", status="sent"
+                )
+            except Exception as e_send:
+                logger.warning("Could not dispatch polite thank you to +%s: %s", clean_phone, e_send)
+            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {"pending_flow": "", "pending_resume_url": ""}})
+            return True
+
+    elif flow == "send_report":
+        if is_yes:
+            report_url = conv.get("pending_report_url") or "https://app.leamss.com"
+            points = conv.get("pending_points") or "65+"
+            occ = conv.get("pending_occ") or "Australia PR"
+            reply_msg = (
+                f"Here is your Australia PR Pre-Assessment Report & Documents! 📄🎉\n\n"
+                f"📋 *Client:* {client_name}\n"
+                f"🏆 *Score:* {points}/65 Points (Eligible)\n"
+                f"💼 *Occupation:* {occ}\n\n"
+                f"🔗 *View & Download your Branded 23-Page Assessment Report:*\n"
+                f"{report_url}\n\n"
+                f"Our Senior Migration Advisor is reviewing your file and will guide you on visa filing and state nominations. Feel free to reply here if you have any questions!"
+            )
+            try:
+                await send_whatsapp_text(to_phone=clean_phone, text=reply_msg, client_name=client_name)
+                await record_chat_message(
+                    phone=clean_phone, text=reply_msg, direction="outbound",
+                    sender_type="system", sender_name="LEAMSS Assistant", status="sent"
+                )
+            except Exception as e_send:
+                logger.warning("Could not dispatch report breakdown to +%s: %s", clean_phone, e_send)
+
+            pdf_url = conv.get("pending_pdf_url")
+            if pdf_url:
+                try:
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=pdf_url,
+                        filename=f"Assessment_Report_{client_name.replace(' ', '_')}.pdf",
+                        caption="📄 Official 23-Page Australia PR Pre-Assessment Report"
+                    )
+                except Exception as e_pdf:
+                    logger.warning("Could not dispatch report PDF attachment: %s", e_pdf)
+
+            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {
+                "pending_flow": "", "pending_report_url": "", "pending_pdf_url": "",
+                "pending_points": "", "pending_occ": ""
+            }})
+            return True
+        elif is_no:
+            reply_msg = (
+                f"Thank you for your response, {client_name}! 🙏\n\n"
+                f"If you need any guidance regarding Australian immigration, points assessment, or visa pathways later, our team is always here to assist. Wishing you all the best! — LEAMSS Team"
+            )
+            try:
+                await send_whatsapp_text(to_phone=clean_phone, text=reply_msg, client_name=client_name)
+                await record_chat_message(
+                    phone=clean_phone, text=reply_msg, direction="outbound",
+                    sender_type="system", sender_name="LEAMSS Assistant", status="sent"
+                )
+            except Exception as e_send:
+                logger.warning("Could not dispatch thank you to +%s: %s", clean_phone, e_send)
+            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {
+                "pending_flow": "", "pending_report_url": "", "pending_pdf_url": "",
+                "pending_points": "", "pending_occ": ""
+            }})
+            return True
+
+    return False
 
 
 # ── Conversation Management Endpoints ────────────────────────────────────────
@@ -910,8 +1053,11 @@ async def unified_whatsapp_webhook(request: Request):
                     media_url=str(media_url) if media_url else None,
                 )
 
-                # Send automated Thank You / Welcome greeting on first inbound contact
-                if is_first_contact:
+                # 1. Handle interactive flow reply (Resume request or Pre-assessment report)
+                flow_handled = await handle_inbound_flow_response(clean_phone, body_text, profile_name)
+
+                # 2. Send automated Thank You / Welcome greeting on first inbound contact if not flow_handled
+                if not flow_handled and is_first_contact:
                     greeting_name = profile_name if profile_name and profile_name != "WhatsApp User" else "there"
                     welcome_reply = (
                         f"Hello {greeting_name}! 👋\n\n"
