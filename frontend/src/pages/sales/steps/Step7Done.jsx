@@ -998,23 +998,25 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
         attach_qr: attachQr,
       }, { headers: authHeaders, timeout: 45000 });
 
-      if (r.data?.ok && !r.data?.requires_web_open && !r.data?.is_simulated && r.data?.status !== 'web_fallback') {
+      if (r.data?.ok) {
         const attCount = (r.data?.attachments_sent || []).length;
         toast.success(`Message and ${attCount} attachment(s) sent to +${r.data.sent_to || cleanPhone} on WhatsApp!`);
         onSent?.();
         onClose();
       } else {
-        toast.success(`Opening WhatsApp Web for +${cleanPhone}...`);
-        handleDirectWebShare(cleanPhone);
-        onSent?.();
-        onClose();
+        toast.error(r.data?.api_error || 'Failed to send WhatsApp message.');
       }
     } catch (e) {
-      console.warn('Send WhatsApp dispatch exception, falling back to Web:', e);
-      toast.success(`Opening WhatsApp Web for +${cleanPhone}...`);
-      handleDirectWebShare(cleanPhone);
-      onSent?.();
-      onClose();
+      console.error('Send WhatsApp dispatch:', e);
+      let errMsg = e.response?.data?.detail || e.response?.data?.error;
+      if (!errMsg) {
+        if (e.message === 'Network Error' || e.code === 'ECONNABORTED') {
+          errMsg = 'Server connection timeout. Please check your backend connection.';
+        } else {
+          errMsg = formatApiError(e, 'Failed to send WhatsApp message');
+        }
+      }
+      toast.error(errMsg, { duration: 8000 });
     } finally {
       setSending(false);
     }

@@ -1955,23 +1955,13 @@ async def send_assessment_whatsapp(
         send_error = str(exc)
         logger.warning("WhatsApp API text dispatch for assessment %s encountered: %s", id, send_error)
         await assessments_col.update_one({"id": id}, {"$set": {
-            "whatsapp_status": "web_fallback",
+            "whatsapp_status": "error",
             "whatsapp_to": clean_phone,
             "whatsapp_sent_at": now,
             "whatsapp_template": req.template_id or "default",
             "whatsapp_last_error": send_error,
         }})
-        return {
-            "ok": True,
-            "requires_web_open": True,
-            "api_error": send_error,
-            "sent_to": clean_phone,
-            "sent_at": now.isoformat(),
-            "public_url": public_url,
-            "message_text": msg_text,
-            "attachments_sent": dispatched_attachments,
-            "status": "web_fallback",
-        }
+        raise HTTPException(status_code=400, detail=send_error)
 
     # 2. Attach Service Level Agreement (SLA PDF)
     if attach_sla_flag and s.get("sla_file_id"):
