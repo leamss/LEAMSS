@@ -272,7 +272,8 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
     if flow == "resume_request":
         if is_yes:
             resume_url = conv.get("pending_resume_url") or "https://app.leamss.com"
-            reply_msg = (
+            custom_msg = conv.get("pending_selected_msg")
+            reply_msg = custom_msg if custom_msg else (
                 f"Thank you, {client_name}! 🎉\n\n"
                 f"Please click the secure link below to upload your resume (PDF or Word):\n"
                 f"👉 {resume_url}\n\n"
@@ -286,7 +287,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                 )
             except Exception as e_send:
                 logger.warning("Could not dispatch resume upload link to +%s: %s", clean_phone, e_send)
-            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {"pending_flow": "", "pending_resume_url": ""}})
+            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {"pending_flow": "", "pending_resume_url": "", "pending_selected_msg": ""}})
             return True
         elif is_no:
             reply_msg = (
@@ -301,15 +302,16 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                 )
             except Exception as e_send:
                 logger.warning("Could not dispatch polite thank you to +%s: %s", clean_phone, e_send)
-            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {"pending_flow": "", "pending_resume_url": ""}})
+            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {"pending_flow": "", "pending_resume_url": "", "pending_selected_msg": ""}})
             return True
 
     elif flow == "send_report":
         if is_yes:
+            custom_msg = conv.get("pending_selected_msg")
             report_url = conv.get("pending_report_url") or "https://app.leamss.com"
             points = conv.get("pending_points") or "65+"
             occ = conv.get("pending_occ") or "Australia PR"
-            reply_msg = (
+            reply_msg = custom_msg if custom_msg else (
                 f"Here is your Australia PR Pre-Assessment Report & Documents! 📄🎉\n\n"
                 f"📋 *Client:* {client_name}\n"
                 f"🏆 *Score:* {points}/65 Points (Eligible)\n"
@@ -365,10 +367,23 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                 except Exception as e_qr:
                     logger.warning("Could not dispatch QR image attachment: %s", e_qr)
 
+            # 4. Candidate Resume Document
+            resume_url = conv.get("pending_resume_url")
+            if resume_url:
+                try:
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=resume_url,
+                        filename=f"Resume_{client_name.replace(' ', '_')}.pdf",
+                        caption=f"📄 Candidate Resume — {client_name}"
+                    )
+                except Exception as e_res:
+                    logger.warning("Could not dispatch resume attachment: %s", e_res)
+
             await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {
                 "pending_flow": "", "pending_report_url": "", "pending_pdf_url": "",
-                "pending_sla_url": "", "pending_qr_url": "",
-                "pending_points": "", "pending_occ": ""
+                "pending_sla_url": "", "pending_qr_url": "", "pending_resume_url": "",
+                "pending_selected_msg": "", "pending_points": "", "pending_occ": ""
             }})
             return True
         elif is_no:
@@ -386,8 +401,8 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                 logger.warning("Could not dispatch thank you to +%s: %s", clean_phone, e_send)
             await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {
                 "pending_flow": "", "pending_report_url": "", "pending_pdf_url": "",
-                "pending_sla_url": "", "pending_qr_url": "",
-                "pending_points": "", "pending_occ": ""
+                "pending_sla_url": "", "pending_qr_url": "", "pending_resume_url": "",
+                "pending_selected_msg": "", "pending_points": "", "pending_occ": ""
             }})
             return True
 

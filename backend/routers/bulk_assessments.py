@@ -2702,7 +2702,10 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
                     clean_phone,
                     flow="resume_request",
                     client_name=name,
-                    extra_data={"resume_url": upload_url or "https://app.leamss.com"},
+                    extra_data={
+                        "resume_url": upload_url or "https://app.leamss.com",
+                        "selected_msg": msg_text,
+                    },
                 )
                 res = await send_whatsapp_text(
                     to_phone=clean_phone,
@@ -2732,6 +2735,7 @@ async def _send_row_whatsapp(row: Dict[str, Any], to_phone: str, template_id: Op
                     extra_data={
                         "report_url": rep_url,
                         "pdf_url": pdf_report_url,
+                        "selected_msg": msg_text,
                         "points": str(best_pts),
                         "occ": str(occ or "Australia PR"),
                     },
