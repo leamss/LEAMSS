@@ -10,7 +10,7 @@ import io
 from datetime import datetime, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from core.database import db
 from routers.bulk_assessments import (
@@ -147,7 +147,13 @@ async def resume_upload_info(token: str):
 
 
 @router.post("/{token}")
-async def resume_upload_submit(token: str, file: UploadFile = File(...)):
+async def resume_upload_submit(
+    token: str,
+    file: UploadFile = File(...),
+    name: str = Form(None),
+    phone: str = Form(None),
+    email: str = Form(None),
+):
     target = await _resolve_target(token)
     kind = target["kind"]
     doc = target["doc"]
@@ -174,24 +180,63 @@ async def resume_upload_submit(token: str, file: UploadFile = File(...)):
     now = datetime.now(timezone.utc)
     file_id_str = str(file_id)
 
+    # Check if name or phone or email provided to link with existing lead
     if kind == "direct":
         import uuid
-        new_lead_id = str(uuid.uuid4())
-        await db["leads"].insert_one({
-            "id": new_lead_id,
-            "unique_id": f"L-{int(now.timestamp())}",
-            "name": "Applicant (Direct Upload)",
-            "resume_file_id": file_id_str,
-            "resume_filename": file.filename,
-            "resume_url": f"/cockpit/resume/{file_id_str}",
-            "resume_path": f"/cockpit/resume/{file_id_str}",
-            "resume_uploaded": True,
-            "resume_uploaded_at": now,
-            "stage": "leads",
-            "source": "public_upload_link",
-            "created_at": now,
-            "updated_at": now,
-        })
+        matched_lead = None
+        if phone:
+            clean_p = phone.replace(" ", "").replace("-", "").replace("+", "")
+            matched_lead = await db["leads"].find_one({"phone": {"$regex": clean_p}})
+        if not matched_lead and email:
+            matched_lead = await db["leads"].find_one({"email": email.strip().lower()})
+
+        if matched_lead:
+            doc_id = matched_lead.get("id")
+            await db["leads"].update_one(
+                {"id": doc_id},
+                {"$set": {
+                    "resume_file_id": file_id_str,
+                    "resume_filename": file.filename,
+                    "resume_url": f"/cockpit/resume/{file_id_str}",
+                    "resume_path": f"/cockpit/resume/{file_id_str}",
+                    "resume_uploaded": True,
+                    "resume_uploaded_at": now,
+                    "updated_at": now,
+                }}
+            )
+            await db["sales_assessments"].update_many(
+                {"$or": [{"lead_id": doc_id}, {"client_email": matched_lead.get("email")}]},
+                {"$set": {
+                    "resume_file_id": file_id_str,
+                    "resume_filename": file.filename,
+                    "resume_url": f"/cockpit/resume/{file_id_str}",
+                    "resume_uploaded": True,
+                    "resume_uploaded_at": now,
+                    "profile_snapshot.resume_file_id": file_id_str,
+                    "profile_snapshot.resume_filename": file.filename,
+                    "updated_at": now,
+                }}
+            )
+        else:
+            new_lead_id = str(uuid.uuid4())
+            await db["leads"].insert_one({
+                "id": new_lead_id,
+                "unique_id": f"L-{int(now.timestamp())}",
+                "name": (name or "").strip() or "Applicant (Direct Upload)",
+                "phone": (phone or "").strip(),
+                "email": (email or "").strip().lower(),
+                "resume_file_id": file_id_str,
+                "resume_filename": file.filename,
+                "resume_url": f"/cockpit/resume/{file_id_str}",
+                "resume_path": f"/cockpit/resume/{file_id_str}",
+                "resume_uploaded": True,
+                "resume_uploaded_at": now,
+                "stage": "leads",
+                "source": "public_upload_link",
+                "created_at": now,
+                "updated_at": now,
+            })
+
         return {
             "ok": True,
             "message": "Thank you! Your resume was received successfully. Our team will review your profile and proceed with your Pre-Assessment.",

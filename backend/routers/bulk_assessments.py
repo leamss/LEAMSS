@@ -2748,17 +2748,17 @@ async def _send_row_whatsapp(
         if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
             # Resume Request Flow
             row_token = str(row.get("resume_token") or row.get("id") or "LEAMSS-PR")
+            full_resume_url = "https://app.leamss.com/upload-resume"
             if not has_active_session:
                 await set_pending_flow(
                     clean_phone,
                     flow="resume_request",
                     client_name=name,
                     extra_data={
-                        "resume_url": upload_url or f"https://app.leamss.com/upload-resume/{row_token}",
+                        "resume_url": full_resume_url,
                         "selected_msg": msg_text,
                     },
                 )
-            full_resume_url = upload_url or f"https://app.leamss.com/upload-resume/{row_token}"
             try:
                 res = await send_whatsapp_text(
                     to_phone=clean_phone,
@@ -3128,11 +3128,8 @@ async def email_all(batch_id: str, req: EmailAllRequest, current_user: dict = De
     return {"ok": True, "queued": len(sendable)}
 
 
-def _resume_upload_url(token: str) -> str:
-    base = (os.environ.get("FRONTEND_URL") or os.environ.get("PUBLIC_BASE_URL") or "https://app.leamss.com").rstrip("/")
-    if not base or "localhost" in base or "127.0.0.1" in base:
-        base = "https://app.leamss.com"
-    return f"{base}/upload-resume/{token}"
+def _resume_upload_url(token: str = "") -> str:
+    return "https://app.leamss.com/upload-resume"
 
 
 async def _email_not_eligible_row(row: Dict[str, Any], to: str, bcc_self: bool) -> Dict[str, Any]:

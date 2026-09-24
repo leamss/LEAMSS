@@ -1844,10 +1844,7 @@ async def send_assessment_whatsapp(
     best_country = doc.get("best_country_code") or "AU"
     best_total = best_res.get("total") or doc.get("best_total") or 0
 
-    token = doc.get("resume_token") or doc.get("share_token") or id
-    resume_upload_url = f"{frontend_origin}/upload-resume/{token}"
-    if not frontend_origin or "localhost" in frontend_origin or "127.0.0.1" in frontend_origin:
-        resume_upload_url = f"https://app.leamss.com/upload-resume/{token}"
+    resume_upload_url = "https://app.leamss.com/upload-resume"
 
     def _render(tmpl: str) -> str:
         res = (

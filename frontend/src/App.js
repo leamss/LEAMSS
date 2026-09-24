@@ -164,6 +164,11 @@ function App() {
         <ScopedRouteBoundary>
         <Routes>
           <Route path="/" element={<Login />} />
+          {/* ─── Public Resume Upload (NO LOGIN REQUIRED) ─── */}
+          <Route path="/upload-resume" element={<ResumeUpload />} />
+          <Route path="/upload-resume/:token" element={<ResumeUpload />} />
+          <Route path="/resume-upload" element={<ResumeUpload />} />
+          <Route path="/resume" element={<ResumeUpload />} />
           {/* ─── Phase 14: LEAMSS Public Brand Experience (no auth) ─── */}
           <Route path="/start" element={<MegaLanding />} />
           {/* Phase 19: /atlas/* paths are served by setupProxy.js as static SSR HTML files.
