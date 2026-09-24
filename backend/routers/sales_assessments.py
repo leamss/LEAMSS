@@ -2032,7 +2032,7 @@ async def send_assessment_whatsapp(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=client_name,
-                        content_sid="HX1bb1999cc7b0e692f5f96cbaf7ad2b07",
+                        content_sid="HXe3933b739857ce16642725b9e83a2b35",
                         content_variables={
                             "1": client_name,
                             "2": occ_title,
@@ -2042,7 +2042,7 @@ async def send_assessment_whatsapp(
                         },
                     )
                 except Exception as e_tmpl:
-                    logger.warning("Navratri v4 template fallback: %s", e_tmpl)
+                    logger.warning("Navratri v5 template fallback: %s", e_tmpl)
                     try:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,

@@ -2790,7 +2790,7 @@ async def _send_row_whatsapp(
                     to_phone=clean_phone,
                     text=msg_text,
                     client_name=name,
-                    content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                    content_sid="HXe3933b739857ce16642725b9e83a2b35",
                     content_variables={
                         "1": name,
                         "2": occ_title,
@@ -2800,28 +2800,43 @@ async def _send_row_whatsapp(
                     },
                 )
             except Exception as e_tmpl:
-                logger.warning("Navratri template fallback in bulk row: %s", e_tmpl)
+                logger.warning("Navratri v5 template fallback in bulk row: %s", e_tmpl)
                 try:
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=name,
-                        content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                        content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
                         content_variables={
                             "1": name,
-                            "2": ref_id,
-                            "3": occ_title,
-                            "4": str(best_pts),
+                            "2": occ_title,
+                            "3": str(best_pts),
+                            "4": f"Subclass {subclass}",
+                            "5": special_off,
                         },
                     )
                 except Exception:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=name,
-                        content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                        content_variables={"1": name, "2": msg_text},
-                    )
+                    try:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=msg_text,
+                            client_name=name,
+                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                            content_variables={
+                                "1": name,
+                                "2": ref_id,
+                                "3": occ_title,
+                                "4": str(best_pts),
+                            },
+                        )
+                    except Exception:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=msg_text,
+                            client_name=name,
+                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                            content_variables={"1": name, "2": msg_text},
+                        )
 
             if has_active_session:
                 import asyncio
