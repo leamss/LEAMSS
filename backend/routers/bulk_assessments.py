@@ -2845,37 +2845,29 @@ async def _send_row_whatsapp(
                 )
                 ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
                 occ_title = str(occ or "Australia PR")
-                pa_text = (
-                    f"Hello {name},\n"
-                    f"Your pre assessment with reference {ref_id} has been completed.\n\n"
-                    f"Assessment Details:\n"
-                    f"• Occupation: {occ_title}\n"
-                    f"• Score: {best_pts} points ({subclass})\n\n"
-                    f"Your 23-page Migration Assessment Report, SLA, and relevant official documents are ready to be shared with you on WhatsApp.\n\n"
-                    f"Would you like to receive your complete assessment report and documents here?\n\n"
-                    f"LEAMSS Immigration — We’re here to assist you with your migration journey."
-                )
+                special_off = str(row.get("offer_code") or row.get("special_offer") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry")
                 try:
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
-                        text=pa_text,
+                        text=msg_text,
                         client_name=name,
-                        content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                        content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
                         content_variables={
                             "1": name,
-                            "2": ref_id,
-                            "3": occ_title,
-                            "4": str(best_pts),
+                            "2": occ_title,
+                            "3": str(best_pts),
+                            "4": f"Subclass {subclass}",
+                            "5": special_off,
                         },
                     )
                 except Exception as e_tmpl:
-                    logger.warning("Single-button template fallback in bulk row: %s", e_tmpl)
+                    logger.warning("Navratri template fallback in bulk row: %s", e_tmpl)
                     try:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
-                            text=pa_text,
+                            text=msg_text,
                             client_name=name,
-                            content_sid="HXef46b45b8e6501a39f2dd6cfffafb24c",
+                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
                             content_variables={
                                 "1": name,
                                 "2": ref_id,
@@ -2886,10 +2878,10 @@ async def _send_row_whatsapp(
                     except Exception:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
-                            text=pa_text,
+                            text=msg_text,
                             client_name=name,
                             content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                            content_variables={"1": name, "2": pa_text},
+                            content_variables={"1": name, "2": msg_text},
                         )
                 if attach_report_flag and pdf_report_url:
                     dispatched_attachments.append("report_pdf")

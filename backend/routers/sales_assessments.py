@@ -1862,6 +1862,9 @@ async def send_assessment_whatsapp(
             .replace("{offer_valid_till}", str(s.get("offer_valid_till") or "15 August 2026"))
             .replace("{company}", "LEAMSS")
             .replace("{phone}", "+91 77188 82427")
+            .replace("{special_offer}", str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry"))
+            .replace("{offer}", str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry"))
+            .replace("{registration_id}", "Please check your registered email")
         )
         return res
 
@@ -1870,6 +1873,33 @@ async def send_assessment_whatsapp(
     attach_sla_flag = req.attach_sla if req.attach_sla is not None else False
     attach_qr_flag = req.attach_qr if req.attach_qr is not None else False
     attach_resume_flag = req.attach_resume if req.attach_resume is not None else False
+
+    navratri_default_tmpl = (
+        "Hello {name}!\n"
+        "Congratulations! Your Australia PR Profile Pre-Assessment outcome is POSITIVE.\n\n"
+        "Occupation: {occupation} ({code})\n"
+        "Score: {points} points\n"
+        "Recommended Pathway: Subclass {best_subclass}\n\n"
+        "For Registration ID: Please check your registered email.\n\n"
+        "Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
+        "Explore LEAMSS Immigration:\n"
+        "https://leamss.com\n\n"
+        "NAVRATRI SPECIAL IMMIGRATION OFFER\n"
+        "Take the next step towards your Australia immigration journey with our exclusive Navratri Immigration Offer.\n"
+        "Special Offer: {special_offer}\n\n"
+        "NAVRATRI LUCKY DRAW\n"
+        "Make your full payment on or before 10 October 2026 to become eligible to participate in our Navratri Lucky Draw.\n"
+        "One lucky eligible participant will receive LEAMSS Immigration processing fees completely FREE.\n\n"
+        "Make Full Payment:\n"
+        "https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view\n\n"
+        "International Bank Account Details:\n"
+        "For international payment and bank account details, visit:\n"
+        "https://leamss.com/pay-now\n\n"
+        "Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
+        "Book a consultation with our LEAMSS Immigration Expert and discuss your next steps.\n\n"
+        "Button: YES, BOOK A CONSULTATION\n\n"
+        "LEAMSS Immigration — Your Success, Our Dream."
+    )
 
     custom_t = None
     if req.custom_message and req.custom_message.strip():
@@ -1911,28 +1941,10 @@ async def send_assessment_whatsapp(
             )
             msg_text = _render(raw_tmpl)
         else:
-            raw_tmpl = s.get("whatsapp_template_report") or (
-                "Hello {name},\n\n"
-                "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
-                "📋 *Client:* {name}\n"
-                "🆔 *Assessment ID:* {id}\n"
-                "🏆 *Best Country:* {country} (Score: {score} pts)\n\n"
-                "📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{report_url}\n\n"
-                "Our migration strategy team is available to assist with your next steps.\n"
-                "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
-            )
+            raw_tmpl = s.get("whatsapp_template_report") or navratri_default_tmpl
             msg_text = _render(raw_tmpl)
     else:
-        raw_tmpl = s.get("whatsapp_template_report") or (
-            "Hello {name},\n\n"
-            "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
-            "📋 *Client:* {name}\n"
-            "🆔 *Assessment ID:* {id}\n"
-            "🏆 *Best Country:* {country} (Score: {score} pts)\n\n"
-            "📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{report_url}\n\n"
-            "Our migration strategy team is available to assist with your next steps.\n"
-            "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
-        )
+        raw_tmpl = s.get("whatsapp_template_report") or navratri_default_tmpl
         msg_text = _render(raw_tmpl)
 
     now = datetime.now(timezone.utc)
@@ -1965,7 +1977,6 @@ async def send_assessment_whatsapp(
     try:
         from routers.whatsapp_chat import is_in_24h_window, set_pending_flow
         has_active_session = await is_in_24h_window(clean_phone)
-        detail_txt = f"Score: {best_total} pts for {occ.get('title') or 'Australia PR'}. Reply YES to receive your full 23-page Assessment Report PDF, SLA, and official documents directly here on WhatsApp."
         is_resume_flow = req.template_id == "resume_request" or (custom_t and custom_t.get("category") == "resume")
 
         if is_twilio_mode:
@@ -2010,37 +2021,33 @@ async def send_assessment_whatsapp(
                     })
                     ref_id = str(id or "LEAMSS-PR")[:25]
                     occ_title = str(occ.get("title") or "Australia PR")
-                    pa_text = (
-                        f"Hello {client_name},\n"
-                        f"Your pre assessment with reference {ref_id} has been completed.\n\n"
-                        f"Assessment Details:\n"
-                        f"• Occupation: {occ_title}\n"
-                        f"• Score: {best_total} points\n\n"
-                        f"Your 23-page Migration Assessment Report, SLA, and relevant official documents are ready to be shared with you on WhatsApp.\n\n"
-                        f"Would you like to receive your complete assessment report and documents here?\n\n"
-                        f"LEAMSS Immigration — We’re here to assist you with your migration journey."
-                    )
+                    if occ.get("code"):
+                        occ_title = f"{occ_title} ({occ.get('code')})"
+                    best_sub = str(best_res.get("subclass") or "189")
+                    special_off = str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry")
+
                     try:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
-                            text=pa_text,
+                            text=msg_text,
                             client_name=client_name,
-                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                            content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
                             content_variables={
                                 "1": client_name,
-                                "2": ref_id,
-                                "3": occ_title,
-                                "4": str(best_total),
+                                "2": occ_title,
+                                "3": str(best_total),
+                                "4": f"Subclass {best_sub}",
+                                "5": special_off,
                             },
                         )
                     except Exception as e_tmpl:
-                        logger.warning("Single-button template fallback: %s", e_tmpl)
+                        logger.warning("Navratri template fallback: %s", e_tmpl)
                         try:
                             res = await send_whatsapp_text(
                                 to_phone=clean_phone,
-                                text=pa_text,
+                                text=msg_text,
                                 client_name=client_name,
-                                content_sid="HXef46b45b8e6501a39f2dd6cfffafb24c",
+                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
                                 content_variables={
                                     "1": client_name,
                                     "2": ref_id,
@@ -2051,10 +2058,10 @@ async def send_assessment_whatsapp(
                         except Exception:
                             res = await send_whatsapp_text(
                                 to_phone=clean_phone,
-                                text=pa_text,
+                                text=msg_text,
                                 client_name=client_name,
                                 content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                                content_variables={"1": client_name, "2": pa_text},
+                                content_variables={"1": client_name, "2": msg_text},
                             )
                     if attach_report_flag:
                         dispatched_attachments.append("report_pdf")

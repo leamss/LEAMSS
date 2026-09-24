@@ -277,10 +277,15 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
     client_name = conv.get("client_name") or profile_name or "there"
     norm_text = re.sub(r"[^\w\s]", "", body_text.strip().lower())
 
-    yes_words = {"yes", "y", "ok", "okay", "sure", "yeah", "yep", "send", "upload", "ha", "haa", "haan", "pls", "please", "1", "interested", "proceed", "send report", "upload resume", "send pdf", "yes please", "yes send"}
+    yes_words = {
+        "yes", "y", "ok", "okay", "sure", "yeah", "yep", "send", "upload", "ha", "haa", "haan",
+        "pls", "please", "1", "interested", "proceed", "send report", "upload resume", "send pdf",
+        "yes please", "yes send", "yes book a consultation", "book a consultation", "book consultation",
+        "yes book", "consultation", "book", "yes send report"
+    }
     is_yes = (
         norm_text in yes_words
-        or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text for w in ["yes", "ok", "sure", "send", "upload", "haan", "please"])
+        or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text for w in ["yes", "ok", "sure", "send", "upload", "haan", "please", "book", "consultation"])
     )
 
     no_words = {"no", "n", "nope", "nah", "cancel", "stop", "dont", "not now", "not interested", "na", "2", "dont send", "dont upload", "no thanks", "no need"}

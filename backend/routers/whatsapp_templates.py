@@ -77,6 +77,41 @@ class TemplateIn(BaseModel):
 # ── Built-in Starter WhatsApp Templates ─────────────────────────────────────
 _STARTERS = [
     {
+        "name": "Navratri Immigration Offer",
+        "category": "eligible",
+        "body": (
+            "Hello {client_name}!\n"
+            "Congratulations! Your Australia PR Profile Pre-Assessment outcome is POSITIVE.\n\n"
+            "Occupation: {occupation} ({code})\n"
+            "Score: {points} points\n"
+            "Recommended Pathway: Subclass {best_subclass}\n\n"
+            "For Registration ID: Please check your registered email.\n\n"
+            "Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
+            "Explore LEAMSS Immigration:\n"
+            "https://leamss.com\n\n"
+            "NAVRATRI SPECIAL IMMIGRATION OFFER\n"
+            "Take the next step towards your Australia immigration journey with our exclusive Navratri Immigration Offer.\n"
+            "Special Offer: {special_offer}\n\n"
+            "NAVRATRI LUCKY DRAW\n"
+            "Make your full payment on or before 10 October 2026 to become eligible to participate in our Navratri Lucky Draw.\n"
+            "One lucky eligible participant will receive LEAMSS Immigration processing fees completely FREE.\n\n"
+            "Make Full Payment:\n"
+            "https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view\n\n"
+            "International Bank Account Details:\n"
+            "For international payment and bank account details, visit:\n"
+            "https://leamss.com/pay-now\n\n"
+            "Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
+            "Book a consultation with our LEAMSS Immigration Expert and discuss your next steps.\n\n"
+            "Button: YES, BOOK A CONSULTATION\n\n"
+            "LEAMSS Immigration — Your Success, Our Dream."
+        ),
+        "is_default": True,
+        "attach_report": True,
+        "attach_sla": True,
+        "attach_qr": True,
+        "attach_resume": True,
+    },
+    {
         "name": "Pre_assessment_completed",
         "category": "eligible",
         "body": (
@@ -89,26 +124,6 @@ _STARTERS = [
             "Would you like to receive your complete assessment report and documents here?\n\n"
             "✅ YES, SEND REPORT\n\n"
             "LEAMSS Immigration — We’re here to assist you with your migration journey."
-        ),
-        "is_default": True,
-        "attach_report": True,
-        "attach_sla": True,
-        "attach_qr": True,
-        "attach_resume": True,
-    },
-    {
-        "name": "Positive — Full Report & Welcome",
-        "category": "eligible",
-        "body": (
-            "Hello {client_name}! 🎉\n\n"
-            "Congratulations! Your Australia PR Profile Pre-Assessment outcome is *POSITIVE*.\n\n"
-            "📋 *Occupation:* {occupation} ({code})\n"
-            "🏆 *Score:* {points} points (Pass Mark: {pass_mark})\n"
-            "🎯 *Recommended Pathway:* Subclass {best_subclass}\n\n"
-            "📄 Your official 23-page Pre-Assessment Report and documentation are attached with this message.\n\n"
-            "🔗 You can also review your online portal report here:\n{report_url}\n\n"
-            "Would you like to schedule a quick 15-minute consultation with our senior migration expert to discuss next steps? Reply *YES* or book directly:\n{calendly_link}\n\n"
-            "Warm Regards,\n*{consultant_name}* · LEAMSS"
         ),
         "is_default": True,
         "attach_report": True,
