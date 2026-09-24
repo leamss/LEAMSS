@@ -332,21 +332,35 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
             await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {"pending_flow": "", "pending_resume_url": "", "pending_selected_msg": ""}})
             return True
 
-    elif flow == "send_report":
+    elif flow in ("send_report", "send_not_eligible_report"):
         if is_yes:
+            is_not_eligible = flow == "send_not_eligible_report" or conv.get("pending_is_not_eligible")
             custom_msg = conv.get("pending_selected_msg")
             report_url = conv.get("pending_report_url") or "https://leamss.com"
-            points = conv.get("pending_points") or "65+"
+            points = conv.get("pending_points") or ("0" if is_not_eligible else "65+")
             occ = conv.get("pending_occ") or "Australia PR"
-            reply_msg = custom_msg if custom_msg else (
-                f"Here is your Australia PR Pre-Assessment Report & Documents! 📄🎉\n\n"
-                f"📋 *Client:* {client_name}\n"
-                f"🏆 *Score:* {points}/65 Points (Eligible)\n"
-                f"💼 *Occupation:* {occ}\n\n"
-                f"🔗 *View & Download your Branded 23-Page Assessment Report:*\n"
-                f"{report_url}\n\n"
-                f"Our Senior Migration Advisor is reviewing your file and will guide you on visa filing and state nominations. Feel free to reply here if you have any questions!"
-            )
+            if custom_msg:
+                reply_msg = custom_msg
+            elif is_not_eligible:
+                reply_msg = (
+                    f"Here is your Australia PR Pre-Assessment Report & Improvement Roadmap 📄\n\n"
+                    f"📋 *Candidate:* {client_name}\n"
+                    f"📊 *Score:* {points}/65 Points (Improvement Needed)\n"
+                    f"💼 *Occupation:* {occ}\n\n"
+                    f"🔗 *View your Diagnostic Assessment Report:*\n"
+                    f"{report_url}\n\n"
+                    f"Our Migration Advisor is available to discuss your improvement options and alternative visa pathways. Feel free to reply here if you would like to book a consultation!"
+                )
+            else:
+                reply_msg = (
+                    f"Here is your Australia PR Pre-Assessment Report & Documents! 📄🎉\n\n"
+                    f"📋 *Client:* {client_name}\n"
+                    f"🏆 *Score:* {points}/65 Points (Eligible)\n"
+                    f"💼 *Occupation:* {occ}\n\n"
+                    f"🔗 *View & Download your Branded 23-Page Assessment Report:*\n"
+                    f"{report_url}\n\n"
+                    f"Our Senior Migration Advisor is reviewing your file and will guide you on visa filing and state nominations. Feel free to reply here if you have any questions!"
+                )
             try:
                 await send_whatsapp_text(to_phone=clean_phone, text=reply_msg, client_name=client_name)
                 await record_chat_message(

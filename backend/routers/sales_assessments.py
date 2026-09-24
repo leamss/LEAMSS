@@ -1846,6 +1846,25 @@ async def send_assessment_whatsapp(
 
     resume_upload_url = "https://app.leamss.com/upload-resume"
 
+    # Extract reasons & improvements
+    v = doc.get("verdict") or {}
+    reasons_list = v.get("reasons") or doc.get("reasons") or []
+    improvements_list = v.get("improvements") or doc.get("improvements") or []
+
+    if reasons_list:
+        reasons_text = "\n".join([f"• {r}" for r in reasons_list])
+    else:
+        reasons_text = f"• Current points score ({best_total}) is below the required 65-point pass mark."
+
+    if improvements_list:
+        improvements_text = "\n".join([f"{i+1}. {imp}" for i, imp in enumerate(improvements_list)])
+    else:
+        improvements_text = (
+            "1. Achieve Superior English (PTE 79+ / IELTS 8 in each band) for maximum +20 points.\n"
+            "2. Explore State Nomination (Subclass 190 for +5 pts, Subclass 491 for +15 pts).\n"
+            "3. Secure NAATI CCL credentials or partner skills for +5 points."
+        )
+
     def _render(tmpl: str) -> str:
         res = (
             tmpl
@@ -1877,6 +1896,8 @@ async def send_assessment_whatsapp(
             .replace("{special_offer}", str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Lucky Draw Entry"))
             .replace("{offer}", str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Lucky Draw Entry"))
             .replace("{registration_id}", "Please check your registered email")
+            .replace("{reasons}", reasons_text)
+            .replace("{improvements}", improvements_text)
         )
         return res
 
@@ -1960,10 +1981,46 @@ async def send_assessment_whatsapp(
             )
             msg_text = _render(raw_tmpl)
         else:
-            raw_tmpl = s.get("whatsapp_template_report") or navratri_default_tmpl
+            if best_total < 65 or not doc.get("is_eligible", True):
+                default_ne = await db["whatsapp_templates"].find_one({"category": "not_eligible", "is_default": True})
+                if not default_ne:
+                    default_ne = await db["whatsapp_templates"].find_one({"category": "not_eligible"})
+                raw_tmpl = default_ne.get("body") if default_ne else (
+                    "Hello {name},\n\n"
+                    "Thank you for evaluating your Australia migration profile with LEAMSS for *{occupation}* ({code}).\n\n"
+                    "📊 *Assessment Outcome:* Your profile score is currently {points} points (Pass mark is {pass_mark} points).\n\n"
+                    "🎯 *Recommended Improvement Plan:*\n"
+                    "{improvements}\n\n"
+                    "📎 *Your official Pre-Assessment Report and diagnostic breakdown are attached with this message.*\n\n"
+                    "Let's discuss how you can boost your points and achieve eligibility. Reply here or book a free consultation call:\n"
+                    "{calendly_link}\n\n"
+                    "Warm Regards,\n"
+                    "*{consultant_name}* · LEAMSS\n"
+                    "Toll-Free: 1800-210-2427 · hello@leamss.com"
+                )
+            else:
+                raw_tmpl = s.get("whatsapp_template_report") or navratri_default_tmpl
             msg_text = _render(raw_tmpl)
     else:
-        raw_tmpl = s.get("whatsapp_template_report") or navratri_default_tmpl
+        if best_total < 65 or not doc.get("is_eligible", True):
+            default_ne = await db["whatsapp_templates"].find_one({"category": "not_eligible", "is_default": True})
+            if not default_ne:
+                default_ne = await db["whatsapp_templates"].find_one({"category": "not_eligible"})
+            raw_tmpl = default_ne.get("body") if default_ne else (
+                "Hello {name},\n\n"
+                "Thank you for evaluating your Australia migration profile with LEAMSS for *{occupation}* ({code}).\n\n"
+                "📊 *Assessment Outcome:* Your profile score is currently {points} points (Pass mark is {pass_mark} points).\n\n"
+                "🎯 *Recommended Improvement Plan:*\n"
+                "{improvements}\n\n"
+                "📎 *Your official Pre-Assessment Report and diagnostic breakdown are attached with this message.*\n\n"
+                "Let's discuss how you can boost your points and achieve eligibility. Reply here or book a free consultation call:\n"
+                "{calendly_link}\n\n"
+                "Warm Regards,\n"
+                "*{consultant_name}* · LEAMSS\n"
+                "Toll-Free: 1800-210-2427 · hello@leamss.com"
+            )
+        else:
+            raw_tmpl = s.get("whatsapp_template_report") or navratri_default_tmpl
         msg_text = _render(raw_tmpl)
 
     now = datetime.now(timezone.utc)
@@ -1997,6 +2054,12 @@ async def send_assessment_whatsapp(
         from routers.whatsapp_chat import is_in_24h_window, set_pending_flow
         has_active_session = await is_in_24h_window(clean_phone)
         is_resume_flow = req.template_id == "resume_request" or (custom_t and custom_t.get("category") == "resume")
+        is_not_eligible_flow = (
+            req.template_id == "not_eligible"
+            or (custom_t and custom_t.get("category") == "not_eligible")
+            or best_total < 65
+            or not doc.get("is_eligible", True)
+        )
 
         if is_twilio_mode:
             if is_resume_flow:
@@ -2033,6 +2096,60 @@ async def send_assessment_whatsapp(
                             content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                             content_variables={"1": client_name, "2": msg_text},
                         )
+
+            elif is_not_eligible_flow:
+                ref_id = str(id or "LEAMSS-PR")[:25]
+                occ_title = str(occ.get("title") or "Australia PR")
+                if occ.get("code"):
+                    occ_title = f"{occ_title} ({occ.get('code')})"
+
+                if not has_active_session:
+                    is_permission_template = True
+                    await set_pending_flow(clean_phone, "send_not_eligible_report", client_name=client_name, extra_data={
+                        "report_url": public_url,
+                        "pdf_url": pdf_report_url if attach_report_flag else None,
+                        "sla_url": sla_url if attach_sla_flag else None,
+                        "qr_url": qr_url if attach_qr_flag else None,
+                        "resume_url": resume_stream_url if attach_resume_flag else None,
+                        "selected_msg": msg_text,
+                        "points": str(best_total),
+                        "occ": str(occ.get("title") or "Australia PR"),
+                        "is_not_eligible": True,
+                    })
+
+                try:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=client_name,
+                        content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                        content_variables={"1": client_name, "2": msg_text},
+                    )
+                except Exception as e_ne_tmpl:
+                    logger.warning("Not-eligible template dispatch with HXa15807 failed in sales: %s", e_ne_tmpl)
+                    try:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=msg_text,
+                            client_name=client_name,
+                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                            content_variables={
+                                "1": client_name,
+                                "2": ref_id,
+                                "3": occ_title,
+                                "4": str(best_total),
+                            },
+                        )
+                    except Exception:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=msg_text,
+                            client_name=client_name,
+                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                            content_variables={"1": client_name, "2": ref_id},
+                        )
+                if attach_report_flag:
+                    dispatched_attachments.append("report_pdf")
 
             else:
                 ref_id = str(id or "LEAMSS-PR")[:25]

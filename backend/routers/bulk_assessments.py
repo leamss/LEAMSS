@@ -2564,12 +2564,16 @@ DEFAULT_WHATSAPP_ELIGIBLE_TEXT = (
 
 DEFAULT_WHATSAPP_NOT_ELIGIBLE_TEXT = (
     "Hello {name},\n\n"
-    "Thank you for completing your Australia Migration Pre-Assessment evaluation with LEAMSS.\n\n"
-    "📋 *Candidate:* {name}\n"
-    "🎯 *Nominated Occupation:* {occupation} (ANZSCO {code})\n\n"
-    "📎 *Your official Pre-Assessment Report and detailed improvement roadmap are attached with this message.*\n\n"
-    "Please review the report for recommended action steps to meet the eligibility threshold.\n"
-    "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+    "Thank you for evaluating your Australia Migration profile with LEAMSS for *{occupation}* ({code}).\n\n"
+    "📊 *Assessment Outcome:* Your profile score is currently {points} points (Pass mark is {pass_mark} points).\n\n"
+    "🎯 *Recommended Improvement Plan:*\n"
+    "{improvements}\n\n"
+    "📎 *Your official Pre-Assessment Report and diagnostic roadmap are attached with this message.*\n\n"
+    "Let's discuss how you can boost your points and achieve eligibility. Reply here or book a free review call:\n"
+    "{calendly_link}\n\n"
+    "Warm Regards,\n"
+    "*{consultant_name}* · LEAMSS\n"
+    "Toll-Free: 1800-210-2427 · hello@leamss.com"
 )
 
 
@@ -2580,9 +2584,35 @@ def _render_row_whatsapp_text(row: Dict[str, Any], tmpl_body: str, upload_url: O
     subclass = "189" if (points.get("189") or 0) >= 65 else ("190" if (points.get("190") or 0) >= 65 else "491")
     rep_url = f"https://app.leamss.com/sales/report/{row.get('id')}"
     name = p.get("name") or "Applicant"
-    occ = p.get("occupation_title") or ""
+    occ = p.get("occupation_title") or "Your Nominated Occupation"
     code = p.get("anzsco_code") or ""
     cname = p.get("consultant_name") or "LEAMSS Migration Team"
+
+    # Extract diagnostic reasons and improvement plan
+    verdict = row.get("verdict")
+    if not verdict:
+        try:
+            from core.eligibility import classify_eligibility
+            verdict = classify_eligibility(p, points)
+        except Exception:
+            verdict = {}
+
+    reasons_list = verdict.get("reasons") or []
+    improvements_list = verdict.get("improvements") or []
+
+    if reasons_list:
+        reasons_text = "\n".join([f"• {r}" for r in reasons_list])
+    else:
+        reasons_text = f"• Current points score ({best_pts}) is below the required 65-point pass mark."
+
+    if improvements_list:
+        improvements_text = "\n".join([f"{i+1}. {imp}" for i, imp in enumerate(improvements_list)])
+    else:
+        improvements_text = (
+            "1. Aim for Superior English test score (PTE 79+ / IELTS 8 in each band) for maximum +20 points.\n"
+            "2. Explore State Nomination (Subclass 190 for +5 pts, Subclass 491 for +15 pts).\n"
+            "3. Obtain NAATI CCL credentials or partner skills for +5 points."
+        )
 
     replacements = {
         "{name}": name,
@@ -2600,6 +2630,17 @@ def _render_row_whatsapp_text(row: Dict[str, Any], tmpl_body: str, upload_url: O
         "{company}": "LEAMSS",
         "{phone}": "+91 77188 82427",
         "{special_offer}": str(row.get("offer_code") or row.get("special_offer") or "Lucky Draw Entry"),
+        "{reasons}": reasons_text,
+        "{improvements}": improvements_text,
+        "{calendly_link}": "https://calendly.com/leamss",
+        "{assessment_id}": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25],
+        "{offer_badge}": "Special Enrolment Offer",
+        "{offer_price}": "₹80,000 + 18% GST",
+        "{offer_regular_fee}": "₹1,55,000 + 18% GST",
+        "{offer_savings}": "You Save ₹75,000",
+        "{offer_valid_till}": "10 October 2026",
+        "{payment_link}": "https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view",
+        "{upi_id}": "7738352427@okbizaxis",
     }
     out = tmpl_body
     for k, v in replacements.items():
@@ -2784,6 +2825,60 @@ async def _send_row_whatsapp(
                         client_name=name,
                         content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                         content_variables={"1": name, "2": msg_text},
+                    )
+
+        elif bucket in ("improvable", "ineligible") or (custom_t and custom_t.get("category") == "not_eligible") or template_id == "not_eligible":
+            # Not-Eligible / Improvement Plan Flow
+            ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
+            occ_title = str(occ or "Australia PR")
+            if not has_active_session:
+                await set_pending_flow(
+                    clean_phone,
+                    flow="send_not_eligible_report",
+                    client_name=name,
+                    extra_data={
+                        "report_url": rep_url,
+                        "pdf_url": pdf_report_url if attach_report_flag else None,
+                        "sla_url": sla_url if attach_sla_flag else None,
+                        "qr_url": qr_url if attach_qr_flag else None,
+                        "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
+                        "selected_msg": msg_text,
+                        "points": str(best_pts),
+                        "occ": str(occ or "Australia PR"),
+                        "is_not_eligible": True,
+                    },
+                )
+
+            try:
+                res = await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=msg_text,
+                    client_name=name,
+                    content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                    content_variables={"1": name, "2": msg_text},
+                )
+            except Exception as e_ne_tmpl:
+                logger.warning("Not-eligible template dispatch with HXa15807 failed: %s", e_ne_tmpl)
+                try:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=name,
+                        content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                        content_variables={
+                            "1": name,
+                            "2": ref_id,
+                            "3": occ_title,
+                            "4": str(best_pts),
+                        },
+                    )
+                except Exception:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=name,
+                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                        content_variables={"1": name, "2": ref_id},
                     )
 
         else:
