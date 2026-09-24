@@ -1852,7 +1852,7 @@ async def send_assessment_whatsapp(
             .replace("{pass_mark}", "65")
             .replace("{occupation}", str(occ.get("title") or "Professional"))
             .replace("{code}", str(occ.get("code") or ""))
-            .replace("{best_subclass}", str(best_res.get("subclass") or "189"))
+            .replace("{best_subclass}", "189, 190, 491")
             .replace("{report_url}", public_url)
             .replace("{upload_url}", resume_upload_url)
             .replace("{resume_upload_url}", resume_upload_url)
@@ -2037,7 +2037,7 @@ async def send_assessment_whatsapp(
                             "1": client_name,
                             "2": occ_title,
                             "3": str(best_total),
-                            "4": f"Subclass {best_sub}",
+                            "4": "Subclass 189, 190, 491",
                             "5": special_off,
                         },
                     )
@@ -2053,7 +2053,7 @@ async def send_assessment_whatsapp(
                                 "1": client_name,
                                 "2": occ_title,
                                 "3": str(best_total),
-                                "4": f"Subclass {best_sub}",
+                                "4": "Subclass 189, 190, 491",
                                 "5": special_off,
                             },
                         )

@@ -2583,7 +2583,7 @@ def _render_row_whatsapp_text(row: Dict[str, Any], tmpl_body: str, upload_url: O
         "{occupation}": occ,
         "{code}": code,
         "{points}": str(best_pts),
-        "{best_subclass}": subclass,
+        "{best_subclass}": "189, 190, 491",
         "{pass_mark}": "65",
         "{report_url}": rep_url,
         "{upload_url}": upload_url or "",
@@ -2795,7 +2795,7 @@ async def _send_row_whatsapp(
                         "1": name,
                         "2": occ_title,
                         "3": str(best_pts),
-                        "4": f"Subclass {subclass}",
+                        "4": "Subclass 189, 190, 491",
                         "5": special_off,
                     },
                 )
@@ -2811,7 +2811,7 @@ async def _send_row_whatsapp(
                             "1": name,
                             "2": occ_title,
                             "3": str(best_pts),
-                            "4": f"Subclass {subclass}",
+                            "4": "Subclass 189, 190, 491",
                             "5": special_off,
                         },
                     )
