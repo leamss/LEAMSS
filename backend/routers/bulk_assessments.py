@@ -2765,36 +2765,26 @@ async def _send_row_whatsapp(
                     text=msg_text,
                     client_name=name,
                     content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                    content_variables={"1": name, "2": full_resume_url},
+                    content_variables={"1": name, "2": "direct"},
                 )
             except Exception as e_res_tmpl:
-                logger.warning("Bulk resume template with full url failed: %s, trying with token", e_res_tmpl)
+                logger.warning("Bulk resume template dispatch: %s", e_res_tmpl)
                 try:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
+                        client_name=name,
+                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                        content_variables={"1": name, "2": row_token[:20]},
+                    )
+                except Exception:
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=name,
-                        content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                        content_variables={"1": name, "2": row_token},
+                        content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                        content_variables={"1": name, "2": msg_text},
                     )
-                except Exception as e_res_token:
-                    logger.warning("Bulk resume template fallback: %s", e_res_token)
-                    try:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
-                            client_name=name,
-                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                            content_variables={"1": name, "2": row_token[:20]},
-                        )
-                    except Exception:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=msg_text,
-                            client_name=name,
-                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                            content_variables={"1": name, "2": msg_text},
-                        )
 
         else:
             ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
