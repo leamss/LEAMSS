@@ -87,8 +87,7 @@ _STARTERS = [
             "• Score: {points} points\n\n"
             "Your 23-page Migration Assessment Report, SLA, and relevant official documents are ready to be shared with you on WhatsApp.\n\n"
             "Would you like to receive your complete assessment report and documents here?\n\n"
-            "✅ YES, SEND REPORT\n"
-            "❌ NO, NOT NOW\n\n"
+            "✅ YES, SEND REPORT\n\n"
             "LEAMSS Immigration — We’re here to assist you with your migration journey."
         ),
         "is_default": True,

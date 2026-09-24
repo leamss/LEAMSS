@@ -2018,7 +2018,6 @@ async def send_assessment_whatsapp(
                         f"• Score: {best_total} points\n\n"
                         f"Your 23-page Migration Assessment Report, SLA, and relevant official documents are ready to be shared with you on WhatsApp.\n\n"
                         f"Would you like to receive your complete assessment report and documents here?\n\n"
-                        f"Reply YES to receive your documents or NO to cancel.\n\n"
                         f"LEAMSS Immigration — We’re here to assist you with your migration journey."
                     )
                     try:
@@ -2026,7 +2025,7 @@ async def send_assessment_whatsapp(
                             to_phone=clean_phone,
                             text=pa_text,
                             client_name=client_name,
-                            content_sid="HXef46b45b8e6501a39f2dd6cfffafb24c",
+                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
                             content_variables={
                                 "1": client_name,
                                 "2": ref_id,
@@ -2035,14 +2034,28 @@ async def send_assessment_whatsapp(
                             },
                         )
                     except Exception as e_tmpl:
-                        logger.warning("Preferred quick-reply template fallback: %s", e_tmpl)
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=pa_text,
-                            client_name=client_name,
-                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                            content_variables={"1": client_name, "2": pa_text},
-                        )
+                        logger.warning("Single-button template fallback: %s", e_tmpl)
+                        try:
+                            res = await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=pa_text,
+                                client_name=client_name,
+                                content_sid="HXef46b45b8e6501a39f2dd6cfffafb24c",
+                                content_variables={
+                                    "1": client_name,
+                                    "2": ref_id,
+                                    "3": occ_title,
+                                    "4": str(best_total),
+                                },
+                            )
+                        except Exception:
+                            res = await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=pa_text,
+                                client_name=client_name,
+                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                                content_variables={"1": client_name, "2": pa_text},
+                            )
                     if attach_report_flag:
                         dispatched_attachments.append("report_pdf")
         else:
