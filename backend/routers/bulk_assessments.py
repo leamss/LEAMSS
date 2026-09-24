@@ -2763,13 +2763,66 @@ async def _send_row_whatsapp(
                     content_variables={"1": name, "2": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:20]},
                 )
         else:
-            # Pre-Assessment Report Flow
-            if has_active_session:
+            ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
+            occ_title = str(occ or "Australia PR")
+            special_off = str(row.get("offer_code") or row.get("special_offer") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry")
+
+            if not has_active_session:
+                await set_pending_flow(
+                    clean_phone,
+                    flow="send_report",
+                    client_name=name,
+                    extra_data={
+                        "report_url": rep_url,
+                        "pdf_url": pdf_report_url if attach_report_flag else None,
+                        "sla_url": sla_url if attach_sla_flag else None,
+                        "qr_url": qr_url if attach_qr_flag else None,
+                        "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
+                        "selected_msg": msg_text,
+                        "points": str(best_pts),
+                        "occ": str(occ or "Australia PR"),
+                    },
+                )
+
+            try:
                 res = await send_whatsapp_text(
                     to_phone=clean_phone,
                     text=msg_text,
                     client_name=name,
+                    content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                    content_variables={
+                        "1": name,
+                        "2": occ_title,
+                        "3": str(best_pts),
+                        "4": f"Subclass {subclass}",
+                        "5": special_off,
+                    },
                 )
+            except Exception as e_tmpl:
+                logger.warning("Navratri template fallback in bulk row: %s", e_tmpl)
+                try:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=name,
+                        content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                        content_variables={
+                            "1": name,
+                            "2": ref_id,
+                            "3": occ_title,
+                            "4": str(best_pts),
+                        },
+                    )
+                except Exception:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=name,
+                        content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                        content_variables={"1": name, "2": msg_text},
+                    )
+
+            if has_active_session:
                 import asyncio
                 # 1. Report PDF
                 if attach_report_flag and pdf_report_url:
@@ -2828,61 +2881,6 @@ async def _send_row_whatsapp(
                     except Exception as e_res:
                         logger.warning("Failed to dispatch resume in bulk row: %s", e_res)
             else:
-                await set_pending_flow(
-                    clean_phone,
-                    flow="send_report",
-                    client_name=name,
-                    extra_data={
-                        "report_url": rep_url,
-                        "pdf_url": pdf_report_url if attach_report_flag else None,
-                        "sla_url": sla_url if attach_sla_flag else None,
-                        "qr_url": qr_url if attach_qr_flag else None,
-                        "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
-                        "selected_msg": msg_text,
-                        "points": str(best_pts),
-                        "occ": str(occ or "Australia PR"),
-                    },
-                )
-                ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
-                occ_title = str(occ or "Australia PR")
-                special_off = str(row.get("offer_code") or row.get("special_offer") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry")
-                try:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=name,
-                        content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
-                        content_variables={
-                            "1": name,
-                            "2": occ_title,
-                            "3": str(best_pts),
-                            "4": f"Subclass {subclass}",
-                            "5": special_off,
-                        },
-                    )
-                except Exception as e_tmpl:
-                    logger.warning("Navratri template fallback in bulk row: %s", e_tmpl)
-                    try:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=msg_text,
-                            client_name=name,
-                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
-                            content_variables={
-                                "1": name,
-                                "2": ref_id,
-                                "3": occ_title,
-                                "4": str(best_pts),
-                            },
-                        )
-                    except Exception:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=msg_text,
-                            client_name=name,
-                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                            content_variables={"1": name, "2": msg_text},
-                        )
                 if attach_report_flag and pdf_report_url:
                     dispatched_attachments.append("report_pdf")
                 if attach_sla_flag and sla_url:

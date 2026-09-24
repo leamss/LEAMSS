@@ -2007,13 +2007,14 @@ async def send_assessment_whatsapp(
                         content_variables={"1": client_name, "2": str(id)[:20]},
                     )
             else:
-                if has_active_session:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=client_name,
-                    )
-                else:
+                ref_id = str(id or "LEAMSS-PR")[:25]
+                occ_title = str(occ.get("title") or "Australia PR")
+                if occ.get("code"):
+                    occ_title = f"{occ_title} ({occ.get('code')})"
+                best_sub = str(best_res.get("subclass") or "189")
+                special_off = str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry")
+
+                if not has_active_session:
                     is_permission_template = True
                     await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
                         "report_url": public_url,
@@ -2025,52 +2026,46 @@ async def send_assessment_whatsapp(
                         "points": str(best_total),
                         "occ": str(occ.get("title") or "Australia PR"),
                     })
-                    ref_id = str(id or "LEAMSS-PR")[:25]
-                    occ_title = str(occ.get("title") or "Australia PR")
-                    if occ.get("code"):
-                        occ_title = f"{occ_title} ({occ.get('code')})"
-                    best_sub = str(best_res.get("subclass") or "189")
-                    special_off = str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry")
 
+                try:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=client_name,
+                        content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                        content_variables={
+                            "1": client_name,
+                            "2": occ_title,
+                            "3": str(best_total),
+                            "4": f"Subclass {best_sub}",
+                            "5": special_off,
+                        },
+                    )
+                except Exception as e_tmpl:
+                    logger.warning("Navratri template fallback: %s", e_tmpl)
                     try:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=client_name,
-                            content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
                             content_variables={
                                 "1": client_name,
-                                "2": occ_title,
-                                "3": str(best_total),
-                                "4": f"Subclass {best_sub}",
-                                "5": special_off,
+                                "2": ref_id,
+                                "3": occ_title,
+                                "4": str(best_total),
                             },
                         )
-                    except Exception as e_tmpl:
-                        logger.warning("Navratri template fallback: %s", e_tmpl)
-                        try:
-                            res = await send_whatsapp_text(
-                                to_phone=clean_phone,
-                                text=msg_text,
-                                client_name=client_name,
-                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
-                                content_variables={
-                                    "1": client_name,
-                                    "2": ref_id,
-                                    "3": occ_title,
-                                    "4": str(best_total),
-                                },
-                            )
-                        except Exception:
-                            res = await send_whatsapp_text(
-                                to_phone=clean_phone,
-                                text=msg_text,
-                                client_name=client_name,
-                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                                content_variables={"1": client_name, "2": msg_text},
-                            )
-                    if attach_report_flag:
-                        dispatched_attachments.append("report_pdf")
+                    except Exception:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=msg_text,
+                            client_name=client_name,
+                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                            content_variables={"1": client_name, "2": msg_text},
+                        )
+                if attach_report_flag:
+                    dispatched_attachments.append("report_pdf")
         else:
             res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
         
