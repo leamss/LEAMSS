@@ -26,8 +26,8 @@ MAX_BYTES = 15 * 1024 * 1024
 async def _resolve_target(token: str):
     """Resolve token against leads, bulk ROWS, sales_assessments, pre_assessments, and profiles."""
     token = str(token or "").strip()
-    if not token or token.lower() in ("undefined", "null"):
-        raise HTTPException(status_code=400, detail="Invalid token provided.")
+    if not token or token.lower() in ("undefined", "null", "direct", "public", "sample-token", "none"):
+        return {"kind": "direct", "doc": {"id": "direct", "name": "Applicant", "client_name": "Applicant"}}
 
     # 1. Leads (Cockpit / Website / Navratri registrations)
     lead = await db["leads"].find_one({"$or": [
@@ -82,7 +82,8 @@ async def _resolve_target(token: str):
     if prof:
         return {"kind": "profile", "doc": prof}
 
-    raise HTTPException(status_code=404, detail="This upload link is invalid or has expired.")
+    # Fallback to direct upload instead of 404
+    return {"kind": "direct", "doc": {"id": token, "name": "Applicant", "client_name": "Applicant"}}
 
 
 @router.get("/{token}")
@@ -91,7 +92,14 @@ async def resume_upload_info(token: str):
     kind = target["kind"]
     doc = target["doc"]
 
-    if kind == "lead":
+    if kind == "direct":
+        return {
+            "client_name": doc.get("name") or "Applicant",
+            "already_uploaded": False,
+            "status": "leads",
+            "batch_name": None,
+        }
+    elif kind == "lead":
         has_file = bool(doc.get("resume_file_id") or doc.get("resume_url") or doc.get("resume_path"))
         return {
             "client_name": doc.get("name") or "Applicant",
@@ -165,6 +173,31 @@ async def resume_upload_submit(token: str, file: UploadFile = File(...)):
     )
     now = datetime.now(timezone.utc)
     file_id_str = str(file_id)
+
+    if kind == "direct":
+        import uuid
+        new_lead_id = str(uuid.uuid4())
+        await db["leads"].insert_one({
+            "id": new_lead_id,
+            "unique_id": f"L-{int(now.timestamp())}",
+            "name": "Applicant (Direct Upload)",
+            "resume_file_id": file_id_str,
+            "resume_filename": file.filename,
+            "resume_url": f"/cockpit/resume/{file_id_str}",
+            "resume_path": f"/cockpit/resume/{file_id_str}",
+            "resume_uploaded": True,
+            "resume_uploaded_at": now,
+            "stage": "leads",
+            "source": "public_upload_link",
+            "created_at": now,
+            "updated_at": now,
+        })
+        return {
+            "ok": True,
+            "message": "Thank you! Your resume was received successfully. Our team will review your profile and proceed with your Pre-Assessment.",
+            "resume_file_id": file_id_str,
+            "resume_filename": file.filename,
+        }
 
     if kind == "lead":
         doc_id = doc.get("id")

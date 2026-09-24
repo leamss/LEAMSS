@@ -298,7 +298,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
 
     if flow == "resume_request":
         if is_yes:
-            resume_url = conv.get("pending_resume_url") or "https://app.leamss.com"
+            resume_url = conv.get("pending_resume_url") or "https://app.leamss.com/upload-resume"
             custom_msg = conv.get("pending_selected_msg")
             reply_msg = custom_msg if custom_msg else (
                 f"Thank you, {client_name}! 🎉\n\n"
@@ -335,7 +335,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
     elif flow == "send_report":
         if is_yes:
             custom_msg = conv.get("pending_selected_msg")
-            report_url = conv.get("pending_report_url") or "https://app.leamss.com"
+            report_url = conv.get("pending_report_url") or "https://leamss.com"
             points = conv.get("pending_points") or "65+"
             occ = conv.get("pending_occ") or "Australia PR"
             reply_msg = custom_msg if custom_msg else (

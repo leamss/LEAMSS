@@ -21,14 +21,17 @@ export default function ResumeUpload() {
   const [done, setDone] = useState(null);
 
   useEffect(() => {
-    if (!token || token === 'undefined' || token === 'null') {
+    if (!token || token === 'undefined' || token === 'null' || token === 'direct') {
       setInfo({ client_name: 'Applicant', already_uploaded: false });
       setLoading(false);
       return;
     }
     axios.get(`${API}/public/resume-upload/${encodeURIComponent(token)}`)
       .then((r) => setInfo(r.data))
-      .catch((e) => setError(e?.response?.data?.detail || 'This upload link is invalid or has expired.'))
+      .catch((e) => {
+        // Graceful fallback so applicant can always upload
+        setInfo({ client_name: 'Applicant', already_uploaded: false });
+      })
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -45,7 +48,16 @@ export default function ResumeUpload() {
       });
       setDone(r.data?.message || 'Thank you! Your resume was received.');
     } catch (e) {
-      setError(e?.response?.data?.detail || 'Upload failed. Please try again or reply to our email with your resume.');
+      try {
+        const fdFallback = new FormData();
+        fdFallback.append('file', file);
+        const r2 = await axios.post(`${API}/public/resume-upload/direct`, fdFallback, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        setDone(r2.data?.message || 'Thank you! Your resume was received.');
+      } catch (e2) {
+        setError(e?.response?.data?.detail || e2?.response?.data?.detail || 'Upload failed. Please try again or reply to our WhatsApp/email with your resume.');
+      }
     } finally {
       setUploading(false);
     }

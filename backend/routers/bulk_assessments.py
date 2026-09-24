@@ -3129,7 +3129,9 @@ async def email_all(batch_id: str, req: EmailAllRequest, current_user: dict = De
 
 
 def _resume_upload_url(token: str) -> str:
-    base = (os.environ.get("FRONTEND_URL") or os.environ.get("PUBLIC_BASE_URL") or "").rstrip("/")
+    base = (os.environ.get("FRONTEND_URL") or os.environ.get("PUBLIC_BASE_URL") or "https://app.leamss.com").rstrip("/")
+    if not base or "localhost" in base or "127.0.0.1" in base:
+        base = "https://app.leamss.com"
     return f"{base}/upload-resume/{token}"
 
 
