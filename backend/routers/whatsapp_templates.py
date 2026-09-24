@@ -200,31 +200,25 @@ _STARTERS = [
         "attach_qr": False,
         "attach_resume": False,
     },
-    {
-        "name": "Consultation Nudge",
-        "category": "general",
-        "body": (
-            "Hi {client_name}! 🌟\n\n"
-            "Are you free for a quick 10-minute discovery call today to review your Australia visa options and timelines?\n\n"
-            "You can pick a convenient time slot here: {calendly_link}\n\n"
-            "Looking forward to speaking with you!\n\n"
-            "Warm Regards,\n*{consultant_name}* · LEAMSS"
-        ),
-        "is_default": True,
-        "attach_report": False,
-        "attach_sla": False,
-        "attach_qr": False,
-        "attach_resume": False,
-    },
 ]
 
 
 async def _ensure_seeded():
-    """Idempotently add any starter template that isn't present yet."""
+    """Idempotently add starter templates and remove outdated discovery call templates."""
     now = datetime.now(timezone.utc).isoformat()
+    # Delete legacy discovery call templates
+    await TEMPLATES.delete_many({
+        "$or": [
+            {"name": "Consultation Nudge"},
+            {"body": {"$regex": "10-minute discovery call", "$options": "i"}},
+            {"name": "Positive — Full Report & Welcome"}
+        ]
+    })
     existing = set(await TEMPLATES.distinct("name"))
     for t in _STARTERS:
         if t["name"] in existing:
+            # Sync default body
+            await TEMPLATES.update_one({"name": t["name"]}, {"$set": {"body": t["body"], "is_default": t.get("is_default", False)}})
             continue
         await TEMPLATES.insert_one({
             "id": uuid.uuid4().hex, **t, "created_at": now, "updated_at": now,

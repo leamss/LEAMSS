@@ -1635,33 +1635,41 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
     public_url = f"{base_origin}/sales/report/{share_token}"
     payment_link = settings.get("payment_link") or "https://rzp.io/rzp/IndepdenceJjMJwx1"
 
-    # Standard default templates & texts from settings
-    tmpl_report = settings.get("whatsapp_template_report") or (
-        "Hello {name},\n\n"
-        "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
-        "📋 *Client:* {name}\n"
-        "🆔 *Assessment ID:* {id}\n"
-        "🏆 *Best Country:* {country} (Score: {score} pts)\n\n"
-        "📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{report_url}\n\n"
-        "Our migration strategy team is available to assist with your next steps.\n"
-        "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+    # Standard default templates & texts
+    navratri_tmpl = (
+        "Hello {name}!\n"
+        "Congratulations! Your Australia PR Profile Pre-Assessment outcome is POSITIVE.\n\n"
+        "Occupation: {occupation} ({code})\n"
+        "Score: {points} points\n"
+        "Recommended Pathway: Subclass {best_subclass}\n\n"
+        "For Registration ID: Please check your registered email.\n\n"
+        "Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
+        "Explore LEAMSS Immigration:\n"
+        "https://leamss.com\n\n"
+        "NAVRATRI SPECIAL IMMIGRATION OFFER\n"
+        "Take the next step towards your Australia immigration journey with our exclusive Navratri Immigration Offer.\n"
+        "Special Offer: {special_offer}\n\n"
+        "NAVRATRI LUCKY DRAW\n"
+        "Make your full payment on or before 10 October 2026 to become eligible to participate in our Navratri Lucky Draw.\n"
+        "One lucky eligible participant will receive LEAMSS Immigration processing fees completely FREE.\n\n"
+        "Make Full Payment:\n"
+        "https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view\n\n"
+        "International Bank Account Details:\n"
+        "For international payment and bank account details, visit:\n"
+        "https://leamss.com/pay-now\n\n"
+        "Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
+        "Book a consultation with our LEAMSS Immigration Expert and discuss your next steps.\n\n"
+        "Button: YES, BOOK A CONSULTATION\n\n"
+        "LEAMSS Immigration — Your Success, Our Dream."
     )
+
     tmpl_sla = settings.get("whatsapp_template_sla") or (
         "Dear {name},\n\n"
-        "Thank you for completing your migration profile assessment with LEAMSS.\n\n"
-        "📋 *Assessment ID:* {id}\n"
-        "🏆 *Outcome:* Positive ({country} · {score} pts)\n\n"
-        "🔗 *View Full Report:* {report_url}\n"
-        "💳 *Secure Payment Link:* {payment_link}\n\n"
-        "Please reply once payment is initiated to activate your dedicated Case Manager.\n"
-        "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
-    )
-    tmpl_consultation = settings.get("whatsapp_template_consultation") or (
-        "Hi {name}! 🌟\n\n"
-        "Our migration experts have completed your evaluation for {country} with a score of {score} points.\n\n"
-        "📎 *Review your report here:* {report_url}\n\n"
-        "Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly.\n"
-        "LEAMSS — www.leamss.com"
+        "Thank you for choosing LEAMSS for your Australia PR journey.\n\n"
+        "We have attached our official *Service Level Agreement (SLA)* and *Payment QR* to fast-track your skills assessment and EOI lodgement.\n\n"
+        "💳 *Make Full Payment:* https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view\n"
+        "🏦 *International Banking:* https://leamss.com/pay-now\n\n"
+        "Warm Regards,\nLEAMSS Immigration — Your Success, Our Dream."
     )
 
     tmpl_resume = (
@@ -1675,12 +1683,14 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
     templates = [
         {
             "id": "report_summary",
-            "name": "Full Assessment Outcome & Report",
-            "description": "Sends congratulations, score breakdown, and attachments",
-            "template_body": tmpl_report,
+            "name": "Navratri Immigration Offer (Pre-Assessment Outcome)",
+            "description": "Full assessment outcome with Navratri offer, Lucky Draw, and all 4 attachments",
+            "template_body": navratri_tmpl,
             "attach_report": True,
-            "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
-            "attach_qr": bool(settings.get("qr_file_id")),
+            "attach_resume": True,
+            "attach_sla": True,
+            "attach_qr": True,
+            "is_default": True,
         },
         {
             "id": "resume_request",
@@ -1690,6 +1700,7 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
             "attach_report": False,
             "attach_sla": False,
             "attach_qr": False,
+            "attach_resume": False,
         },
         {
             "id": "sla_payment",
@@ -1697,17 +1708,9 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
             "description": "Sends payment details, service agreement, and onboarding info",
             "template_body": tmpl_sla,
             "attach_report": True,
-            "attach_sla": bool(settings.get("sla_file_id")),
-            "attach_qr": bool(settings.get("qr_file_id")),
-        },
-        {
-            "id": "consultation_followup",
-            "name": "Consultation Follow-up & Booking",
-            "description": "Follow-up message with link to schedule free consultation",
-            "template_body": tmpl_consultation,
-            "attach_report": False,
-            "attach_sla": False,
-            "attach_qr": False,
+            "attach_resume": True,
+            "attach_sla": True,
+            "attach_qr": True,
         },
     ]
 
@@ -1716,14 +1719,17 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
         custom_docs = await db["whatsapp_templates"].find({}).sort("created_at", 1).to_list(200)
         for cd in custom_docs:
             cd.pop("_id", None)
+            if cd.get("name") in ("Consultation Nudge", "Positive — Full Report & Welcome") or "10-minute discovery call" in str(cd.get("body", "")):
+                continue
             templates.append({
                 "id": cd.get("id"),
                 "name": cd.get("name"),
                 "description": f"Category: {cd.get('category', 'general')}",
                 "template_body": cd.get("body"),
                 "attach_report": bool(cd.get("attach_report", True)),
-                "attach_sla": bool(cd.get("attach_sla", False)),
-                "attach_qr": bool(cd.get("attach_qr", False)),
+                "attach_sla": bool(cd.get("attach_sla", True)),
+                "attach_qr": bool(cd.get("attach_qr", True)),
+                "attach_resume": bool(cd.get("attach_resume", True)),
                 "is_default": bool(cd.get("is_default", False)),
             })
     except Exception:
