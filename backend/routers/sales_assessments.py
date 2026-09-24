@@ -1637,27 +1637,27 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
 
     # Standard default templates & texts
     navratri_tmpl = (
-        "Hello {name}!\n"
-        "Congratulations! Your Australia PR Profile Pre-Assessment outcome is POSITIVE.\n\n"
-        "Occupation: {occupation} ({code})\n"
-        "Score: {points} points\n"
-        "Recommended Pathway: Subclass {best_subclass}\n\n"
-        "For Registration ID: Please check your registered email.\n\n"
-        "Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
-        "Explore LEAMSS Immigration:\n"
+        "Hello {name}! 🎉\n"
+        "Congratulations! Your Australia PR Profile Pre-Assessment outcome is POSITIVE. 🇦🇺✨\n\n"
+        "📋 Occupation: {occupation} ({code})\n"
+        "🏆 Score: {points} points\n"
+        "🎯 Recommended Pathway: Subclass {best_subclass}\n\n"
+        "📧 For Registration ID: Please check your registered email.\n\n"
+        "📄 Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
+        "🌐 Explore LEAMSS Immigration:\n"
         "https://leamss.com\n\n"
-        "NAVRATRI SPECIAL IMMIGRATION OFFER\n"
+        "✨ NAVRATRI SPECIAL IMMIGRATION OFFER\n"
         "Take the next step towards your Australia immigration journey with our exclusive Navratri Immigration Offer.\n"
-        "Special Offer: {special_offer}\n\n"
-        "NAVRATRI LUCKY DRAW\n"
+        "🎁 Special Offer: {special_offer}\n\n"
+        "🎟️ NAVRATRI LUCKY DRAW\n"
         "Make your full payment on or before 10 October 2026 to become eligible to participate in our Navratri Lucky Draw.\n"
-        "One lucky eligible participant will receive LEAMSS Immigration processing fees completely FREE.\n\n"
-        "Make Full Payment:\n"
+        "🌟 One lucky eligible participant will receive LEAMSS Immigration processing fees completely FREE.\n\n"
+        "💳 Make Full Payment:\n"
         "https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view\n\n"
-        "International Bank Account Details:\n"
+        "🏦 International Bank Account Details:\n"
         "For international payment and bank account details, visit:\n"
         "https://leamss.com/pay-now\n\n"
-        "Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
+        "🤝 Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
         "Book a consultation with our LEAMSS Immigration Expert and discuss your next steps.\n\n"
         "Button: YES, BOOK A CONSULTATION\n\n"
         "LEAMSS Immigration — Your Success, Our Dream."
@@ -1868,8 +1868,8 @@ async def send_assessment_whatsapp(
             .replace("{offer_valid_till}", str(s.get("offer_valid_till") or "15 August 2026"))
             .replace("{company}", "LEAMSS")
             .replace("{phone}", "+91 77188 82427")
-            .replace("{special_offer}", str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry"))
-            .replace("{offer}", str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry"))
+            .replace("{special_offer}", str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Lucky Draw Entry"))
+            .replace("{offer}", str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Lucky Draw Entry"))
             .replace("{registration_id}", "Please check your registered email")
         )
         return res
@@ -1881,27 +1881,27 @@ async def send_assessment_whatsapp(
     attach_resume_flag = req.attach_resume if req.attach_resume is not None else False
 
     navratri_default_tmpl = (
-        "Hello {name}!\n"
-        "Congratulations! Your Australia PR Profile Pre-Assessment outcome is POSITIVE.\n\n"
-        "Occupation: {occupation} ({code})\n"
-        "Score: {points} points\n"
-        "Recommended Pathway: Subclass {best_subclass}\n\n"
-        "For Registration ID: Please check your registered email.\n\n"
-        "Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
-        "Explore LEAMSS Immigration:\n"
+        "Hello {name}! 🎉\n"
+        "Congratulations! Your Australia PR Profile Pre-Assessment outcome is POSITIVE. 🇦🇺✨\n\n"
+        "📋 Occupation: {occupation} ({code})\n"
+        "🏆 Score: {points} points\n"
+        "🎯 Recommended Pathway: Subclass {best_subclass}\n\n"
+        "📧 For Registration ID: Please check your registered email.\n\n"
+        "📄 Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
+        "🌐 Explore LEAMSS Immigration:\n"
         "https://leamss.com\n\n"
-        "NAVRATRI SPECIAL IMMIGRATION OFFER\n"
+        "✨ NAVRATRI SPECIAL IMMIGRATION OFFER\n"
         "Take the next step towards your Australia immigration journey with our exclusive Navratri Immigration Offer.\n"
-        "Special Offer: {special_offer}\n\n"
-        "NAVRATRI LUCKY DRAW\n"
+        "🎁 Special Offer: {special_offer}\n\n"
+        "🎟️ NAVRATRI LUCKY DRAW\n"
         "Make your full payment on or before 10 October 2026 to become eligible to participate in our Navratri Lucky Draw.\n"
-        "One lucky eligible participant will receive LEAMSS Immigration processing fees completely FREE.\n\n"
-        "Make Full Payment:\n"
+        "🌟 One lucky eligible participant will receive LEAMSS Immigration processing fees completely FREE.\n\n"
+        "💳 Make Full Payment:\n"
         "https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view\n\n"
-        "International Bank Account Details:\n"
+        "🏦 International Bank Account Details:\n"
         "For international payment and bank account details, visit:\n"
         "https://leamss.com/pay-now\n\n"
-        "Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
+        "🤝 Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
         "Book a consultation with our LEAMSS Immigration Expert and discuss your next steps.\n\n"
         "Button: YES, BOOK A CONSULTATION\n\n"
         "LEAMSS Immigration — Your Success, Our Dream."
@@ -2012,7 +2012,7 @@ async def send_assessment_whatsapp(
                 if occ.get("code"):
                     occ_title = f"{occ_title} ({occ.get('code')})"
                 best_sub = str(best_res.get("subclass") or "189")
-                special_off = str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry")
+                special_off = str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Lucky Draw Entry")
 
                 if not has_active_session:
                     is_permission_template = True
@@ -2032,7 +2032,7 @@ async def send_assessment_whatsapp(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=client_name,
-                        content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                        content_sid="HX1bb1999cc7b0e692f5f96cbaf7ad2b07",
                         content_variables={
                             "1": client_name,
                             "2": occ_title,
@@ -2042,28 +2042,43 @@ async def send_assessment_whatsapp(
                         },
                     )
                 except Exception as e_tmpl:
-                    logger.warning("Navratri template fallback: %s", e_tmpl)
+                    logger.warning("Navratri v4 template fallback: %s", e_tmpl)
                     try:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=client_name,
-                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                            content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
                             content_variables={
                                 "1": client_name,
-                                "2": ref_id,
-                                "3": occ_title,
-                                "4": str(best_total),
+                                "2": occ_title,
+                                "3": str(best_total),
+                                "4": f"Subclass {best_sub}",
+                                "5": special_off,
                             },
                         )
                     except Exception:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=msg_text,
-                            client_name=client_name,
-                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                            content_variables={"1": client_name, "2": msg_text},
-                        )
+                        try:
+                            res = await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=msg_text,
+                                client_name=client_name,
+                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                                content_variables={
+                                    "1": client_name,
+                                    "2": ref_id,
+                                    "3": occ_title,
+                                    "4": str(best_total),
+                                },
+                            )
+                        except Exception:
+                            res = await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=msg_text,
+                                client_name=client_name,
+                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                                content_variables={"1": client_name, "2": msg_text},
+                            )
                 if attach_report_flag:
                     dispatched_attachments.append("report_pdf")
         else:

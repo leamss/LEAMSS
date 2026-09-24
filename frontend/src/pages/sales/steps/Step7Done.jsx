@@ -863,6 +863,10 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
         const r = await axios.get(`${API}/sales/assessments/${assessment.id}/whatsapp-preview`, { headers: authHeaders });
         setData(r.data);
         if (r.data.client_phone) setRecipientPhone(r.data.client_phone);
+        if (r.data.templates && r.data.templates.length > 0) {
+          const defaultTmpl = r.data.templates.find(t => t.is_default) || r.data.templates[0];
+          setSelectedTemplate(defaultTmpl.id);
+        }
         if (r.data.attach_report !== undefined) setAttachReport(Boolean(r.data.attach_report));
         if (r.data.attach_resume !== undefined) setAttachResume(Boolean(r.data.attach_resume));
         if (r.data.attach_sla !== undefined) setAttachSla(Boolean(r.data.attach_sla));
@@ -878,8 +882,9 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
           templates: [
             {
               id: 'report_summary',
-              name: 'Full Assessment Outcome & Report',
-              description: 'Sends congratulations, score breakdown, and attachments',
+              name: 'Navratri Immigration Offer (Pre-Assessment Outcome)',
+              description: 'Sends Navratri offer, lucky draw, and all 4 attachments',
+              is_default: true,
             },
             {
               id: 'sla_payment',
@@ -887,12 +892,13 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
               description: 'Sends payment details, service agreement, and onboarding info',
             },
             {
-              id: 'consultation_followup',
-              name: 'Consultation Follow-up & Booking',
-              description: 'Follow-up message with link to schedule free consultation',
+              id: 'resume_request',
+              name: 'Request Resume / Document Upload',
+              description: 'Requests candidate to upload their latest resume/CV',
             },
           ],
         });
+        setSelectedTemplate('report_summary');
       } finally {
         setLoading(false);
       }

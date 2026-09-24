@@ -2592,6 +2592,7 @@ def _render_row_whatsapp_text(row: Dict[str, Any], tmpl_body: str, upload_url: O
         "{consultant_name}": cname,
         "{company}": "LEAMSS",
         "{phone}": "+91 77188 82427",
+        "{special_offer}": str(row.get("offer_code") or row.get("special_offer") or "Lucky Draw Entry"),
     }
     out = tmpl_body
     for k, v in replacements.items():
@@ -2765,7 +2766,7 @@ async def _send_row_whatsapp(
         else:
             ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
             occ_title = str(occ or "Australia PR")
-            special_off = str(row.get("offer_code") or row.get("special_offer") or s.get("navratri_offer") or "Navratri Special 25% Off + Lucky Draw Entry")
+            special_off = str(row.get("offer_code") or row.get("special_offer") or s.get("navratri_offer") or "Lucky Draw Entry")
 
             if not has_active_session:
                 await set_pending_flow(
