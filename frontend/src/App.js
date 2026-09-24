@@ -598,6 +598,7 @@ function App() {
             </RequirePermission>
           } />
           <Route path="/upload-resume" element={<ResumeUpload />} />
+          <Route path="/upload-resume/:token" element={<ResumeUpload />} />
           {/* Public Sales Report — Phase 6.5 Save & Share (NO LOGIN) */}
           <Route path="/sales/report/:token" element={<PublicAssessmentReport />} />
           <Route path="/sales/assessments/share/:token" element={<PublicAssessmentReport />} />

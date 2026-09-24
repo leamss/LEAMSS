@@ -2536,11 +2536,18 @@ async def email_row(row_id: str, req: RowEmailRequest, current_user: dict = Depe
 
 
 DEFAULT_WHATSAPP_RESUME_TEXT = (
-    "Hello {name},\n\n"
-    "To complete your Australia Migration Pre-Assessment (Subclass 189/190/491), our migration team needs your updated resume/CV.\n\n"
-    "📎 *Please upload your resume securely here:*\n{upload_url}\n\n"
-    "Once uploaded, our AI and migration experts will immediately evaluate your ANZSCO occupation and points eligibility.\n\n"
-    "LEAMSS — Toll-Free: 1800-210-2427 · www.leamss.com"
+    "📄 Resume Required for Assessment\n\n"
+    "Hello {name},\n"
+    "To complete your Australia PR Pre-Assessment and accurately calculate your immigration points score, please upload your latest Resume / CV.\n\n"
+    "📎 Upload your Resume / CV using the link below:\n"
+    "{upload_url}\n\n"
+    "Our LEAMSS Immigration Team will review your profile and assess your qualifications, professional experience, occupation, skills and immigration eligibility.\n\n"
+    "⏱️ Once your resume is submitted, our team will review your profile and proceed with your Pre-Assessment.\n\n"
+    "Please ensure you upload your latest and updated Resume / CV in PDF or document format.\n\n"
+    "Thank you,\n"
+    "LEAMSS Immigration Team\n"
+    "LEAMSS — Your Success, Our Dream.\n\n"
+    "Button: 🟢 UPLOAD RESUME"
 )
 
 DEFAULT_WHATSAPP_ELIGIBLE_TEXT = (
@@ -2740,29 +2747,43 @@ async def _send_row_whatsapp(
     if is_twilio_mode:
         if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
             # Resume Request Flow
-            if has_active_session:
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=msg_text,
-                    client_name=name,
-                )
-            else:
+            row_token = str(row.get("resume_token") or row.get("id") or "LEAMSS-PR")
+            if not has_active_session:
                 await set_pending_flow(
                     clean_phone,
                     flow="resume_request",
                     client_name=name,
                     extra_data={
-                        "resume_url": upload_url or "https://app.leamss.com",
+                        "resume_url": upload_url or f"https://app.leamss.com/upload-resume/{row_token}",
                         "selected_msg": msg_text,
                     },
                 )
+            try:
                 res = await send_whatsapp_text(
                     to_phone=clean_phone,
-                    text=f"Please reply YES to upload your resume (Ref: {str(row.get('assessment_id') or row.get('id') or 'LEAMSS-PR')[:20]})",
+                    text=msg_text,
                     client_name=name,
-                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                    content_variables={"1": name, "2": str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:20]},
+                    content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                    content_variables={"1": name, "2": row_token},
                 )
+            except Exception as e_res_tmpl:
+                logger.warning("Bulk resume template fallback: %s", e_res_tmpl)
+                try:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
+                        client_name=name,
+                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                        content_variables={"1": name, "2": row_token[:20]},
+                    )
+                except Exception:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=name,
+                        content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                        content_variables={"1": name, "2": msg_text},
+                    )
         else:
             ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
             occ_title = str(occ or "Australia PR")

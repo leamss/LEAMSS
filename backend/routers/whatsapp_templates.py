@@ -189,10 +189,18 @@ _STARTERS = [
         "name": "Resume Upload Request",
         "category": "resume",
         "body": (
-            "Hello {client_name},\n\n"
-            "To complete your Australia PR Pre-Assessment and calculate your exact point score, please reply with your latest *Resume / CV* as a PDF or document here.\n\n"
-            "Our certified MARA-aligned migration specialists will evaluate your profile within 2 hours.\n\n"
-            "Thank you,\n*{consultant_name}* · LEAMSS"
+            "📄 Resume Required for Assessment\n\n"
+            "Hello {client_name},\n"
+            "To complete your Australia PR Pre-Assessment and accurately calculate your immigration points score, please upload your latest Resume / CV.\n\n"
+            "📎 Upload your Resume / CV using the link below:\n"
+            "{upload_url}\n\n"
+            "Our LEAMSS Immigration Team will review your profile and assess your qualifications, professional experience, occupation, skills and immigration eligibility.\n\n"
+            "⏱️ Once your resume is submitted, our team will review your profile and proceed with your Pre-Assessment.\n\n"
+            "Please ensure you upload your latest and updated Resume / CV in PDF or document format.\n\n"
+            "Thank you,\n"
+            "LEAMSS Immigration Team\n"
+            "LEAMSS — Your Success, Our Dream.\n\n"
+            "Button: 🟢 UPLOAD RESUME"
         ),
         "is_default": True,
         "attach_report": False,
