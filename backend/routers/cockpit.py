@@ -20,12 +20,59 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from core.auth import get_current_user
 from core.database import db
 
 router = APIRouter(prefix="/cockpit", tags=["Cockpit"])
+
+@router.get("/resume/{file_id}")
+async def get_cockpit_resume(file_id: str):
+    """Stream resume file from GridFS."""
+    try:
+        oid = ObjectId(file_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid file ID")
+
+    gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="bulk_resumes")
+    try:
+        grid_out = await gridfs.open_download_stream(oid)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Resume file not found")
+
+    filename = grid_out.filename or "resume.pdf"
+    content_type = (grid_out.metadata or {}).get("contentType") or "application/pdf"
+    if filename.lower().endswith(".pdf"):
+        content_type = "application/pdf"
+    elif filename.lower().endswith(".docx"):
+        content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    elif filename.lower().endswith(".doc"):
+        content_type = "application/msword"
+    elif filename.lower().endswith(".png"):
+        content_type = "image/png"
+    elif filename.lower().endswith(".jpg") or filename.lower().endswith(".jpeg"):
+        content_type = "image/jpeg"
+
+    async def iter_chunks():
+        while True:
+            chunk = await grid_out.readchunk()
+            if not chunk:
+                break
+            yield chunk
+
+    return StreamingResponse(
+        iter_chunks(),
+        media_type=content_type,
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Content-Length": str(grid_out.length),
+        },
+    )
+
 
 # ─── Stage taxonomy ──────────────────────────────────────────────────────────
 STAGE_KEYS = ["leads", "assessments", "pa", "proposals", "cases", "closed"]
@@ -138,6 +185,12 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         or (gen_leads and lid and lid in gen_leads)
         or (gen_emails and lemail and lemail in gen_emails)
     )
+
+    resume_fid = d.get("resume_file_id")
+    has_resume = bool(resume_fid or d.get("resume_url") or d.get("resume_path") or d.get("resume_link"))
+    resume_fname = d.get("resume_filename") or ("Resume.pdf" if has_resume else None)
+    resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")
+
     return {
         "id": d.get("id"),
         "type": "lead",
@@ -153,7 +206,10 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         "experience": d.get("total_work_experience") or "",
         "payment_status": d.get("payment_status") or "",
         "payment_amount": d.get("payment_amount"),
-        "resume_url": d.get("resume_url") or "",
+        "has_resume": has_resume,
+        "resume_file_id": resume_fid,
+        "resume_filename": resume_fname,
+        "resume_url": resume_link,
         "report_generated": has_report,
         "report_status": "generated" if has_report else (d.get("report_status") or "pending"),
         "report_generated_at": d.get("report_generated_at"),
@@ -179,17 +235,31 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
     }
 
 
-
 def _build_assessment_card(d: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize a `sales_assessments` (no PA yet) doc into a cockpit card."""
     best_cc = d.get("best_country_code") or ""
     best_total = d.get("best_total")
     has_report = bool(d.get("latest_report_snapshot_id"))
     next_action = "Generate Report" if not has_report else "Create Pre-Assessment"
+
+    snap = d.get("profile_snapshot") or {}
+    pri = snap.get("primary_applicant") or {}
+    resume_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
+    has_resume = bool(resume_fid or d.get("resume_url") or snap.get("resume_url") or d.get("resume_link"))
+    resume_fname = (
+        d.get("resume_filename")
+        or snap.get("resume_filename")
+        or pri.get("resume_filename")
+        or ("Resume.pdf" if has_resume else None)
+    )
+    resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or d.get("resume_link") or "")
+
     return {
         "id": d.get("id"),
         "type": "assessment",
         "name": d.get("client_name") or "Untitled",
+        "email": d.get("client_email") or (d.get("profile") or {}).get("email") or "",
+        "phone": d.get("client_phone") or (d.get("profile") or {}).get("phone") or "",
         "stage": "assessments",
         "countries": [best_cc] if best_cc else [],
         "score": best_total,
@@ -197,6 +267,10 @@ def _build_assessment_card(d: Dict[str, Any]) -> Dict[str, Any]:
             f"{best_cc} {best_total} pts" if best_cc and best_total is not None
             else "Calculating…"
         ),
+        "has_resume": has_resume,
+        "resume_file_id": resume_fid,
+        "resume_filename": resume_fname,
+        "resume_url": resume_link,
         "lifecycle": 2 if has_report else (1 if best_total is not None else 0),
         "next_action": next_action,
         "urgency": "high" if not has_report else "medium",
@@ -214,16 +288,35 @@ def _build_pa_card(d: Dict[str, Any], stage_group: str) -> Dict[str, Any]:
     pa_stage = d.get("stage") or "new"
     countries = [(d.get("target_country") or "").upper()] if d.get("target_country") else []
     next_action, urgency = PA_NEXT_ACTION.get(pa_stage, ("Review", "medium"))
+
+    snap = d.get("profile_snapshot") or {}
+    pri = snap.get("primary_applicant") or {}
+    resume_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
+    has_resume = bool(resume_fid or d.get("resume_url") or snap.get("resume_url"))
+    resume_fname = (
+        d.get("resume_filename")
+        or snap.get("resume_filename")
+        or pri.get("resume_filename")
+        or ("Resume.pdf" if has_resume else None)
+    )
+    resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or "")
+
     return {
         "id": d.get("id"),
         "type": "pa",
         "name": d.get("client_name") or "Untitled",
+        "email": d.get("client_email") or "",
+        "phone": d.get("client_phone") or "",
         "stage": stage_group,
         "countries": countries,
         "score": d.get("eligibility_score"),
         "score_label": (
             f"{d.get('pa_number') or d.get('id', '')[:8]} · {pa_stage.replace('_', ' ').title()}"
         ),
+        "has_resume": has_resume,
+        "resume_file_id": resume_fid,
+        "resume_filename": resume_fname,
+        "resume_url": resume_link,
         "lifecycle": LIFECYCLE_FROM_PA_STAGE.get(pa_stage, 3),
         "next_action": next_action,
         "urgency": urgency,
@@ -273,9 +366,10 @@ async def get_funnel(current_user: dict = Depends(get_current_user)):
 async def get_cards(
     stage: Optional[str] = Query(None, description="leads|assessments|pa|proposals|cases|closed|all"),
     owner: Optional[str] = Query(None, description="me|all|<user_id>"),
-    filter: Optional[str] = Query(None, description="paid_report_pending|all"),
+    filter: Optional[str] = Query(None, description="paid_report_pending|with_resume|without_resume|all"),
+    has_resume: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
-    sort: str = Query("recent", description="recent|oldest|score_desc|score_asc"),
+    sort: str = Query("recent", description="recent|oldest|paid_first|score_desc|score_asc"),
     limit: int = Query(60, ge=1, le=200),
     current_user: dict = Depends(get_current_user),
 ):
@@ -343,9 +437,12 @@ async def get_cards(
         if text_re:
             q["client_name"] = text_re
         proj = {
-            "_id": 0, "id": 1, "client_name": 1, "best_country_code": 1, "best_total": 1,
+            "_id": 0, "id": 1, "client_name": 1, "client_email": 1, "client_phone": 1,
+            "best_country_code": 1, "best_total": 1,
             "latest_report_snapshot_id": 1, "created_at": 1, "updated_at": 1,
             "created_by": 1, "created_by_name": 1,
+            "resume_file_id": 1, "resume_filename": 1, "resume_url": 1, "resume_link": 1,
+            "profile_snapshot": 1, "profile": 1,
         }
         async for d in db["sales_assessments"].find(q, proj).sort("updated_at", -1).limit(limit):
             cards.append(_build_assessment_card(d))
@@ -362,9 +459,11 @@ async def get_cards(
         if text_re:
             q["client_name"] = text_re
         proj = {
-            "_id": 0, "id": 1, "pa_number": 1, "client_name": 1, "stage": 1,
-            "target_country": 1, "eligibility_score": 1, "created_at": 1, "updated_at": 1,
+            "_id": 0, "id": 1, "pa_number": 1, "client_name": 1, "client_email": 1, "client_phone": 1,
+            "stage": 1, "target_country": 1, "eligibility_score": 1, "created_at": 1, "updated_at": 1,
             "partner_id": 1, "partner_name": 1,
+            "resume_file_id": 1, "resume_filename": 1, "resume_url": 1,
+            "profile_snapshot": 1,
         }
         async for d in db["pre_assessments"].find(q, proj).sort("updated_at", -1).limit(limit):
             st = d.get("stage")
@@ -380,6 +479,12 @@ async def get_cards(
             if (c.get("payment_status") in ("success", "paid", "completed", "captured") or (c.get("payment_amount") or 0) > 0)
             and not c.get("report_generated")
         ]
+
+    if has_resume is True or filter == "with_resume":
+        cards = [c for c in cards if c.get("has_resume")]
+    elif has_resume is False or filter == "without_resume":
+        cards = [c for c in cards if not c.get("has_resume")]
+
 
     # Sort
     def _sort_key_recent(c):
@@ -510,14 +615,39 @@ async def get_card_detail(
             raise HTTPException(status_code=404, detail="Assessment not found")
         if not _is_admin(current_user) and d.get("created_by") != current_user["id"]:
             raise HTTPException(status_code=403, detail="Not your assessment")
-        # Reuse existing lifecycle endpoint logic — light copy
-        return {"kind": "assessment", "record_id": d.get("id"),
-                "name": d.get("client_name"),
-                "best_country": d.get("best_country_code"),
-                "best_total": d.get("best_total"),
-                "latest_report_id": d.get("latest_report_snapshot_id"),
-                "results_count": len(d.get("results") or []),
-                "deep_link": f"/sales/client-assessment?id={d.get('id')}"}
+        for f in ("created_at", "updated_at"):
+            if isinstance(d.get(f), datetime):
+                d[f] = d[f].isoformat()
+        
+        snap = d.get("profile_snapshot") or {}
+        pri = snap.get("primary_applicant") or {}
+        resume_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
+        has_resume = bool(resume_fid or d.get("resume_url") or snap.get("resume_url") or d.get("resume_link"))
+        resume_fname = (
+            d.get("resume_filename")
+            or snap.get("resume_filename")
+            or pri.get("resume_filename")
+            or ("Resume.pdf" if has_resume else None)
+        )
+        resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or d.get("resume_link") or "")
+
+        return {
+            "kind": "assessment",
+            "record": d,
+            "record_id": d.get("id"),
+            "name": d.get("client_name"),
+            "email": d.get("client_email") or (d.get("profile") or {}).get("email") or "",
+            "phone": d.get("client_phone") or (d.get("profile") or {}).get("phone") or "",
+            "best_country": d.get("best_country_code"),
+            "best_total": d.get("best_total"),
+            "latest_report_id": d.get("latest_report_snapshot_id"),
+            "results_count": len(d.get("results") or []),
+            "deep_link": f"/sales/client-assessment?id={d.get('id')}",
+            "has_resume": has_resume,
+            "resume_file_id": resume_fid,
+            "resume_filename": resume_fname,
+            "resume_url": resume_link,
+        }
 
     if kind == "pa":
         d = await db["pre_assessments"].find_one({"id": ref_id}, {"_id": 0})
@@ -525,10 +655,37 @@ async def get_card_detail(
             raise HTTPException(status_code=404, detail="Pre-Assessment not found")
         if not _is_admin(current_user) and d.get("partner_id") != current_user["id"]:
             raise HTTPException(status_code=403, detail="Not your pre-assessment")
-        return {"kind": "pa", "record_id": d.get("id"),
-                "pa_number": d.get("pa_number"),
-                "name": d.get("client_name"),
-                "stage": d.get("stage"),
-                "deep_link": "/admin?tab=pre-assessments"}
+        for f in ("created_at", "updated_at"):
+            if isinstance(d.get(f), datetime):
+                d[f] = d[f].isoformat()
+
+        snap = d.get("profile_snapshot") or {}
+        pri = snap.get("primary_applicant") or {}
+        resume_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
+        has_resume = bool(resume_fid or d.get("resume_url") or snap.get("resume_url"))
+        resume_fname = (
+            d.get("resume_filename")
+            or snap.get("resume_filename")
+            or pri.get("resume_filename")
+            or ("Resume.pdf" if has_resume else None)
+        )
+        resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or "")
+
+        return {
+            "kind": "pa",
+            "record": d,
+            "record_id": d.get("id"),
+            "pa_number": d.get("pa_number"),
+            "name": d.get("client_name"),
+            "email": d.get("client_email") or "",
+            "phone": d.get("client_phone") or "",
+            "stage": d.get("stage"),
+            "deep_link": "/admin?tab=pre-assessments",
+            "has_resume": has_resume,
+            "resume_file_id": resume_fid,
+            "resume_filename": resume_fname,
+            "resume_url": resume_link,
+        }
 
     raise HTTPException(status_code=400, detail=f"Unknown kind: {kind}")
+

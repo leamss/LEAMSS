@@ -24,6 +24,14 @@ import {
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+const getResumeHref = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) return url;
+  if (url.startsWith('/api')) return `${process.env.REACT_APP_BACKEND_URL}${url}`;
+  if (url.startsWith('/')) return `${API}${url}`;
+  return `${API}/${url}`;
+};
+
 // ─── LEAMSS brand tokens (mirrors PDF v2 palette) ────────────────────────────
 const C = {
   bg:          '#FAFAF9',           // cream
@@ -83,11 +91,13 @@ export default function Cockpit() {
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('all'); // 'me' | 'all'
   const [reportPendingOnly, setReportPendingOnly] = useState(false);
+  const [hasResumeOnly, setHasResumeOnly] = useState(false);
   const [sortMode, setSortMode] = useState('recent');
   const [selectedCard, setSelectedCard] = useState(null);
   const [cardDetail, setCardDetail] = useState(null);
   const [showCmdK, setShowCmdK] = useState(false);
   const [cmdQuery, setCmdQuery] = useState('');
+
 
   const [teamMembers, setTeamMembers] = useState([]);
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
@@ -172,6 +182,7 @@ export default function Cockpit() {
     const isPaid = (c) => c.payment_status === 'success' || c.payment_status === 'paid' || (c.payment_amount && c.payment_amount > 0);
     const isUnassigned = (c) => !c.owner?.id || c.owner?.name === 'Unassigned' || !c.owner?.name;
     const isReportPending = (c) => !c.report_generated;
+    const hasResume = (c) => Boolean(c.has_resume);
 
     if (mode === 'all') {
       setSelectedLeadIds(leadCards.map(c => c.id));
@@ -179,6 +190,16 @@ export default function Cockpit() {
       setSelectedLeadIds(leadCards.filter(isPaid).map(c => c.id));
     } else if (mode === 'paid_pending') {
       setSelectedLeadIds(leadCards.filter(c => isPaid(c) && isReportPending(c)).map(c => c.id));
+    } else if (mode === 'with_resume') {
+      setSelectedLeadIds(leadCards.filter(hasResume).map(c => c.id));
+    } else if (mode === 'with_resume_5') {
+      setSelectedLeadIds(leadCards.filter(hasResume).slice(0, 5).map(c => c.id));
+    } else if (mode === 'with_resume_10') {
+      setSelectedLeadIds(leadCards.filter(hasResume).slice(0, 10).map(c => c.id));
+    } else if (mode === 'with_resume_20') {
+      setSelectedLeadIds(leadCards.filter(hasResume).slice(0, 20).map(c => c.id));
+    } else if (mode === 'without_resume') {
+      setSelectedLeadIds(leadCards.filter(c => !hasResume(c)).map(c => c.id));
     } else if (mode === 'unassigned') {
       setSelectedLeadIds(leadCards.filter(isUnassigned).map(c => c.id));
     } else if (mode === 'unassigned_1') {
@@ -288,12 +309,14 @@ export default function Cockpit() {
       if (search) params.set('search', search);
       if (ownerFilter !== 'all') params.set('owner', ownerFilter);
       if (reportPendingOnly) params.set('filter', 'paid_report_pending');
+      if (hasResumeOnly) params.set('has_resume', 'true');
       params.set('sort', sortMode);
       params.set('limit', '60');
       const r = await axios.get(`${API}/cockpit/cards?${params}`, { headers });
       setCards(r.data.items || []);
     } catch (e) { console.error('cards', e); }
-  }, [headers, activeStage, search, ownerFilter, reportPendingOnly, sortMode]);
+  }, [headers, activeStage, search, ownerFilter, reportPendingOnly, hasResumeOnly, sortMode]);
+
 
   const fetchBrief = useCallback(async () => {
     try {
@@ -540,6 +563,13 @@ export default function Cockpit() {
               testid="cockpit-filter-paid-pending"
             />
             <FilterButton
+              icon={FileText}
+              label={hasResumeOnly ? '📄 Has Resume (ON)' : '📄 Has Resume'}
+              onClick={() => setHasResumeOnly(!hasResumeOnly)}
+              active={hasResumeOnly}
+              testid="cockpit-filter-has-resume"
+            />
+            <FilterButton
               icon={ArrowDownUp}
               label={
                 sortMode === 'recent'     ? 'Newest First' :
@@ -561,6 +591,13 @@ export default function Cockpit() {
               style={{ borderColor: C.border, background: C.card, color: C.ink }}
             >
               <option value="">⚡ Select in Sequence...</option>
+              <optgroup label="📄 Resume Filter">
+                <option value="with_resume">Select With Resume (All)</option>
+                <option value="with_resume_5">Select First 5 With Resume</option>
+                <option value="with_resume_10">Select First 10 With Resume</option>
+                <option value="with_resume_20">Select First 20 With Resume</option>
+                <option value="without_resume">Select Without Resume</option>
+              </optgroup>
               <optgroup label="📋 Select Unassigned">
                 <option value="unassigned_1">Select 1 Unassigned</option>
                 <option value="unassigned_5">Select 5 Unassigned</option>
@@ -583,6 +620,7 @@ export default function Cockpit() {
               </optgroup>
               <option value="clear">✕ Deselect All</option>
             </select>
+
 
             <div className="relative">
               <Search className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2" style={{ color: C.muted }} />
@@ -893,17 +931,19 @@ export default function Cockpit() {
                     </div>
 
                     {/* Prominent Uploaded Resume Box */}
-                    {cardDetail.record.resume_url ? (
+                    {(cardDetail.record.resume_url || cardDetail.record.resume_file_id || selectedCard.resume_url) ? (
                       <div className="p-3 rounded-lg border flex items-center justify-between" style={{ background: C.tealWash, borderColor: C.tealWash2 }}>
                         <div className="flex items-center gap-2 min-w-0">
                           <FileText className="h-5 w-5 shrink-0" style={{ color: C.teal }} />
                           <div className="min-w-0">
-                            <p className="text-xs font-bold truncate" style={{ color: C.tealDark }}>Uploaded Resume</p>
+                            <p className="text-xs font-bold truncate" style={{ color: C.tealDark }}>
+                              {cardDetail.record.resume_filename || selectedCard.resume_filename || 'Uploaded Resume'}
+                            </p>
                             <p className="text-[10px] truncate" style={{ color: C.body }}>Ready for evaluation</p>
                           </div>
                         </div>
                         <a
-                          href={cardDetail.record.resume_url}
+                          href={getResumeHref(cardDetail.record.resume_url || (cardDetail.record.resume_file_id ? `/cockpit/resume/${cardDetail.record.resume_file_id}` : '') || selectedCard.resume_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 shadow-sm text-white transition-all hover:opacity-90"
@@ -1011,6 +1051,74 @@ export default function Cockpit() {
                     )}
                   </div>
                 )}
+
+                {/* Non-lead card details (Assessment or PA) */}
+                {selectedCard.type !== 'lead' && (
+                  <div className="rounded-xl border p-4 space-y-3 shadow-sm" style={{ background: C.bg, borderColor: C.border }}>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-full uppercase" style={{ background: C.tealWash2, color: C.tealDark }}>
+                        {selectedCard.type === 'pa' ? 'Pre-Assessment' : 'Client Assessment'}
+                      </span>
+                      {selectedCard.score !== null && selectedCard.score !== undefined && (
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded border" style={{ color: C.orangeDeep, borderColor: C.gold, background: C.goldWash }}>
+                          Score: {selectedCard.score} pts
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                      <div>
+                        <p className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>Client</p>
+                        <p className="font-semibold text-sm" style={{ color: C.ink }}>{selectedCard.name || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>Stage</p>
+                        <p className="font-semibold capitalize text-sm" style={{ color: C.ink }}>{selectedCard.stage || '—'}</p>
+                      </div>
+                      {cardDetail?.email && (
+                        <div>
+                          <p className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>Email</p>
+                          <p className="font-semibold truncate text-xs" style={{ color: C.ink }}>{cardDetail.email}</p>
+                        </div>
+                      )}
+                      {cardDetail?.phone && (
+                        <div>
+                          <p className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>Phone</p>
+                          <p className="font-semibold text-xs" style={{ color: C.ink }}>{cardDetail.phone}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Resume download box for assessment / PA */}
+                    {(cardDetail?.has_resume || cardDetail?.resume_url || selectedCard.has_resume || selectedCard.resume_url) ? (
+                      <div className="p-3 rounded-lg border flex items-center justify-between" style={{ background: C.tealWash, borderColor: C.tealWash2 }}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-5 w-5 shrink-0" style={{ color: C.teal }} />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold truncate" style={{ color: C.tealDark }}>
+                              {cardDetail?.resume_filename || selectedCard.resume_filename || 'Uploaded Resume'}
+                            </p>
+                            <p className="text-[10px] truncate" style={{ color: C.body }}>Candidate Resume / CV</p>
+                          </div>
+                        </div>
+                        <a
+                          href={getResumeHref(cardDetail?.resume_url || selectedCard.resume_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 shadow-sm text-white transition-all hover:opacity-90"
+                          style={{ background: C.teal }}
+                        >
+                          <Download className="h-3.5 w-3.5" /> View / Download
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-lg border text-xs text-center" style={{ background: C.card, borderColor: C.border, color: C.muted }}>
+                        No resume uploaded with this record
+                      </div>
+                    )}
+                  </div>
+                )}
+
 
                 {/* 1-Click Pre-Assessment & Client Assessment Action Banner */}
                 {selectedCard.type === 'lead' && (
@@ -1386,7 +1494,36 @@ function PipelineCard({ card, onClick, isSelected, onToggleSelect, onConvertToPA
         <strong>{card.score_label}</strong>
       </p>
 
+      {/* Resume badge & quick view/download button */}
+      {card.has_resume && (
+        <div
+          className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs"
+          style={{ background: C.tealWash, borderColor: C.tealWash2 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: C.teal }} />
+            <span className="font-semibold truncate text-[11px]" style={{ color: C.tealDark }} title={card.resume_filename || 'Resume'}>
+              {card.resume_filename || 'Resume.pdf'}
+            </span>
+          </div>
+          {card.resume_url && (
+            <a
+              href={getResumeHref(card.resume_url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2 py-0.5 rounded text-[10px] font-bold text-white shrink-0 flex items-center gap-1 transition-all hover:opacity-90 shadow-sm"
+              style={{ background: C.teal }}
+              title="View / Download Resume"
+            >
+              <Download className="h-2.5 w-2.5" /> View
+            </a>
+          )}
+        </div>
+      )}
+
       {/* 7-step lifecycle bar */}
+
       <div className="flex gap-1 w-full pt-1">
         {Array.from({ length: 7 }).map((_, i) => {
           const done = i < card.lifecycle;
