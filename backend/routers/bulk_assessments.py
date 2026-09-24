@@ -2765,7 +2765,7 @@ async def _send_row_whatsapp(
                     text=msg_text,
                     client_name=name,
                     content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                    content_variables={"1": name, "2": "direct"},
+                    content_variables={"1": name, "2": row_token},
                 )
             except Exception as e_res_tmpl:
                 logger.warning("Bulk resume template dispatch: %s", e_res_tmpl)

@@ -180,15 +180,62 @@ async def resume_upload_submit(
     now = datetime.now(timezone.utc)
     file_id_str = str(file_id)
 
-    # Check if name or phone or email provided to link with existing lead
+    # Check if name or phone or email provided to link with existing lead or bulk row
     if kind == "direct":
         import uuid
-        matched_lead = None
+        import re
+
+        text, _ = await extract_text_smart(file.filename or "upload.pdf", content)
+        emails_found = {em.lower() for em in re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", text or "")}
+        if email:
+            emails_found.add(email.strip().lower())
+
+        phones_found = set(re.findall(r"\b[6-9]\d{9}\b", text or ""))
         if phone:
-            clean_p = phone.replace(" ", "").replace("-", "").replace("+", "")
-            matched_lead = await db["leads"].find_one({"phone": {"$regex": clean_p}})
-        if not matched_lead and email:
-            matched_lead = await db["leads"].find_one({"email": email.strip().lower()})
+            clean_digits = re.sub(r"[^\d]", "", phone)
+            if len(clean_digits) >= 10:
+                phones_found.add(clean_digits[-10:])
+
+        # 1. Check if matches any row in bulk ROWS
+        matched_row = None
+        for em in emails_found:
+            matched_row = await ROWS.find_one({"$or": [{"parsed.email": em}, {"email": em}]})
+            if matched_row:
+                break
+        if not matched_row:
+            for ph in phones_found:
+                matched_row = await ROWS.find_one({"$or": [{"parsed.phone": {"$regex": ph}}, {"phone": {"$regex": ph}}]})
+                if matched_row:
+                    break
+
+        if matched_row:
+            p = dict(matched_row.get("parsed") or {})
+            p["resume_file_id"] = file_id_str
+            p["resume_filename"] = file.filename
+            p["resume_uploaded"] = True
+            if text:
+                res = await _enrich_from_text(p, text)
+                await ROWS.update_one({"id": matched_row["id"]}, {"$set": {
+                    "status": res["status"], "parsed": res["parsed"],
+                    "errors": res.get("errors", []), "ai_error": res.get("ai_error"),
+                    "resume_uploaded_at": now,
+                }})
+            else:
+                await ROWS.update_one({"id": matched_row["id"]}, {"$set": {
+                    "parsed": p, "resume_uploaded_at": now,
+                }})
+
+        # 2. Check if matches any lead in leads
+        matched_lead = None
+        for em in emails_found:
+            matched_lead = await db["leads"].find_one({"email": em})
+            if matched_lead:
+                break
+        if not matched_lead:
+            for ph in phones_found:
+                matched_lead = await db["leads"].find_one({"phone": {"$regex": ph}})
+                if matched_lead:
+                    break
 
         if matched_lead:
             doc_id = matched_lead.get("id")
@@ -217,14 +264,14 @@ async def resume_upload_submit(
                     "updated_at": now,
                 }}
             )
-        else:
+        elif not matched_row:
             new_lead_id = str(uuid.uuid4())
             await db["leads"].insert_one({
                 "id": new_lead_id,
                 "unique_id": f"L-{int(now.timestamp())}",
-                "name": (name or "").strip() or "Applicant (Direct Upload)",
-                "phone": (phone or "").strip(),
-                "email": (email or "").strip().lower(),
+                "name": (name or "").strip() or (doc.get("name") if doc else None) or "Applicant (Direct Upload)",
+                "phone": (phone or "").strip() or (list(phones_found)[0] if phones_found else ""),
+                "email": (email or "").strip().lower() or (list(emails_found)[0] if emails_found else ""),
                 "resume_file_id": file_id_str,
                 "resume_filename": file.filename,
                 "resume_url": f"/cockpit/resume/{file_id_str}",

@@ -2013,7 +2013,7 @@ async def send_assessment_whatsapp(
                         text=msg_text,
                         client_name=client_name,
                         content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                        content_variables={"1": client_name, "2": "direct"},
+                        content_variables={"1": client_name, "2": upload_token},
                     )
                 except Exception as e_res_tmpl:
                     logger.warning("Resume upload template v4 dispatch: %s", e_res_tmpl)
