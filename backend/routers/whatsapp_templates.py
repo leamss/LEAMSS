@@ -77,6 +77,27 @@ class TemplateIn(BaseModel):
 # ── Built-in Starter WhatsApp Templates ─────────────────────────────────────
 _STARTERS = [
     {
+        "name": "Pre_assessment_completed",
+        "category": "eligible",
+        "body": (
+            "Hello {client_name},\n"
+            "Your pre assessment with reference {assessment_id} has been completed.\n\n"
+            "Assessment Details:\n"
+            "• Occupation: {occupation}\n"
+            "• Score: {points} points\n\n"
+            "Your 23-page Migration Assessment Report, SLA, and relevant official documents are ready to be shared with you on WhatsApp.\n\n"
+            "Would you like to receive your complete assessment report and documents here?\n\n"
+            "✅ YES, SEND REPORT\n"
+            "❌ NO, NOT NOW\n\n"
+            "LEAMSS Immigration — We’re here to assist you with your migration journey."
+        ),
+        "is_default": True,
+        "attach_report": True,
+        "attach_sla": True,
+        "attach_qr": True,
+        "attach_resume": True,
+    },
+    {
         "name": "Positive — Full Report & Welcome",
         "category": "eligible",
         "body": (

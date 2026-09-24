@@ -2843,14 +2843,41 @@ async def _send_row_whatsapp(
                         "occ": str(occ or "Australia PR"),
                     },
                 )
-                pa_summary = f"Your profile evaluation for {occ or 'Australia PR'} is complete with {best_pts} Points ({subclass}). Reply YES to receive your full 23-page Assessment Report PDF, SLA, and document pack directly on WhatsApp."
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=pa_summary,
-                    client_name=name,
-                    content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                    content_variables={"1": name, "2": pa_summary},
+                ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
+                occ_title = str(occ or "Australia PR")
+                pa_text = (
+                    f"Hello {name},\n"
+                    f"Your pre assessment with reference {ref_id} has been completed.\n\n"
+                    f"Assessment Details:\n"
+                    f"• Occupation: {occ_title}\n"
+                    f"• Score: {best_pts} points ({subclass})\n\n"
+                    f"Your 23-page Migration Assessment Report, SLA, and relevant official documents are ready to be shared with you on WhatsApp.\n\n"
+                    f"Would you like to receive your complete assessment report and documents here?\n\n"
+                    f"Reply YES to receive your documents or NO to cancel.\n\n"
+                    f"LEAMSS Immigration — We’re here to assist you with your migration journey."
                 )
+                try:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=pa_text,
+                        client_name=name,
+                        content_sid="HXef46b45b8e6501a39f2dd6cfffafb24c",
+                        content_variables={
+                            "1": name,
+                            "2": ref_id,
+                            "3": occ_title,
+                            "4": str(best_pts),
+                        },
+                    )
+                except Exception as e_tmpl:
+                    logger.warning("Preferred quick-reply template fallback in bulk row: %s", e_tmpl)
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=pa_text,
+                        client_name=name,
+                        content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                        content_variables={"1": name, "2": pa_text},
+                    )
                 if attach_report_flag and pdf_report_url:
                     dispatched_attachments.append("report_pdf")
                 if attach_sla_flag and sla_url:
