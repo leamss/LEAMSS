@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Loader2, UploadCloud, CheckCircle2, FileText, AlertCircle } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 const TEAL = '#12433B';
 const ORANGE = '#D4633F';
@@ -20,7 +21,12 @@ export default function ResumeUpload() {
   const [done, setDone] = useState(null);
 
   useEffect(() => {
-    axios.get(`${API}/public/resume-upload/${token}`)
+    if (!token || token === 'undefined' || token === 'null') {
+      setInfo({ client_name: 'Applicant', already_uploaded: false });
+      setLoading(false);
+      return;
+    }
+    axios.get(`${API}/public/resume-upload/${encodeURIComponent(token)}`)
       .then((r) => setInfo(r.data))
       .catch((e) => setError(e?.response?.data?.detail || 'This upload link is invalid or has expired.'))
       .finally(() => setLoading(false));
@@ -28,12 +34,13 @@ export default function ResumeUpload() {
 
   const submit = async () => {
     if (!file) return;
+    const cleanToken = (!token || token === 'undefined' || token === 'null') ? 'direct' : token;
     setUploading(true);
     setError(null);
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const r = await axios.post(`${API}/public/resume-upload/${token}`, fd, {
+      const r = await axios.post(`${API}/public/resume-upload/${encodeURIComponent(cleanToken)}`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setDone(r.data?.message || 'Thank you! Your resume was received.');
@@ -43,6 +50,7 @@ export default function ResumeUpload() {
       setUploading(false);
     }
   };
+
 
   const onPick = (e) => {
     const f = e.target.files?.[0];

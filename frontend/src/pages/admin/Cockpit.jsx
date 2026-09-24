@@ -22,15 +22,17 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose,
 } from '@/components/ui/sheet';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 const getResumeHref = (url) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) return url;
-  if (url.startsWith('/api')) return `${process.env.REACT_APP_BACKEND_URL}${url}`;
-  if (url.startsWith('/')) return `${API}${url}`;
-  return `${API}/${url}`;
+  if (url.startsWith('/api')) return `${BACKEND_URL}${url}`;
+  if (url.startsWith('/')) return `${BACKEND_URL}/api${url}`;
+  return `${BACKEND_URL}/api/${url}`;
 };
+
 
 // ─── LEAMSS brand tokens (mirrors PDF v2 palette) ────────────────────────────
 const C = {
