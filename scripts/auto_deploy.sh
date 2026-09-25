@@ -41,17 +41,17 @@ fi
 # Ensure backend/.env exists so docker-compose env_file never fails
 touch backend/.env || true
 
-# Build & restart containers with zero downtime
+# Build & restart containers cleanly
 if [ -f "docker-compose.prod.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker production containers..."
-    $DC -f docker-compose.prod.yml build
-    $DC -f docker-compose.prod.yml stop backend || true
+    $DC -f docker-compose.prod.yml down || true
     sudo fuser -k 8001/tcp || true
-    $DC -f docker-compose.prod.yml up -d --remove-orphans
+    sudo fuser -k 3000/tcp || true
+    $DC -f docker-compose.prod.yml up -d --build --remove-orphans
 elif [ -f "docker-compose.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker containers..."
-    $DC build
-    $DC up -d --remove-orphans
+    $DC down || true
+    $DC up -d --build --remove-orphans
 fi
 
 # Clean up dangling images to keep EC2 disk & RAM clean and fast
