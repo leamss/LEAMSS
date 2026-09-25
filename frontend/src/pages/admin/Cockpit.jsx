@@ -372,6 +372,66 @@ export default function Cockpit() {
     setTimeout(() => setCopiedId(null), 2500);
   };
 
+  const [syncingMySQL, setSyncingMySQL] = useState(false);
+
+  const handleSyncMySQL = async () => {
+    try {
+      setSyncingMySQL(true);
+      const res = await axios.post(`${API}/leads/sync-mysql`, {}, { headers });
+      setSyncingMySQL(false);
+      fetchAll();
+      alert(`Synced! Found ${res.data?.total_rows_found || 0} rows. (New: ${res.data?.new_leads_created || 0}, Updated: ${res.data?.existing_leads_updated || 0})`);
+    } catch (e) {
+      setSyncingMySQL(false);
+      alert(e.response?.data?.detail || 'Direct MySQL connection timed out or restricted. You can also use the phpMyAdmin JSON/CSV import button!');
+    }
+  };
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const content = event.target.result;
+          let records = [];
+          if (file.name.endsWith('.json')) {
+            const parsed = JSON.parse(content);
+            records = Array.isArray(parsed) ? parsed : (parsed.data || parsed.rows || [parsed]);
+          } else if (file.name.endsWith('.csv')) {
+            const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+            if (lines.length > 1) {
+              const csvHeaders = lines[0].split(',').map(h => h.replace(/["']/g, '').trim());
+              for (let i = 1; i < lines.length; i++) {
+                const vals = lines[i].split(',').map(v => v.replace(/["']/g, '').trim());
+                const row = {};
+                csvHeaders.forEach((h, idx) => { row[h] = vals[idx]; });
+                records.push(row);
+              }
+            }
+          }
+          if (!records.length) {
+            alert('No valid records found in file');
+            return;
+          }
+          setBulkActionLoading(true);
+          const res = await axios.post(`${API}/leads/bulk-import-navratri`, records, { headers });
+          setBulkActionLoading(false);
+          fetchAll();
+          alert(`Successfully imported ${res.data?.total_processed || records.length} records! (New: ${res.data?.created}, Updated: ${res.data?.updated})`);
+        } catch (err) {
+          setBulkActionLoading(false);
+          alert('Failed to parse file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    } catch (err) {
+      alert('File read error: ' + err.message);
+    }
+    e.target.value = '';
+  };
+
   // ─── Data fetchers ─────────────────────────────────────────────────────────
   const fetchFunnel = useCallback(async () => {
     try {
@@ -714,8 +774,34 @@ export default function Cockpit() {
             {/* Top Quick Action Buttons */}
             <div className="flex items-center gap-2">
               <button
+                type="button"
+                onClick={handleSyncMySQL}
+                disabled={syncingMySQL}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all shadow-sm flex items-center gap-1.5 hover:opacity-90 cursor-pointer"
+                style={{ borderColor: '#F59E0B', background: '#FEF3C7', color: '#92400E' }}
+                title="Sync all entries directly from cPanel MySQL hosldwuh_staging database"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${syncingMySQL ? 'animate-spin' : ''}`} />
+                {syncingMySQL ? 'Syncing...' : 'Sync Database'}
+              </button>
+
+              <label
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all shadow-sm flex items-center gap-1.5 hover:opacity-90 cursor-pointer"
+                style={{ borderColor: '#CBD5E1', background: '#FFFFFF', color: '#334155' }}
+                title="Import phpMyAdmin exported JSON/CSV file with all historical registrations and payments"
+              >
+                <Download className="h-3.5 w-3.5 rotate-180" /> Import phpMyAdmin
+                <input
+                  type="file"
+                  accept=".json,.csv"
+                  className="hidden"
+                  onChange={handleImportFile}
+                />
+              </label>
+
+              <button
                 onClick={() => handleNavratriBulkPreAssessment([])}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-extrabold text-white shadow-md flex items-center gap-1.5 transition-all hover:opacity-90"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-extrabold text-white shadow-md flex items-center gap-1.5 transition-all hover:opacity-90 cursor-pointer"
                 style={{ background: '#0F766E' }}
                 title="Enqueue all Paid leads with Resumes into Bulk Pre-Assessment"
               >
