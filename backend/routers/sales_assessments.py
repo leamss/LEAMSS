@@ -2159,23 +2159,48 @@ async def send_assessment_whatsapp(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=client_name,
-                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                            content_sid="HXe3933b739857ce16642725b9e83a2b35",
                             content_variables={
                                 "1": client_name,
-                                "2": ref_id,
-                                "3": occ_title,
-                                "4": str(best_total),
+                                "2": occ_title,
+                                "3": str(best_total),
+                                "4": "Subclass 189, 190, 491",
+                                "5": "Improvement Plan",
                             },
                         )
                     except Exception as e_ne_tmpl:
-                        logger.warning("Not-eligible template dispatch with HX3cfb failed in sales: %s", e_ne_tmpl)
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=msg_text,
-                            client_name=client_name,
-                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                            content_variables={"1": client_name, "2": ref_id},
-                        )
+                        logger.warning("Not-eligible template dispatch with HXe393 failed in sales: %s", e_ne_tmpl)
+                        try:
+                            res = await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=msg_text,
+                                client_name=client_name,
+                                content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                                content_variables={"1": client_name, "2": ref_id},
+                            )
+                        except Exception:
+                            try:
+                                res = await send_whatsapp_text(
+                                    to_phone=clean_phone,
+                                    text=msg_text,
+                                    client_name=client_name,
+                                    content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                                    content_variables={
+                                        "1": client_name,
+                                        "2": occ_title,
+                                        "3": str(best_total),
+                                        "4": "Subclass 189, 190, 491",
+                                        "5": "Improvement Plan",
+                                    },
+                                )
+                            except Exception:
+                                res = await send_whatsapp_text(
+                                    to_phone=clean_phone,
+                                    text=msg_text,
+                                    client_name=client_name,
+                                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                    content_variables={"1": client_name, "2": ref_id},
+                                )
 
                 else:
                     ref_id = str(id or "LEAMSS-PR")[:25]
