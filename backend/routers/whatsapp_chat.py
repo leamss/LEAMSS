@@ -281,11 +281,12 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
         "yes", "y", "ok", "okay", "sure", "yeah", "yep", "send", "upload", "ha", "haa", "haan",
         "pls", "please", "1", "interested", "proceed", "send report", "upload resume", "send pdf",
         "yes please", "yes send", "yes book a consultation", "book a consultation", "book consultation",
-        "yes book", "consultation", "book", "yes send report"
+        "yes book", "consultation", "book", "yes send report", "send my report", "report", "yes report",
+        "send assessment", "yes assessment", "send assessment report", "yes send assessment"
     }
     is_yes = (
         norm_text in yes_words
-        or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text for w in ["yes", "ok", "sure", "send", "upload", "haan", "please", "book", "consultation"])
+        or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text or norm_text == w for w in ["yes", "ok", "sure", "send", "upload", "haan", "please", "book", "consultation", "report", "interested", "proceed"])
     )
 
     no_words = {"no", "n", "nope", "nah", "cancel", "stop", "dont", "not now", "not interested", "na", "2", "dont send", "dont upload", "no thanks", "no need"}
@@ -300,7 +301,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
         if is_yes:
             resume_url = conv.get("pending_resume_url") or "https://app.leamss.com/upload-resume"
             custom_msg = conv.get("pending_selected_msg")
-            reply_msg = custom_msg if custom_msg else (
+            reply_msg = custom_msg if (custom_msg and not any(kw in custom_msg for kw in ["Button:", "Please reply YES", "reply YES"])) else (
                 f"Thank you, {client_name}! 🎉\n\n"
                 f"Please click the secure link below to upload your resume (PDF or Word):\n"
                 f"👉 {resume_url}\n\n"
@@ -339,7 +340,72 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
             report_url = conv.get("pending_report_url") or "https://leamss.com"
             points = conv.get("pending_points") or ("0" if is_not_eligible else "65+")
             occ = conv.get("pending_occ") or "Australia PR"
-            if custom_msg:
+
+            from core.database import db
+            api_base_origin = (
+                os.environ.get("BACKEND_PUBLIC_URL")
+                or os.environ.get("PUBLIC_API_URL")
+                or os.environ.get("PUBLIC_BASE_URL")
+                or os.environ.get("BACKEND_URL")
+                or "https://api.leamss.com"
+            ).strip().rstrip("/")
+            if "localhost" in api_base_origin or "127.0.0.1" in api_base_origin:
+                api_base_origin = "https://api.leamss.com"
+
+            pdf_url = conv.get("pending_pdf_url")
+            resume_url = conv.get("pending_resume_url")
+
+            # Auto-resolve missing PDF / Resume from database records if not populated in pending
+            if not pdf_url or not resume_url:
+                phone_suffix = clean_phone[-10:] if len(clean_phone) >= 10 else clean_phone
+                ass_doc = await db["assessments"].find_one({
+                    "$or": [
+                        {"client_phone": {"$regex": phone_suffix}},
+                        {"recipient_phone": {"$regex": phone_suffix}},
+                        {"phone": {"$regex": phone_suffix}},
+                        {"id": conv.get("pending_assessment_id") or conv.get("assessment_id") or ""},
+                    ]
+                }, sort=[("created_at", -1)])
+                if not ass_doc:
+                    ass_doc = await db["pre_assessments"].find_one({
+                        "$or": [
+                            {"client_phone": {"$regex": phone_suffix}},
+                            {"recipient_phone": {"$regex": phone_suffix}},
+                            {"phone": {"$regex": phone_suffix}},
+                            {"id": conv.get("pending_assessment_id") or conv.get("assessment_id") or ""},
+                        ]
+                    }, sort=[("created_at", -1)])
+
+                if ass_doc:
+                    stoken = ass_doc.get("share_token") or ass_doc.get("id")
+                    if not pdf_url:
+                        pdf_url = f"{api_base_origin}/api/sales/assessments/public/{stoken}/report.pdf"
+                    if not resume_url:
+                        resume_url = f"{api_base_origin}/api/sales/assessments/public/{stoken}/resume"
+                    if not conv.get("pending_report_url") or conv.get("pending_report_url") == "https://leamss.com":
+                        report_url = f"https://app.leamss.com/sales/report/{stoken}"
+                    if not conv.get("pending_occ") and (ass_doc.get("occupation") or {}).get("title"):
+                        occ = ass_doc["occupation"]["title"]
+                    if not conv.get("pending_points") and ass_doc.get("best_total"):
+                        points = str(ass_doc["best_total"])
+                else:
+                    row_doc = await db["bulk_assessment_rows"].find_one({
+                        "$or": [
+                            {"parsed.phone": {"$regex": phone_suffix}},
+                            {"phone": {"$regex": phone_suffix}},
+                            {"id": conv.get("pending_row_id") or conv.get("row_id") or ""},
+                        ]
+                    }, sort=[("created_at", -1)])
+                    if row_doc:
+                        rid = row_doc.get("id")
+                        if not pdf_url:
+                            pdf_url = f"{api_base_origin}/api/bulk-assessments/public/row/{rid}/report.pdf"
+                        if not resume_url:
+                            resume_url = f"{api_base_origin}/api/bulk-assessments/public/row/{rid}/resume"
+                        if not conv.get("pending_report_url") or conv.get("pending_report_url") == "https://leamss.com":
+                            report_url = f"https://app.leamss.com/sales/report/{rid}"
+
+            if custom_msg and not any(kw in custom_msg for kw in ["Button:", "NAVRATRI", "Lucky Draw", "Book a consultation with", "Please reply YES", "reply YES"]):
                 reply_msg = custom_msg
             elif is_not_eligible:
                 reply_msg = (
@@ -381,18 +447,27 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
 
             import asyncio
             # 1. Report PDF
-            pdf_url = conv.get("pending_pdf_url")
             if pdf_url:
                 try:
                     await asyncio.sleep(0.5)
-                    await send_whatsapp_document_by_url(
+                    pdf_res = await send_whatsapp_document_by_url(
                         to_phone=clean_phone,
                         document_url=pdf_url,
-                        filename=f"Assessment_Report_{client_name.replace(' ', '_')}.pdf",
-                        caption="📄 Official 23-Page Australia PR Pre-Assessment Report"
+                        filename=f"Assessment_Report_{re.sub(r'[^A-Za-z0-9_-]', '_', client_name)}.pdf",
+                        caption=f"📄 Official Pre-Assessment Report — {client_name}"
+                    )
+                    logger.info("Report PDF dispatched to +%s: %s", clean_phone, pdf_res)
+                    await record_chat_message(
+                        phone=clean_phone,
+                        text=f"📄 Official Pre-Assessment Report PDF sent ({pdf_url})",
+                        direction="outbound",
+                        sender_type="system",
+                        sender_name="LEAMSS Assistant",
+                        status="sent",
+                        media_url=pdf_url,
                     )
                 except Exception as e_pdf:
-                    logger.warning("Could not dispatch report PDF attachment: %s", e_pdf)
+                    logger.error("Could not dispatch report PDF attachment to +%s: %s", clean_phone, e_pdf)
 
             # 2. SLA PDF
             sla_url = conv.get("pending_sla_url")
@@ -405,8 +480,17 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                         filename="LEAMSS-Service-Level-Agreement.pdf",
                         caption="📑 Official Service Level Agreement (SLA) — LEAMSS"
                     )
+                    await record_chat_message(
+                        phone=clean_phone,
+                        text=f"📑 Service Level Agreement (SLA) sent ({sla_url})",
+                        direction="outbound",
+                        sender_type="system",
+                        sender_name="LEAMSS Assistant",
+                        status="sent",
+                        media_url=sla_url,
+                    )
                 except Exception as e_sla:
-                    logger.warning("Could not dispatch SLA document attachment: %s", e_sla)
+                    logger.error("Could not dispatch SLA document attachment to +%s: %s", clean_phone, e_sla)
 
             # 3. Payment QR Image
             qr_url = conv.get("pending_qr_url")
@@ -418,27 +502,46 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                         image_url=qr_url,
                         caption="💳 LEAMSS Official Payment QR & Banking Details"
                     )
+                    await record_chat_message(
+                        phone=clean_phone,
+                        text=f"💳 Official Payment QR sent ({qr_url})",
+                        direction="outbound",
+                        sender_type="system",
+                        sender_name="LEAMSS Assistant",
+                        status="sent",
+                        media_url=qr_url,
+                    )
                 except Exception as e_qr:
-                    logger.warning("Could not dispatch QR image attachment: %s", e_qr)
+                    logger.error("Could not dispatch QR image attachment to +%s: %s", clean_phone, e_qr)
 
             # 4. Candidate Resume Document
-            resume_url = conv.get("pending_resume_url")
             if resume_url:
                 try:
                     await asyncio.sleep(0.5)
-                    await send_whatsapp_document_by_url(
+                    res_res = await send_whatsapp_document_by_url(
                         to_phone=clean_phone,
                         document_url=resume_url,
-                        filename=f"Resume_{client_name.replace(' ', '_')}.pdf",
+                        filename=f"Resume_{re.sub(r'[^A-Za-z0-9_-]', '_', client_name)}.pdf",
                         caption=f"📄 Candidate Resume — {client_name}"
                     )
+                    logger.info("Resume document dispatched to +%s: %s", clean_phone, res_res)
+                    await record_chat_message(
+                        phone=clean_phone,
+                        text=f"📄 Candidate Resume sent ({resume_url})",
+                        direction="outbound",
+                        sender_type="system",
+                        sender_name="LEAMSS Assistant",
+                        status="sent",
+                        media_url=resume_url,
+                    )
                 except Exception as e_res:
-                    logger.warning("Could not dispatch resume attachment: %s", e_res)
+                    logger.error("Could not dispatch resume attachment to +%s: %s", clean_phone, e_res)
 
             await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {
                 "pending_flow": "", "pending_report_url": "", "pending_pdf_url": "",
                 "pending_sla_url": "", "pending_qr_url": "", "pending_resume_url": "",
-                "pending_selected_msg": "", "pending_points": "", "pending_occ": ""
+                "pending_selected_msg": "", "pending_points": "", "pending_occ": "",
+                "pending_assessment_id": "", "pending_share_token": "", "pending_row_id": ""
             }})
             return True
         elif is_no:

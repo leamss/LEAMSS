@@ -2861,6 +2861,7 @@ async def _send_row_whatsapp(
                         "points": str(best_pts),
                         "occ": str(occ or "Australia PR"),
                         "is_not_eligible": True,
+                        "row_id": str(row.get("id")),
                     },
                 )
 
@@ -2915,6 +2916,7 @@ async def _send_row_whatsapp(
                         "selected_msg": msg_text,
                         "points": str(best_pts),
                         "occ": str(occ or "Australia PR"),
+                        "row_id": str(row.get("id")),
                     },
                 )
 

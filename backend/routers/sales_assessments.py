@@ -1182,7 +1182,22 @@ async def public_assessment_report_pdf(token: str):
 @router.get("/public/{token}/resume.pdf")
 async def public_assessment_resume_stream(token: str):
     """Public Resume endpoint for Twilio WhatsApp media delivery."""
-    doc = await assessments_col.find_one({"share_token": token})
+    doc = await assessments_col.find_one({
+        "$or": [
+            {"share_token": token},
+            {"id": token},
+            {"resume_token": token},
+            {"report_snapshot_id": token},
+        ]
+    })
+    if not doc:
+        doc = await db["pre_assessments"].find_one({
+            "$or": [
+                {"share_token": token},
+                {"id": token},
+                {"resume_token": token},
+            ]
+        })
     if not doc:
         raise HTTPException(status_code=404, detail="Assessment link not found")
     if doc.get("share_revoked"):
@@ -2041,17 +2056,25 @@ async def send_assessment_whatsapp(
         rep_fname = f"{rep_fname}.pdf"
 
     pdf_bytes = None
-    pdf_report_url = None
-    if attach_report_flag:
+    pdf_report_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/report.pdf" if (attach_report_flag is not False) else None
+    if pdf_report_url:
         try:
             pdf_bytes = await _get_or_render_assessment_pdf(doc)
-            pdf_report_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/report.pdf"
         except Exception as err:
             logger.warning("Failed pre-rendering PDF report: %s", err)
 
     sla_url = f"{api_base_origin}/api/email-settings/asset/sla" if (attach_sla_flag and s.get("sla_file_id")) else None
     qr_url = f"{api_base_origin}/api/email-settings/asset/qr" if (attach_qr_flag and s.get("qr_file_id")) else None
-    resume_stream_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/resume" if attach_resume_flag else None
+
+    has_candidate_resume = bool(
+        doc.get("resume_file_id")
+        or doc.get("resume_url")
+        or doc.get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("resume_url")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
+    )
+    resume_stream_url = f"{api_base_origin}/api/sales/assessments/public/{share_token}/resume" if (attach_resume_flag or has_candidate_resume) else None
 
     # 1. Send Main WhatsApp Message (Selected Template)
     is_permission_template = False
@@ -2074,6 +2097,8 @@ async def send_assessment_whatsapp(
                     await set_pending_flow(clean_phone, "resume_request", client_name=client_name, extra_data={
                         "resume_url": resume_upload_url,
                         "selected_msg": msg_text,
+                        "assessment_id": doc.get("id"),
+                        "share_token": share_token,
                     })
                 try:
                     res = await send_whatsapp_text(
@@ -2112,14 +2137,16 @@ async def send_assessment_whatsapp(
                     is_permission_template = True
                     await set_pending_flow(clean_phone, "send_not_eligible_report", client_name=client_name, extra_data={
                         "report_url": public_url,
-                        "pdf_url": pdf_report_url if attach_report_flag else None,
+                        "pdf_url": pdf_report_url,
                         "sla_url": sla_url if attach_sla_flag else None,
                         "qr_url": qr_url if attach_qr_flag else None,
-                        "resume_url": resume_stream_url if attach_resume_flag else None,
+                        "resume_url": resume_stream_url,
                         "selected_msg": msg_text,
                         "points": str(best_total),
                         "occ": str(occ.get("title") or "Australia PR"),
                         "is_not_eligible": True,
+                        "assessment_id": doc.get("id"),
+                        "share_token": share_token,
                     })
 
                 try:
@@ -2168,13 +2195,15 @@ async def send_assessment_whatsapp(
                     is_permission_template = True
                     await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
                         "report_url": public_url,
-                        "pdf_url": pdf_report_url if attach_report_flag else None,
+                        "pdf_url": pdf_report_url,
                         "sla_url": sla_url if attach_sla_flag else None,
                         "qr_url": qr_url if attach_qr_flag else None,
-                        "resume_url": resume_stream_url if attach_resume_flag else None,
+                        "resume_url": resume_stream_url,
                         "selected_msg": msg_text,
                         "points": str(best_total),
                         "occ": str(occ.get("title") or "Australia PR"),
+                        "assessment_id": doc.get("id"),
+                        "share_token": share_token,
                     })
 
                 try:
