@@ -56,9 +56,17 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
         mobile = f"+{country_code}{mobile_num}" if not str(mobile_num).startswith("+") else str(mobile_num)
     
     # Unique ID from website
-    unique_id = (row.get("unique_id") or row.get("uniqueId") or row.get("id") or "").strip()
-    if isinstance(unique_id, int) or (isinstance(unique_id, str) and unique_id.isdigit()):
-        unique_id = f"NN2427{unique_id}"
+    raw_uid = (row.get("unique_id") or row.get("uniqueId") or "").strip()
+    raw_id = row.get("id") or row.get("external_id")
+    if raw_uid:
+        if isinstance(raw_uid, int) or (isinstance(raw_uid, str) and raw_uid.isdigit()):
+            unique_id = f"NN2427{raw_uid}"
+        else:
+            unique_id = raw_uid
+    elif raw_id:
+        unique_id = f"NN2427{raw_id}"
+    else:
+        unique_id = ""
 
     # Payment details
     raw_status = (row.get("payment_status") or row.get("paymentStatus") or row.get("status") or "").strip().lower()
@@ -367,3 +375,50 @@ async def sync_from_mysql_database(
         "existing_leads_updated": updated_count,
         "synced_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+async def reconcile_navratri_leads() -> Dict[str, Any]:
+    """Scans MongoDB leads collection to ensure all Navratri registrations are correctly tagged, attributed, and indexed."""
+    query = {
+        "$or": [
+            {"is_navratri": True},
+            {"source": {"$regex": "navratri|website|staging", "$options": "i"}},
+            {"utm_campaign": {"$regex": "navratri", "$options": "i"}},
+            {"service_interested": {"$regex": "navratri|special offer", "$options": "i"}},
+            {"unique_id": {"$regex": "^NN|[0-9]{6}", "$options": "i"}},
+            {"external_id": {"$exists": True, "$ne": None, "$ne": ""}},
+            {"tags": {"$regex": "navratri|website", "$options": "i"}},
+        ]
+    }
+    cursor = leads_col.find(query)
+    updated = 0
+    async for lead in cursor:
+        uid = str(lead.get("unique_id") or "")
+        ext_id = str(lead.get("external_id") or "")
+        if not uid.startswith("NN") and (ext_id or uid.isdigit()):
+            uid = f"NN2427{ext_id or uid}"
+        
+        tags = list(set((lead.get("tags") or []) + ["Navratri Offer 2026", "Website Registration"]))
+        pay_st = str(lead.get("payment_status") or "pending").lower()
+        if pay_st in ("success", "paid"):
+            if "Payment Success" not in tags: tags.append("Payment Success")
+            if "Payment Failed" in tags: tags.remove("Payment Failed")
+        elif pay_st in ("failed", "declined"):
+            if "Payment Failed" not in tags: tags.append("Payment Failed")
+            if "Payment Success" in tags: tags.remove("Payment Success")
+
+        await leads_col.update_one(
+            {"_id": lead["_id"]},
+            {
+                "$set": {
+                    "is_navratri": True,
+                    "source": "Navratri Offer (leamss.com)",
+                    "unique_id": uid or lead.get("unique_id"),
+                    "service_interested": lead.get("service_interested") or "Navratri Special Offer",
+                    "tags": tags,
+                    "updated_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        updated += 1
+    return {"status": "success", "reconciled_leads_count": updated}

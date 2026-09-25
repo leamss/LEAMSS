@@ -378,12 +378,20 @@ export default function Cockpit() {
     try {
       setSyncingMySQL(true);
       const res = await axios.post(`${API}/leads/sync-mysql`, {}, { headers });
+      try { await axios.post(`${API}/leads/reconcile-navratri`, {}, { headers }); } catch (_) {}
       setSyncingMySQL(false);
       fetchAll();
       alert(`Synced! Found ${res.data?.total_rows_found || 0} rows. (New: ${res.data?.new_leads_created || 0}, Updated: ${res.data?.existing_leads_updated || 0})`);
     } catch (e) {
+      try {
+        const rec = await axios.post(`${API}/leads/reconcile-navratri`, {}, { headers });
+        fetchAll();
+        setSyncingMySQL(false);
+        alert(`Reconciled ${rec.data?.reconciled_leads_count || 0} website leads in Cockpit!`);
+        return;
+      } catch (_) {}
       setSyncingMySQL(false);
-      alert(e.response?.data?.detail || 'Direct MySQL connection timed out or restricted. You can also use the phpMyAdmin JSON/CSV import button!');
+      alert(e.response?.data?.detail || 'Direct MySQL connection timed out. You can use the phpMyAdmin JSON/CSV import button or visit https://leamss.com/sync-crm-now');
     }
   };
 

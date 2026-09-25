@@ -477,15 +477,18 @@ async def startup():
     except Exception as e:
         print(f"[Phase17.0 ERROR] {e}")
 
-    # Automated continuous background sync for Navratri website registrations & payments
+    # Automated continuous background sync & reconciliation for Navratri website registrations & payments
     try:
         import asyncio
+        from core.website_sync import reconcile_navratri_leads
+        await reconcile_navratri_leads()
 
         async def _navratri_background_sync_loop():
             await asyncio.sleep(5)
             while True:
                 try:
-                    from core.website_sync import sync_from_mysql_database
+                    from core.website_sync import sync_from_mysql_database, reconcile_navratri_leads
+                    await reconcile_navratri_leads()
                     res = await sync_from_mysql_database()
                     if res.get("total_synced", 0) > 0:
                         print(f"[Auto-Sync Navratri] Synced {res.get('total_synced')} leads")
@@ -494,7 +497,7 @@ async def startup():
                 await asyncio.sleep(60)
 
         asyncio.create_task(_navratri_background_sync_loop())
-        print("[Navratri Sync] Automated continuous background sync daemon started (60s loop)")
+        print("[Navratri Sync] Automated continuous background sync & reconciliation daemon started (60s loop)")
     except Exception as e:
         print(f"[Navratri Sync WARN] {e}")
 

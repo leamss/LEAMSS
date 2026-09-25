@@ -13,8 +13,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks
 
 from core.auth import get_current_user
-from core.database import db
-from core.website_sync import upsert_website_lead, sync_from_mysql_database
+from core.website_sync import upsert_website_lead, sync_from_mysql_database, reconcile_navratri_leads
 
 from core.navratri_automation import (
     is_lead_paid,
@@ -132,6 +131,16 @@ async def bulk_import_navratri(
         "updated": updated,
         "imported_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@router.post("/reconcile-navratri")
+async def reconcile_navratri_endpoint(current_user: dict = Depends(get_current_user)):
+    """Scans and updates all existing registrations to guarantee they are categorized and visible in Cockpit."""
+    try:
+        res = await reconcile_navratri_leads()
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reconciliation failed: {str(e)}")
 
 
 @router.get("/website-sync-summary")
