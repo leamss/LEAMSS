@@ -358,8 +358,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                     f"📎 *Candidate Resume:* Your assessed Resume / CV attached.\n\n"
                     f"🔗 *View your full diagnostic report online:*\n"
                     f"{report_url}\n\n"
-                    f"Our Senior Migration Advisors are available to review your file and assist with your points boost strategy (English coaching, state nomination, and partner points).\n\n"
-                    f"Feel free to reply here directly if you would like to book a free consultation!"
+                    f"💬 *Reply directly to this chat* if you have any questions."
                 )
             else:
                 reply_msg = (
