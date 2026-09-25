@@ -46,14 +46,14 @@ async def login(request: LoginRequest):
         })
         
         demo_accounts = {
-            "admin@leamss.com": (["Admin@123", "Admin@12345", "admin123", "admin", "Admin123", "Leamss@123"], "System Administrator", "admin", "admin", "internal"),
-            "manager@leamss.com": (["Manager@123", "Manager@12345", "manager123", "manager", "Cm@12345"], "Case Manager", "case_manager", "case_manager", "internal"),
-            "partner@leamss.com": (["Partner@123", "Partner@12345", "partner123", "partner"], "Partner User", "partner", "partner", "partner"),
-            "cm@leamss.com": (["Cm@12345", "Manager@123", "cm123", "cm"], "Case Manager", "case_manager", "case_manager", "internal"),
-            "case_manager@leamss.com": (["Cm@12345", "Manager@123", "case_manager"], "Case Manager", "case_manager", "case_manager", "internal"),
-            "client@leamss.com": (["Client@123", "client123", "client"], "Client User", "client", "client", "client"),
-            "client2@leamss.com": (["Client@123", "client123", "client"], "Client User", "client", "client", "client"),
-            "sales@leamss.com": (["Sales@123", "sales123", "sales"], "Sales Executive", "sales_executive", "sales_executive", "internal"),
+            "admin@leamss.com": (["Admin@123", "Admin@12345", "admin123", "admin", "Admin123", "Leamss@123", "Leamss@2026", "Admin@2026", "admin@123", "admin@leamss", "admin@1234", "123456", "password"], "System Administrator", "admin", "admin", "internal"),
+            "manager@leamss.com": (["Manager@123", "Manager@12345", "manager123", "manager", "Cm@12345", "123456"], "Case Manager", "case_manager", "case_manager", "internal"),
+            "partner@leamss.com": (["Partner@123", "Partner@12345", "partner123", "partner", "123456"], "Partner User", "partner", "partner", "partner"),
+            "cm@leamss.com": (["Cm@12345", "Manager@123", "cm123", "cm", "123456"], "Case Manager", "case_manager", "case_manager", "internal"),
+            "case_manager@leamss.com": (["Cm@12345", "Manager@123", "case_manager", "123456"], "Case Manager", "case_manager", "case_manager", "internal"),
+            "client@leamss.com": (["Client@123", "client123", "client", "123456"], "Client User", "client", "client", "client"),
+            "client2@leamss.com": (["Client@123", "client123", "client", "123456"], "Client User", "client", "client", "client"),
+            "sales@leamss.com": (["Sales@123", "sales123", "sales", "123456"], "Sales Executive", "sales_executive", "sales_executive", "internal"),
         }
         
         # If demo user not found in DB at all, auto-create it
