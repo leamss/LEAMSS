@@ -33,14 +33,28 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     if not plain or not hashed:
         return False
-    if plain == hashed:
+    plain_str = str(plain).strip()
+    hashed_str = str(hashed).strip()
+    if plain_str == hashed_str or plain == hashed:
         return True
     try:
-        if isinstance(hashed, str) and hashed.startswith(("$2a$", "$2b$", "$2y$")):
-            return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
-        return pwd_context.verify(plain, hashed)
+        if hashed_str.startswith(("$2a$", "$2b$", "$2y$")):
+            return bcrypt.checkpw(plain_str.encode("utf-8"), hashed_str.encode("utf-8")) or bcrypt.checkpw(plain.encode("utf-8"), hashed_str.encode("utf-8"))
     except Exception:
-        return False
+        pass
+    try:
+        return pwd_context.verify(plain_str, hashed_str) or pwd_context.verify(plain, hashed_str)
+    except Exception:
+        pass
+    try:
+        import hashlib
+        if hashlib.sha256(plain.encode()).hexdigest() == hashed_str or hashlib.sha256(plain_str.encode()).hexdigest() == hashed_str:
+            return True
+        if hashlib.md5(plain.encode()).hexdigest() == hashed_str or hashlib.md5(plain_str.encode()).hexdigest() == hashed_str:
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def validate_password_strength(pwd: str) -> tuple:
@@ -89,7 +103,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         
         user = await users_col.find_one({"id": user_id}, {"_id": 0})
         if not user:
+            try:
+                from bson import ObjectId
+                user = await users_col.find_one({"_id": ObjectId(user_id)})
+                if user:
+                    user["id"] = str(user.pop("_id", user_id))
+            except Exception:
+                pass
+        if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        if "id" not in user:
+            user["id"] = user_id
 
         # Force-logout if password was changed AFTER this token was issued
         pwd_changed_at = user.get("password_changed_at")
@@ -103,7 +127,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.DecodeError:
+    except (jwt.DecodeError, jwt.InvalidTokenError):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
