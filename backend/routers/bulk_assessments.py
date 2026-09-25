@@ -2800,41 +2800,73 @@ async def _send_row_whatsapp(
     has_active_session = await is_in_24h_window(clean_phone)
     dispatched_attachments = []
 
-    if is_twilio_mode and not has_active_session:
-        # ── COLD OUTREACH / OUTSIDE 24H: Send Twilio Permission Template with Button ──
-        if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
-            # Resume Request Flow
-            row_token = str(row.get("resume_token") or row.get("id") or "LEAMSS-PR")
-            full_resume_url = "https://app.leamss.com/upload-resume"
-            await set_pending_flow(
-                clean_phone,
-                flow="resume_request",
-                client_name=name,
-                extra_data={
-                    "resume_url": full_resume_url,
-                    "selected_msg": msg_text,
-                    "row_id": str(row.get("id")),
-                },
-            )
-            try:
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=msg_text,
+    if is_twilio_mode:
+        if not has_active_session:
+            # ── COLD OUTREACH / OUTSIDE 24H: Send Twilio Permission Template with Button ──
+            if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
+                # Resume Request Flow
+                row_token = str(row.get("resume_token") or row.get("id") or "LEAMSS-PR")
+                full_resume_url = "https://app.leamss.com/upload-resume"
+                await set_pending_flow(
+                    clean_phone,
+                    flow="resume_request",
                     client_name=name,
-                    content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                    content_variables={"1": name, "2": row_token},
+                    extra_data={
+                        "resume_url": full_resume_url,
+                        "selected_msg": msg_text,
+                        "row_id": str(row.get("id")),
+                    },
                 )
-            except Exception as e_res_tmpl:
-                logger.warning("Bulk resume template dispatch: %s", e_res_tmpl)
                 try:
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
-                        text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
+                        text=msg_text,
                         client_name=name,
-                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                        content_variables={"1": name, "2": row_token[:20]},
+                        content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                        content_variables={"1": name, "2": row_token},
                     )
-                except Exception:
+                except Exception as e_res_tmpl:
+                    logger.warning("Bulk resume template dispatch: %s", e_res_tmpl)
+                    try:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
+                            client_name=name,
+                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                            content_variables={"1": name, "2": row_token[:20]},
+                        )
+                    except Exception:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=msg_text,
+                            client_name=name,
+                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                            content_variables={"1": name, "2": msg_text},
+                        )
+
+            elif bucket in ("improvable", "ineligible") or (custom_t and custom_t.get("category") == "not_eligible") or template_id == "not_eligible":
+                # Not-Eligible / Improvement Plan Flow
+                ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
+                occ_title = str(occ or "Australia PR")
+                await set_pending_flow(
+                    clean_phone,
+                    flow="send_not_eligible_report",
+                    client_name=name,
+                    extra_data={
+                        "report_url": rep_url,
+                        "pdf_url": pdf_report_url if attach_report_flag else None,
+                        "sla_url": sla_url if attach_sla_flag else None,
+                        "qr_url": qr_url if attach_qr_flag else None,
+                        "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
+                        "selected_msg": msg_text,
+                        "points": str(best_pts),
+                        "occ": str(occ or "Australia PR"),
+                        "is_not_eligible": True,
+                        "row_id": str(row.get("id")),
+                    },
+                )
+
+                try:
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
                         text=msg_text,
@@ -2842,114 +2874,8 @@ async def _send_row_whatsapp(
                         content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                         content_variables={"1": name, "2": msg_text},
                     )
-
-        elif bucket in ("improvable", "ineligible") or (custom_t and custom_t.get("category") == "not_eligible") or template_id == "not_eligible":
-            # Not-Eligible / Improvement Plan Flow
-            ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
-            occ_title = str(occ or "Australia PR")
-            await set_pending_flow(
-                clean_phone,
-                flow="send_not_eligible_report",
-                client_name=name,
-                extra_data={
-                    "report_url": rep_url,
-                    "pdf_url": pdf_report_url if attach_report_flag else None,
-                    "sla_url": sla_url if attach_sla_flag else None,
-                    "qr_url": qr_url if attach_qr_flag else None,
-                    "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
-                    "selected_msg": msg_text,
-                    "points": str(best_pts),
-                    "occ": str(occ or "Australia PR"),
-                    "is_not_eligible": True,
-                    "row_id": str(row.get("id")),
-                },
-            )
-
-            try:
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=msg_text,
-                    client_name=name,
-                    content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                    content_variables={"1": name, "2": msg_text},
-                )
-            except Exception as e_ne_tmpl:
-                logger.warning("Not-eligible template dispatch with HXa15807 failed: %s", e_ne_tmpl)
-                try:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=name,
-                        content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
-                        content_variables={
-                            "1": name,
-                            "2": ref_id,
-                            "3": occ_title,
-                            "4": str(best_pts),
-                        },
-                    )
-                except Exception:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=name,
-                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                        content_variables={"1": name, "2": ref_id},
-                    )
-
-        else:
-            ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
-            occ_title = str(occ or "Australia PR")
-            special_off = str(row.get("offer_code") or row.get("special_offer") or s.get("navratri_offer") or "Lucky Draw Entry")
-
-            await set_pending_flow(
-                clean_phone,
-                flow="send_report",
-                client_name=name,
-                extra_data={
-                    "report_url": rep_url,
-                    "pdf_url": pdf_report_url if attach_report_flag else None,
-                    "sla_url": sla_url if attach_sla_flag else None,
-                    "qr_url": qr_url if attach_qr_flag else None,
-                    "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
-                    "selected_msg": msg_text,
-                    "points": str(best_pts),
-                    "occ": str(occ or "Australia PR"),
-                    "row_id": str(row.get("id")),
-                },
-            )
-
-            try:
-                res = await send_whatsapp_text(
-                    to_phone=clean_phone,
-                    text=msg_text,
-                    client_name=name,
-                    content_sid="HXe3933b739857ce16642725b9e83a2b35",
-                    content_variables={
-                        "1": name,
-                        "2": occ_title,
-                        "3": str(best_pts),
-                        "4": "Subclass 189, 190, 491",
-                        "5": special_off,
-                    },
-                )
-            except Exception as e_tmpl:
-                logger.warning("Navratri v5 template fallback in bulk row: %s", e_tmpl)
-                try:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=name,
-                        content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
-                        content_variables={
-                            "1": name,
-                            "2": occ_title,
-                            "3": str(best_pts),
-                            "4": "Subclass 189, 190, 491",
-                            "5": special_off,
-                        },
-                    )
-                except Exception:
+                except Exception as e_ne_tmpl:
+                    logger.warning("Not-eligible template dispatch with HXa15807 failed: %s", e_ne_tmpl)
                     try:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
@@ -2968,18 +2894,92 @@ async def _send_row_whatsapp(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=name,
-                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                            content_variables={"1": name, "2": msg_text},
+                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                            content_variables={"1": name, "2": ref_id},
                         )
-    else:
-        # ── 24H WINDOW IS ACTIVE / DIRECT SEND: Directly send free-form message ──
-        res = await send_whatsapp_text(
-            to_phone=clean_phone,
-            text=msg_text,
-            client_name=name,
-        )
 
-        if has_active_session:
+            else:
+                ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
+                occ_title = str(occ or "Australia PR")
+                special_off = str(row.get("offer_code") or row.get("special_offer") or s.get("navratri_offer") or "Lucky Draw Entry")
+
+                await set_pending_flow(
+                    clean_phone,
+                    flow="send_report",
+                    client_name=name,
+                    extra_data={
+                        "report_url": rep_url,
+                        "pdf_url": pdf_report_url if attach_report_flag else None,
+                        "sla_url": sla_url if attach_sla_flag else None,
+                        "qr_url": qr_url if attach_qr_flag else None,
+                        "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
+                        "selected_msg": msg_text,
+                        "points": str(best_pts),
+                        "occ": str(occ or "Australia PR"),
+                        "row_id": str(row.get("id")),
+                    },
+                )
+
+                try:
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=name,
+                        content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                        content_variables={
+                            "1": name,
+                            "2": occ_title,
+                            "3": str(best_pts),
+                            "4": "Subclass 189, 190, 491",
+                            "5": special_off,
+                        },
+                    )
+                except Exception as e_tmpl:
+                    logger.warning("Navratri v5 template fallback in bulk row: %s", e_tmpl)
+                    try:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=msg_text,
+                            client_name=name,
+                            content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                            content_variables={
+                                "1": name,
+                                "2": occ_title,
+                                "3": str(best_pts),
+                                "4": "Subclass 189, 190, 491",
+                                "5": special_off,
+                            },
+                        )
+                    except Exception:
+                        try:
+                            res = await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=msg_text,
+                                client_name=name,
+                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                                content_variables={
+                                    "1": name,
+                                    "2": ref_id,
+                                    "3": occ_title,
+                                    "4": str(best_pts),
+                                },
+                            )
+                        except Exception:
+                            res = await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=msg_text,
+                                client_name=name,
+                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                                content_variables={"1": name, "2": msg_text},
+                            )
+        else:
+            # ── 24H WINDOW IS ACTIVE / DIRECT SEND: Directly send free-form message ──
+            res = await send_whatsapp_text(
+                to_phone=clean_phone,
+                text=msg_text,
+                client_name=name,
+            )
+
             import asyncio
             # 1. Report PDF
             if attach_report_flag and pdf_report_url:
@@ -3037,15 +3037,6 @@ async def _send_row_whatsapp(
                     dispatched_attachments.append("resume_file")
                 except Exception as e_res:
                     logger.warning("Failed to dispatch resume in bulk row: %s", e_res)
-        else:
-            if attach_report_flag and pdf_report_url:
-                dispatched_attachments.append("report_pdf")
-            if attach_sla_flag and sla_url:
-                dispatched_attachments.append("sla_pdf")
-            if attach_qr_flag and qr_url:
-                dispatched_attachments.append("payment_qr")
-            if attach_resume_flag and resume_stream_url:
-                dispatched_attachments.append("resume_file")
     else:
         # Meta Cloud API Mode
         if attach_report_flag and pdf_bytes:
