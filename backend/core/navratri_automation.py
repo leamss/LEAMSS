@@ -70,6 +70,8 @@ def has_lead_resume(lead: Dict[str, Any]) -> bool:
 
 def is_lead_navratri(lead: Dict[str, Any]) -> bool:
     """Checks if a lead belongs to the Navratri Offer campaign."""
+    if lead.get("is_navratri") is True:
+        return True
     src = str(lead.get("source") or "")
     svc = str(lead.get("service_interested") or "")
     uid = str(lead.get("unique_id") or "")
