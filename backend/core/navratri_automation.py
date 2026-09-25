@@ -38,20 +38,19 @@ NAVRATRI_QUERY = {
 
 
 def is_lead_paid(lead: Dict[str, Any]) -> bool:
-    """Checks if a lead is marked as paid."""
+    """Checks if a lead is marked as paid based on cPanel MySQL status and CRM payment fields."""
     status = str(lead.get("payment_status") or "").strip().lower()
+    # Non-paid statuses from cPanel MySQL take absolute precedence
+    if status in ("failed", "pending", "unpaid", "cancelled", "refunded"):
+        return False
     if status in ("success", "paid", "completed", "captured"):
         return True
     if str(lead.get("stage") or "").strip().lower() == "payment_done":
         return True
     if "Payment Success" in (lead.get("tags") or []):
         return True
-    try:
-        amt = float(lead.get("payment_amount") or 0)
-        if amt > 0:
-            return True
-    except (ValueError, TypeError):
-        pass
+    if lead.get("paid_at") and status not in ("failed", "pending"):
+        return True
     return False
 
 
