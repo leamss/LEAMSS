@@ -480,11 +480,15 @@ async def startup():
     # Automated continuous background sync & reconciliation for Navratri website registrations & payments
     try:
         import asyncio
-        from core.website_sync import reconcile_navratri_leads
-        await reconcile_navratri_leads()
 
         async def _navratri_background_sync_loop():
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
+            try:
+                from core.website_sync import reconcile_navratri_leads
+                await reconcile_navratri_leads()
+            except Exception:
+                pass
+
             while True:
                 try:
                     from core.website_sync import sync_from_mysql_database, reconcile_navratri_leads

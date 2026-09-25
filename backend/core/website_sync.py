@@ -379,46 +379,63 @@ async def sync_from_mysql_database(
 
 async def reconcile_navratri_leads() -> Dict[str, Any]:
     """Scans MongoDB leads collection to ensure all Navratri registrations are correctly tagged, attributed, and indexed."""
-    query = {
-        "$or": [
-            {"is_navratri": True},
-            {"source": {"$regex": "navratri|website|staging", "$options": "i"}},
-            {"utm_campaign": {"$regex": "navratri", "$options": "i"}},
-            {"service_interested": {"$regex": "navratri|special offer", "$options": "i"}},
-            {"unique_id": {"$regex": "^NN|[0-9]{6}", "$options": "i"}},
-            {"external_id": {"$exists": True, "$ne": None, "$ne": ""}},
-            {"tags": {"$regex": "navratri|website", "$options": "i"}},
-        ]
-    }
-    cursor = leads_col.find(query)
-    updated = 0
-    async for lead in cursor:
-        uid = str(lead.get("unique_id") or "")
-        ext_id = str(lead.get("external_id") or "")
-        if not uid.startswith("NN") and (ext_id or uid.isdigit()):
-            uid = f"NN2427{ext_id or uid}"
-        
-        tags = list(set((lead.get("tags") or []) + ["Navratri Offer 2026", "Website Registration"]))
-        pay_st = str(lead.get("payment_status") or "pending").lower()
-        if pay_st in ("success", "paid"):
-            if "Payment Success" not in tags: tags.append("Payment Success")
-            if "Payment Failed" in tags: tags.remove("Payment Failed")
-        elif pay_st in ("failed", "declined"):
-            if "Payment Failed" not in tags: tags.append("Payment Failed")
-            if "Payment Success" in tags: tags.remove("Payment Success")
+    try:
+        from pymongo import UpdateOne
+        query = {
+            "$or": [
+                {"is_navratri": True},
+                {"source": {"$regex": "navratri|website|staging", "$options": "i"}},
+                {"utm_campaign": {"$regex": "navratri", "$options": "i"}},
+                {"service_interested": {"$regex": "navratri|special offer", "$options": "i"}},
+                {"unique_id": {"$regex": "^NN|[0-9]{6}", "$options": "i"}},
+                {"tags": {"$regex": "navratri|website", "$options": "i"}},
+            ]
+        }
+        leads = await leads_col.find(
+            query,
+            {"_id": 1, "unique_id": 1, "external_id": 1, "tags": 1, "payment_status": 1, "service_interested": 1}
+        ).to_list(2000)
 
-        await leads_col.update_one(
-            {"_id": lead["_id"]},
-            {
-                "$set": {
-                    "is_navratri": True,
-                    "source": "Navratri Offer (leamss.com)",
-                    "unique_id": uid or lead.get("unique_id"),
-                    "service_interested": lead.get("service_interested") or "Navratri Special Offer",
-                    "tags": tags,
-                    "updated_at": datetime.now(timezone.utc)
-                }
-            }
-        )
-        updated += 1
-    return {"status": "success", "reconciled_leads_count": updated}
+        if not leads:
+            return {"status": "success", "reconciled_leads_count": 0}
+
+        operations = []
+        now = datetime.now(timezone.utc)
+        for lead in leads:
+            uid = str(lead.get("unique_id") or "")
+            ext_id = str(lead.get("external_id") or "")
+            if not uid.startswith("NN") and (ext_id or uid.isdigit()):
+                uid = f"NN2427{ext_id or uid}"
+            
+            tags = list(set((lead.get("tags") or []) + ["Navratri Offer 2026", "Website Registration"]))
+            pay_st = str(lead.get("payment_status") or "pending").lower()
+            if pay_st in ("success", "paid"):
+                if "Payment Success" not in tags: tags.append("Payment Success")
+                if "Payment Failed" in tags: tags.remove("Payment Failed")
+            elif pay_st in ("failed", "declined"):
+                if "Payment Failed" not in tags: tags.append("Payment Failed")
+                if "Payment Success" in tags: tags.remove("Payment Success")
+
+            operations.append(
+                UpdateOne(
+                    {"_id": lead["_id"]},
+                    {
+                        "$set": {
+                            "is_navratri": True,
+                            "source": "Navratri Offer (leamss.com)",
+                            "unique_id": uid or lead.get("unique_id"),
+                            "service_interested": lead.get("service_interested") or "Navratri Special Offer",
+                            "tags": tags,
+                            "updated_at": now
+                        }
+                    }
+                )
+            )
+
+        if operations:
+            await leads_col.bulk_write(operations, ordered=False)
+
+        return {"status": "success", "reconciled_leads_count": len(operations)}
+    except Exception as e:
+        logger.warning(f"Reconcile error: {e}")
+        return {"status": "error", "error": str(e)}
