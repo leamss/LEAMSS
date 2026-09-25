@@ -223,49 +223,68 @@ async def is_in_24h_window(phone: str) -> bool:
     clean_phone = normalize_phone_number(phone)
     if not clean_phone:
         return False
-    phone_suffix = clean_phone[-10:] if len(clean_phone) >= 10 else clean_phone
+    digits = re.sub(r"\D", "", str(phone or ""))
+    phone_suffix = digits[-10:] if len(digits) >= 10 else digits
+    if not phone_suffix:
+        return False
+
     now_dt = datetime.now(timezone.utc)
-    conv = await CONVERSATIONS.find_one({
+    
+    # 1. Search conversations
+    conv_cursor = CONVERSATIONS.find({
         "$or": [
             {"phone": clean_phone},
             {"phone": f"+{clean_phone}"},
-            {"phone": {"$regex": f"{phone_suffix}$"}},
+            {"phone": {"$regex": phone_suffix}},
         ]
     })
-    if conv and conv.get("last_inbound_at"):
+    async for conv in conv_cursor:
         last_inb = conv.get("last_inbound_at")
-        if isinstance(last_inb, str):
-            try:
-                last_inb = datetime.fromisoformat(last_inb)
-            except Exception:
-                pass
-        if isinstance(last_inb, datetime):
-            if last_inb.tzinfo is None:
-                last_inb = last_inb.replace(tzinfo=timezone.utc)
-            if (now_dt - last_inb).total_seconds() <= 24 * 3600:
-                return True
+        if last_inb:
+            if isinstance(last_inb, str):
+                try:
+                    last_inb = datetime.fromisoformat(last_inb.replace("Z", "+00:00"))
+                except Exception:
+                    pass
+            if isinstance(last_inb, (int, float)):
+                try:
+                    last_inb = datetime.fromtimestamp(last_inb, timezone.utc)
+                except Exception:
+                    pass
+            if isinstance(last_inb, datetime):
+                if last_inb.tzinfo is None:
+                    last_inb = last_inb.replace(tzinfo=timezone.utc)
+                if (now_dt - last_inb).total_seconds() <= 24 * 3600:
+                    return True
 
-    # Fallback: check recent inbound message in MESSAGES collection
-    recent_msg = await MESSAGES.find_one({
+    # 2. Search messages collection
+    msg_cursor = MESSAGES.find({
         "direction": "inbound",
         "$or": [
             {"phone": clean_phone},
             {"phone": f"+{clean_phone}"},
-            {"phone": {"$regex": f"{phone_suffix}$"}},
+            {"phone": {"$regex": phone_suffix}},
         ],
-    }, sort=[("created_at", -1)])
-    if recent_msg and recent_msg.get("created_at"):
-        msg_dt = recent_msg["created_at"]
-        if isinstance(msg_dt, str):
-            try:
-                msg_dt = datetime.fromisoformat(msg_dt)
-            except Exception:
-                pass
-        if isinstance(msg_dt, datetime):
-            if msg_dt.tzinfo is None:
-                msg_dt = msg_dt.replace(tzinfo=timezone.utc)
-            if (now_dt - msg_dt).total_seconds() <= 24 * 3600:
-                return True
+    }).sort("created_at", -1).limit(5)
+
+    async for recent_msg in msg_cursor:
+        if recent_msg and recent_msg.get("created_at"):
+            msg_dt = recent_msg["created_at"]
+            if isinstance(msg_dt, str):
+                try:
+                    msg_dt = datetime.fromisoformat(msg_dt.replace("Z", "+00:00"))
+                except Exception:
+                    pass
+            if isinstance(msg_dt, (int, float)):
+                try:
+                    msg_dt = datetime.fromtimestamp(msg_dt, timezone.utc)
+                except Exception:
+                    pass
+            if isinstance(msg_dt, datetime):
+                if msg_dt.tzinfo is None:
+                    msg_dt = msg_dt.replace(tzinfo=timezone.utc)
+                if (now_dt - msg_dt).total_seconds() <= 24 * 3600:
+                    return True
     return False
 
 

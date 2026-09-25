@@ -2801,11 +2801,86 @@ async def _send_row_whatsapp(
     dispatched_attachments = []
 
     if is_twilio_mode:
-        if not has_active_session:
-            # ── COLD OUTREACH / OUTSIDE 24H: Send Twilio Permission Template with Button ──
+        sent_direct = False
+        if has_active_session:
+            try:
+                res = await send_whatsapp_text(
+                    to_phone=clean_phone,
+                    text=msg_text,
+                    client_name=name,
+                )
+                sent_direct = True
+
+                import asyncio
+                # 1. Report PDF
+                if attach_report_flag and pdf_report_url:
+                    await asyncio.sleep(0.5)
+                    try:
+                        await send_whatsapp_document_by_url(
+                            to_phone=clean_phone,
+                            document_url=pdf_report_url,
+                            filename=rep_fname,
+                            caption=f"📄 Pre-Assessment Report — {name}",
+                        )
+                        dispatched_attachments.append("report_pdf")
+                    except Exception as e_pdf:
+                        logger.warning("Failed to dispatch Report PDF in bulk row: %s", e_pdf)
+
+                # 2. SLA PDF
+                if attach_sla_flag and sla_url:
+                    await asyncio.sleep(0.5)
+                    try:
+                        sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+                        await send_whatsapp_document_by_url(
+                            to_phone=clean_phone,
+                            document_url=sla_url,
+                            filename=sla_fname,
+                            caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
+                        )
+                        dispatched_attachments.append("sla_pdf")
+                    except Exception as e_sla:
+                        logger.warning("Failed to dispatch SLA PDF in bulk row: %s", e_sla)
+
+                # 3. Payment QR Image
+                if attach_qr_flag and qr_url:
+                    await asyncio.sleep(0.5)
+                    try:
+                        await send_whatsapp_image_by_url(
+                            to_phone=clean_phone,
+                            image_url=qr_url,
+                            caption="💳 LEAMSS Official Payment QR & Banking Details",
+                        )
+                        dispatched_attachments.append("payment_qr")
+                    except Exception as e_qr:
+                        logger.warning("Failed to dispatch QR image in bulk row: %s", e_qr)
+
+                # 4. Candidate Resume
+                if attach_resume_flag and resume_stream_url:
+                    await asyncio.sleep(0.5)
+                    try:
+                        r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
+                        await send_whatsapp_document_by_url(
+                            to_phone=clean_phone,
+                            document_url=resume_stream_url,
+                            filename=r_name,
+                            caption=f"📄 Candidate Resume — {name}",
+                        )
+                        dispatched_attachments.append("resume_file")
+                    except Exception as e_res:
+                        logger.warning("Failed to dispatch resume in bulk row: %s", e_res)
+            except Exception as e_direct:
+                err_s = str(e_direct)
+                if "24-hour" in err_s or "63016" in err_s or "Outside" in err_s:
+                    logger.info("Direct send failed (session closed); falling back to cold template: %s", err_s)
+                    has_active_session = False
+                else:
+                    raise
+
+        if not has_active_session and not sent_direct:
+            # ── COLD OUTREACH / OUTSIDE 24H: Send Approved Twilio Permission Template ──
             if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
                 # Resume Request Flow
-                row_token = str(row.get("resume_token") or row.get("id") or "LEAMSS-PR")
+                row_token = str(row.get("resume_token") or row.get("id") or "LEAMSS-PR")[:25]
                 full_resume_url = "https://app.leamss.com/upload-resume"
                 await set_pending_flow(
                     clean_phone,
@@ -2826,23 +2901,14 @@ async def _send_row_whatsapp(
                         content_variables={"1": name, "2": row_token},
                     )
                 except Exception as e_res_tmpl:
-                    logger.warning("Bulk resume template dispatch: %s", e_res_tmpl)
-                    try:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
-                            client_name=name,
-                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                            content_variables={"1": name, "2": row_token[:20]},
-                        )
-                    except Exception:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=msg_text,
-                            client_name=name,
-                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                            content_variables={"1": name, "2": msg_text},
-                        )
+                    logger.warning("Bulk resume template dispatch HX46d5 failed: %s", e_res_tmpl)
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
+                        client_name=name,
+                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                        content_variables={"1": name, "2": row_token[:20]},
+                    )
 
             elif bucket in ("improvable", "ineligible") or (custom_t and custom_t.get("category") == "not_eligible") or template_id == "not_eligible":
                 # Not-Eligible / Improvement Plan Flow
@@ -2871,32 +2937,23 @@ async def _send_row_whatsapp(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=name,
-                        content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                        content_variables={"1": name, "2": msg_text},
+                        content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                        content_variables={
+                            "1": name,
+                            "2": ref_id,
+                            "3": occ_title,
+                            "4": str(best_pts),
+                        },
                     )
                 except Exception as e_ne_tmpl:
-                    logger.warning("Not-eligible template dispatch with HXa15807 failed: %s", e_ne_tmpl)
-                    try:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=msg_text,
-                            client_name=name,
-                            content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
-                            content_variables={
-                                "1": name,
-                                "2": ref_id,
-                                "3": occ_title,
-                                "4": str(best_pts),
-                            },
-                        )
-                    except Exception:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=msg_text,
-                            client_name=name,
-                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                            content_variables={"1": name, "2": ref_id},
-                        )
+                    logger.warning("Not-eligible template dispatch with HX3cfb failed: %s", e_ne_tmpl)
+                    res = await send_whatsapp_text(
+                        to_phone=clean_phone,
+                        text=msg_text,
+                        client_name=name,
+                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                        content_variables={"1": name, "2": ref_id},
+                    )
 
             else:
                 ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
@@ -2969,74 +3026,9 @@ async def _send_row_whatsapp(
                                 to_phone=clean_phone,
                                 text=msg_text,
                                 client_name=name,
-                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                                content_variables={"1": name, "2": msg_text},
+                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                content_variables={"1": name, "2": ref_id},
                             )
-        else:
-            # ── 24H WINDOW IS ACTIVE / DIRECT SEND: Directly send free-form message ──
-            res = await send_whatsapp_text(
-                to_phone=clean_phone,
-                text=msg_text,
-                client_name=name,
-            )
-
-            import asyncio
-            # 1. Report PDF
-            if attach_report_flag and pdf_report_url:
-                await asyncio.sleep(0.5)
-                try:
-                    await send_whatsapp_document_by_url(
-                        to_phone=clean_phone,
-                        document_url=pdf_report_url,
-                        filename=rep_fname,
-                        caption=f"📄 Pre-Assessment Report — {name}",
-                    )
-                    dispatched_attachments.append("report_pdf")
-                except Exception as e_pdf:
-                    logger.warning("Failed to dispatch Report PDF in bulk row: %s", e_pdf)
-
-            # 2. SLA PDF
-            if attach_sla_flag and sla_url:
-                await asyncio.sleep(0.5)
-                try:
-                    sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
-                    await send_whatsapp_document_by_url(
-                        to_phone=clean_phone,
-                        document_url=sla_url,
-                        filename=sla_fname,
-                        caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
-                    )
-                    dispatched_attachments.append("sla_pdf")
-                except Exception as e_sla:
-                    logger.warning("Failed to dispatch SLA PDF in bulk row: %s", e_sla)
-
-            # 3. Payment QR Image
-            if attach_qr_flag and qr_url:
-                await asyncio.sleep(0.5)
-                try:
-                    await send_whatsapp_image_by_url(
-                        to_phone=clean_phone,
-                        image_url=qr_url,
-                        caption="💳 LEAMSS Official Payment QR & Banking Details",
-                    )
-                    dispatched_attachments.append("payment_qr")
-                except Exception as e_qr:
-                    logger.warning("Failed to dispatch QR image in bulk row: %s", e_qr)
-
-            # 4. Candidate Resume
-            if attach_resume_flag and resume_stream_url:
-                await asyncio.sleep(0.5)
-                try:
-                    r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
-                    await send_whatsapp_document_by_url(
-                        to_phone=clean_phone,
-                        document_url=resume_stream_url,
-                        filename=r_name,
-                        caption=f"📄 Candidate Resume — {name}",
-                    )
-                    dispatched_attachments.append("resume_file")
-                except Exception as e_res:
-                    logger.warning("Failed to dispatch resume in bulk row: %s", e_res)
     else:
         # Meta Cloud API Mode
         if attach_report_flag and pdf_bytes:

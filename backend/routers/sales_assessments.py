@@ -2089,28 +2089,43 @@ async def send_assessment_whatsapp(
             or not doc.get("is_eligible", True)
         )
 
-        if is_twilio_mode and not has_active_session:
-            # ── COLD OUTREACH / OUTSIDE 24H: Send Twilio Permission Template with Button ──
-            is_permission_template = True
-            if is_resume_flow:
-                upload_token = str(doc.get("resume_token") or doc.get("share_token") or id)
-                await set_pending_flow(clean_phone, "resume_request", client_name=client_name, extra_data={
-                    "resume_url": resume_upload_url,
-                    "selected_msg": msg_text,
-                    "assessment_id": doc.get("id"),
-                    "share_token": share_token,
-                })
+        if is_twilio_mode:
+            sent_direct = False
+            if has_active_session:
                 try:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=client_name,
-                        content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                        content_variables={"1": client_name, "2": upload_token},
-                    )
-                except Exception as e_res_tmpl:
-                    logger.warning("Resume upload template v4 dispatch: %s", e_res_tmpl)
+                    # ── 24H WINDOW IS ACTIVE: Send full rich text message directly ──
+                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
+                    is_permission_template = False
+                    sent_direct = True
+                except Exception as e_direct:
+                    err_s = str(e_direct)
+                    if "24-hour" in err_s or "63016" in err_s or "Outside" in err_s:
+                        logger.info("Direct send failed in sales assessment; falling back to cold template: %s", err_s)
+                        has_active_session = False
+                    else:
+                        raise
+
+            if not has_active_session and not sent_direct:
+                # ── COLD OUTREACH / OUTSIDE 24H: Send Twilio Permission Template with Button ──
+                is_permission_template = True
+                if is_resume_flow:
+                    upload_token = str(doc.get("resume_token") or doc.get("share_token") or id)[:25]
+                    await set_pending_flow(clean_phone, "resume_request", client_name=client_name, extra_data={
+                        "resume_url": resume_upload_url,
+                        "selected_msg": msg_text,
+                        "assessment_id": doc.get("id"),
+                        "share_token": share_token,
+                    })
                     try:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=msg_text,
+                            client_name=client_name,
+                            content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                            content_variables={"1": client_name, "2": upload_token},
+                        )
+                    except Exception as e_res_tmpl:
+                        logger.warning("Resume upload template v4 dispatch: %s", e_res_tmpl)
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=f"Please reply YES to upload your resume (Ref: {str(id)[:20]})",
@@ -2118,45 +2133,27 @@ async def send_assessment_whatsapp(
                             content_sid="HXecdec14cc27a0857c49274c92f26d366",
                             content_variables={"1": client_name, "2": str(id)[:20]},
                         )
-                    except Exception:
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=msg_text,
-                            client_name=client_name,
-                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                            content_variables={"1": client_name, "2": msg_text},
-                        )
 
-            elif is_not_eligible_flow:
-                ref_id = str(id or "LEAMSS-PR")[:25]
-                occ_title = str(occ.get("title") or "Australia PR")
-                if occ.get("code"):
-                    occ_title = f"{occ_title} ({occ.get('code')})"
+                elif is_not_eligible_flow:
+                    ref_id = str(id or "LEAMSS-PR")[:25]
+                    occ_title = str(occ.get("title") or "Australia PR")
+                    if occ.get("code"):
+                        occ_title = f"{occ_title} ({occ.get('code')})"
 
-                await set_pending_flow(clean_phone, "send_not_eligible_report", client_name=client_name, extra_data={
-                    "report_url": public_url,
-                    "pdf_url": pdf_report_url,
-                    "sla_url": sla_url if attach_sla_flag else None,
-                    "qr_url": qr_url if attach_qr_flag else None,
-                    "resume_url": resume_stream_url,
-                    "selected_msg": msg_text,
-                    "points": str(best_total),
-                    "occ": str(occ.get("title") or "Australia PR"),
-                    "is_not_eligible": True,
-                    "assessment_id": doc.get("id"),
-                    "share_token": share_token,
-                })
+                    await set_pending_flow(clean_phone, "send_not_eligible_report", client_name=client_name, extra_data={
+                        "report_url": public_url,
+                        "pdf_url": pdf_report_url,
+                        "sla_url": sla_url if attach_sla_flag else None,
+                        "qr_url": qr_url if attach_qr_flag else None,
+                        "resume_url": resume_stream_url,
+                        "selected_msg": msg_text,
+                        "points": str(best_total),
+                        "occ": str(occ.get("title") or "Australia PR"),
+                        "is_not_eligible": True,
+                        "assessment_id": doc.get("id"),
+                        "share_token": share_token,
+                    })
 
-                try:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=client_name,
-                        content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                        content_variables={"1": client_name, "2": msg_text},
-                    )
-                except Exception as e_ne_tmpl:
-                    logger.warning("Not-eligible template dispatch with HXa15807 failed in sales: %s", e_ne_tmpl)
                     try:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
@@ -2170,7 +2167,8 @@ async def send_assessment_whatsapp(
                                 "4": str(best_total),
                             },
                         )
-                    except Exception:
+                    except Exception as e_ne_tmpl:
+                        logger.warning("Not-eligible template dispatch with HX3cfb failed in sales: %s", e_ne_tmpl)
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=msg_text,
@@ -2179,49 +2177,33 @@ async def send_assessment_whatsapp(
                             content_variables={"1": client_name, "2": ref_id},
                         )
 
-            else:
-                ref_id = str(id or "LEAMSS-PR")[:25]
-                occ_title = str(occ.get("title") or "Australia PR")
-                if occ.get("code"):
-                    occ_title = f"{occ_title} ({occ.get('code')})"
-                best_sub = str(best_res.get("subclass") or "189")
-                special_off = str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Lucky Draw Entry")
+                else:
+                    ref_id = str(id or "LEAMSS-PR")[:25]
+                    occ_title = str(occ.get("title") or "Australia PR")
+                    if occ.get("code"):
+                        occ_title = f"{occ_title} ({occ.get('code')})"
+                    best_sub = str(best_res.get("subclass") or "189")
+                    special_off = str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Lucky Draw Entry")
 
-                await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
-                    "report_url": public_url,
-                    "pdf_url": pdf_report_url,
-                    "sla_url": sla_url if attach_sla_flag else None,
-                    "qr_url": qr_url if attach_qr_flag else None,
-                    "resume_url": resume_stream_url,
-                    "selected_msg": msg_text,
-                    "points": str(best_total),
-                    "occ": str(occ.get("title") or "Australia PR"),
-                    "assessment_id": doc.get("id"),
-                    "share_token": share_token,
-                })
+                    await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
+                        "report_url": public_url,
+                        "pdf_url": pdf_report_url,
+                        "sla_url": sla_url if attach_sla_flag else None,
+                        "qr_url": qr_url if attach_qr_flag else None,
+                        "resume_url": resume_stream_url,
+                        "selected_msg": msg_text,
+                        "points": str(best_total),
+                        "occ": str(occ.get("title") or "Australia PR"),
+                        "assessment_id": doc.get("id"),
+                        "share_token": share_token,
+                    })
 
-                try:
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=msg_text,
-                        client_name=client_name,
-                        content_sid="HXe3933b739857ce16642725b9e83a2b35",
-                        content_variables={
-                            "1": client_name,
-                            "2": occ_title,
-                            "3": str(best_total),
-                            "4": "Subclass 189, 190, 491",
-                            "5": special_off,
-                        },
-                    )
-                except Exception as e_tmpl:
-                    logger.warning("Navratri v5 template fallback: %s", e_tmpl)
                     try:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=client_name,
-                            content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                            content_sid="HXe3933b739857ce16642725b9e83a2b35",
                             content_variables={
                                 "1": client_name,
                                 "2": occ_title,
@@ -2230,30 +2212,46 @@ async def send_assessment_whatsapp(
                                 "5": special_off,
                             },
                         )
-                    except Exception:
+                    except Exception as e_tmpl:
+                        logger.warning("Navratri v5 template fallback: %s", e_tmpl)
                         try:
                             res = await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=msg_text,
                                 client_name=client_name,
-                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                                content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
                                 content_variables={
                                     "1": client_name,
-                                    "2": ref_id,
-                                    "3": occ_title,
-                                    "4": str(best_total),
+                                    "2": occ_title,
+                                    "3": str(best_total),
+                                    "4": "Subclass 189, 190, 491",
+                                    "5": special_off,
                                 },
                             )
                         except Exception:
-                            res = await send_whatsapp_text(
-                                to_phone=clean_phone,
-                                text=msg_text,
-                                client_name=client_name,
-                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                                content_variables={"1": client_name, "2": msg_text},
-                            )
+                            try:
+                                res = await send_whatsapp_text(
+                                    to_phone=clean_phone,
+                                    text=msg_text,
+                                    client_name=client_name,
+                                    content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                                    content_variables={
+                                        "1": client_name,
+                                        "2": ref_id,
+                                        "3": occ_title,
+                                        "4": str(best_total),
+                                    },
+                                )
+                            except Exception:
+                                res = await send_whatsapp_text(
+                                    to_phone=clean_phone,
+                                    text=msg_text,
+                                    client_name=client_name,
+                                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                    content_variables={"1": client_name, "2": ref_id},
+                                )
         else:
-            # ── 24H WINDOW IS ACTIVE: Send full rich text message directly ──
+            # ── Meta Cloud API / Non-Twilio Provider ──
             is_permission_template = False
             res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
         
