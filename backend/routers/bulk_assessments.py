@@ -2856,10 +2856,8 @@ async def _send_row_whatsapp(
                 )
                 sent_direct = True
 
-                import asyncio
                 # 1. Report PDF
                 if attach_report_flag and pdf_report_url:
-                    await asyncio.sleep(0.5)
                     try:
                         await send_whatsapp_document_by_url(
                             to_phone=clean_phone,
@@ -2873,7 +2871,6 @@ async def _send_row_whatsapp(
 
                 # 2. SLA PDF (Eligible only)
                 if attach_sla_flag and sla_url:
-                    await asyncio.sleep(0.5)
                     try:
                         sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
                         await send_whatsapp_document_by_url(
@@ -2888,7 +2885,6 @@ async def _send_row_whatsapp(
 
                 # 3. Payment QR Image (Eligible only)
                 if attach_qr_flag and qr_url:
-                    await asyncio.sleep(0.5)
                     try:
                         await send_whatsapp_image_by_url(
                             to_phone=clean_phone,
@@ -2901,7 +2897,6 @@ async def _send_row_whatsapp(
 
                 # 4. Candidate Resume
                 if attach_resume_flag and resume_stream_url:
-                    await asyncio.sleep(0.5)
                     try:
                         r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
                         await send_whatsapp_document_by_url(
@@ -3720,37 +3715,46 @@ async def _run_whatsapp_all(
     attach_resume: Optional[bool] = True,
 ):
     rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0}).sort("row_index", 1).to_list(100000)
+    sem = asyncio.Semaphore(10)
+    lock = asyncio.Lock()
     done = 0
     failed = 0
     skipped = 0
-    for row in rows:
+
+    async def _send_one(row):
+        nonlocal done, failed, skipped
         p = row.get("parsed") or {}
         phone = (p.get("phone") or "").strip()
         if not row.get("pdf_file_id") or not phone:
-            skipped += 1
-            continue
+            async with lock:
+                skipped += 1
+            return
         now = datetime.now(timezone.utc)
-        try:
-            meta = await _send_row_whatsapp(
-                row,
-                phone,
-                template_id=template_id,
-                custom_text=custom_message,
-                attach_report=attach_report,
-                attach_sla=attach_sla,
-                attach_qr=attach_qr,
-                attach_resume=attach_resume,
-            )
-            await ROWS.update_one({"id": row["id"]}, {"$set": {
-                "whatsapp_status": "sent", "whatsapp_to": meta.get("sent_to"), "whatsapp_sent_at": now, "whatsapp_error": None,
-                "whatsapp_kind": meta.get("kind"), "whatsapp_attachments": meta.get("attachments"),
-            }})
-            done += 1
-        except Exception as e:
-            await ROWS.update_one({"id": row["id"]}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
-            failed += 1
-        await BATCHES.update_one({"id": batch_id}, {"$set": {"whatsapp_done": done, "whatsapp_failed": failed}})
-        await asyncio.sleep(0.15)
+        async with sem:
+            try:
+                meta = await _send_row_whatsapp(
+                    row,
+                    phone,
+                    template_id=template_id,
+                    custom_text=custom_message,
+                    attach_report=attach_report,
+                    attach_sla=attach_sla,
+                    attach_qr=attach_qr,
+                    attach_resume=attach_resume,
+                )
+                await ROWS.update_one({"id": row["id"]}, {"$set": {
+                    "whatsapp_status": "sent", "whatsapp_to": meta.get("sent_to"), "whatsapp_sent_at": now, "whatsapp_error": None,
+                    "whatsapp_kind": meta.get("kind"), "whatsapp_attachments": meta.get("attachments"),
+                }})
+                async with lock:
+                    done += 1
+            except Exception as e:
+                await ROWS.update_one({"id": row["id"]}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
+                async with lock:
+                    failed += 1
+            await BATCHES.update_one({"id": batch_id}, {"$set": {"whatsapp_done": done, "whatsapp_failed": failed}})
+
+    await asyncio.gather(*[_send_one(r) for r in rows], return_exceptions=True)
     await BATCHES.update_one({"id": batch_id}, {"$set": {
         "whatsapp_status": "done", "whatsapp_done": done, "whatsapp_failed": failed,
         "whatsapp_skipped": skipped, "whatsapp_completed_at": datetime.now(timezone.utc),
@@ -3772,35 +3776,45 @@ async def _run_whatsapp_category(
         rows = [r for r in rows if bucket_for_row(r) in ("improvable", "ineligible")]
     else:  # resume_request
         rows = await ROWS.find({"batch_id": batch_id, "status": {"$in": ["needs_ai", "error"]}}, {"_id": 0}).sort("row_index", 1).to_list(100000)
+    
+    sem = asyncio.Semaphore(10)
+    lock = asyncio.Lock()
     done = failed = skipped = 0
-    for row in rows:
+
+    async def _send_one(row):
+        nonlocal done, failed, skipped
         p = row.get("parsed") or {}
         phone = (p.get("phone") or "").strip()
         if not phone or (kind == "not_eligible" and not row.get("pdf_file_id")):
-            skipped += 1
-            continue
+            async with lock:
+                skipped += 1
+            return
         now = datetime.now(timezone.utc)
-        try:
-            meta = await _send_row_whatsapp(
-                row,
-                phone,
-                template_id=template_id,
-                custom_text=custom_message,
-                attach_report=attach_report,
-                attach_sla=attach_sla,
-                attach_qr=attach_qr,
-                attach_resume=attach_resume,
-            )
-            await ROWS.update_one({"id": row["id"]}, {"$set": {
-                "whatsapp_status": "sent", "whatsapp_to": meta.get("sent_to"), "whatsapp_sent_at": now, "whatsapp_error": None,
-                "whatsapp_kind": kind, "whatsapp_attachments": meta.get("attachments"),
-            }})
-            done += 1
-        except Exception as e:
-            await ROWS.update_one({"id": row["id"]}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
-            failed += 1
-        await BATCHES.update_one({"id": batch_id}, {"$set": {"whatsapp_done": done, "whatsapp_failed": failed}})
-        await asyncio.sleep(0.15)
+        async with sem:
+            try:
+                meta = await _send_row_whatsapp(
+                    row,
+                    phone,
+                    template_id=template_id,
+                    custom_text=custom_message,
+                    attach_report=attach_report,
+                    attach_sla=attach_sla,
+                    attach_qr=attach_qr,
+                    attach_resume=attach_resume,
+                )
+                await ROWS.update_one({"id": row["id"]}, {"$set": {
+                    "whatsapp_status": "sent", "whatsapp_to": meta.get("sent_to"), "whatsapp_sent_at": now, "whatsapp_error": None,
+                    "whatsapp_kind": kind, "whatsapp_attachments": meta.get("attachments"),
+                }})
+                async with lock:
+                    done += 1
+            except Exception as e:
+                await ROWS.update_one({"id": row["id"]}, {"$set": {"whatsapp_status": "failed", "whatsapp_error": str(e)[:400], "whatsapp_attempted_at": now}})
+                async with lock:
+                    failed += 1
+            await BATCHES.update_one({"id": batch_id}, {"$set": {"whatsapp_done": done, "whatsapp_failed": failed}})
+
+    await asyncio.gather(*[_send_one(r) for r in rows], return_exceptions=True)
     await BATCHES.update_one({"id": batch_id}, {"$set": {
         "whatsapp_status": "done", "whatsapp_done": done, "whatsapp_failed": failed,
         "whatsapp_skipped": skipped, "whatsapp_completed_at": datetime.now(timezone.utc),
