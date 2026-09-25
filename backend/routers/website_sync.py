@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks
 
 from core.auth import get_current_user
+from core.database import db
 from core.website_sync import upsert_website_lead, sync_from_mysql_database, reconcile_navratri_leads
 
 from core.navratri_automation import (
