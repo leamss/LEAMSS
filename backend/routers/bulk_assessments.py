@@ -2689,54 +2689,96 @@ async def _send_row_whatsapp(
     occ = p.get("occupation_title") or ""
     code = p.get("anzsco_code") or ""
     points = row.get("points") or {}
-    best_pts = max([points.get("189") or 0, points.get("190") or 0, points.get("491") or 0, 0])
-    subclass = "189" if (points.get("189") or 0) >= 65 else ("190" if (points.get("190") or 0) >= 65 else "491")
+    if isinstance(points, dict):
+        p189 = points.get("189") or 0
+        p190 = points.get("190") or 0
+        p491 = points.get("491") or 0
+        best_pts = max([p189, p190, p491, 0])
+    elif isinstance(points, (int, float)):
+        best_pts = points
+    else:
+        best_pts = 0
+
+    subclass = "189" if (isinstance(points, dict) and (points.get("189") or 0) >= 65) else ("190" if (isinstance(points, dict) and (points.get("190") or 0) >= 65) else "491")
     rep_url = f"https://app.leamss.com/sales/report/{row.get('id')}"
 
     bucket = bucket_for_row(row)
+    is_resume = (bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"))
+    is_not_eligible = (not is_resume) and (bucket in ("improvable", "ineligible") or best_pts < 65 or not row.get("is_eligible", True))
+    is_eligible = (not is_resume) and (not is_not_eligible)
+
     upload_url = None
-    if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
+    if is_resume:
         token = row.get("resume_token")
         if not token:
             token = uuid.uuid4().hex
             await ROWS.update_one({"id": row["id"]}, {"$set": {"resume_token": token}})
         upload_url = _resume_upload_url(token)
 
+    # Resolve attachments based on category
+    if is_resume:
+        attach_report_flag = False
+        attach_sla_flag = False
+        attach_qr_flag = False
+        attach_resume_flag = False
+    elif is_not_eligible:
+        attach_report_flag = True if attach_report is None else bool(attach_report)
+        attach_sla_flag = False
+        attach_qr_flag = False
+        attach_resume_flag = True if attach_resume is None else bool(attach_resume)
+    else:
+        attach_report_flag = True if attach_report is None else bool(attach_report)
+        attach_sla_flag = True if attach_sla is None else bool(attach_sla)
+        attach_qr_flag = True if attach_qr is None else bool(attach_qr)
+        attach_resume_flag = True if attach_resume is None else bool(attach_resume)
+
+    custom_t = None
     msg_text = ""
-    attach_report_flag = True if attach_report is None else bool(attach_report)
-    attach_sla_flag = True if attach_sla is None else bool(attach_sla)
-    attach_qr_flag = True if attach_qr is None else bool(attach_qr)
-    attach_resume_flag = True if attach_resume is None else bool(attach_resume)
 
     if custom_text and custom_text.strip():
         msg_text = _render_row_whatsapp_text(row, custom_text.strip(), upload_url)
     elif template_id:
         custom_t = await db["whatsapp_templates"].find_one({"id": template_id})
         if custom_t:
-            msg_text = _render_row_whatsapp_text(row, custom_t.get("body") or "", upload_url)
-            if "attach_report" in custom_t:
-                attach_report_flag = bool(custom_t["attach_report"])
-            if "attach_sla" in custom_t:
-                attach_sla_flag = bool(custom_t["attach_sla"])
-            if "attach_qr" in custom_t:
-                attach_qr_flag = bool(custom_t["attach_qr"])
-            if "attach_resume" in custom_t:
-                attach_resume_flag = bool(custom_t["attach_resume"])
+            t_cat = custom_t.get("category")
+            # If batch selected eligible template but this candidate is not eligible, switch to not-eligible template
+            if is_not_eligible and t_cat == "eligible":
+                default_ne = await db["whatsapp_templates"].find_one({"category": "not_eligible", "is_default": True}) or await db["whatsapp_templates"].find_one({"category": "not_eligible"})
+                if default_ne:
+                    msg_text = _render_row_whatsapp_text(row, default_ne.get("body") or "", upload_url)
+                else:
+                    msg_text = _render_row_whatsapp_text(row, DEFAULT_WHATSAPP_NOT_ELIGIBLE_TEXT, upload_url)
+            elif is_resume and t_cat != "resume":
+                default_res = await db["whatsapp_templates"].find_one({"category": "resume", "is_default": True}) or await db["whatsapp_templates"].find_one({"category": "resume"})
+                if default_res:
+                    msg_text = _render_row_whatsapp_text(row, default_res.get("body") or "", upload_url)
+                else:
+                    msg_text = _render_row_whatsapp_text(row, DEFAULT_WHATSAPP_RESUME_TEXT, upload_url)
+            else:
+                msg_text = _render_row_whatsapp_text(row, custom_t.get("body") or "", upload_url)
+                if "attach_report" in custom_t and not is_resume:
+                    attach_report_flag = bool(custom_t["attach_report"])
+                if "attach_sla" in custom_t and is_eligible:
+                    attach_sla_flag = bool(custom_t["attach_sla"])
+                if "attach_qr" in custom_t and is_eligible:
+                    attach_qr_flag = bool(custom_t["attach_qr"])
+                if "attach_resume" in custom_t and not is_resume:
+                    attach_resume_flag = bool(custom_t["attach_resume"])
 
     if not msg_text:
-        cat = "resume" if (bucket == "needs_resume" or row.get("status") in ("needs_ai", "error")) else ("not_eligible" if bucket in ("improvable", "ineligible") else "eligible")
+        cat = "resume" if is_resume else ("not_eligible" if is_not_eligible else "eligible")
         default_t = await db["whatsapp_templates"].find_one({"category": cat, "is_default": True})
         if not default_t:
             default_t = await db["whatsapp_templates"].find_one({"category": cat})
         if default_t:
             msg_text = _render_row_whatsapp_text(row, default_t.get("body") or "", upload_url)
-            if "attach_report" in default_t:
+            if "attach_report" in default_t and not is_resume:
                 attach_report_flag = bool(default_t["attach_report"])
-            if "attach_sla" in default_t:
+            if "attach_sla" in default_t and is_eligible:
                 attach_sla_flag = bool(default_t["attach_sla"])
-            if "attach_qr" in default_t:
+            if "attach_qr" in default_t and is_eligible:
                 attach_qr_flag = bool(default_t["attach_qr"])
-            if "attach_resume" in default_t:
+            if "attach_resume" in default_t and not is_resume:
                 attach_resume_flag = bool(default_t["attach_resume"])
         else:
             if cat == "resume":
@@ -2826,7 +2868,7 @@ async def _send_row_whatsapp(
                     except Exception as e_pdf:
                         logger.warning("Failed to dispatch Report PDF in bulk row: %s", e_pdf)
 
-                # 2. SLA PDF
+                # 2. SLA PDF (Eligible only)
                 if attach_sla_flag and sla_url:
                     await asyncio.sleep(0.5)
                     try:
@@ -2841,7 +2883,7 @@ async def _send_row_whatsapp(
                     except Exception as e_sla:
                         logger.warning("Failed to dispatch SLA PDF in bulk row: %s", e_sla)
 
-                # 3. Payment QR Image
+                # 3. Payment QR Image (Eligible only)
                 if attach_qr_flag and qr_url:
                     await asyncio.sleep(0.5)
                     try:
@@ -2878,7 +2920,7 @@ async def _send_row_whatsapp(
 
         if not has_active_session and not sent_direct:
             # ── COLD OUTREACH / OUTSIDE 24H: Send Approved Twilio Permission Template ──
-            if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
+            if is_resume:
                 # Resume Request Flow
                 row_token = str(row.get("resume_token") or row.get("id") or "LEAMSS-PR")[:25]
                 full_resume_url = "https://app.leamss.com/upload-resume"
@@ -2910,7 +2952,7 @@ async def _send_row_whatsapp(
                         content_variables={"1": name, "2": row_token[:20]},
                     )
 
-            elif bucket in ("improvable", "ineligible") or (custom_t and custom_t.get("category") == "not_eligible") or template_id == "not_eligible":
+            elif is_not_eligible:
                 # Not-Eligible / Improvement Plan Flow
                 ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
                 occ_title = str(occ or "Australia PR")
@@ -2921,8 +2963,8 @@ async def _send_row_whatsapp(
                     extra_data={
                         "report_url": rep_url,
                         "pdf_url": pdf_report_url if attach_report_flag else None,
-                        "sla_url": sla_url if attach_sla_flag else None,
-                        "qr_url": qr_url if attach_qr_flag else None,
+                        "sla_url": None,
+                        "qr_url": None,
                         "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
                         "selected_msg": msg_text,
                         "points": str(best_pts),

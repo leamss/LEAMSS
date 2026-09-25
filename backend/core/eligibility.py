@@ -198,6 +198,10 @@ def bucket_for_row(row: Dict[str, Any]) -> str:
     status = row.get("status")
     if status in ("needs_ai", "error"):
         return "needs_resume"
+    p = row.get("parsed") or {}
+    if not p.get("anzsco_code") and not p.get("occupation_title") and not p.get("experience_total"):
+        return "needs_resume"
+
     ev = row.get("eligibility") or {}
     verdict = ev.get("verdict")
     if verdict == "eligible":
@@ -206,5 +210,28 @@ def bucket_for_row(row: Dict[str, Any]) -> str:
         return "improvable"
     if verdict in ("ineligible_age", "ineligible"):
         return "ineligible"
-    # generated but no verdict computed yet → treat by points
-    return "eligible"
+
+    # Evaluate by points & age
+    age = p.get("age")
+    try:
+        if age is not None and int(age) >= 45:
+            return "ineligible"
+    except (ValueError, TypeError):
+        pass
+
+    points = row.get("points") or {}
+    if isinstance(points, dict):
+        p189 = points.get("189") or 0
+        p190 = points.get("190") or 0
+        p491 = points.get("491") or 0
+        max_pts = max([p189, p190, p491, 0])
+    elif isinstance(points, (int, float)):
+        max_pts = points
+    else:
+        max_pts = 0
+
+    if max_pts >= 65:
+        return "eligible"
+    elif max_pts > 0:
+        return "improvable"
+    return "ineligible"
