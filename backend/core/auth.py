@@ -68,11 +68,13 @@ def create_access_token(data: dict, expires_hours: int = 24) -> str:
 
 def build_token_payload(user: dict) -> dict:
     """Compact JWT payload including RBAC fields for fast permission checks."""
+    uid = str(user.get("id") or user.get("_id") or "")
+    role = user.get("role") or user.get("rbac_role") or "admin"
     return {
-        "sub": user["id"],
-        "role": user.get("role"),                              # legacy — preserved
-        "rbac_role": user.get("rbac_role") or user.get("role"), # new RBAC key
-        "user_type": user.get("user_type"),
+        "sub": uid,
+        "role": role,                                           # legacy — preserved
+        "rbac_role": user.get("rbac_role") or role,             # new RBAC key
+        "user_type": user.get("user_type", "internal"),
         "department": user.get("department"),
         "permissions": user.get("permissions") or [],
     }

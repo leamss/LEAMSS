@@ -34,8 +34,14 @@ async def _log(user_id, action, entity_type, entity_id=None, details=None):
 @router.post("/login")
 async def login(request: LoginRequest):
     try:
-        email_clean = request.email.strip().lower()
-        user = await users_col.find_one({"email": {"$regex": f"^{email_clean}$", "$options": "i"}}, {"_id": 0})
+        import re
+        email_clean = (request.email or "").strip().lower()
+        user = await users_col.find_one({
+            "$or": [
+                {"email": email_clean},
+                {"email": {"$regex": f"^{re.escape(email_clean)}$", "$options": "i"}},
+            ]
+        }, {"_id": 0})
         
         demo_accounts = {
             "admin@leamss.com": ("Admin@123", "System Administrator", "admin", "admin", "internal"),
@@ -87,7 +93,7 @@ async def login(request: LoginRequest):
         return {
             "token": token,
             "user": {
-                "id": user.get("id"),
+                "id": user.get("id") or str(user.get("_id", "")),
                 "email": user.get("email"),
                 "name": user.get("name", "User"),
                 "role": user.get("role", "admin"),
