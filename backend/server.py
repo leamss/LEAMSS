@@ -472,10 +472,26 @@ async def startup():
                 _digest_scheduler.start()
                 app.state.digest_scheduler = _digest_scheduler
                 print("[Phase18.7] Client-error digest scheduler started (30 min interval)")
-            except Exception as e:
-                print(f"[Phase18.7 scheduler ERROR] {e}")
+    # Automated continuous background sync for Navratri website registrations & payments
+    try:
+        import asyncio
+        async def _navratri_background_sync_loop():
+            # Initial quick sync on startup after 5 seconds
+            await asyncio.sleep(5)
+            while True:
+                try:
+                    from core.website_sync import sync_from_mysql_database
+                    res = await sync_from_mysql_database()
+                    if res.get("total_synced", 0) > 0:
+                        print(f"[Auto-Sync Navratri] Synced {res.get('total_synced')} leads (New: {res.get('new_leads_created')}, Updated: {res.get('existing_leads_updated')})")
+                except Exception:
+                    pass
+                await asyncio.sleep(60)
+
+        asyncio.create_task(_navratri_background_sync_loop())
+        print("[Navratri Sync] Automated continuous background sync daemon started (60s loop)")
     except Exception as e:
-        print(f"[Phase17.0 ERROR] {e}")
+        print(f"[Navratri Sync WARN] {e}")
 
 
 # Phase 18.7 — module-level handle to the scheduler so shutdown can stop it
