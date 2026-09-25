@@ -16,6 +16,13 @@ from core.auth import get_current_user
 from core.database import db
 from core.website_sync import upsert_website_lead, sync_from_mysql_database
 
+from core.navratri_automation import (
+    is_lead_paid,
+    has_lead_resume,
+    send_navratri_resume_request,
+    send_navratri_payment_link,
+)
+
 router = APIRouter(prefix="/leads", tags=["Website Lead Sync"])
 leads_col = db["leads"]
 
@@ -39,6 +46,15 @@ async def navratri_lead_webhook(request: Request, background_tasks: BackgroundTa
     # Upsert the lead into MongoDB
     lead_doc, is_new = await upsert_website_lead(data)
 
+    # Automated Workflow Transitions
+    if is_lead_paid(lead_doc):
+        # Paid lead: if resume is missing, auto-dispatch Resume Upload link via Email & WhatsApp
+        if not has_lead_resume(lead_doc):
+            background_tasks.add_task(send_navratri_resume_request, lead_doc)
+    else:
+        # Unpaid lead: auto-dispatch Payment Link via Email & WhatsApp
+        background_tasks.add_task(send_navratri_payment_link, lead_doc)
+
     return {
         "status": "success",
         "action": "created" if is_new else "updated",
@@ -46,6 +62,7 @@ async def navratri_lead_webhook(request: Request, background_tasks: BackgroundTa
         "lead_number": lead_doc.get("lead_number"),
         "unique_id": lead_doc.get("unique_id"),
         "payment_status": lead_doc.get("payment_status"),
+        "has_resume": has_lead_resume(lead_doc),
         "received_at": datetime.now(timezone.utc).isoformat(),
     }
 

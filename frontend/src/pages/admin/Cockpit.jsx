@@ -17,6 +17,7 @@ import {
   Filter, ArrowDownUp, ChevronRight, Wand2, Sparkles, Send, Bot, Zap,
   Home, Bell, Inbox, Shield, FileBadge, MessageSquare, X, AlertCircle,
   Clock, Mail, Loader2, RefreshCw, CheckSquare, Square, UserPlus, ExternalLink, Download,
+  Copy, Check, CreditCard, Flame,
 } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose,
@@ -61,12 +62,13 @@ const C = {
 };
 
 const FUNNEL_DEF = [
-  { key: 'leads',       label: 'Leads',           icon: Inbox },
-  { key: 'assessments', label: 'Assessments',     icon: FileText },
-  { key: 'pa',          label: 'Pre-Assessments', icon: FileBadge },
-  { key: 'proposals',   label: 'Proposals',       icon: Send },
-  { key: 'cases',       label: 'Active Cases',    icon: Briefcase },
-  { key: 'closed',      label: 'Closed',          icon: CheckCircle2 },
+  { key: 'navratri',    label: '✨ Navratri Offer', icon: Flame, isSpecial: true },
+  { key: 'leads',       label: 'Leads',             icon: Inbox },
+  { key: 'assessments', label: 'Assessments',       icon: FileText },
+  { key: 'pa',          label: 'Pre-Assessments',   icon: FileBadge },
+  { key: 'proposals',   label: 'Proposals',         icon: Send },
+  { key: 'cases',       label: 'Active Cases',      icon: Briefcase },
+  { key: 'closed',      label: 'Closed',            icon: CheckCircle2 },
 ];
 
 const COUNTRY_FLAG = {
@@ -90,6 +92,7 @@ export default function Cockpit() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeStage, setActiveStage] = useState('all');
+  const [navratriStatusFilter, setNavratriStatusFilter] = useState('all'); // 'all' | 'paid_resume_received' | 'paid_resume_pending' | 'unpaid'
   const [search, setSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('all'); // 'me' | 'all'
   const [reportPendingOnly, setReportPendingOnly] = useState(false);
@@ -99,6 +102,7 @@ export default function Cockpit() {
   const [cardDetail, setCardDetail] = useState(null);
   const [showCmdK, setShowCmdK] = useState(false);
   const [cmdQuery, setCmdQuery] = useState('');
+  const [copiedId, setCopiedId] = useState(null);
 
 
   const [teamMembers, setTeamMembers] = useState([]);
@@ -296,6 +300,78 @@ export default function Cockpit() {
   };
 
 
+  const handleSendResumeRequest = async (leadIds) => {
+    const ids = Array.isArray(leadIds) ? leadIds : [leadIds];
+    if (!ids.length) return;
+    try {
+      setBulkActionLoading(true);
+      const res = await axios.post(`${API}/cockpit/navratri/send-resume-request`, { lead_ids: ids }, { headers });
+      setBulkActionLoading(false);
+      fetchAll();
+      alert(`Sent Resume Upload Link to ${res.data?.dispatched_count || ids.length} lead(s) via Email & WhatsApp!`);
+    } catch (e) {
+      setBulkActionLoading(false);
+      alert(e.response?.data?.detail || 'Failed to dispatch resume requests');
+    }
+  };
+
+  const handleSendPaymentLink = async (leadIds) => {
+    const ids = Array.isArray(leadIds) ? leadIds : [leadIds];
+    if (!ids.length) return;
+    try {
+      setBulkActionLoading(true);
+      const res = await axios.post(`${API}/cockpit/navratri/send-payment-link`, { lead_ids: ids }, { headers });
+      setBulkActionLoading(false);
+      fetchAll();
+      alert(`Sent Navratri Offer Payment Link to ${res.data?.dispatched_count || ids.length} lead(s) via Email & WhatsApp!`);
+    } catch (e) {
+      setBulkActionLoading(false);
+      alert(e.response?.data?.detail || 'Failed to dispatch payment links');
+    }
+  };
+
+  const handleMarkPaid = async (leadId) => {
+    if (!leadId) return;
+    try {
+      setBulkActionLoading(true);
+      const res = await axios.post(`${API}/cockpit/navratri/mark-paid`, { lead_id: leadId }, { headers });
+      setBulkActionLoading(false);
+      fetchAll();
+      if (res.data?.has_resume) {
+        alert('Payment confirmed! Lead is updated as Paid with resume and ready for Bulk Pre-Assessment.');
+      } else {
+        alert('Payment confirmed! Lead is updated as Paid and Resume Upload Link was auto-dispatched via Email & WhatsApp.');
+      }
+    } catch (e) {
+      setBulkActionLoading(false);
+      alert(e.response?.data?.detail || 'Failed to mark lead as paid');
+    }
+  };
+
+  const handleNavratriBulkPreAssessment = async (leadIds = []) => {
+    try {
+      setBulkActionLoading(true);
+      const res = await axios.post(`${API}/cockpit/navratri/bulk-process-pre-assessment`, {
+        lead_ids: leadIds.length ? leadIds : undefined,
+      }, { headers });
+      setBulkActionLoading(false);
+      setSelectedLeadIds([]);
+      fetchAll();
+      alert(`Queued ${res.data?.leads_queued_count || 'all'} Paid Navratri leads for Bulk Pre-Assessment!`);
+      navigate('/sales/bulk-assessment');
+    } catch (e) {
+      setBulkActionLoading(false);
+      alert(e.response?.data?.detail || 'Failed to process Navratri Bulk Pre-Assessment');
+    }
+  };
+
+  const handleCopyLink = (url, id) => {
+    if (!url) return;
+    navigator.clipboard.writeText(url);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
   // ─── Data fetchers ─────────────────────────────────────────────────────────
   const fetchFunnel = useCallback(async () => {
     try {
@@ -308,16 +384,19 @@ export default function Cockpit() {
     try {
       const params = new URLSearchParams();
       if (activeStage !== 'all') params.set('stage', activeStage);
+      if (activeStage === 'navratri' && navratriStatusFilter !== 'all') {
+        params.set('navratri_status', navratriStatusFilter);
+      }
       if (search) params.set('search', search);
       if (ownerFilter !== 'all') params.set('owner', ownerFilter);
       if (reportPendingOnly) params.set('filter', 'paid_report_pending');
       if (hasResumeOnly) params.set('has_resume', 'true');
       params.set('sort', sortMode);
-      params.set('limit', '60');
+      params.set('limit', '80');
       const r = await axios.get(`${API}/cockpit/cards?${params}`, { headers });
       setCards(r.data.items || []);
     } catch (e) { console.error('cards', e); }
-  }, [headers, activeStage, search, ownerFilter, reportPendingOnly, hasResumeOnly, sortMode]);
+  }, [headers, activeStage, navratriStatusFilter, search, ownerFilter, reportPendingOnly, hasResumeOnly, sortMode]);
 
 
   const fetchBrief = useCallback(async () => {
@@ -533,7 +612,11 @@ export default function Cockpit() {
                   count={funnel?.[f.key] ?? 0}
                   icon={f.icon}
                   active={activeStage === f.key}
-                  onClick={() => setActiveStage(f.key)}
+                  isSpecial={f.isSpecial}
+                  onClick={() => {
+                    setActiveStage(f.key);
+                    if (f.key !== 'navratri') setNavratriStatusFilter('all');
+                  }}
                   testid={`cockpit-funnel-${f.key}`}
                 />
                 {idx < FUNNEL_DEF.length - 1 && (
@@ -543,6 +626,104 @@ export default function Cockpit() {
             ))}
           </div>
         </div>
+
+        {/* NAVRATRI CAMPAIGN CONTROL & SEGREGATION BAR */}
+        {activeStage === 'navratri' && (
+          <div
+            className="px-6 py-3 border-b flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2"
+            style={{ background: 'linear-gradient(to right, #FFF7ED, #FEF3C7)', borderColor: '#FED7AA' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm text-white" style={{ background: '#EA7C2E' }}>
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-black tracking-wide uppercase" style={{ color: '#9A3412' }}>
+                    Navratri Festive Campaign
+                  </h4>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-200 text-orange-900 border border-orange-300">
+                    Live Sync
+                  </span>
+                </div>
+                <p className="text-[11px]" style={{ color: '#B45309' }}>
+                  Integrated Website Form Registrations · Automated Pipeline
+                </p>
+              </div>
+            </div>
+
+            {/* Segregation Filter Buttons */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setNavratriStatusFilter('all')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm"
+                style={{
+                  background: navratriStatusFilter === 'all' ? '#134E4A' : '#FFFFFF',
+                  color: navratriStatusFilter === 'all' ? '#FFFFFF' : '#334155',
+                  border: '1px solid',
+                  borderColor: navratriStatusFilter === 'all' ? '#134E4A' : '#CBD5E1',
+                }}
+              >
+                All Navratri ({funnel?.navratri || cards.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNavratriStatusFilter('paid_resume_received')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                style={{
+                  background: navratriStatusFilter === 'paid_resume_received' ? '#047857' : '#ECFDF5',
+                  color: navratriStatusFilter === 'paid_resume_received' ? '#FFFFFF' : '#065F46',
+                  border: '1px solid #6EE7B7',
+                }}
+                title="Paid leads with resume attached (Ready for Bulk Pre-Assessment)"
+              >
+                <span>🟢 Paid · Resume Received</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNavratriStatusFilter('paid_resume_pending')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                style={{
+                  background: navratriStatusFilter === 'paid_resume_pending' ? '#D97706' : '#FFFBEB',
+                  color: navratriStatusFilter === 'paid_resume_pending' ? '#FFFFFF' : '#92400E',
+                  border: '1px solid #FCD34D',
+                }}
+                title="Paid leads awaiting resume upload (Click to send upload link)"
+              >
+                <span>🟡 Paid · Resume Pending</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setNavratriStatusFilter('unpaid')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                style={{
+                  background: navratriStatusFilter === 'unpaid' ? '#DC2626' : '#FEF2F2',
+                  color: navratriStatusFilter === 'unpaid' ? '#FFFFFF' : '#991B1B',
+                  border: '1px solid #FCA5A5',
+                }}
+                title="Unpaid leads (Click to send payment link)"
+              >
+                <span>🔴 Unpaid / Payment Pending</span>
+              </button>
+            </div>
+
+            {/* Top Quick Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleNavratriBulkPreAssessment([])}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-extrabold text-white shadow-md flex items-center gap-1.5 transition-all hover:opacity-90"
+                style={{ background: '#0F766E' }}
+                title="Enqueue all Paid leads with Resumes into Bulk Pre-Assessment"
+              >
+                <Zap className="h-3.5 w-3.5" /> ⚡ Bulk Pre-Assessment (Ready)
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* FILTER ROW */}
         <div
@@ -629,9 +810,9 @@ export default function Cockpit() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name..."
+                placeholder="Search by name or unique ID..."
                 className="pl-7 pr-3 py-1.5 rounded-md border text-xs outline-none"
-                style={{ background: C.card, borderColor: C.border, color: C.ink, width: '180px' }}
+                style={{ background: C.card, borderColor: C.border, color: C.ink, width: '190px' }}
                 data-testid="cockpit-search-input"
               />
             </div>
@@ -671,6 +852,11 @@ export default function Cockpit() {
                 isSelected={selectedLeadIds.includes(card.id)}
                 onToggleSelect={card.type === 'lead' ? (e) => toggleLeadSelection(card.id, e) : null}
                 onConvertToPA={card.type === 'lead' ? (e) => { e.stopPropagation(); handleConvertToPA(card.id); } : null}
+                onSendResumeRequest={(leadId) => handleSendResumeRequest(leadId)}
+                onSendPaymentLink={(leadId) => handleSendPaymentLink(leadId)}
+                onMarkPaid={(leadId) => handleMarkPaid(leadId)}
+                onCopyLink={(url, id) => handleCopyLink(url, id)}
+                copiedId={copiedId}
               />
             ))}
           </div>
@@ -686,7 +872,7 @@ export default function Cockpit() {
           {/* FLOATING BULK ACTIONS TOOLBAR */}
           {selectedLeadIds.length > 0 && (
             <div
-              className="sticky bottom-4 left-0 right-0 mx-auto max-w-3xl bg-white border rounded-xl shadow-2xl p-3.5 z-40 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4"
+              className="sticky bottom-4 left-0 right-0 mx-auto max-w-4xl bg-white border rounded-xl shadow-2xl p-3.5 z-40 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4"
               style={{ borderColor: C.teal, background: '#FFFFFF', boxShadow: '0 10px 25px -5px rgba(15, 118, 110, 0.2), 0 8px 10px -6px rgba(15, 118, 110, 0.2)' }}
             >
               <div className="flex items-center gap-2 shrink-0">
@@ -716,7 +902,7 @@ export default function Cockpit() {
                 <select
                   value={bulkAssignTarget}
                   onChange={(e) => setBulkAssignTarget(e.target.value)}
-                  className="text-xs px-2.5 py-1.5 rounded-lg border outline-none font-medium max-w-[190px] cursor-pointer"
+                  className="text-xs px-2.5 py-1.5 rounded-lg border outline-none font-medium max-w-[170px] cursor-pointer"
                   style={{ borderColor: C.border, background: C.bg, color: C.ink }}
                 >
                   <option value="">Select Member / User...</option>
@@ -732,11 +918,33 @@ export default function Cockpit() {
                   Assign
                 </button>
 
+                {/* Send Bulk Resume Upload Links (Email + WhatsApp) */}
+                <button
+                  onClick={() => handleSendResumeRequest(selectedLeadIds)}
+                  disabled={bulkActionLoading}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50 transition-all hover:opacity-90"
+                  style={{ background: '#D97706' }}
+                  title="Send Resume Upload Link via Email & WhatsApp to selected leads"
+                >
+                  <Mail className="h-3.5 w-3.5" /> Resume Link (Email+WA)
+                </button>
+
+                {/* Send Bulk Payment Links (Email + WhatsApp) */}
+                <button
+                  onClick={() => handleSendPaymentLink(selectedLeadIds)}
+                  disabled={bulkActionLoading}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50 transition-all hover:opacity-90"
+                  style={{ background: '#DC2626' }}
+                  title="Send Navratri Offer Payment Link via Email & WhatsApp to selected leads"
+                >
+                  <CreditCard className="h-3.5 w-3.5" /> Payment Link (Email+WA)
+                </button>
+
                 {/* Bulk Create PA */}
                 <button
                   onClick={handleBulkConvertToPA}
                   disabled={bulkActionLoading}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50"
                   style={{ background: C.tealDark }}
                 >
                   <Zap className={`h-3.5 w-3.5 ${bulkActionLoading ? 'animate-spin' : ''}`} />
@@ -747,7 +955,7 @@ export default function Cockpit() {
                 <button
                   onClick={() => handleSendToBulkAssessment(selectedLeadIds)}
                   disabled={bulkActionLoading}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50"
                   style={{ background: C.orange }}
                 >
                   <Sparkles className={`h-3.5 w-3.5 ${bulkActionLoading ? 'animate-spin' : ''}`} />
@@ -1122,6 +1330,109 @@ export default function Cockpit() {
                 )}
 
 
+                {/* Dedicated Navratri Campaign Hub inside Drawer */}
+                {(selectedCard.is_navratri || cardDetail?.card?.is_navratri || cardDetail?.record?.source?.includes('Navratri') || cardDetail?.record?.unique_id?.startsWith('NN')) && (
+                  <div className="p-4 rounded-xl border shadow-sm space-y-3" style={{ background: '#FFFBEB', borderColor: '#FDE68A' }}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5" style={{ color: '#92400E' }}>
+                        <Flame className="h-4 w-4 text-amber-600" /> Navratri Offer Automation
+                      </p>
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm"
+                        style={{
+                          background: (selectedCard.navratri_category === 'paid_resume_received' || (selectedCard.is_paid && selectedCard.has_resume)) ? '#ECFDF5' : (selectedCard.is_paid || cardDetail?.record?.payment_status === 'success') ? '#FFFBEB' : '#FEF2F2',
+                          borderColor: (selectedCard.navratri_category === 'paid_resume_received' || (selectedCard.is_paid && selectedCard.has_resume)) ? '#A7F3D0' : (selectedCard.is_paid || cardDetail?.record?.payment_status === 'success') ? '#FDE68A' : '#FECACA',
+                          color: (selectedCard.navratri_category === 'paid_resume_received' || (selectedCard.is_paid && selectedCard.has_resume)) ? '#065F46' : (selectedCard.is_paid || cardDetail?.record?.payment_status === 'success') ? '#92400E' : '#991B1B',
+                        }}
+                      >
+                        {(selectedCard.navratri_category === 'paid_resume_received' || (selectedCard.is_paid && selectedCard.has_resume))
+                          ? '🟢 Paid · Resume Received'
+                          : (selectedCard.is_paid || cardDetail?.record?.payment_status === 'success')
+                          ? '🟡 Paid · Resume Pending'
+                          : '🔴 Unpaid / Payment Pending'}
+                      </span>
+                    </div>
+
+                    {/* Details / Action according to status */}
+                    {(!selectedCard.is_paid && cardDetail?.record?.payment_status !== 'success') ? (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-xs text-slate-700">
+                          Client has registered for the ₹499 Navratri Offer. Send the festive payment link via Email & WhatsApp.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleSendPaymentLink(selectedCard.id)}
+                            disabled={bulkActionLoading}
+                            className="flex-1 py-2 px-3 rounded-lg font-bold text-xs text-white shadow-sm flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
+                            style={{ background: '#DC2626' }}
+                          >
+                            <CreditCard className="h-3.5 w-3.5" /> Send Payment Link (Email + WA)
+                          </button>
+                          <button
+                            onClick={() => handleMarkPaid(selectedCard.id)}
+                            disabled={bulkActionLoading}
+                            className="py-2 px-3 rounded-lg font-bold text-xs border transition-all shadow-sm hover:opacity-90 flex items-center gap-1"
+                            style={{ borderColor: '#059669', background: '#ECFDF5', color: '#047857' }}
+                          >
+                            <Check className="h-3.5 w-3.5" /> Mark Paid
+                          </button>
+                        </div>
+                        {selectedCard.payment_link && (
+                          <div className="flex items-center justify-between text-[11px] p-2 rounded border bg-white" style={{ borderColor: '#E2E8F0' }}>
+                            <span className="truncate text-slate-600 font-mono text-[10px]">{selectedCard.payment_link}</span>
+                            <button
+                              onClick={() => handleCopyLink(selectedCard.payment_link, `pay-drawer-${selectedCard.id}`)}
+                              className="ml-2 px-2 py-1 rounded border text-[10px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1 shrink-0"
+                            >
+                              {copiedId === `pay-drawer-${selectedCard.id}` ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-slate-500" />}
+                              {copiedId === `pay-drawer-${selectedCard.id}` ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (!selectedCard.has_resume && !cardDetail?.record?.resume_url && !cardDetail?.record?.resume_file_id) ? (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-xs text-slate-700">
+                          Payment received (₹499). Client has not yet uploaded their resume. Dispatch the secure 1-click upload link via Email and WhatsApp.
+                        </p>
+                        <button
+                          onClick={() => handleSendResumeRequest(selectedCard.id)}
+                          disabled={bulkActionLoading}
+                          className="w-full py-2 px-3 rounded-lg font-bold text-xs text-white shadow-sm flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
+                          style={{ background: '#D97706' }}
+                        >
+                          <Mail className="h-3.5 w-3.5" /> Request Resume Upload (Email + WhatsApp)
+                        </button>
+                        {selectedCard.resume_upload_url && (
+                          <div className="flex items-center justify-between text-[11px] p-2 rounded border bg-white" style={{ borderColor: '#E2E8F0' }}>
+                            <span className="truncate text-slate-600 font-mono text-[10px]">{selectedCard.resume_upload_url}</span>
+                            <button
+                              onClick={() => handleCopyLink(selectedCard.resume_upload_url, `resume-drawer-${selectedCard.id}`)}
+                              className="ml-2 px-2 py-1 rounded border text-[10px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1 shrink-0"
+                            >
+                              {copiedId === `resume-drawer-${selectedCard.id}` ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-slate-500" />}
+                              {copiedId === `resume-drawer-${selectedCard.id}` ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-xs font-semibold text-emerald-800">
+                          ✓ Payment confirmed and Resume attached. This lead is ready for Bulk Pre-Assessment calculation and Report Generation!
+                        </p>
+                        <button
+                          onClick={() => handleNavratriBulkPreAssessment([selectedCard.id])}
+                          disabled={bulkActionLoading}
+                          className="w-full py-2 px-3 rounded-lg font-extrabold text-xs text-white shadow-md flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
+                          style={{ background: '#0F766E' }}
+                        >
+                          <Zap className="h-3.5 w-3.5" /> ⚡ Process Bulk Pre-Assessment
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* 1-Click Pre-Assessment & Client Assessment Action Banner */}
                 {selectedCard.type === 'lead' && (
                   <div className="p-4 rounded-xl border shadow-sm space-y-3" style={{ background: '#FFFFFF', borderColor: C.gold }}>
@@ -1370,26 +1681,27 @@ function renderUserOptions(members = []) {
   );
 }
 
-function FunnelChip({ label, count, icon: Icon, active, onClick, testid }) {
+function FunnelChip({ label, count, icon: Icon, active, isSpecial, onClick, testid }) {
   return (
     <button
       onClick={onClick}
       className="px-4 py-2 rounded-lg border text-sm font-semibold flex items-center gap-2 cursor-pointer whitespace-nowrap transition-all"
       style={{
-        background:  active ? C.tealWash : C.card,
-        borderColor: active ? C.teal     : C.border,
-        color:       active ? C.tealDeep : C.body,
-        boxShadow:   active ? `0 0 0 3px ${C.tealWash2}` : 'none',
+        background:  active ? (isSpecial ? '#FFEDD5' : C.tealWash) : (isSpecial ? '#FFFBEB' : C.card),
+        borderColor: active ? (isSpecial ? '#EA7C2E' : C.teal) : (isSpecial ? '#FCD34D' : C.border),
+        color:       active ? (isSpecial ? '#9A3412' : C.tealDeep) : (isSpecial ? '#B45309' : C.body),
+        boxShadow:   active ? (isSpecial ? '0 0 0 3px rgba(234, 124, 46, 0.2)' : `0 0 0 3px ${C.tealWash2}`) : 'none',
+        fontWeight:  isSpecial ? 700 : 600,
       }}
       data-testid={testid}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={`h-4 w-4 ${isSpecial ? 'text-amber-600' : ''}`} />
       <span>{label}</span>
       <span
         className="px-2 py-0.5 rounded-full text-xs font-bold"
         style={{
-          background: active ? C.tealWash2 : C.borderSoft,
-          color:      active ? C.tealDeep  : C.body,
+          background: active ? (isSpecial ? '#FDBA74' : C.tealWash2) : (isSpecial ? '#FEF3C7' : C.borderSoft),
+          color:      active ? (isSpecial ? '#7C2D12' : C.tealDeep) : (isSpecial ? '#92400E' : C.body),
         }}
       >
         {count}
@@ -1415,22 +1727,56 @@ function FilterButton({ icon: Icon, label, onClick, active, testid }) {
   );
 }
 
-function PipelineCard({ card, onClick, isSelected, onToggleSelect, onConvertToPA }) {
+function PipelineCard({
+  card,
+  onClick,
+  isSelected,
+  onToggleSelect,
+  onConvertToPA,
+  onSendResumeRequest,
+  onSendPaymentLink,
+  onMarkPaid,
+  onCopyLink,
+  copiedId,
+}) {
   const ringColor = URGENCY_RING[card.urgency] || C.teal;
   const flags = (card.countries || []).map(c => COUNTRY_FLAG[c] || c).join(' ');
+  const isNavratri = card.is_navratri;
+  const navCategory = card.navratri_category;
+
   return (
     <div
       onClick={onClick}
       className="p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-3 group relative"
       style={{
-        borderColor: isSelected ? C.teal : C.border,
+        borderColor: isSelected ? C.teal : isNavratri ? '#FDE68A' : C.border,
         background:  isSelected ? C.tealWash : '#FFFFFF',
         boxShadow:   isSelected ? '0 0 0 2px rgba(15, 118, 110, 0.25)' : undefined,
       }}
       onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = C.teal; }}
-      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = C.border; }}
+      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = isNavratri ? '#FDE68A' : C.border; }}
       data-testid={`cockpit-card-${card.type}-${card.id}`}
     >
+      {/* Optional Navratri Campaign Top Strip */}
+      {isNavratri && (
+        <div className="flex items-center justify-between px-2.5 py-1 rounded-lg border text-[11px] font-bold"
+             style={{
+               background: navCategory === 'paid_resume_received' ? '#ECFDF5' : navCategory === 'paid_resume_pending' ? '#FFFBEB' : '#FEF2F2',
+               borderColor: navCategory === 'paid_resume_received' ? '#A7F3D0' : navCategory === 'paid_resume_pending' ? '#FDE68A' : '#FECACA',
+               color: navCategory === 'paid_resume_received' ? '#065F46' : navCategory === 'paid_resume_pending' ? '#92400E' : '#991B1B'
+             }}>
+          <span className="flex items-center gap-1">
+            <Flame className="h-3.5 w-3.5 text-amber-600" />
+            Navratri Offer
+          </span>
+          <span>
+            {navCategory === 'paid_resume_received' && '🟢 Paid · Resume Ready'}
+            {navCategory === 'paid_resume_pending' && '🟡 Paid · Resume Pending'}
+            {navCategory === 'unpaid' && '🔴 Unpaid / Pending'}
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-start gap-2">
         <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -1524,8 +1870,68 @@ function PipelineCard({ card, onClick, isSelected, onToggleSelect, onConvertToPA
         </div>
       )}
 
-      {/* 7-step lifecycle bar */}
+      {/* Dedicated Navratri 1-Click Action Buttons on Card */}
+      {isNavratri && card.type === 'lead' && (
+        <div className="pt-1 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {navCategory === 'paid_resume_pending' && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onSendResumeRequest && onSendResumeRequest(card.id)}
+                className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
+                style={{ background: '#D97706' }}
+                title="Send Resume Upload link via Email and WhatsApp"
+              >
+                <Mail className="h-3 w-3" /> Request Resume (Email+WA)
+              </button>
+              {card.resume_upload_url && (
+                <button
+                  type="button"
+                  onClick={() => onCopyLink && onCopyLink(card.resume_upload_url, `resume-${card.id}`)}
+                  className="px-2 py-1.5 rounded-md border text-[10px] font-semibold flex items-center gap-1 transition-colors hover:bg-slate-50 cursor-pointer"
+                  style={{ borderColor: C.border, color: C.body, background: '#FFF' }}
+                  title="Copy direct Resume Upload Link"
+                >
+                  {copiedId === `resume-${card.id}` ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-slate-500" />}
+                  {copiedId === `resume-${card.id}` ? 'Copied' : 'Link'}
+                </button>
+              )}
+            </div>
+          )}
 
+          {navCategory === 'unpaid' && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onSendPaymentLink && onSendPaymentLink(card.id)}
+                className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
+                style={{ background: '#DC2626' }}
+                title="Send Navratri Offer payment link via Email and WhatsApp"
+              >
+                <CreditCard className="h-3 w-3" /> Send Payment Link
+              </button>
+              <button
+                type="button"
+                onClick={() => onMarkPaid && onMarkPaid(card.id)}
+                className="px-2 py-1.5 rounded-md border text-[10px] font-bold transition-all shadow-sm hover:opacity-90 flex items-center gap-1 cursor-pointer"
+                style={{ borderColor: '#059669', background: '#ECFDF5', color: '#047857' }}
+                title="Manually verify & mark lead as Paid"
+              >
+                <Check className="h-3 w-3" /> Mark Paid
+              </button>
+            </div>
+          )}
+
+          {navCategory === 'paid_resume_received' && (
+            <div className="px-2.5 py-1 rounded-md text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+              <span>✓ Ready for Bulk Pre-Assessment</span>
+              <Zap className="h-3 w-3 text-emerald-600" />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 7-step lifecycle bar */}
       <div className="flex gap-1 w-full pt-1">
         {Array.from({ length: 7 }).map((_, i) => {
           const done = i < card.lifecycle;

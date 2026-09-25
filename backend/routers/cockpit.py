@@ -27,6 +27,18 @@ from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from core.auth import get_current_user
 from core.database import db
+from core.navratri_automation import (
+    NAVRATRI_QUERY,
+    is_lead_navratri,
+    get_navratri_category,
+    is_lead_paid,
+    has_lead_resume,
+    get_resume_upload_url,
+    get_payment_url,
+    send_navratri_resume_request,
+    send_navratri_payment_link,
+    mark_lead_paid_and_transition,
+)
 
 router = APIRouter(prefix="/cockpit", tags=["Cockpit"])
 
@@ -75,7 +87,7 @@ async def get_cockpit_resume(file_id: str):
 
 
 # ─── Stage taxonomy ──────────────────────────────────────────────────────────
-STAGE_KEYS = ["leads", "assessments", "pa", "proposals", "cases", "closed"]
+STAGE_KEYS = ["leads", "assessments", "pa", "proposals", "cases", "closed", "navratri"]
 
 PA_STAGE_GROUPS = {
     "pa": {"new", "payment_pending", "payment_received", "documents_submitted",
@@ -187,9 +199,32 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
     )
 
     resume_fid = d.get("resume_file_id")
-    has_resume = bool(resume_fid or d.get("resume_url") or d.get("resume_path") or d.get("resume_link"))
+    has_resume = bool(
+        resume_fid
+        or d.get("resume_url")
+        or d.get("resume_path")
+        or d.get("resume_link")
+        or d.get("resume_uploaded") is True
+    )
     resume_fname = d.get("resume_filename") or ("Resume.pdf" if has_resume else None)
     resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")
+
+    is_nav = is_lead_navratri(d)
+    nav_category = get_navratri_category(d)
+    is_paid = is_lead_paid(d)
+    upload_url = get_resume_upload_url(d)
+    pay_url = get_payment_url(d)
+
+    # Contextual next action
+    if is_nav:
+        if is_paid and has_resume:
+            next_action = "Create Pre-Assessment" if has_report else "Bulk Pre-Assessment (Ready)"
+        elif is_paid and not has_resume:
+            next_action = "Request Resume (Email + WA)"
+        else:
+            next_action = "Send Payment Link (Email + WA)"
+    else:
+        next_action = "Create Pre-Assessment" if has_report else "Start Eligibility Wizard"
 
     return {
         "id": d.get("id"),
@@ -204,8 +239,15 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         "score_label": score_label,
         "qualification": d.get("latest_qualification") or "",
         "experience": d.get("total_work_experience") or "",
-        "payment_status": d.get("payment_status") or "",
+        "payment_status": d.get("payment_status") or ("success" if is_paid else "pending"),
         "payment_amount": d.get("payment_amount"),
+        "is_paid": is_paid,
+        "is_navratri": is_nav,
+        "navratri_category": nav_category,
+        "resume_upload_url": upload_url,
+        "payment_link": pay_url,
+        "last_resume_request_sent_at": d.get("last_resume_request_sent_at"),
+        "last_payment_link_sent_at": d.get("last_payment_link_sent_at"),
         "has_resume": has_resume,
         "resume_file_id": resume_fid,
         "resume_filename": resume_fname,
@@ -214,9 +256,9 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         "report_status": "generated" if has_report else (d.get("report_status") or "pending"),
         "report_generated_at": d.get("report_generated_at"),
         "assessment_report_id": d.get("assessment_report_id") or d.get("latest_report_snapshot_id"),
-        "lifecycle": 2 if has_report else 0,
-        "next_action": "Create Pre-Assessment" if has_report else "Start Eligibility Wizard",
-        "urgency": d.get("priority") or ("high" if not has_report and (d.get("payment_status") == "success" or (d.get("payment_amount") or 0) > 0) else "medium"),
+        "lifecycle": 2 if has_report else (1 if is_paid else 0),
+        "next_action": next_action,
+        "urgency": d.get("priority") or ("high" if not has_report and is_paid else "medium"),
         "owner": {
             "id": d.get("assigned_to"),
             "name": d.get("assigned_to_name") or "Unassigned",
@@ -337,9 +379,11 @@ async def get_funnel(current_user: dict = Depends(get_current_user)):
     leads_q = _own_lead_query(current_user) | {"stage": {"$ne": "converted"}}
     sa_q    = _own_query(current_user) | {"linked_pa_id": {"$in": [None, ""]}}
     pa_q    = _own_pa_query(current_user)
+    nav_q   = _own_lead_query(current_user) | NAVRATRI_QUERY
 
     leads_n = await db["leads"].count_documents(leads_q)
     assessments_n = await db["sales_assessments"].count_documents(sa_q)
+    navratri_n = await db["leads"].count_documents(nav_q)
 
     pa_counts = {k: 0 for k in ("pa", "proposals", "cases", "closed")}
     cursor = db["pre_assessments"].find(pa_q, {"_id": 0, "stage": 1})
@@ -357,6 +401,7 @@ async def get_funnel(current_user: dict = Depends(get_current_user)):
         "proposals": pa_counts["proposals"],
         "cases": pa_counts["cases"],
         "closed": pa_counts["closed"],
+        "navratri": navratri_n,
         "total_active": leads_n + assessments_n + pa_counts["pa"] + pa_counts["proposals"] + pa_counts["cases"],
         "as_of": datetime.now(timezone.utc).isoformat(),
     }
@@ -364,9 +409,10 @@ async def get_funnel(current_user: dict = Depends(get_current_user)):
 
 @router.get("/cards")
 async def get_cards(
-    stage: Optional[str] = Query(None, description="leads|assessments|pa|proposals|cases|closed|all"),
+    stage: Optional[str] = Query(None, description="leads|assessments|pa|proposals|cases|closed|navratri|all"),
     owner: Optional[str] = Query(None, description="me|all|<user_id>"),
     filter: Optional[str] = Query(None, description="paid_report_pending|with_resume|without_resume|all"),
+    navratri_status: Optional[str] = Query(None, description="paid_resume_received|paid_resume_pending|unpaid|all"),
     has_resume: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     sort: str = Query("recent", description="recent|oldest|paid_first|score_desc|score_asc"),
@@ -404,6 +450,7 @@ async def get_cards(
     text_re = {"$regex": search, "$options": "i"} if search else None
 
     want_all = (not stage) or stage == "all"
+    is_navratri_stage = stage == "navratri"
 
     # Collect all IDs/emails of generated reports across bulk_rows and sales_assessments
     gen_leads_set: set = set()
@@ -423,16 +470,24 @@ async def get_cards(
         if a.get("lead_id"): gen_leads_set.add(a["lead_id"])
         if a.get("client_email"): gen_emails_set.add(str(a["client_email"]).strip().lower())
 
-    # 1) Leads
-    if want_all or stage == "leads":
+    # 1) Navratri Offer Leads
+    if is_navratri_stage:
+        q = own_filter_lead | NAVRATRI_QUERY
+        if text_re:
+            q["$or"] = [{"name": text_re}, {"email": text_re}, {"phone": text_re}, {"unique_id": text_re}]
+        async for d in db["leads"].find(q, {"_id": 0}).sort("updated_at", -1).limit(limit):
+            cards.append(_build_lead_card(d, gen_leads_set, gen_emails_set))
+
+    # 2) Standard Leads (when in 'all' or 'leads')
+    elif want_all or stage == "leads":
         q = own_filter_lead | {"stage": {"$ne": "converted"}}
         if text_re:
             q["$or"] = [{"name": text_re}, {"email": text_re}, {"phone": text_re}]
         async for d in db["leads"].find(q, {"_id": 0}).sort("updated_at", -1).limit(limit):
             cards.append(_build_lead_card(d, gen_leads_set, gen_emails_set))
 
-    # 2) Sales assessments (no PA yet)
-    if want_all or stage == "assessments":
+    # 3) Sales assessments (no PA yet)
+    if (want_all or stage == "assessments") and not is_navratri_stage:
         q = own_filter_sa | {"linked_pa_id": {"$in": [None, ""]}}
         if text_re:
             q["client_name"] = text_re
@@ -447,14 +502,14 @@ async def get_cards(
         async for d in db["sales_assessments"].find(q, proj).sort("updated_at", -1).limit(limit):
             cards.append(_build_assessment_card(d))
 
-    # 3) Pre-assessments (grouped by stage)
+    # 4) Pre-assessments (grouped by stage)
     pa_stage_filter: Optional[Dict[str, Any]] = None
-    if want_all:
+    if want_all and not is_navratri_stage:
         pa_stage_filter = {}
-    elif stage in PA_STAGE_GROUPS:
+    elif stage in PA_STAGE_GROUPS and not is_navratri_stage:
         pa_stage_filter = {"stage": {"$in": list(PA_STAGE_GROUPS[stage])}}
 
-    if pa_stage_filter is not None:
+    if pa_stage_filter is not None and not is_navratri_stage:
         q = own_filter_pa | pa_stage_filter
         if text_re:
             q["client_name"] = text_re
@@ -471,6 +526,19 @@ async def get_cards(
                 if st in members:
                     cards.append(_build_pa_card(d, group))
                     break
+
+    # Navratri status filter
+    if navratri_status and is_navratri_stage:
+        if navratri_status == "paid_resume_received":
+            cards = [c for c in cards if c.get("navratri_category") == "paid_resume_received"]
+        elif navratri_status == "paid_resume_pending":
+            cards = [c for c in cards if c.get("navratri_category") == "paid_resume_pending"]
+        elif navratri_status == "unpaid":
+            cards = [c for c in cards if c.get("navratri_category") in ("unpaid", "unpaid_with_resume", "unpaid_without_resume")]
+        elif navratri_status == "unpaid_with_resume":
+            cards = [c for c in cards if c.get("navratri_category") == "unpaid_with_resume"]
+        elif navratri_status == "unpaid_without_resume":
+            cards = [c for c in cards if c.get("navratri_category") == "unpaid_without_resume"]
 
     # Filter
     if filter == "paid_report_pending":
@@ -688,4 +756,147 @@ async def get_card_detail(
         }
 
     raise HTTPException(status_code=400, detail=f"Unknown kind: {kind}")
+
+
+# ─── Navratri Campaign Automation Endpoints ─────────────────────────────────
+
+@router.post("/navratri/send-resume-request")
+async def api_send_navratri_resume_request(
+    payload: Dict[str, Any],
+    current_user: dict = Depends(get_current_user),
+):
+    """Dispatches secure resume upload link via Email and WhatsApp to specified lead(s)."""
+    lead_ids = payload.get("lead_ids") or []
+    if isinstance(payload.get("lead_id"), str):
+        lead_ids = [payload["lead_id"]]
+    
+    if not lead_ids:
+        raise HTTPException(status_code=400, detail="No lead_ids specified.")
+
+    sender_name = current_user.get("name") or "LEAMSS Migration Team"
+    leads = await db["leads"].find({"id": {"$in": lead_ids}}).to_list(len(lead_ids))
+    
+    results = []
+    for l in leads:
+        res = await send_navratri_resume_request(l, sender_name=sender_name)
+        results.append(res)
+
+    sent_count = sum(1 for r in results if r.get("email_sent") or r.get("whatsapp_sent"))
+    return {
+        "ok": True,
+        "total_requested": len(lead_ids),
+        "dispatched_count": sent_count,
+        "results": results,
+    }
+
+
+@router.post("/navratri/send-payment-link")
+async def api_send_navratri_payment_link(
+    payload: Dict[str, Any],
+    current_user: dict = Depends(get_current_user),
+):
+    """Dispatches Navratri Special Offer payment link via Email and WhatsApp to specified lead(s)."""
+    lead_ids = payload.get("lead_ids") or []
+    if isinstance(payload.get("lead_id"), str):
+        lead_ids = [payload["lead_id"]]
+    payment_url = payload.get("payment_url")
+
+    if not lead_ids:
+        raise HTTPException(status_code=400, detail="No lead_ids specified.")
+
+    leads = await db["leads"].find({"id": {"$in": lead_ids}}).to_list(len(lead_ids))
+    
+    results = []
+    for l in leads:
+        res = await send_navratri_payment_link(l, payment_url_override=payment_url)
+        results.append(res)
+
+    sent_count = sum(1 for r in results if r.get("email_sent") or r.get("whatsapp_sent"))
+    return {
+        "ok": True,
+        "total_requested": len(lead_ids),
+        "dispatched_count": sent_count,
+        "results": results,
+    }
+
+
+@router.post("/navratri/mark-paid")
+async def api_mark_navratri_lead_paid(
+    payload: Dict[str, Any],
+    current_user: dict = Depends(get_current_user),
+):
+    """Manually marks a Navratri lead as Paid and transitions them to Paid list.
+    
+    If resume is already present, status becomes 'paid_resume_received' (Ready for bulk assessment).
+    If resume is missing, status becomes 'paid_resume_pending' and auto-dispatches resume upload link.
+    """
+    lead_id = payload.get("lead_id")
+    if not lead_id:
+        raise HTTPException(status_code=400, detail="lead_id is required.")
+
+    payment_mode = payload.get("payment_mode", "upi")
+    payment_amount = payload.get("payment_amount", 1.0)
+    trigger_auto_resume = payload.get("trigger_auto_resume_request", True)
+
+    try:
+        res = await mark_lead_paid_and_transition(
+            lead_id=lead_id,
+            payment_mode=payment_mode,
+            payment_amount=payment_amount,
+            trigger_auto_resume_request=trigger_auto_resume,
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/navratri/bulk-process-pre-assessment")
+async def api_bulk_process_navratri(
+    payload: Dict[str, Any],
+    current_user: dict = Depends(get_current_user),
+):
+    """Enqueues all selected or all 'Paid · Resume Received' Navratri leads into Bulk Pre-Assessment batch for Report Generation."""
+    from routers.bulk_assessments import create_batch_from_leads
+    lead_ids = payload.get("lead_ids") or []
+    
+    # If no specific IDs provided, get all Navratri paid leads with resume
+    if not lead_ids:
+        q = NAVRATRI_QUERY | {
+            "$or": [
+                {"payment_status": {"$in": ["success", "paid", "completed", "captured"]}},
+                {"payment_amount": {"$gt": 0}},
+                {"stage": "payment_done"}
+            ],
+            "$and": [
+                {"$or": [
+                    {"resume_file_id": {"$exists": True, "$ne": None, "$ne": ""}},
+                    {"resume_url": {"$exists": True, "$ne": None, "$ne": ""}},
+                    {"resume_path": {"$exists": True, "$ne": None, "$ne": ""}},
+                    {"resume_uploaded": True}
+                ]}
+            ]
+        }
+        cursor = db["leads"].find(q, {"id": 1}).limit(200)
+        async for row in cursor:
+            if row.get("id"):
+                lead_ids.append(row["id"])
+
+    if not lead_ids:
+        raise HTTPException(status_code=404, detail="No Paid Navratri leads with resumes found ready for processing.")
+
+    batch_res = await create_batch_from_leads(
+        payload={
+            "lead_ids": lead_ids,
+            "paid_only": True,
+            "report_pending_only": payload.get("report_pending_only", False),
+            "batch_name": f"Navratri Offer Paid Batch ({datetime.now(timezone.utc).strftime('%d %b %Y')})",
+        },
+        current_user=current_user,
+    )
+    return {
+        "ok": True,
+        "leads_queued_count": len(lead_ids),
+        "batch_info": batch_res,
+    }
+
 
