@@ -379,7 +379,11 @@ async def get_funnel(current_user: dict = Depends(get_current_user)):
     leads_q = _own_lead_query(current_user) | {"stage": {"$ne": "converted"}}
     sa_q    = _own_query(current_user) | {"linked_pa_id": {"$in": [None, ""]}}
     pa_q    = _own_pa_query(current_user)
-    nav_q   = _own_lead_query(current_user) | NAVRATRI_QUERY
+    
+    if _is_admin(current_user):
+        nav_q = NAVRATRI_QUERY
+    else:
+        nav_q = {"$and": [_own_lead_query(current_user), NAVRATRI_QUERY]}
 
     leads_n = await db["leads"].count_documents(leads_q)
     assessments_n = await db["sales_assessments"].count_documents(sa_q)

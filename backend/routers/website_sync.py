@@ -28,7 +28,12 @@ leads_col = db["leads"]
 
 
 @router.post("/navratri-webhook")
-async def navratri_lead_webhook(request: Request, background_tasks: BackgroundTasks):
+async def navratri_lead_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    is_sync: Optional[bool] = Query(False),
+    notify: Optional[bool] = Query(None),
+):
     """Public webhook receiver for https://leamss.com/navratri-offers form submissions.
     
     Can be called directly by PHP/Laravel on leamss.com when a lead registers or makes a payment.
@@ -43,17 +48,29 @@ async def navratri_lead_webhook(request: Request, background_tasks: BackgroundTa
     if not data:
         raise HTTPException(status_code=400, detail="No registration data provided in payload")
 
+    # Check if this request is a sync/batch operation (do NOT send automated messages for mass syncs)
+    sync_flag = (
+        is_sync is True
+        or data.get("is_sync") in (True, "true", "1", 1)
+        or data.get("sync") in (True, "true", "1", 1)
+        or data.get("is_bulk") in (True, "true", "1", 1)
+        or data.get("notify") in (False, "false", "0", 0)
+        or (notify is False)
+    )
+
     # Upsert the lead into MongoDB
     lead_doc, is_new = await upsert_website_lead(data)
 
-    # Automated Workflow Transitions
-    if is_lead_paid(lead_doc):
-        # Paid lead: if resume is missing, auto-dispatch Resume Upload link via Email & WhatsApp
-        if not has_lead_resume(lead_doc):
-            background_tasks.add_task(send_navratri_resume_request, lead_doc)
-    else:
-        # Unpaid lead: auto-dispatch Payment Link via Email & WhatsApp
-        background_tasks.add_task(send_navratri_payment_link, lead_doc)
+    # Only send automated Email/WhatsApp notifications if NOT a bulk/historical sync
+    if not sync_flag:
+        if is_lead_paid(lead_doc):
+            # Paid lead: if resume is missing and hasn't been requested in the last 24 hours
+            if not has_lead_resume(lead_doc) and not lead_doc.get("last_resume_request_sent_at"):
+                background_tasks.add_task(send_navratri_resume_request, lead_doc)
+        else:
+            # Unpaid lead: only auto-send payment link if fresh new registration and hasn't been sent
+            if is_new and not lead_doc.get("last_payment_link_sent_at"):
+                background_tasks.add_task(send_navratri_payment_link, lead_doc)
 
     return {
         "status": "success",

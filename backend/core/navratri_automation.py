@@ -28,7 +28,9 @@ WEBSITE_OFFER_URL = os.environ.get("WEBSITE_OFFER_URL", "https://leamss.com/navr
 
 NAVRATRI_QUERY = {
     "$or": [
+        {"is_navratri": True},
         {"source": {"$regex": "navratri|website", "$options": "i"}},
+        {"tags": {"$in": ["Navratri Offer 2026", "Website Registration", "Navratri Offer", "Payment Success", "Payment Failed"]}},
         {"tags": {"$regex": "navratri|website registration|navratri offer", "$options": "i"}},
         {"service_interested": {"$regex": "navratri|special offer", "$options": "i"}},
         {"utm_campaign": {"$regex": "navratri", "$options": "i"}},

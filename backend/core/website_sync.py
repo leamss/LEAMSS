@@ -49,32 +49,39 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
     email = (row.get("email") or "").strip().lower()
     
     # Clean mobile number
-    mobile = row.get("mobile_full") or row.get("mobile") or row.get("phone") or ""
-    mobile_num = row.get("mobile_number") or ""
-    country_code = row.get("country_code") or "91"
+    mobile = row.get("mobile_full") or row.get("mobileFull") or row.get("mobile") or row.get("phone") or ""
+    mobile_num = row.get("mobile_number") or row.get("mobileNumber") or ""
+    country_code = row.get("country_code") or row.get("countryCode") or "91"
     if not mobile and mobile_num:
         mobile = f"+{country_code}{mobile_num}" if not str(mobile_num).startswith("+") else str(mobile_num)
     
     # Unique ID from website
-    unique_id = (row.get("unique_id") or row.get("id") or "").strip()
-    if isinstance(unique_id, int):
+    unique_id = (row.get("unique_id") or row.get("uniqueId") or row.get("id") or "").strip()
+    if isinstance(unique_id, int) or (isinstance(unique_id, str) and unique_id.isdigit()):
         unique_id = f"NN2427{unique_id}"
 
     # Payment details
-    payment_status = (row.get("payment_status") or "pending").strip().lower()
-    payment_amount = row.get("payment_amount")
+    raw_status = (row.get("payment_status") or row.get("paymentStatus") or row.get("status") or "").strip().lower()
+    if raw_status in ("success", "paid", "completed", "captured"):
+        payment_status = "success"
+    elif raw_status in ("failed", "cancelled", "declined"):
+        payment_status = "failed"
+    else:
+        payment_status = "pending"
+
+    payment_amount = row.get("payment_amount") or row.get("paymentAmount") or row.get("amount")
     try:
         payment_amount_float = float(payment_amount) if payment_amount is not None else None
     except (ValueError, TypeError):
         payment_amount_float = None
 
-    payment_mode = row.get("payment_mode")
-    razorpay_payment_id = row.get("razorpay_payment_id")
-    razorpay_order_id = row.get("razorpay_order_id")
-    paid_at = _parse_dt(row.get("paid_at"))
+    payment_mode = row.get("payment_mode") or row.get("paymentMode")
+    razorpay_payment_id = row.get("razorpay_payment_id") or row.get("razorpayPaymentId") or row.get("payment_id")
+    razorpay_order_id = row.get("razorpay_order_id") or row.get("razorpayOrderId") or row.get("order_id")
+    paid_at = _parse_dt(row.get("paid_at") or row.get("paidAt"))
     
-    created_at = _parse_dt(row.get("created_at")) or datetime.now(timezone.utc)
-    updated_at = _parse_dt(row.get("updated_at")) or datetime.now(timezone.utc)
+    created_at = _parse_dt(row.get("created_at") or row.get("createdAt")) or datetime.now(timezone.utc)
+    updated_at = _parse_dt(row.get("updated_at") or row.get("updatedAt")) or datetime.now(timezone.utc)
 
     # CRM Stage based on payment
     if payment_status == "success":
@@ -88,7 +95,14 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
         priority = "medium"
 
     # Resume URL formation
-    resume_path = row.get("resume_link") or row.get("resume_url") or row.get("resume_path") or row.get("resumePath") or ""
+    resume_path = (
+        row.get("resume_link")
+        or row.get("resume_url")
+        or row.get("resume_path")
+        or row.get("resumePath")
+        or row.get("resume")
+        or ""
+    )
     resume_url = ""
     if resume_path:
         if resume_path.startswith("http://") or resume_path.startswith("https://"):
@@ -97,7 +111,13 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
             clean_path = resume_path.lstrip("/")
             resume_url = f"https://leamss.com/{clean_path}"
 
-    marital_status = row.get("marital_status") or row.get("marital") or ""
+    marital_status = row.get("marital_status") or row.get("marital") or row.get("maritalStatus") or ""
+    dob = str(row.get("dob") or row.get("date_of_birth") or row.get("dateOfBirth") or "")
+    qualification = str(row.get("qualification") or row.get("latest_qualification") or row.get("latestQualification") or "")
+    experience = str(row.get("experience") or row.get("total_work_experience") or row.get("workExperience") or "")
+    gender = str(row.get("gender") or "")
+    sales_person_name = str(row.get("sales_person_name") or row.get("salesPersonName") or "")
+    reference = str(row.get("reference") or "")
 
     tags = ["Navratri Offer 2026", "Website Registration"]
     if payment_status == "success":
@@ -116,26 +136,27 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
         "city": row.get("city", ""),
         "service_interested": row.get("service_interested") or "Navratri Special Offer",
         "country_of_interest": row.get("country_of_interest") or "AU",
-        "message": row.get("message") or f"Registered for Navratri Offer. Experience: {row.get('experience', 'N/A')}, Qualification: {row.get('qualification', 'N/A')}",
-        "source": row.get("source") or "Navratri Offer (leamss.com)",
-        "subsource": row.get("subsource") or row.get("reference") or "Website Form",
+        "message": row.get("message") or f"Registered for Navratri Offer. Experience: {experience or 'N/A'}, Qualification: {qualification or 'N/A'}",
+        "source": "Navratri Offer (leamss.com)",
+        "subsource": row.get("subsource") or reference or "Website Form",
         "utm_source": row.get("utm_source") or "website_navratri",
         "utm_medium": row.get("utm_medium") or "web_form",
         "utm_campaign": row.get("utm_campaign") or "navratri_offers_2026",
+        "is_navratri": True,
         "stage": row.get("stage") or stage,
         "priority": row.get("priority") or priority,
         "assigned_to": row.get("assigned_to"),
         "assigned_to_name": row.get("assigned_to_name") or "Unassigned",
-        "date_of_birth": str(row.get("dob") or row.get("date_of_birth") or ""),
+        "date_of_birth": dob,
         "occupation": row.get("occupation") or "",
-        "total_work_experience": str(row.get("experience") or row.get("total_work_experience") or ""),
-        "latest_qualification": str(row.get("qualification") or row.get("latest_qualification") or ""),
-        "gender": str(row.get("gender") or ""),
-        "marital_status": str(marital_status),
+        "total_work_experience": experience,
+        "latest_qualification": qualification,
+        "gender": gender,
+        "marital_status": marital_status,
         "resume_path": resume_path,
         "resume_url": resume_url,
-        "sales_person_name": row.get("sales_person_name") or "",
-        "reference": row.get("reference") or "",
+        "sales_person_name": sales_person_name,
+        "reference": reference,
         "payment_status": payment_status,
         "payment_mode": payment_mode,
         "payment_amount": payment_amount_float,
@@ -199,7 +220,8 @@ async def upsert_website_lead(data: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
             "gender": mapped["gender"] or existing.get("gender"),
             "marital_status": mapped["marital_status"] or existing.get("marital_status"),
             "resume_url": mapped["resume_url"] or existing.get("resume_url"),
-            "payment_status": mapped["payment_status"] or existing.get("payment_status"),
+            "resume_path": mapped["resume_path"] or existing.get("resume_path"),
+            "payment_status": mapped["payment_status"],
             "payment_mode": mapped["payment_mode"] or existing.get("payment_mode"),
             "payment_amount": mapped["payment_amount"] if mapped["payment_amount"] is not None else existing.get("payment_amount"),
             "razorpay_payment_id": mapped["razorpay_payment_id"] or existing.get("razorpay_payment_id"),
@@ -207,13 +229,33 @@ async def upsert_website_lead(data: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
             "paid_at": mapped["paid_at"] or existing.get("paid_at"),
             "sales_person_name": mapped["sales_person_name"] or existing.get("sales_person_name"),
             "reference": mapped["reference"] or existing.get("reference"),
+            "source": "Navratri Offer (leamss.com)",
+            "service_interested": mapped.get("service_interested") or existing.get("service_interested") or "Navratri Special Offer",
+            "utm_campaign": mapped.get("utm_campaign") or existing.get("utm_campaign") or "navratri_offers_2026",
+            "is_navratri": True,
             "stage": new_stage,
             "priority": new_priority,
             "updated_at": datetime.now(timezone.utc),
         }
 
         # Combine tags
-        combined_tags = list(set(existing.get("tags", []) + mapped.get("tags", [])))
+        old_tags = existing.get("tags") or []
+        combined_tags = list(set(old_tags + mapped.get("tags", []) + ["Navratri Offer 2026", "Website Registration"]))
+        if mapped["payment_status"] == "success":
+            if "Payment Failed" in combined_tags:
+                combined_tags.remove("Payment Failed")
+            if "Payment Success" not in combined_tags:
+                combined_tags.append("Payment Success")
+        elif mapped["payment_status"] == "failed":
+            if "Payment Success" in combined_tags:
+                combined_tags.remove("Payment Success")
+            if "Payment Failed" not in combined_tags:
+                combined_tags.append("Payment Failed")
+        else:
+            # Pending
+            if "Payment Success" in combined_tags:
+                combined_tags.remove("Payment Success")
+
         update_fields["tags"] = combined_tags
 
         await leads_col.update_one({"_id": existing["_id"]}, {"$set": update_fields})
