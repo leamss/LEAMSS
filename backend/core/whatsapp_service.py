@@ -201,7 +201,18 @@ async def send_whatsapp_text(
             if media_url:
                 data["MediaUrl"] = media_url
         else:
-            data["Body"] = text
+            # Twilio WhatsApp strict limit is 1600 characters (Error 21617)
+            body_text = str(text or "").strip()
+            if len(body_text) > 1550:
+                logger.warning("Message body exceeds 1550 chars (%d chars); trimming to prevent Twilio Error 21617", len(body_text))
+                # Find last clean newline or sentence before 1540 chars
+                cut_idx = body_text[:1540].rfind("\n\n")
+                if cut_idx == -1 or cut_idx < 1000:
+                    cut_idx = body_text[:1540].rfind("\n")
+                if cut_idx == -1 or cut_idx < 1000:
+                    cut_idx = 1540
+                body_text = body_text[:cut_idx].strip() + "\n\n...(see report for full details)"
+            data["Body"] = body_text
             if media_url:
                 data["MediaUrl"] = media_url
 

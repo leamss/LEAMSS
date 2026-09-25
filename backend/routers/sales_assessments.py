@@ -1867,20 +1867,22 @@ async def send_assessment_whatsapp(
     improvements_list = v.get("improvements") or doc.get("improvements") or []
 
     if reasons_list:
-        reasons_text = "\n".join([f"• {r}" for r in reasons_list])
+        reasons_text = "\n".join([f"• {r}" for r in reasons_list[:2]])
     else:
         reasons_text = f"• Current points score ({best_total}) is below the required 65-point pass mark."
 
     if improvements_list:
-        improvements_text = "\n\n".join([f"🔹 *Step {i+1}:* {imp}" for i, imp in enumerate(improvements_list)])
+        clean_steps = []
+        for i, imp in enumerate(improvements_list[:2]):
+            short_imp = imp.split(". ")[0] if len(imp) > 120 else imp
+            clean_steps.append(f"🔹 *Step {i+1}:* {short_imp}")
+        improvements_text = "\n\n".join(clean_steps)
     else:
         improvements_text = (
-            "🔹 *Step 1: English Language Proficiency (+10 to +20 Points)*\n"
-            "   Achieving Proficient (PTE 65 / IELTS 7) adds +10 pts, and Superior (PTE 79 / IELTS 8) adds +20 pts.\n\n"
-            "🔹 *Step 2: State / Regional Nomination (+5 to +15 Points)*\n"
-            "   Nomination for Subclass 190 adds +5 pts, or Subclass 491 Regional adds +15 pts.\n\n"
-            "🔹 *Step 3: Partner Skills or NAATI CCL (+5 Points)*\n"
-            "   Claim extra points through community language credential (NAATI CCL) or eligible partner qualifications."
+            "🔹 *Step 1: English Language (+10 to +20 Pts)*\n"
+            "   Superior English (PTE 79+) adds +20 points.\n\n"
+            "🔹 *Step 2: State / Regional Nomination (+5 to +15 Pts)*\n"
+            "   Subclass 190 adds +5 pts, Subclass 491 Regional adds +15 pts."
         )
 
     def _render(tmpl: str) -> str:
@@ -1961,15 +1963,15 @@ async def send_assessment_whatsapp(
         "• 🎯 *Nominated Occupation:* {occupation} ({code})\n"
         "• 📈 *Your Indicative Score:* *{points} Points*\n"
         "• 🏁 *Pass Mark Required:* {pass_mark} Points\n"
-        "• 📑 *Current Status:* *NON-ELIGIBLE* (Points Below 65 Threshold)\n"
+        "• 📑 *Current Status:* *NON-ELIGIBLE* (Below 65 Pass Mark)\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
-        "💡 *RECOMMENDED IMPROVEMENT ROADMAP:*\n"
+        "💡 *KEY IMPROVEMENT STEPS:*\n"
         "{improvements}\n\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
         "📄 *ATTACHED DOCUMENTS*\n"
-        "📎 *Official Pre-Assessment Report:* Detailed 23-page points evaluation & roadmap attached.\n"
-        "📎 *Candidate Resume:* Your assessed Resume / CV attached for your reference.\n\n"
-        "🔗 *View your assessment online:*\n"
+        "📎 *Pre-Assessment Report:* 23-page evaluation & roadmap attached.\n"
+        "📎 *Candidate Resume:* Your assessed Resume / CV attached.\n\n"
+        "🔗 *View your full diagnostic report online:*\n"
         "{report_url}\n\n"
         "💬 *Reply directly to this chat* if you have any questions.\n\n"
         "Warm Regards,\n"
