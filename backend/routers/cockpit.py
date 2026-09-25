@@ -416,7 +416,7 @@ async def get_cards(
     has_resume: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     sort: str = Query("recent", description="recent|oldest|paid_first|score_desc|score_asc"),
-    limit: int = Query(60, ge=1, le=200),
+    limit: int = Query(500, ge=1, le=1000),
     current_user: dict = Depends(get_current_user),
 ):
     """Unified card list across leads, assessments, and PAs."""
@@ -470,12 +470,16 @@ async def get_cards(
         if a.get("lead_id"): gen_leads_set.add(a["lead_id"])
         if a.get("client_email"): gen_emails_set.add(str(a["client_email"]).strip().lower())
 
-    # 1) Navratri Offer Leads
+    # 1) Navratri Offer Leads (Full unfiltered list for campaign)
     if is_navratri_stage:
-        q = own_filter_lead | NAVRATRI_QUERY
+        q = NAVRATRI_QUERY.copy()
+        if owner == "me" and own_filter_lead:
+            q = {"$and": [own_filter_lead, NAVRATRI_QUERY]}
+        elif owner and owner not in ("all", "me") and own_filter_lead:
+            q = {"$and": [own_filter_lead, NAVRATRI_QUERY]}
         if text_re:
-            q["$or"] = [{"name": text_re}, {"email": text_re}, {"phone": text_re}, {"unique_id": text_re}]
-        async for d in db["leads"].find(q, {"_id": 0}).sort("updated_at", -1).limit(limit):
+            q = {"$and": [q, {"$or": [{"name": text_re}, {"email": text_re}, {"phone": text_re}, {"unique_id": text_re}]}]}
+        async for d in db["leads"].find(q, {"_id": 0}).sort("created_at", -1).limit(limit):
             cards.append(_build_lead_card(d, gen_leads_set, gen_emails_set))
 
     # 2) Standard Leads (when in 'all' or 'leads')

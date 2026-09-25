@@ -452,7 +452,7 @@ export default function Cockpit() {
       if (reportPendingOnly) params.set('filter', 'paid_report_pending');
       if (hasResumeOnly) params.set('has_resume', 'true');
       params.set('sort', sortMode);
-      params.set('limit', '80');
+      params.set('limit', '500');
       const r = await axios.get(`${API}/cockpit/cards?${params}`, { headers });
       setCards(r.data.items || []);
     } catch (e) { console.error('cards', e); }
