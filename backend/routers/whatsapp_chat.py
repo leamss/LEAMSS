@@ -343,7 +343,7 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                 reply_msg = custom_msg
             elif is_not_eligible:
                 reply_msg = (
-                    f"📋 *Australia PR Pre-Assessment Outcome* 🇦🇺\n\n"
+                    f"📋 *Australia PR Pre-Assessment Outcome — NON-ELIGIBLE* ⚠️\n\n"
                     f"Hello *{client_name}*,\n\n"
                     f"Here is your official Pre-Assessment Evaluation Report and points breakdown:\n\n"
                     f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -351,8 +351,11 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                     f"• 🎯 *Occupation:* {occ}\n"
                     f"• 📈 *Your Indicative Score:* *{points} Points*\n"
                     f"• 🏁 *Pass Mark:* 65 Points\n"
-                    f"• 📑 *Current Status:* Points Threshold Gap\n"
+                    f"• 📑 *Current Status:* *NON-ELIGIBLE* (Points Below 65 Threshold)\n"
                     f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"📄 *ATTACHED DOCUMENTS*\n"
+                    f"📎 *Official Pre-Assessment Report:* Detailed 23-page points evaluation attached.\n"
+                    f"📎 *Candidate Resume:* Your assessed Resume / CV attached.\n\n"
                     f"🔗 *View your full diagnostic report online:*\n"
                     f"{report_url}\n\n"
                     f"Our Senior Migration Advisors are available to review your file and assist with your points boost strategy (English coaching, state nomination, and partner points).\n\n"

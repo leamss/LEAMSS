@@ -155,7 +155,7 @@ _STARTERS = [
         "name": "Not Eligible — Improvement Plan",
         "category": "not_eligible",
         "body": (
-            "📋 *Australia PR Pre-Assessment Outcome* 🇦🇺\n\n"
+            "📋 *Australia PR Pre-Assessment Outcome — NON-ELIGIBLE* ⚠️\n\n"
             "Hello *{client_name}*,\n\n"
             "Thank you for evaluating your Australia PR profile with *LEAMSS* for *{occupation}* (ANZSCO {code}).\n\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
@@ -163,13 +163,14 @@ _STARTERS = [
             "• 🎯 *Nominated Occupation:* {occupation} ({code})\n"
             "• 📈 *Your Indicative Score:* *{points} Points*\n"
             "• 🏁 *Pass Mark Required:* {pass_mark} Points\n"
-            "• 📑 *Current Status:* Points Threshold Gap\n"
+            "• 📑 *Current Status:* *NON-ELIGIBLE* (Points Below 65 Threshold)\n"
             "━━━━━━━━━━━━━━━━━━━━\n\n"
             "💡 *RECOMMENDED IMPROVEMENT ROADMAP:*\n"
             "{improvements}\n\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
-            "📄 *OFFICIAL PRE-ASSESSMENT REPORT*\n"
-            "Your official diagnostic assessment report and points calculation breakdown are attached with this message for your detailed review.\n\n"
+            "📄 *ATTACHED DOCUMENTS*\n"
+            "📎 *Official Pre-Assessment Report:* Detailed 23-page points evaluation & roadmap attached.\n"
+            "📎 *Candidate Resume:* Your assessed Resume / CV attached for your reference.\n\n"
             "🔗 *View your assessment online:*\n"
             "{report_url}\n\n"
             "🤝 *NEXT STEPS — FREE STRATEGY CONSULTATION*\n"
