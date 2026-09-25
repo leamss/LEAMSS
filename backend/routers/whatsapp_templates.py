@@ -155,12 +155,32 @@ _STARTERS = [
         "name": "Not Eligible — Improvement Plan",
         "category": "not_eligible",
         "body": (
-            "Hello {client_name},\n\n"
-            "Thank you for evaluating your migration profile with LEAMSS for *{occupation}* ({code}).\n\n"
-            "Your profile is currently short of the required threshold ({points} pts vs {pass_mark} pass mark). Here is your clear action plan:\n\n"
+            "📋 *Australia PR Pre-Assessment Outcome* 🇦🇺\n\n"
+            "Hello *{client_name}*,\n\n"
+            "Thank you for evaluating your Australia PR profile with *LEAMSS* for *{occupation}* (ANZSCO {code}).\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "📊 *ASSESSMENT SUMMARY*\n"
+            "• 🎯 *Nominated Occupation:* {occupation} ({code})\n"
+            "• 📈 *Your Indicative Score:* *{points} Points*\n"
+            "• 🏁 *Pass Mark Required:* {pass_mark} Points\n"
+            "• 📑 *Current Status:* Points Threshold Gap\n"
+            "━━━━━━━━━━━━━━━━━━━━\n\n"
+            "💡 *RECOMMENDED IMPROVEMENT ROADMAP:*\n"
             "{improvements}\n\n"
-            "📄 We have attached your diagnostic assessment breakdown. Let's discuss how you can achieve eligibility — book a free review call:\n{calendly_link}\n\n"
-            "Warm Regards,\n*{consultant_name}* · LEAMSS"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "📄 *OFFICIAL PRE-ASSESSMENT REPORT*\n"
+            "Your official diagnostic assessment report and points calculation breakdown are attached with this message for your detailed review.\n\n"
+            "🔗 *View your assessment online:*\n"
+            "{report_url}\n\n"
+            "🤝 *NEXT STEPS — FREE STRATEGY CONSULTATION*\n"
+            "Our Senior Migration Advisors are available to assist you in bridging the points gap through English language coaching, state nomination pathways, and partner points.\n\n"
+            "📅 *Book your Free 1-on-1 Consultation:*\n"
+            "{calendly_link}\n\n"
+            "💬 *Reply directly to this chat* if you have any questions.\n\n"
+            "Warm Regards,\n"
+            "*{consultant_name}*\n"
+            "*LEAMSS Immigration* — Your Success, Our Dream.\n"
+            "🌐 https://leamss.com · 📞 +91 77188 82427"
         ),
         "is_default": True,
         "attach_report": True,

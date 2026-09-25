@@ -1857,12 +1857,15 @@ async def send_assessment_whatsapp(
         reasons_text = f"• Current points score ({best_total}) is below the required 65-point pass mark."
 
     if improvements_list:
-        improvements_text = "\n".join([f"{i+1}. {imp}" for i, imp in enumerate(improvements_list)])
+        improvements_text = "\n\n".join([f"🔹 *Step {i+1}:* {imp}" for i, imp in enumerate(improvements_list)])
     else:
         improvements_text = (
-            "1. Achieve Superior English (PTE 79+ / IELTS 8 in each band) for maximum +20 points.\n"
-            "2. Explore State Nomination (Subclass 190 for +5 pts, Subclass 491 for +15 pts).\n"
-            "3. Secure NAATI CCL credentials or partner skills for +5 points."
+            "🔹 *Step 1: English Language Proficiency (+10 to +20 Points)*\n"
+            "   Achieving Proficient (PTE 65 / IELTS 7) adds +10 pts, and Superior (PTE 79 / IELTS 8) adds +20 pts.\n\n"
+            "🔹 *Step 2: State / Regional Nomination (+5 to +15 Points)*\n"
+            "   Nomination for Subclass 190 adds +5 pts, or Subclass 491 Regional adds +15 pts.\n\n"
+            "🔹 *Step 3: Partner Skills or NAATI CCL (+5 Points)*\n"
+            "   Claim extra points through community language credential (NAATI CCL) or eligible partner qualifications."
         )
 
     def _render(tmpl: str) -> str:
@@ -1934,6 +1937,35 @@ async def send_assessment_whatsapp(
         "LEAMSS Immigration — Your Success, Our Dream."
     )
 
+    not_eligible_default_tmpl = (
+        "📋 *Australia PR Pre-Assessment Outcome* 🇦🇺\n\n"
+        "Hello *{client_name}*,\n\n"
+        "Thank you for evaluating your Australia PR profile with *LEAMSS* for *{occupation}* (ANZSCO {code}).\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "📊 *ASSESSMENT SUMMARY*\n"
+        "• 🎯 *Nominated Occupation:* {occupation} ({code})\n"
+        "• 📈 *Your Indicative Score:* *{points} Points*\n"
+        "• 🏁 *Pass Mark Required:* {pass_mark} Points\n"
+        "• 📑 *Current Status:* Points Threshold Gap\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "💡 *RECOMMENDED IMPROVEMENT ROADMAP:*\n"
+        "{improvements}\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "📄 *OFFICIAL PRE-ASSESSMENT REPORT*\n"
+        "Your official diagnostic assessment report and points calculation breakdown are attached with this message for your detailed review.\n\n"
+        "🔗 *View your assessment online:*\n"
+        "{report_url}\n\n"
+        "🤝 *NEXT STEPS — FREE STRATEGY CONSULTATION*\n"
+        "Our Senior Migration Advisors are available to assist you in bridging the points gap through English language coaching, state nomination pathways, and partner points.\n\n"
+        "📅 *Book your Free 1-on-1 Consultation:*\n"
+        "{calendly_link}\n\n"
+        "💬 *Reply directly to this chat* if you have any questions.\n\n"
+        "Warm Regards,\n"
+        "*{consultant_name}*\n"
+        "*LEAMSS Immigration* — Your Success, Our Dream.\n"
+        "🌐 https://leamss.com · 📞 +91 77188 82427"
+    )
+
     custom_t = None
     if req.custom_message and req.custom_message.strip():
         msg_text = _render(req.custom_message.strip())
@@ -1985,19 +2017,7 @@ async def send_assessment_whatsapp(
                 default_ne = await db["whatsapp_templates"].find_one({"category": "not_eligible", "is_default": True})
                 if not default_ne:
                     default_ne = await db["whatsapp_templates"].find_one({"category": "not_eligible"})
-                raw_tmpl = default_ne.get("body") if default_ne else (
-                    "Hello {name},\n\n"
-                    "Thank you for evaluating your Australia migration profile with LEAMSS for *{occupation}* ({code}).\n\n"
-                    "📊 *Assessment Outcome:* Your profile score is currently {points} points (Pass mark is {pass_mark} points).\n\n"
-                    "🎯 *Recommended Improvement Plan:*\n"
-                    "{improvements}\n\n"
-                    "📎 *Your official Pre-Assessment Report and diagnostic breakdown are attached with this message.*\n\n"
-                    "Let's discuss how you can boost your points and achieve eligibility. Reply here or book a free consultation call:\n"
-                    "{calendly_link}\n\n"
-                    "Warm Regards,\n"
-                    "*{consultant_name}* · LEAMSS\n"
-                    "Toll-Free: 1800-210-2427 · hello@leamss.com"
-                )
+                raw_tmpl = default_ne.get("body") if default_ne else not_eligible_default_tmpl
             else:
                 raw_tmpl = s.get("whatsapp_template_report") or navratri_default_tmpl
             msg_text = _render(raw_tmpl)
@@ -2006,19 +2026,7 @@ async def send_assessment_whatsapp(
             default_ne = await db["whatsapp_templates"].find_one({"category": "not_eligible", "is_default": True})
             if not default_ne:
                 default_ne = await db["whatsapp_templates"].find_one({"category": "not_eligible"})
-            raw_tmpl = default_ne.get("body") if default_ne else (
-                "Hello {name},\n\n"
-                "Thank you for evaluating your Australia migration profile with LEAMSS for *{occupation}* ({code}).\n\n"
-                "📊 *Assessment Outcome:* Your profile score is currently {points} points (Pass mark is {pass_mark} points).\n\n"
-                "🎯 *Recommended Improvement Plan:*\n"
-                "{improvements}\n\n"
-                "📎 *Your official Pre-Assessment Report and diagnostic breakdown are attached with this message.*\n\n"
-                "Let's discuss how you can boost your points and achieve eligibility. Reply here or book a free consultation call:\n"
-                "{calendly_link}\n\n"
-                "Warm Regards,\n"
-                "*{consultant_name}* · LEAMSS\n"
-                "Toll-Free: 1800-210-2427 · hello@leamss.com"
-            )
+            raw_tmpl = default_ne.get("body") if default_ne else not_eligible_default_tmpl
         else:
             raw_tmpl = s.get("whatsapp_template_report") or navratri_default_tmpl
         msg_text = _render(raw_tmpl)

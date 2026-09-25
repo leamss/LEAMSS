@@ -343,13 +343,20 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                 reply_msg = custom_msg
             elif is_not_eligible:
                 reply_msg = (
-                    f"Here is your Australia PR Pre-Assessment Report & Improvement Roadmap 📄\n\n"
-                    f"📋 *Candidate:* {client_name}\n"
-                    f"📊 *Score:* {points}/65 Points (Improvement Needed)\n"
-                    f"💼 *Occupation:* {occ}\n\n"
-                    f"🔗 *View your Diagnostic Assessment Report:*\n"
+                    f"📋 *Australia PR Pre-Assessment Outcome* 🇦🇺\n\n"
+                    f"Hello *{client_name}*,\n\n"
+                    f"Here is your official Pre-Assessment Evaluation Report and points breakdown:\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"📊 *ASSESSMENT SUMMARY*\n"
+                    f"• 🎯 *Occupation:* {occ}\n"
+                    f"• 📈 *Your Indicative Score:* *{points} Points*\n"
+                    f"• 🏁 *Pass Mark:* 65 Points\n"
+                    f"• 📑 *Current Status:* Points Threshold Gap\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"🔗 *View your full diagnostic report online:*\n"
                     f"{report_url}\n\n"
-                    f"Our Migration Advisor is available to discuss your improvement options and alternative visa pathways. Feel free to reply here if you would like to book a consultation!"
+                    f"Our Senior Migration Advisors are available to review your file and assist with your points boost strategy (English coaching, state nomination, and partner points).\n\n"
+                    f"Feel free to reply here directly if you would like to book a free consultation!"
                 )
             else:
                 reply_msg = (
