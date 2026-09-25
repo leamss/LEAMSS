@@ -2800,21 +2800,22 @@ async def _send_row_whatsapp(
     has_active_session = await is_in_24h_window(clean_phone)
     dispatched_attachments = []
 
-    if is_twilio_mode:
+    if is_twilio_mode and not has_active_session:
+        # ── COLD OUTREACH / OUTSIDE 24H: Send Twilio Permission Template with Button ──
         if bucket == "needs_resume" or row.get("status") in ("needs_ai", "error"):
             # Resume Request Flow
             row_token = str(row.get("resume_token") or row.get("id") or "LEAMSS-PR")
             full_resume_url = "https://app.leamss.com/upload-resume"
-            if not has_active_session:
-                await set_pending_flow(
-                    clean_phone,
-                    flow="resume_request",
-                    client_name=name,
-                    extra_data={
-                        "resume_url": full_resume_url,
-                        "selected_msg": msg_text,
-                    },
-                )
+            await set_pending_flow(
+                clean_phone,
+                flow="resume_request",
+                client_name=name,
+                extra_data={
+                    "resume_url": full_resume_url,
+                    "selected_msg": msg_text,
+                    "row_id": str(row.get("id")),
+                },
+            )
             try:
                 res = await send_whatsapp_text(
                     to_phone=clean_phone,
@@ -2846,24 +2847,23 @@ async def _send_row_whatsapp(
             # Not-Eligible / Improvement Plan Flow
             ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
             occ_title = str(occ or "Australia PR")
-            if not has_active_session:
-                await set_pending_flow(
-                    clean_phone,
-                    flow="send_not_eligible_report",
-                    client_name=name,
-                    extra_data={
-                        "report_url": rep_url,
-                        "pdf_url": pdf_report_url if attach_report_flag else None,
-                        "sla_url": sla_url if attach_sla_flag else None,
-                        "qr_url": qr_url if attach_qr_flag else None,
-                        "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
-                        "selected_msg": msg_text,
-                        "points": str(best_pts),
-                        "occ": str(occ or "Australia PR"),
-                        "is_not_eligible": True,
-                        "row_id": str(row.get("id")),
-                    },
-                )
+            await set_pending_flow(
+                clean_phone,
+                flow="send_not_eligible_report",
+                client_name=name,
+                extra_data={
+                    "report_url": rep_url,
+                    "pdf_url": pdf_report_url if attach_report_flag else None,
+                    "sla_url": sla_url if attach_sla_flag else None,
+                    "qr_url": qr_url if attach_qr_flag else None,
+                    "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
+                    "selected_msg": msg_text,
+                    "points": str(best_pts),
+                    "occ": str(occ or "Australia PR"),
+                    "is_not_eligible": True,
+                    "row_id": str(row.get("id")),
+                },
+            )
 
             try:
                 res = await send_whatsapp_text(
@@ -2902,23 +2902,22 @@ async def _send_row_whatsapp(
             occ_title = str(occ or "Australia PR")
             special_off = str(row.get("offer_code") or row.get("special_offer") or s.get("navratri_offer") or "Lucky Draw Entry")
 
-            if not has_active_session:
-                await set_pending_flow(
-                    clean_phone,
-                    flow="send_report",
-                    client_name=name,
-                    extra_data={
-                        "report_url": rep_url,
-                        "pdf_url": pdf_report_url if attach_report_flag else None,
-                        "sla_url": sla_url if attach_sla_flag else None,
-                        "qr_url": qr_url if attach_qr_flag else None,
-                        "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
-                        "selected_msg": msg_text,
-                        "points": str(best_pts),
-                        "occ": str(occ or "Australia PR"),
-                        "row_id": str(row.get("id")),
-                    },
-                )
+            await set_pending_flow(
+                clean_phone,
+                flow="send_report",
+                client_name=name,
+                extra_data={
+                    "report_url": rep_url,
+                    "pdf_url": pdf_report_url if attach_report_flag else None,
+                    "sla_url": sla_url if attach_sla_flag else None,
+                    "qr_url": qr_url if attach_qr_flag else None,
+                    "resume_url": resume_stream_url if (attach_resume_flag and has_resume) else None,
+                    "selected_msg": msg_text,
+                    "points": str(best_pts),
+                    "occ": str(occ or "Australia PR"),
+                    "row_id": str(row.get("id")),
+                },
+            )
 
             try:
                 res = await send_whatsapp_text(
@@ -2972,74 +2971,81 @@ async def _send_row_whatsapp(
                             content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                             content_variables={"1": name, "2": msg_text},
                         )
+    else:
+        # ── 24H WINDOW IS ACTIVE / DIRECT SEND: Directly send free-form message ──
+        res = await send_whatsapp_text(
+            to_phone=clean_phone,
+            text=msg_text,
+            client_name=name,
+        )
 
-            if has_active_session:
-                import asyncio
-                # 1. Report PDF
-                if attach_report_flag and pdf_report_url:
-                    await asyncio.sleep(0.5)
-                    try:
-                        await send_whatsapp_document_by_url(
-                            to_phone=clean_phone,
-                            document_url=pdf_report_url,
-                            filename=rep_fname,
-                            caption=f"📄 Pre-Assessment Report — {name}",
-                        )
-                        dispatched_attachments.append("report_pdf")
-                    except Exception as e_pdf:
-                        logger.warning("Failed to dispatch Report PDF in bulk row: %s", e_pdf)
-
-                # 2. SLA PDF
-                if attach_sla_flag and sla_url:
-                    await asyncio.sleep(0.5)
-                    try:
-                        sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
-                        await send_whatsapp_document_by_url(
-                            to_phone=clean_phone,
-                            document_url=sla_url,
-                            filename=sla_fname,
-                            caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
-                        )
-                        dispatched_attachments.append("sla_pdf")
-                    except Exception as e_sla:
-                        logger.warning("Failed to dispatch SLA PDF in bulk row: %s", e_sla)
-
-                # 3. Payment QR Image
-                if attach_qr_flag and qr_url:
-                    await asyncio.sleep(0.5)
-                    try:
-                        await send_whatsapp_image_by_url(
-                            to_phone=clean_phone,
-                            image_url=qr_url,
-                            caption="💳 LEAMSS Official Payment QR & Banking Details",
-                        )
-                        dispatched_attachments.append("payment_qr")
-                    except Exception as e_qr:
-                        logger.warning("Failed to dispatch QR image in bulk row: %s", e_qr)
-
-                # 4. Candidate Resume
-                if attach_resume_flag and resume_stream_url:
-                    await asyncio.sleep(0.5)
-                    try:
-                        r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
-                        await send_whatsapp_document_by_url(
-                            to_phone=clean_phone,
-                            document_url=resume_stream_url,
-                            filename=r_name,
-                            caption=f"📄 Candidate Resume — {name}",
-                        )
-                        dispatched_attachments.append("resume_file")
-                    except Exception as e_res:
-                        logger.warning("Failed to dispatch resume in bulk row: %s", e_res)
-            else:
-                if attach_report_flag and pdf_report_url:
+        if has_active_session:
+            import asyncio
+            # 1. Report PDF
+            if attach_report_flag and pdf_report_url:
+                await asyncio.sleep(0.5)
+                try:
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=pdf_report_url,
+                        filename=rep_fname,
+                        caption=f"📄 Pre-Assessment Report — {name}",
+                    )
                     dispatched_attachments.append("report_pdf")
-                if attach_sla_flag and sla_url:
+                except Exception as e_pdf:
+                    logger.warning("Failed to dispatch Report PDF in bulk row: %s", e_pdf)
+
+            # 2. SLA PDF
+            if attach_sla_flag and sla_url:
+                await asyncio.sleep(0.5)
+                try:
+                    sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=sla_url,
+                        filename=sla_fname,
+                        caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
+                    )
                     dispatched_attachments.append("sla_pdf")
-                if attach_qr_flag and qr_url:
+                except Exception as e_sla:
+                    logger.warning("Failed to dispatch SLA PDF in bulk row: %s", e_sla)
+
+            # 3. Payment QR Image
+            if attach_qr_flag and qr_url:
+                await asyncio.sleep(0.5)
+                try:
+                    await send_whatsapp_image_by_url(
+                        to_phone=clean_phone,
+                        image_url=qr_url,
+                        caption="💳 LEAMSS Official Payment QR & Banking Details",
+                    )
                     dispatched_attachments.append("payment_qr")
-                if attach_resume_flag and resume_stream_url:
+                except Exception as e_qr:
+                    logger.warning("Failed to dispatch QR image in bulk row: %s", e_qr)
+
+            # 4. Candidate Resume
+            if attach_resume_flag and resume_stream_url:
+                await asyncio.sleep(0.5)
+                try:
+                    r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=resume_stream_url,
+                        filename=r_name,
+                        caption=f"📄 Candidate Resume — {name}",
+                    )
                     dispatched_attachments.append("resume_file")
+                except Exception as e_res:
+                    logger.warning("Failed to dispatch resume in bulk row: %s", e_res)
+        else:
+            if attach_report_flag and pdf_report_url:
+                dispatched_attachments.append("report_pdf")
+            if attach_sla_flag and sla_url:
+                dispatched_attachments.append("sla_pdf")
+            if attach_qr_flag and qr_url:
+                dispatched_attachments.append("payment_qr")
+            if attach_resume_flag and resume_stream_url:
+                dispatched_attachments.append("resume_file")
     else:
         # Meta Cloud API Mode
         if attach_report_flag and pdf_bytes:

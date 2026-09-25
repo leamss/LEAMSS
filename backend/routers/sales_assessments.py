@@ -2089,17 +2089,17 @@ async def send_assessment_whatsapp(
             or not doc.get("is_eligible", True)
         )
 
-        if is_twilio_mode:
+        if is_twilio_mode and not has_active_session:
+            # ── COLD OUTREACH / OUTSIDE 24H: Send Twilio Permission Template with Button ──
+            is_permission_template = True
             if is_resume_flow:
                 upload_token = str(doc.get("resume_token") or doc.get("share_token") or id)
-                if not has_active_session:
-                    is_permission_template = True
-                    await set_pending_flow(clean_phone, "resume_request", client_name=client_name, extra_data={
-                        "resume_url": resume_upload_url,
-                        "selected_msg": msg_text,
-                        "assessment_id": doc.get("id"),
-                        "share_token": share_token,
-                    })
+                await set_pending_flow(clean_phone, "resume_request", client_name=client_name, extra_data={
+                    "resume_url": resume_upload_url,
+                    "selected_msg": msg_text,
+                    "assessment_id": doc.get("id"),
+                    "share_token": share_token,
+                })
                 try:
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
@@ -2133,21 +2133,19 @@ async def send_assessment_whatsapp(
                 if occ.get("code"):
                     occ_title = f"{occ_title} ({occ.get('code')})"
 
-                if not has_active_session:
-                    is_permission_template = True
-                    await set_pending_flow(clean_phone, "send_not_eligible_report", client_name=client_name, extra_data={
-                        "report_url": public_url,
-                        "pdf_url": pdf_report_url,
-                        "sla_url": sla_url if attach_sla_flag else None,
-                        "qr_url": qr_url if attach_qr_flag else None,
-                        "resume_url": resume_stream_url,
-                        "selected_msg": msg_text,
-                        "points": str(best_total),
-                        "occ": str(occ.get("title") or "Australia PR"),
-                        "is_not_eligible": True,
-                        "assessment_id": doc.get("id"),
-                        "share_token": share_token,
-                    })
+                await set_pending_flow(clean_phone, "send_not_eligible_report", client_name=client_name, extra_data={
+                    "report_url": public_url,
+                    "pdf_url": pdf_report_url,
+                    "sla_url": sla_url if attach_sla_flag else None,
+                    "qr_url": qr_url if attach_qr_flag else None,
+                    "resume_url": resume_stream_url,
+                    "selected_msg": msg_text,
+                    "points": str(best_total),
+                    "occ": str(occ.get("title") or "Australia PR"),
+                    "is_not_eligible": True,
+                    "assessment_id": doc.get("id"),
+                    "share_token": share_token,
+                })
 
                 try:
                     res = await send_whatsapp_text(
@@ -2180,8 +2178,6 @@ async def send_assessment_whatsapp(
                             content_sid="HXecdec14cc27a0857c49274c92f26d366",
                             content_variables={"1": client_name, "2": ref_id},
                         )
-                if attach_report_flag:
-                    dispatched_attachments.append("report_pdf")
 
             else:
                 ref_id = str(id or "LEAMSS-PR")[:25]
@@ -2191,20 +2187,18 @@ async def send_assessment_whatsapp(
                 best_sub = str(best_res.get("subclass") or "189")
                 special_off = str(doc.get("special_offer") or doc.get("offer_code") or s.get("navratri_offer") or "Lucky Draw Entry")
 
-                if not has_active_session:
-                    is_permission_template = True
-                    await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
-                        "report_url": public_url,
-                        "pdf_url": pdf_report_url,
-                        "sla_url": sla_url if attach_sla_flag else None,
-                        "qr_url": qr_url if attach_qr_flag else None,
-                        "resume_url": resume_stream_url,
-                        "selected_msg": msg_text,
-                        "points": str(best_total),
-                        "occ": str(occ.get("title") or "Australia PR"),
-                        "assessment_id": doc.get("id"),
-                        "share_token": share_token,
-                    })
+                await set_pending_flow(clean_phone, "send_report", client_name=client_name, extra_data={
+                    "report_url": public_url,
+                    "pdf_url": pdf_report_url,
+                    "sla_url": sla_url if attach_sla_flag else None,
+                    "qr_url": qr_url if attach_qr_flag else None,
+                    "resume_url": resume_stream_url,
+                    "selected_msg": msg_text,
+                    "points": str(best_total),
+                    "occ": str(occ.get("title") or "Australia PR"),
+                    "assessment_id": doc.get("id"),
+                    "share_token": share_token,
+                })
 
                 try:
                     res = await send_whatsapp_text(
@@ -2258,9 +2252,9 @@ async def send_assessment_whatsapp(
                                 content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                                 content_variables={"1": client_name, "2": msg_text},
                             )
-                if attach_report_flag:
-                    dispatched_attachments.append("report_pdf")
         else:
+            # ── 24H WINDOW IS ACTIVE: Send full rich text message directly ──
+            is_permission_template = False
             res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
         
         is_simulated = res.get("status") == "simulated"

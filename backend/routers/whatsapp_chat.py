@@ -223,19 +223,49 @@ async def is_in_24h_window(phone: str) -> bool:
     clean_phone = normalize_phone_number(phone)
     if not clean_phone:
         return False
-    conv = await CONVERSATIONS.find_one({"phone": clean_phone})
-    if not conv or not conv.get("last_inbound_at"):
-        return False
-    last_inb = conv.get("last_inbound_at")
-    if isinstance(last_inb, str):
-        try:
-            last_inb = datetime.fromisoformat(last_inb)
-        except Exception:
-            return False
-    if isinstance(last_inb, datetime):
-        if last_inb.tzinfo is None:
-            last_inb = last_inb.replace(tzinfo=timezone.utc)
-        return (datetime.now(timezone.utc) - last_inb).total_seconds() <= 24 * 3600
+    phone_suffix = clean_phone[-10:] if len(clean_phone) >= 10 else clean_phone
+    now_dt = datetime.now(timezone.utc)
+    conv = await CONVERSATIONS.find_one({
+        "$or": [
+            {"phone": clean_phone},
+            {"phone": f"+{clean_phone}"},
+            {"phone": {"$regex": f"{phone_suffix}$"}},
+        ]
+    })
+    if conv and conv.get("last_inbound_at"):
+        last_inb = conv.get("last_inbound_at")
+        if isinstance(last_inb, str):
+            try:
+                last_inb = datetime.fromisoformat(last_inb)
+            except Exception:
+                pass
+        if isinstance(last_inb, datetime):
+            if last_inb.tzinfo is None:
+                last_inb = last_inb.replace(tzinfo=timezone.utc)
+            if (now_dt - last_inb).total_seconds() <= 24 * 3600:
+                return True
+
+    # Fallback: check recent inbound message in MESSAGES collection
+    recent_msg = await MESSAGES.find_one({
+        "direction": "inbound",
+        "$or": [
+            {"phone": clean_phone},
+            {"phone": f"+{clean_phone}"},
+            {"phone": {"$regex": f"{phone_suffix}$"}},
+        ],
+    }, sort=[("created_at", -1)])
+    if recent_msg and recent_msg.get("created_at"):
+        msg_dt = recent_msg["created_at"]
+        if isinstance(msg_dt, str):
+            try:
+                msg_dt = datetime.fromisoformat(msg_dt)
+            except Exception:
+                pass
+        if isinstance(msg_dt, datetime):
+            if msg_dt.tzinfo is None:
+                msg_dt = msg_dt.replace(tzinfo=timezone.utc)
+            if (now_dt - msg_dt).total_seconds() <= 24 * 3600:
+                return True
     return False
 
 
@@ -269,12 +299,16 @@ async def set_pending_flow(
 
 async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile_name: str) -> bool:
     """Handles automated Yes/No responses for Resume Request and Pre-Assessment Report flows."""
-    conv = await CONVERSATIONS.find_one({"phone": clean_phone})
-    if not conv or not conv.get("pending_flow"):
-        return False
-
-    flow = conv.get("pending_flow")
-    client_name = conv.get("client_name") or profile_name or "there"
+    phone_suffix = clean_phone[-10:] if len(clean_phone) >= 10 else clean_phone
+    conv = await CONVERSATIONS.find_one({
+        "$or": [
+            {"phone": clean_phone},
+            {"phone": f"+{clean_phone}"},
+            {"phone": {"$regex": f"{phone_suffix}$"}},
+        ]
+    })
+    flow = conv.get("pending_flow") if conv else None
+    client_name = (conv.get("client_name") if conv else None) or (profile_name if profile_name != "WhatsApp User" else "") or "there"
     norm_text = re.sub(r"[^\w\s]", "", body_text.strip().lower())
 
     yes_words = {
@@ -294,6 +328,56 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
         norm_text in no_words
         or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text for w in ["no", "nope", "cancel", "stop", "not interested", "dont send", "dont upload"])
     )
+
+    # Auto-infer flow if pending_flow is empty but user tapped/sent YES or SEND REPORT
+    if not flow:
+        if not is_yes and not is_no:
+            return False
+        if is_yes:
+            from core.database import db
+            ass_doc = await db["assessments"].find_one({
+                "$or": [
+                    {"client_phone": {"$regex": phone_suffix}},
+                    {"recipient_phone": {"$regex": phone_suffix}},
+                    {"phone": {"$regex": phone_suffix}},
+                ]
+            }, sort=[("created_at", -1)])
+            if not ass_doc:
+                ass_doc = await db["pre_assessments"].find_one({
+                    "$or": [
+                        {"client_phone": {"$regex": phone_suffix}},
+                        {"recipient_phone": {"$regex": phone_suffix}},
+                        {"phone": {"$regex": phone_suffix}},
+                    ]
+                }, sort=[("created_at", -1)])
+
+            if ass_doc:
+                if ass_doc.get("status") in ("needs_resume", "needs_ai") or ("upload" in norm_text and "resume" in norm_text):
+                    flow = "resume_request"
+                elif (ass_doc.get("best_total") or 0) < 65 or not ass_doc.get("is_eligible", True):
+                    flow = "send_not_eligible_report"
+                else:
+                    flow = "send_report"
+                if not client_name or client_name in ("WhatsApp User", "there"):
+                    client_name = ass_doc.get("client_name") or client_name
+            else:
+                row_doc = await db["bulk_assessment_rows"].find_one({
+                    "$or": [
+                        {"parsed.phone": {"$regex": phone_suffix}},
+                        {"phone": {"$regex": phone_suffix}},
+                    ]
+                }, sort=[("created_at", -1)])
+                if row_doc:
+                    if row_doc.get("status") in ("needs_resume", "needs_ai") or ("upload" in norm_text and "resume" in norm_text):
+                        flow = "resume_request"
+                    elif (row_doc.get("points") or 0) < 65:
+                        flow = "send_not_eligible_report"
+                    else:
+                        flow = "send_report"
+                    if not client_name or client_name in ("WhatsApp User", "there"):
+                        client_name = (row_doc.get("parsed") or {}).get("name") or client_name
+                else:
+                    flow = "resume_request" if "resume" in norm_text else "send_report"
 
     from core.whatsapp_service import send_whatsapp_text, send_whatsapp_document_by_url, send_whatsapp_image_by_url
 
