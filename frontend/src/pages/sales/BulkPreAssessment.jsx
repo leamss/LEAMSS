@@ -154,18 +154,30 @@ export default function BulkPreAssessment() {
   }, [headers]);
   useEffect(() => { refreshEmailCfg(); }, [refreshEmailCfg]);
 
-  // Poll while generating, AI-enriching, or emailing
+  // Poll while generating, AI-enriching, emailing, or WhatsApp broadcasting
   useEffect(() => {
-    if (batch?.status === 'generating' || batch?.status === 'enriching' || batch?.email_status === 'sending') {
+    if (
+      batch?.status === 'generating' ||
+      batch?.status === 'enriching' ||
+      batch?.email_status === 'sending' ||
+      batch?.whatsapp_status === 'sending'
+    ) {
       pollRef.current = setInterval(async () => {
         const b = await loadBatch(batch.id);
-        if (b && b.status !== 'generating' && b.status !== 'enriching' && b.email_status !== 'sending') {
-          clearInterval(pollRef.current); setGenerating(false);
+        if (
+          b &&
+          b.status !== 'generating' &&
+          b.status !== 'enriching' &&
+          b.email_status !== 'sending' &&
+          b.whatsapp_status !== 'sending'
+        ) {
+          clearInterval(pollRef.current);
+          setGenerating(false);
         }
-      }, 2500);
+      }, 1500);
       return () => clearInterval(pollRef.current);
     }
-  }, [batch?.status, batch?.email_status, batch?.id, loadBatch]);
+  }, [batch?.status, batch?.email_status, batch?.whatsapp_status, batch?.id, loadBatch]);
 
   const runAiEnrich = async () => {
     if (!batch) return;
