@@ -271,15 +271,15 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         "urgency": d.get("priority") or ("high" if not has_report and is_paid else "medium"),
         "owner": {
             "id": d.get("assigned_to"),
-            "name": d.get("assigned_to_name") or "Unassigned",
+            "name": d.get("assigned_to_name") if d.get("assigned_to") else "Unassigned",
         },
         "partner": {
             "id": d.get("partner_id"),
-            "name": d.get("partner_name") or "Unassigned",
+            "name": d.get("partner_name") if d.get("partner_id") else "Unassigned",
         },
         "case_manager": {
             "id": d.get("case_manager_id"),
-            "name": d.get("case_manager_name") or "Unassigned",
+            "name": d.get("case_manager_name") if d.get("case_manager_id") else "Unassigned",
         },
         "updated_at": d.get("updated_at") or d.get("created_at"),
         "updated_at_human": _humanize_ago(d.get("updated_at") or d.get("created_at")),
