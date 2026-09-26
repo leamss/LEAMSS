@@ -5,7 +5,9 @@ WORKDIR /app
 ARG REACT_APP_BACKEND_URL=https://api.leamss.com
 ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 ENV GENERATE_SOURCEMAP=false
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV DISABLE_ESLINT_PLUGIN=true
+ENV INLINE_RUNTIME_CHUNK=false
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 COPY package.json yarn.lock* ./
 RUN yarn install --prefer-offline --network-timeout 100000
