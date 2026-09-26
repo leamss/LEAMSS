@@ -186,16 +186,13 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
     service = d.get("service_interested") or "New enquiry"
     score_label = f"{unique_id} · {service}" if unique_id else service
     
-    lid = d.get("id")
+    lid = str(d.get("id") or "").strip()
     lemail = str(d.get("email") or "").strip().lower()
     
     has_report = bool(
-        d.get("report_generated") is True
-        or d.get("report_status") == "generated"
-        or d.get("assessment_report_id")
-        or d.get("latest_report_snapshot_id")
-        or (gen_leads and lid and lid in gen_leads)
-        or (gen_emails and lemail and lemail in gen_emails)
+        (d.get("report_generated") is True and bool(d.get("assessment_report_id") or d.get("latest_report_snapshot_id") or d.get("report_status") == "generated"))
+        or (lid and gen_leads and lid in gen_leads)
+        or (lemail and len(lemail) >= 3 and gen_emails and lemail in gen_emails)
     )
 
     resume_fid = d.get("resume_file_id")
@@ -456,23 +453,27 @@ async def get_cards(
     want_all = (not stage) or stage == "all"
     is_navratri_stage = stage == "navratri"
 
-    # Collect all IDs/emails of generated reports across bulk_rows and sales_assessments
+    # Collect all IDs/emails of generated reports across bulk_assessment_rows and sales_assessments
     gen_leads_set: set = set()
     gen_emails_set: set = set()
-    async for r in db["bulk_rows"].find(
+    async for r in db["bulk_assessment_rows"].find(
         {"$or": [{"status": "generated"}, {"snapshot_id": {"$exists": True, "$ne": None}}]},
         {"lead_id": 1, "parsed.email": 1}
     ):
-        if r.get("lead_id"): gen_leads_set.add(r["lead_id"])
+        if r.get("lead_id"):
+            gen_leads_set.add(str(r["lead_id"]).strip())
         em = (r.get("parsed") or {}).get("email")
-        if em: gen_emails_set.add(str(em).strip().lower())
+        if em and str(em).strip():
+            gen_emails_set.add(str(em).strip().lower())
 
     async for a in db["sales_assessments"].find(
         {"$or": [{"latest_report_snapshot_id": {"$exists": True, "$ne": None}}, {"report_snapshot_ids": {"$exists": True, "$ne": []}}]},
         {"lead_id": 1, "client_email": 1}
     ):
-        if a.get("lead_id"): gen_leads_set.add(a["lead_id"])
-        if a.get("client_email"): gen_emails_set.add(str(a["client_email"]).strip().lower())
+        if a.get("lead_id"):
+            gen_leads_set.add(str(a["lead_id"]).strip())
+        if a.get("client_email") and str(a["client_email"]).strip():
+            gen_emails_set.add(str(a["client_email"]).strip().lower())
 
     # 1) Navratri Offer Leads (Full unfiltered list for campaign)
     if is_navratri_stage:
