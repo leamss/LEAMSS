@@ -574,51 +574,13 @@ async def create_batch_from_leads(
     cursor = db["leads"].find(query).sort("created_at", -1).limit(1000)
     leads = await cursor.to_list(length=1000)
 
-    # Collect all IDs/emails of generated reports across bulk_rows, assessments, and report_snapshots
-    gen_leads_set: set = set()
-    gen_emails_set: set = set()
-
-    async for r in ROWS.find(
-        {"$or": [{"status": "generated"}, {"snapshot_id": {"$exists": True, "$ne": None}}]},
-        {"lead_id": 1, "parsed.email": 1}
-    ):
-        if r.get("lead_id"):
-            gen_leads_set.add(str(r["lead_id"]))
-        em = (r.get("parsed") or {}).get("email")
-        if em:
-            gen_emails_set.add(str(em).strip().lower())
-
-    async for a in ASSESSMENTS.find(
-        {"$or": [{"latest_report_snapshot_id": {"$exists": True, "$ne": None}}, {"report_snapshot_ids": {"$exists": True, "$ne": []}}]},
-        {"lead_id": 1, "client_email": 1}
-    ):
-        if a.get("lead_id"):
-            gen_leads_set.add(str(a["lead_id"]))
-        if a.get("client_email"):
-            gen_emails_set.add(str(a["client_email"]).strip().lower())
-
-    async for s in REPORT_SNAPSHOTS.find({}, {"lead_id": 1, "client_email": 1, "parsed.email": 1}):
-        if s.get("lead_id"):
-            gen_leads_set.add(str(s["lead_id"]))
-        if s.get("client_email"):
-            gen_emails_set.add(str(s["client_email"]).strip().lower())
-        em = (s.get("parsed") or {}).get("email")
-        if em:
-            gen_emails_set.add(str(em).strip().lower())
-
-    # Filter out any client whose report is ALREADY generated
-    if report_pending_only or paid_only:
+    # Filter out any client whose report is ALREADY generated (only when querying all leads automatically)
+    if not lead_ids and (report_pending_only or paid_only):
         filtered_leads = []
         for l in leads:
-            lid = str(l.get("id") or "")
-            lemail = str(l.get("email") or "").strip().lower()
             is_done = bool(
                 l.get("report_generated") is True
-                or l.get("report_status") == "generated"
-                or l.get("latest_report_snapshot_id")
-                or l.get("assessment_report_id")
-                or (lid and lid in gen_leads_set)
-                or (lemail and lemail in gen_emails_set)
+                and (l.get("report_status") == "generated" or l.get("latest_report_snapshot_id") or l.get("assessment_report_id"))
             )
             if not is_done:
                 filtered_leads.append(l)

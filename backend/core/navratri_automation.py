@@ -392,6 +392,10 @@ async def mark_lead_paid_and_transition(
         "paid_at": now.isoformat(),
         "payment_mode": payment_mode or lead.get("payment_mode") or "online",
         "payment_amount": payment_amount if payment_amount is not None else (lead.get("payment_amount") or 1.0),
+        "report_generated": False,
+        "report_status": "pending",
+        "latest_report_snapshot_id": None,
+        "assessment_report_id": None,
         "updated_at": now,
     }
     if razorpay_payment_id:
