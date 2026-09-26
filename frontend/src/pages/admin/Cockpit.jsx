@@ -1986,29 +1986,27 @@ function PipelineCard({
           </div>
         ) : (
           <div className="flex flex-col items-end gap-1 shrink-0">
-            {card.report_generated ? (
+            {(card.report_generated && card.is_paid) ? (
               <div className="flex flex-col items-end gap-1">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-sm">
                   ✓ Report Generated
                 </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (card.bulk_batch_id) {
-                      navigate(`/sales/bulk-assessment?batch_id=${card.bulk_batch_id}`);
-                    } else {
-                      navigate('/sales/bulk-assessment');
-                    }
-                  }}
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1 cursor-pointer transition-all shadow-xs"
-                  title={card.bulk_batch_id ? `Click to view this client in Batch: ${card.bulk_batch_id}` : 'Click to view in Bulk Assessment Batch'}
-                >
-                  <FileSpreadsheet className="h-2.5 w-2.5 text-teal-600" />
-                  <span>{card.bulk_batch_id ? `Batch: ${card.bulk_batch_id.replace('BATCH-', '')}` : 'View in Batch'}</span>
-                </button>
+                {card.bulk_batch_id && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/sales/bulk-assessment?batch_id=${encodeURIComponent(card.bulk_batch_id)}&search=${encodeURIComponent(card.name || '')}`);
+                    }}
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+                    title={`Click to view this client in Batch: ${card.bulk_batch_id}`}
+                  >
+                    <FileSpreadsheet className="h-2.5 w-2.5 text-teal-600" />
+                    <span>Batch: {card.bulk_batch_id.replace('BATCH-', '')}</span>
+                  </button>
+                )}
               </div>
-            ) : (card.payment_status === 'success' || (card.payment_amount && card.payment_amount > 0)) ? (
+            ) : (card.is_paid || card.payment_status === 'success' || (card.payment_amount && card.payment_amount > 0)) ? (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shadow-sm">
                 ⚡ Paid · Report Pending
               </span>
@@ -2062,24 +2060,31 @@ function PipelineCard({
 
       {/* Dedicated 1-Click Action Buttons on Card */}
       <div className="pt-1 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-        {(card.report_generated || card.bulk_batch_id || card.assessment_report_id) ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (card.bulk_batch_id) {
-                navigate(`/sales/bulk-assessment?batch_id=${encodeURIComponent(card.bulk_batch_id)}&search=${encodeURIComponent(card.name || '')}`);
-              } else {
-                navigate(`/sales/bulk-assessment?search=${encodeURIComponent(card.name || card.email || '')}`);
-              }
-            }}
-            className="w-full py-2 px-2.5 rounded-lg text-xs font-black border-2 border-teal-500 bg-teal-50 hover:bg-teal-100 text-teal-900 flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow-md cursor-pointer active:scale-98"
-            title={`Open this client's generated report in Batch: ${card.bulk_batch_id || 'Bulk Pre-Assessment'}`}
-          >
-            <FileSpreadsheet className="h-4 w-4 text-teal-600 shrink-0" />
-            <span className="truncate font-extrabold">View in Bulk Batch {card.bulk_batch_id ? `(${card.bulk_batch_id})` : ''}</span>
-          </button>
-        ) : isNavratri && card.type === 'lead' ? (
+        {isNavratri && card.type === 'lead' ? (
           <>
+            {navCategory === 'unpaid' && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onSendPaymentLink && onSendPaymentLink(card.id)}
+                  className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
+                  style={{ background: '#DC2626' }}
+                  title="Send Navratri Offer payment link via Email and WhatsApp"
+                >
+                  <CreditCard className="h-3 w-3" /> Send Payment Link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMarkPaid && onMarkPaid(card.id)}
+                  className="px-2 py-1.5 rounded-md border text-[10px] font-bold transition-all shadow-sm hover:opacity-90 flex items-center gap-1 cursor-pointer"
+                  style={{ borderColor: '#059669', background: '#ECFDF5', color: '#047857' }}
+                  title="Manually verify & mark lead as Paid"
+                >
+                  <Check className="h-3 w-3" /> Mark Paid
+                </button>
+              </div>
+            )}
+
             {navCategory === 'paid_resume_pending' && (
               <div className="flex items-center gap-1.5">
                 <button
@@ -2106,36 +2111,39 @@ function PipelineCard({
               </div>
             )}
 
-            {navCategory === 'unpaid' && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onSendPaymentLink && onSendPaymentLink(card.id)}
-                  className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
-                  style={{ background: '#DC2626' }}
-                  title="Send Navratri Offer payment link via Email and WhatsApp"
-                >
-                  <CreditCard className="h-3 w-3" /> Send Payment Link
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onMarkPaid && onMarkPaid(card.id)}
-                  className="px-2 py-1.5 rounded-md border text-[10px] font-bold transition-all shadow-sm hover:opacity-90 flex items-center gap-1 cursor-pointer"
-                  style={{ borderColor: '#059669', background: '#ECFDF5', color: '#047857' }}
-                  title="Manually verify & mark lead as Paid"
-                >
-                  <Check className="h-3 w-3" /> Mark Paid
-                </button>
-              </div>
-            )}
-
             {navCategory === 'paid_resume_received' && (
-              <div className="px-2.5 py-1 rounded-md text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-                <span>✓ Ready for Bulk Pre-Assessment</span>
-                <Zap className="h-3 w-3 text-emerald-600" />
-              </div>
+              (card.report_generated && card.bulk_batch_id) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate(`/sales/bulk-assessment?batch_id=${encodeURIComponent(card.bulk_batch_id)}&search=${encodeURIComponent(card.name || '')}`);
+                  }}
+                  className="w-full py-2 px-2.5 rounded-lg text-xs font-black border-2 border-teal-500 bg-teal-50 hover:bg-teal-100 text-teal-900 flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow-md cursor-pointer active:scale-98"
+                  title={`Open this client's generated report in Batch: ${card.bulk_batch_id}`}
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-teal-600 shrink-0" />
+                  <span className="truncate font-extrabold">View in Bulk Batch ({card.bulk_batch_id})</span>
+                </button>
+              ) : (
+                <div className="px-2.5 py-1 rounded-md text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                  <span>✓ Ready for Bulk Pre-Assessment</span>
+                  <Zap className="h-3 w-3 text-emerald-600" />
+                </div>
+              )
             )}
           </>
+        ) : (card.report_generated && card.bulk_batch_id) ? (
+          <button
+            type="button"
+            onClick={() => {
+              navigate(`/sales/bulk-assessment?batch_id=${encodeURIComponent(card.bulk_batch_id)}&search=${encodeURIComponent(card.name || '')}`);
+            }}
+            className="w-full py-2 px-2.5 rounded-lg text-xs font-black border-2 border-teal-500 bg-teal-50 hover:bg-teal-100 text-teal-900 flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow-md cursor-pointer active:scale-98"
+            title={`Open this client's generated report in Batch: ${card.bulk_batch_id}`}
+          >
+            <FileSpreadsheet className="h-4 w-4 text-teal-600 shrink-0" />
+            <span className="truncate font-extrabold">View in Bulk Batch ({card.bulk_batch_id})</span>
+          </button>
         ) : null}
       </div>
 

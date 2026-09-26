@@ -188,19 +188,26 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
     
     lid = str(d.get("id") or "").strip()
     lemail = str(d.get("email") or "").strip().lower()
-    lname = str(d.get("name") or "").strip().lower()
 
-    batch_id = d.get("bulk_batch_id") or (batch_map.get(lid) if batch_map and lid else None) or (batch_map.get(lemail) if batch_map and lemail else None) or (batch_map.get(lname) if batch_map and lname else None)
-    
-    has_report = bool(
-        d.get("report_generated") is True
-        or d.get("report_status") in ("generated", "completed")
-        or bool(d.get("assessment_report_id"))
-        or bool(d.get("latest_report_snapshot_id"))
-        or bool(batch_id)
-        or (lid and gen_leads and lid in gen_leads)
-        or (lemail and len(lemail) >= 3 and gen_emails and lemail in gen_emails)
-    )
+    is_nav = is_lead_navratri(d)
+    nav_category = get_navratri_category(d)
+    is_paid = is_lead_paid(d)
+
+    # STRICT RULE: Unpaid leads can NEVER have a generated report or batch
+    if is_paid:
+        batch_id = d.get("bulk_batch_id") or (batch_map.get(lid) if batch_map and lid else None) or (batch_map.get(lemail) if batch_map and lemail and "@" in lemail else None)
+        has_report = bool(
+            d.get("report_generated") is True
+            or d.get("report_status") in ("generated", "completed")
+            or bool(d.get("assessment_report_id"))
+            or bool(d.get("latest_report_snapshot_id"))
+            or bool(batch_id)
+            or (lid and gen_leads and lid in gen_leads)
+            or (lemail and "@" in lemail and gen_emails and lemail in gen_emails)
+        )
+    else:
+        batch_id = None
+        has_report = False
 
     resume_fid = d.get("resume_file_id")
     has_resume = bool(
@@ -213,9 +220,6 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
     resume_fname = d.get("resume_filename") or ("Resume.pdf" if has_resume else None)
     resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")
 
-    is_nav = is_lead_navratri(d)
-    nav_category = get_navratri_category(d)
-    is_paid = is_lead_paid(d)
     upload_url = get_resume_upload_url(d)
     pay_url = get_payment_url(d)
 
@@ -479,15 +483,10 @@ async def get_cards(
             lid_str = str(r["lead_id"]).strip()
             gen_leads_set.add(lid_str)
             if bid: gen_batch_map[lid_str] = bid
-        em = (r.get("parsed") or {}).get("email")
-        if em and str(em).strip():
+        if em and "@" in str(em):
             em_str = str(em).strip().lower()
             gen_emails_set.add(em_str)
             if bid: gen_batch_map[em_str] = bid
-        nm = (r.get("parsed") or {}).get("name")
-        if nm and str(nm).strip() and len(str(nm).strip()) > 3:
-            nm_str = str(nm).strip().lower()
-            if bid: gen_batch_map[nm_str] = bid
 
     async for a in db["sales_assessments"].find(
         {"$or": [{"latest_report_snapshot_id": {"$exists": True, "$ne": None}}, {"report_snapshot_ids": {"$exists": True, "$ne": []}}]},
