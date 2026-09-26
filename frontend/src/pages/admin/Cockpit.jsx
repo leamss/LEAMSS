@@ -2014,6 +2014,24 @@ function PipelineCard({
       {/* Dedicated Navratri 1-Click Action Buttons on Card */}
       {isNavratri && card.type === 'lead' && (
         <div className="pt-1 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {card.report_generated && (
+            <button
+              type="button"
+              onClick={() => {
+                if (card.bulk_batch_id) {
+                  navigate(`/sales/bulk-assessment?batch_id=${card.bulk_batch_id}`);
+                } else {
+                  navigate('/sales/bulk-assessment');
+                }
+              }}
+              className="w-full py-1.5 px-2 rounded-md text-[11px] font-extrabold border border-teal-300 bg-teal-50 hover:bg-teal-100 text-teal-800 flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+              title="Open this client's report in Bulk Pre-Assessment Batch"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-teal-600" />
+              <span>View in Bulk Batch {card.bulk_batch_id ? `(${card.bulk_batch_id.replace('BATCH-', '')})` : ''}</span>
+            </button>
+          )}
+
           {navCategory === 'paid_resume_pending' && (
             <div className="flex items-center gap-1.5">
               <button
@@ -2063,7 +2081,7 @@ function PipelineCard({
             </div>
           )}
 
-          {navCategory === 'paid_resume_received' && (
+          {navCategory === 'paid_resume_received' && !card.report_generated && (
             <div className="px-2.5 py-1 rounded-md text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center justify-between">
               <span>✓ Ready for Bulk Pre-Assessment</span>
               <Zap className="h-3 w-3 text-emerald-600" />

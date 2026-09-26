@@ -195,7 +195,8 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         or (lemail and len(lemail) >= 3 and gen_emails and lemail in gen_emails)
     )
 
-    batch_id = d.get("bulk_batch_id") or (batch_map.get(lid) if batch_map and lid else None) or (batch_map.get(lemail) if batch_map and lemail else None)
+    lname = str(d.get("name") or "").strip().lower()
+    batch_id = d.get("bulk_batch_id") or (batch_map.get(lid) if batch_map and lid else None) or (batch_map.get(lemail) if batch_map and lemail else None) or (batch_map.get(lname) if batch_map and lname else None)
 
     resume_fid = d.get("resume_file_id")
     has_resume = bool(
@@ -475,6 +476,10 @@ async def get_cards(
             em_str = str(em).strip().lower()
             gen_emails_set.add(em_str)
             if bid: gen_batch_map[em_str] = bid
+        nm = (r.get("parsed") or {}).get("name")
+        if nm and str(nm).strip() and len(str(nm).strip()) > 3:
+            nm_str = str(nm).strip().lower()
+            if bid: gen_batch_map[nm_str] = bid
 
     async for a in db["sales_assessments"].find(
         {"$or": [{"latest_report_snapshot_id": {"$exists": True, "$ne": None}}, {"report_snapshot_ids": {"$exists": True, "$ne": []}}]},
