@@ -928,10 +928,11 @@ async def api_bulk_process_navratri(
                     {"resume_path": {"$exists": True, "$ne": None, "$ne": ""}},
                     {"resume_uploaded": True}
                 ]},
-                {"$or": [
-                    {"report_generated": {"$ne": True}},
-                    {"report_status": {"$ne": "generated"}},
-                ]}
+                {"report_generated": {"$ne": True}},
+                {"report_status": {"$nin": ["generated", "completed"]}},
+                {"latest_report_snapshot_id": {"$in": [None, ""]}},
+                {"assessment_report_id": {"$in": [None, ""]}},
+                {"bulk_batch_id": {"$in": [None, ""]}}
             ]
         }
         cursor = db["leads"].find(q, {"id": 1}).limit(500)

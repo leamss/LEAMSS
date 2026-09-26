@@ -580,7 +580,10 @@ async def create_batch_from_leads(
         for l in leads:
             is_done = bool(
                 l.get("report_generated") is True
-                and (l.get("report_status") == "generated" or l.get("latest_report_snapshot_id") or l.get("assessment_report_id"))
+                or l.get("report_status") in ("generated", "completed")
+                or bool(l.get("latest_report_snapshot_id"))
+                or bool(l.get("assessment_report_id"))
+                or bool(l.get("bulk_batch_id"))
             )
             if not is_done:
                 filtered_leads.append(l)
