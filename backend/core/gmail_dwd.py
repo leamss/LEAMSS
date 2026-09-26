@@ -156,19 +156,48 @@ async def send(
     smtp_port = int(settings_doc.get("smtp_port") or os.environ.get("SMTP_PORT", "587"))
 
     if smtp_user and smtp_pass:
-        import aiosmtplib
         recipients = [recipient]
         if bcc:
             recipients.append(bcc)
+
+        def _send_sync_smtp():
+            import smtplib
+            import ssl
+            ctx = ssl.create_default_context()
+            if smtp_port == 465:
+                with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=25) as server:
+                    server.login(smtp_user, smtp_pass)
+                    server.send_message(msg, from_addr=smtp_user, to_addrs=recipients)
+            else:
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=25) as server:
+                    try:
+                        server.starttls(context=ctx)
+                    except Exception as e_tls:
+                        logger.debug("STARTTLS skipped or error: %s", e_tls)
+                    server.login(smtp_user, smtp_pass)
+                    server.send_message(msg, from_addr=smtp_user, to_addrs=recipients)
+
         try:
-            async with aiosmtplib.SMTP(hostname=smtp_host, port=smtp_port, start_tls=True, timeout=30) as smtp:
-                await smtp.login(smtp_user, smtp_pass)
-                await smtp.send_message(msg, sender=smtp_user, recipients=recipients)
-            logger.info("Email sent via SMTP (%s) to %s", smtp_host, recipient)
+            await asyncio.to_thread(_send_sync_smtp)
+            logger.info("Email sent via SMTP (%s:%s) to %s", smtp_host, smtp_port, recipient)
             return
-        except Exception as e:
-            logger.warning("SMTP send failed: %s", e)
-            raise RuntimeError(f"SMTP send failed: {e}") from e
+        except Exception as e_sync:
+            logger.warning("Standard SMTP send failed (%s), attempting aiosmtplib fallback...", e_sync)
+            try:
+                import aiosmtplib
+                if smtp_port == 465:
+                    async with aiosmtplib.SMTP(hostname=smtp_host, port=smtp_port, use_tls=True, timeout=30) as smtp:
+                        await smtp.login(smtp_user, smtp_pass)
+                        await smtp.send_message(msg, sender=smtp_user, recipients=recipients)
+                else:
+                    async with aiosmtplib.SMTP(hostname=smtp_host, port=smtp_port, start_tls=True, timeout=30) as smtp:
+                        await smtp.login(smtp_user, smtp_pass)
+                        await smtp.send_message(msg, sender=smtp_user, recipients=recipients)
+                logger.info("Email sent via aiosmtplib (%s) to %s", smtp_host, recipient)
+                return
+            except Exception as e_async:
+                logger.error("Both sync and async SMTP failed: %s | %s", e_sync, e_async)
+                raise RuntimeError(f"SMTP send failed: {e_sync or e_async}") from e_sync
 
     # 3. If neither is configured, raise clear setup message
     raise RuntimeError(

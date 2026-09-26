@@ -209,12 +209,19 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         batch_id = None
         has_report = False
 
-    resume_fid = d.get("resume_file_id")
+    resume_fid = d.get("resume_file_id") if (d.get("resume_file_id") and is_valid_resume_path(d.get("resume_file_id"))) else None
     has_resume = has_lead_resume(d)
-    resume_fname = d.get("resume_filename") if has_resume else None
-    if has_resume and not resume_fname:
-        resume_fname = "Resume.pdf"
-    resume_link = (f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")) if has_resume else ""
+    resume_fname = None
+    resume_link = ""
+    if has_resume:
+        raw_name = d.get("resume_filename")
+        if raw_name and is_valid_resume_path(raw_name):
+            resume_fname = str(raw_name).strip()
+        else:
+            raw_url = str(d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")
+            fn = raw_url.replace("\\", "/").split("/")[-1].strip()
+            resume_fname = fn if (fn and is_valid_resume_path(fn)) else "Uploaded_Resume.pdf"
+        resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")
 
     upload_url = get_resume_upload_url(d)
     pay_url = get_payment_url(d)
@@ -294,15 +301,20 @@ def _build_assessment_card(d: Dict[str, Any]) -> Dict[str, Any]:
 
     snap = d.get("profile_snapshot") or {}
     pri = snap.get("primary_applicant") or {}
-    resume_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
-    has_resume = bool(resume_fid or d.get("resume_url") or snap.get("resume_url") or d.get("resume_link"))
-    resume_fname = (
-        d.get("resume_filename")
-        or snap.get("resume_filename")
-        or pri.get("resume_filename")
-        or ("Resume.pdf" if has_resume else None)
-    )
-    resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or d.get("resume_link") or "")
+    raw_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
+    resume_fid = raw_fid if (raw_fid and is_valid_resume_path(raw_fid)) else None
+    raw_res = d.get("resume_url") or snap.get("resume_url") or d.get("resume_link")
+    has_resume = bool(resume_fid or (raw_res and is_valid_resume_path(raw_res)))
+    resume_fname = None
+    resume_link = ""
+    if has_resume:
+        raw_name = d.get("resume_filename") or snap.get("resume_filename") or pri.get("resume_filename")
+        if raw_name and is_valid_resume_path(raw_name):
+            resume_fname = str(raw_name).strip()
+        else:
+            fn = str(raw_res or "").replace("\\", "/").split("/")[-1].strip()
+            resume_fname = fn if (fn and is_valid_resume_path(fn)) else "Uploaded_Resume.pdf"
+        resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else str(raw_res or "")
 
     return {
         "id": d.get("id"),
@@ -345,15 +357,20 @@ def _build_pa_card(d: Dict[str, Any], stage_group: str) -> Dict[str, Any]:
 
     snap = d.get("profile_snapshot") or {}
     pri = snap.get("primary_applicant") or {}
-    resume_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
-    has_resume = bool(resume_fid or d.get("resume_url") or snap.get("resume_url"))
-    resume_fname = (
-        d.get("resume_filename")
-        or snap.get("resume_filename")
-        or pri.get("resume_filename")
-        or ("Resume.pdf" if has_resume else None)
-    )
-    resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or "")
+    raw_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
+    resume_fid = raw_fid if (raw_fid and is_valid_resume_path(raw_fid)) else None
+    raw_res = d.get("resume_url") or snap.get("resume_url")
+    has_resume = bool(resume_fid or (raw_res and is_valid_resume_path(raw_res)))
+    resume_fname = None
+    resume_link = ""
+    if has_resume:
+        raw_name = d.get("resume_filename") or snap.get("resume_filename") or pri.get("resume_filename")
+        if raw_name and is_valid_resume_path(raw_name):
+            resume_fname = str(raw_name).strip()
+        else:
+            fn = str(raw_res or "").replace("\\", "/").split("/")[-1].strip()
+            resume_fname = fn if (fn and is_valid_resume_path(fn)) else "Uploaded_Resume.pdf"
+        resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else str(raw_res or "")
 
     return {
         "id": d.get("id"),

@@ -59,11 +59,37 @@ def is_valid_resume_path(val: Any) -> bool:
     s = str(val).strip()
     if not s or s.lower() in ("null", "undefined", "none", "n/a", "no", "false", "0", "nan", "[]", "{}"):
         return False
-    if s.rstrip("/") in ("http://leamss.com", "https://leamss.com", "http://app.leamss.com", "https://app.leamss.com", "https://leamss.com/uploads", "https://leamss.com/uploads/resumes", "uploads", "uploads/resumes"):
+    
+    clean = s.replace("\\", "/").strip().rstrip("/")
+    lower_clean = clean.lower()
+
+    # Reject domain roots, upload folders, and generic placeholder paths
+    if lower_clean in (
+        "http://leamss.com", "https://leamss.com",
+        "http://app.leamss.com", "https://app.leamss.com",
+        "https://leamss.com/uploads", "http://leamss.com/uploads",
+        "https://leamss.com/uploads/resumes", "http://leamss.com/uploads/resumes",
+        "uploads", "uploads/resumes", "/uploads", "/uploads/resumes",
+        "uploads/resumes/", "/uploads/resumes/"
+    ):
         return False
-    has_ext = any(s.lower().endswith(ext) or f"{ext}?" in s.lower() for ext in (".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp"))
+
+    # Extract filename portion
+    fname = lower_clean.split("/")[-1].strip()
+
+    # Blacklist default non-uploaded placeholder filenames written by PHP/MySQL form defaults
+    if fname in (
+        "", "resume.pdf", "resume.doc", "resume.docx", "resume",
+        "cv.pdf", "cv.doc", "cv.docx", "cv",
+        "sample.pdf", "test.pdf", "placeholder.pdf", "default.pdf",
+        "undefined", "null", "none", "n/a"
+    ):
+        return False
+
+    # Genuine file check
+    has_ext = any(lower_clean.endswith(ext) or f"{ext}?" in lower_clean for ext in (".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp"))
     is_gridfs_oid = len(s) == 24 and all(c in "0123456789abcdefABCDEF" for c in s)
-    is_gridfs_route = "/cockpit/resume/" in s or "/upload-resume/" in s or "drive.google.com" in s or "cloudinary" in s or "s3" in s
+    is_gridfs_route = "/cockpit/resume/" in lower_clean or "/upload-resume/" in lower_clean or "drive.google.com" in lower_clean or "cloudinary" in lower_clean or "s3" in lower_clean
     return bool(has_ext or is_gridfs_oid or is_gridfs_route)
 
 
