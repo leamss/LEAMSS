@@ -1954,12 +1954,27 @@ function PipelineCard({
           </div>
         </div>
         {card.score !== null && card.score !== undefined ? (
-          <span
-            className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md border whitespace-nowrap shrink-0"
-            style={{ color: C.orangeDeep, background: C.goldWash, borderColor: C.goldLight }}
-          >
-            <Sparkles className="h-3 w-3" />{card.score}
-          </span>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <span
+              className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md border whitespace-nowrap"
+              style={{ color: C.orangeDeep, background: C.goldWash, borderColor: C.goldLight }}
+            >
+              <Sparkles className="h-3 w-3" />{card.score}
+            </span>
+            {card.report_generated && card.bulk_batch_id && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/sales/bulk-assessment?batch_id=${card.bulk_batch_id}`);
+                }}
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-slate-200 hover:border-teal-300 flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+                title={`Click to view this client in Batch: ${card.bulk_batch_id}`}
+              >
+                <FileSpreadsheet className="h-2.5 w-2.5 text-teal-600" />
+                <span>Batch: {card.bulk_batch_id.replace('BATCH-', '')}</span>
+              </button>
+            )}
+          </div>
         ) : (
           <div className="flex flex-col items-end gap-1 shrink-0">
             {card.report_generated ? (

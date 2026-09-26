@@ -188,15 +188,19 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
     
     lid = str(d.get("id") or "").strip()
     lemail = str(d.get("email") or "").strip().lower()
+    lname = str(d.get("name") or "").strip().lower()
+
+    batch_id = d.get("bulk_batch_id") or (batch_map.get(lid) if batch_map and lid else None) or (batch_map.get(lemail) if batch_map and lemail else None) or (batch_map.get(lname) if batch_map and lname else None)
     
     has_report = bool(
-        (d.get("report_generated") is True and bool(d.get("assessment_report_id") or d.get("latest_report_snapshot_id") or d.get("report_status") == "generated"))
+        d.get("report_generated") is True
+        or d.get("report_status") in ("generated", "completed")
+        or bool(d.get("assessment_report_id"))
+        or bool(d.get("latest_report_snapshot_id"))
+        or bool(batch_id)
         or (lid and gen_leads and lid in gen_leads)
         or (lemail and len(lemail) >= 3 and gen_emails and lemail in gen_emails)
     )
-
-    lname = str(d.get("name") or "").strip().lower()
-    batch_id = d.get("bulk_batch_id") or (batch_map.get(lid) if batch_map and lid else None) or (batch_map.get(lemail) if batch_map and lemail else None) or (batch_map.get(lname) if batch_map and lname else None)
 
     resume_fid = d.get("resume_file_id")
     has_resume = bool(
@@ -315,6 +319,10 @@ def _build_assessment_card(d: Dict[str, Any]) -> Dict[str, Any]:
         "resume_file_id": resume_fid,
         "resume_filename": resume_fname,
         "resume_url": resume_link,
+        "report_generated": has_report,
+        "report_status": "generated" if has_report else "pending",
+        "bulk_batch_id": d.get("bulk_batch_id"),
+        "assessment_report_id": d.get("latest_report_snapshot_id"),
         "lifecycle": 2 if has_report else (1 if best_total is not None else 0),
         "next_action": next_action,
         "urgency": "high" if not has_report else "medium",
