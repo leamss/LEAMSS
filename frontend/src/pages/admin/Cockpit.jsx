@@ -1302,13 +1302,13 @@ export default function Cockpit() {
                     </div>
 
                     {/* Prominent Uploaded Resume Box */}
-                    {(cardDetail.record.resume_url || cardDetail.record.resume_file_id || selectedCard.resume_url) ? (
+                    {(cardDetail.has_resume && (cardDetail.record.resume_url || cardDetail.record.resume_file_id || selectedCard.resume_url)) ? (
                       <div className="p-3 rounded-lg border flex items-center justify-between" style={{ background: C.tealWash, borderColor: C.tealWash2 }}>
                         <div className="flex items-center gap-2 min-w-0">
                           <FileText className="h-5 w-5 shrink-0" style={{ color: C.teal }} />
                           <div className="min-w-0">
                             <p className="text-xs font-bold truncate" style={{ color: C.tealDark }}>
-                              {cardDetail.record.resume_filename || selectedCard.resume_filename || 'Uploaded Resume'}
+                              {cardDetail.record.resume_filename || selectedCard.resume_filename || 'Candidate_Resume.pdf'}
                             </p>
                             <p className="text-[10px] truncate" style={{ color: C.body }}>Ready for evaluation</p>
                           </div>
@@ -2087,8 +2087,8 @@ function PipelineCard({
         >
           <div className="flex items-center gap-1.5 min-w-0">
             <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: C.teal }} />
-            <span className="font-semibold truncate text-[11px]" style={{ color: C.tealDark }} title={card.resume_filename || 'Resume'}>
-              {card.resume_filename || 'Resume.pdf'}
+            <span className="font-semibold truncate text-[11px]" style={{ color: C.tealDark }} title={card.resume_filename || 'Candidate Resume'}>
+              {card.resume_filename || 'Candidate_Resume.pdf'}
             </span>
           </div>
           {card.resume_url && (
@@ -2216,12 +2216,16 @@ function PipelineCard({
       <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: C.borderSoft }}>
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-               style={{ background: C.tealWash, color: C.tealDeep, border: `1px solid ${C.tealWash2}` }}>
-            {(card.owner?.name || card.partner?.name || '—').slice(0, 1).toUpperCase()}
+               style={{
+                 background: (card.owner?.id || (card.partner?.id && card.partner?.name !== 'Unassigned')) ? C.tealWash : '#F1F5F9',
+                 color: (card.owner?.id || (card.partner?.id && card.partner?.name !== 'Unassigned')) ? C.tealDeep : '#64748B',
+                 border: `1px solid ${(card.owner?.id || (card.partner?.id && card.partner?.name !== 'Unassigned')) ? C.tealWash2 : '#CBD5E1'}`
+               }}>
+            {card.owner?.id ? (card.owner?.name || '—').slice(0, 1).toUpperCase() : (card.partner?.id && card.partner?.name !== 'Unassigned') ? (card.partner?.name || '—').slice(0, 1).toUpperCase() : '—'}
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold leading-none truncate" style={{ color: C.ink }}>
-              {card.owner?.name || card.partner?.name || 'Unassigned'}
+            <p className="text-[10px] font-bold leading-none truncate" style={{ color: (card.owner?.id || (card.partner?.id && card.partner?.name !== 'Unassigned')) ? C.ink : '#64748B' }}>
+              {card.owner?.id ? card.owner?.name : (card.partner?.id && card.partner?.name !== 'Unassigned') ? card.partner?.name : 'Unassigned'}
             </p>
             <p className="text-[10px] leading-none mt-0.5" style={{ color: C.muted }}>{card.updated_at_human}</p>
           </div>

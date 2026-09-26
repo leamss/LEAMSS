@@ -136,6 +136,31 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
     elif payment_status == "failed":
         tags.append("Payment Failed")
 
+    # STRICT RULE: New website registrations are ALWAYS Unassigned by default
+    raw_assigned = row.get("assigned_to")
+    if not raw_assigned or str(raw_assigned).strip().lower() in ("unassigned", "none", "null", "0", ""):
+        assigned_to = None
+        assigned_to_name = "Unassigned"
+    else:
+        assigned_to = str(raw_assigned).strip()
+        assigned_to_name = row.get("assigned_to_name") or "Assigned"
+
+    raw_partner = row.get("partner_id")
+    if not raw_partner or str(raw_partner).strip().lower() in ("unassigned", "none", "null", "0", ""):
+        partner_id = None
+        partner_name = "Unassigned"
+    else:
+        partner_id = str(raw_partner).strip()
+        partner_name = row.get("partner_name") or "Unassigned"
+
+    raw_cm = row.get("case_manager_id")
+    if not raw_cm or str(raw_cm).strip().lower() in ("unassigned", "none", "null", "0", ""):
+        case_manager_id = None
+        case_manager_name = "Unassigned"
+    else:
+        case_manager_id = str(raw_cm).strip()
+        case_manager_name = row.get("case_manager_name") or "Unassigned"
+
     lead_doc = {
         "unique_id": unique_id,
         "external_id": str(row.get("id") or unique_id),
@@ -156,20 +181,21 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
         "is_navratri": True,
         "stage": row.get("stage") or stage,
         "priority": row.get("priority") or priority,
-        "assigned_to": row.get("assigned_to") or None,
-        "assigned_to_name": row.get("assigned_to_name") if row.get("assigned_to") else "Unassigned",
-        "partner_id": row.get("partner_id") or None,
-        "partner_name": row.get("partner_name") if row.get("partner_id") else "Unassigned",
-        "case_manager_id": row.get("case_manager_id") or None,
-        "case_manager_name": row.get("case_manager_name") if row.get("case_manager_id") else "Unassigned",
+        "assigned_to": assigned_to,
+        "assigned_to_name": assigned_to_name,
+        "partner_id": partner_id,
+        "partner_name": partner_name,
+        "case_manager_id": case_manager_id,
+        "case_manager_name": case_manager_name,
         "date_of_birth": dob,
         "occupation": row.get("occupation") or "",
         "total_work_experience": experience,
         "latest_qualification": qualification,
         "gender": gender,
         "marital_status": marital_status,
-        "resume_path": resume_path,
-        "resume_url": resume_url,
+        "resume_path": resume_path or None,
+        "resume_url": resume_url or None,
+        "resume_uploaded": bool(resume_url or resume_path),
         "sales_person_name": sales_person_name,
         "reference": reference,
         "payment_status": payment_status,

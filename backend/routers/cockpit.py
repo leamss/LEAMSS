@@ -209,8 +209,8 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         batch_id = None
         has_report = False
 
-    resume_fid = d.get("resume_file_id") if (d.get("resume_file_id") and is_valid_resume_path(d.get("resume_file_id"))) else None
     has_resume = has_lead_resume(d)
+    resume_fid = d.get("resume_file_id") if (d.get("resume_file_id") and is_valid_resume_path(d.get("resume_file_id"))) else None
     resume_fname = None
     resume_link = ""
     if has_resume:
@@ -220,8 +220,12 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         else:
             raw_url = str(d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")
             fn = raw_url.replace("\\", "/").split("/")[-1].strip()
-            resume_fname = fn if (fn and is_valid_resume_path(fn)) else "Uploaded_Resume.pdf"
+            resume_fname = fn if (fn and is_valid_resume_path(fn)) else "Candidate_Resume.pdf"
         resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")
+    else:
+        resume_fid = None
+        resume_fname = None
+        resume_link = ""
 
     upload_url = get_resume_upload_url(d)
     pay_url = get_payment_url(d)
@@ -236,6 +240,34 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
             next_action = "Send Payment Link (Email + WA)"
     else:
         next_action = "Create Pre-Assessment" if has_report else "Start Eligibility Wizard"
+
+    # Strict Unassigned handling for leads
+    raw_assigned_id = d.get("assigned_to")
+    raw_assigned_name = d.get("assigned_to_name")
+    if not raw_assigned_id or str(raw_assigned_id).strip().lower() in ("unassigned", "none", "null", "0", ""):
+        owner_id = None
+        owner_name = "Unassigned"
+    else:
+        owner_id = str(raw_assigned_id).strip()
+        owner_name = raw_assigned_name or "Assigned"
+
+    raw_partner_id = d.get("partner_id")
+    raw_partner_name = d.get("partner_name")
+    if not raw_partner_id or str(raw_partner_id).strip().lower() in ("unassigned", "none", "null", "0", ""):
+        partner_id = None
+        partner_name = "Unassigned"
+    else:
+        partner_id = str(raw_partner_id).strip()
+        partner_name = raw_partner_name or "Unassigned"
+
+    raw_cm_id = d.get("case_manager_id")
+    raw_cm_name = d.get("case_manager_name")
+    if not raw_cm_id or str(raw_cm_id).strip().lower() in ("unassigned", "none", "null", "0", ""):
+        cm_id = None
+        cm_name = "Unassigned"
+    else:
+        cm_id = str(raw_cm_id).strip()
+        cm_name = raw_cm_name or "Unassigned"
 
     return {
         "id": d.get("id"),
@@ -273,16 +305,16 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         "next_action": next_action,
         "urgency": d.get("priority") or ("high" if not has_report and is_paid else "medium"),
         "owner": {
-            "id": d.get("assigned_to"),
-            "name": d.get("assigned_to_name") if d.get("assigned_to") else "Unassigned",
+            "id": owner_id,
+            "name": owner_name,
         },
         "partner": {
-            "id": d.get("partner_id"),
-            "name": d.get("partner_name") if d.get("partner_id") else "Unassigned",
+            "id": partner_id,
+            "name": partner_name,
         },
         "case_manager": {
-            "id": d.get("case_manager_id"),
-            "name": d.get("case_manager_name") if d.get("case_manager_id") else "Unassigned",
+            "id": cm_id,
+            "name": cm_name,
         },
         "created_at": d.get("created_at"),
         "created_at_human": _humanize_ago(d.get("created_at")),
@@ -746,9 +778,19 @@ async def get_card_detail(
         for f in ("created_at", "updated_at", "paid_at", "last_contacted_at"):
             if isinstance(d.get(f), datetime):
                 d[f] = d[f].isoformat()
+
+        has_res = has_lead_resume(d)
+        if not has_res:
+            d["resume_url"] = None
+            d["resume_path"] = None
+            d["resume_file_id"] = None
+            d["resume_filename"] = None
+            d["resume_uploaded"] = False
+
         return {
             "kind": "lead",
             "record": d,
+            "has_resume": has_res,
             "deep_link": f"/sales/client-assessment?lead_id={d.get('id')}",
             "lifecycle": [{"key": "lead_captured", "label": "Lead Captured",
                           "completed": True, "timestamp": d.get("created_at")}],
@@ -767,15 +809,20 @@ async def get_card_detail(
         
         snap = d.get("profile_snapshot") or {}
         pri = snap.get("primary_applicant") or {}
-        resume_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
-        has_resume = bool(resume_fid or d.get("resume_url") or snap.get("resume_url") or d.get("resume_link"))
-        resume_fname = (
-            d.get("resume_filename")
-            or snap.get("resume_filename")
-            or pri.get("resume_filename")
-            or ("Resume.pdf" if has_resume else None)
-        )
-        resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or d.get("resume_link") or "")
+        raw_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
+        resume_fid = raw_fid if (raw_fid and is_valid_resume_path(raw_fid)) else None
+        raw_res = d.get("resume_url") or snap.get("resume_url") or d.get("resume_link")
+        has_resume = bool(resume_fid or (raw_res and is_valid_resume_path(raw_res)))
+        resume_fname = None
+        resume_link = ""
+        if has_resume:
+            raw_name = d.get("resume_filename") or snap.get("resume_filename") or pri.get("resume_filename")
+            if raw_name and is_valid_resume_path(raw_name):
+                resume_fname = str(raw_name).strip()
+            else:
+                fn = str(raw_res or "").replace("\\", "/").split("/")[-1].strip()
+                resume_fname = fn if (fn and is_valid_resume_path(fn)) else "Candidate_Resume.pdf"
+            resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else str(raw_res or "")
 
         return {
             "kind": "assessment",
@@ -807,15 +854,20 @@ async def get_card_detail(
 
         snap = d.get("profile_snapshot") or {}
         pri = snap.get("primary_applicant") or {}
-        resume_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
-        has_resume = bool(resume_fid or d.get("resume_url") or snap.get("resume_url"))
-        resume_fname = (
-            d.get("resume_filename")
-            or snap.get("resume_filename")
-            or pri.get("resume_filename")
-            or ("Resume.pdf" if has_resume else None)
-        )
-        resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or "")
+        raw_fid = d.get("resume_file_id") or snap.get("resume_file_id") or pri.get("resume_file_id")
+        resume_fid = raw_fid if (raw_fid and is_valid_resume_path(raw_fid)) else None
+        raw_res = d.get("resume_url") or snap.get("resume_url")
+        has_resume = bool(resume_fid or (raw_res and is_valid_resume_path(raw_res)))
+        resume_fname = None
+        resume_link = ""
+        if has_resume:
+            raw_name = d.get("resume_filename") or snap.get("resume_filename") or pri.get("resume_filename")
+            if raw_name and is_valid_resume_path(raw_name):
+                resume_fname = str(raw_name).strip()
+            else:
+                fn = str(raw_res or "").replace("\\", "/").split("/")[-1].strip()
+                resume_fname = fn if (fn and is_valid_resume_path(fn)) else "Candidate_Resume.pdf"
+            resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else str(raw_res or "")
 
         return {
             "kind": "pa",

@@ -82,8 +82,27 @@ def is_valid_resume_path(val: Any) -> bool:
         "", "resume.pdf", "resume.doc", "resume.docx", "resume",
         "cv.pdf", "cv.doc", "cv.docx", "cv",
         "sample.pdf", "test.pdf", "placeholder.pdf", "default.pdf",
-        "undefined", "null", "none", "n/a"
+        "undefined", "null", "none", "n/a", "no-file.pdf", "nofile.pdf", "no_file.pdf"
     ):
+        return False
+
+    # Check for synthesized PHP placeholder formats like 1727351123_, 1727351123_.pdf, 1727351123_resume.pdf, NN2427112.pdf
+    # 1. Filenames starting with resume_, resume-, cv_, cv-, sample_, test_, default_, placeholder_
+    if any(fname.startswith(prefix) for prefix in ("resume_", "resume-", "cv_", "cv-", "sample_", "sample-", "default_", "default-", "placeholder_", "test_")):
+        # e.g. resume_1727351123.pdf, resume-2026.pdf
+        return False
+
+    # 2. Filenames ending with _resume.pdf, -resume.pdf, _cv.pdf, -cv.pdf, etc.
+    if any(fname.endswith(suffix) for suffix in ("_resume.pdf", "-resume.pdf", "_cv.pdf", "-cv.pdf", "_sample.pdf", "_test.pdf", "_placeholder.pdf", "_default.pdf", "_resume.docx", "_cv.docx")):
+        return False
+
+    # 3. Filenames with no name before extension (e.g. 1727351123_.pdf, _.pdf, 1727351123_)
+    base_name = fname.rsplit(".", 1)[0] if "." in fname else fname
+    if not base_name or base_name.endswith("_") or base_name.startswith("_"):
+        return False
+
+    # 4. Filenames that are purely numeric / timestamp / lead IDs generated without a real uploaded file
+    if base_name.isdigit() or (base_name.startswith("nn") and base_name[2:].isdigit()) or (base_name.startswith("ld") and base_name[2:].isdigit()):
         return False
 
     # Genuine file check
@@ -95,7 +114,13 @@ def is_valid_resume_path(val: Any) -> bool:
 
 def has_lead_resume(lead: Dict[str, Any]) -> bool:
     """Checks if a genuine resume file is on file for this lead."""
-    for field in ("resume_file_id", "resume_url", "resume_path", "resume_link"):
+    if not lead or lead.get("resume_uploaded") is False:
+        return False
+    # If GridFS file ID is present and valid
+    fid = lead.get("resume_file_id")
+    if fid and is_valid_resume_path(fid):
+        return True
+    for field in ("resume_url", "resume_path", "resume_link"):
         val = lead.get(field)
         if val and is_valid_resume_path(val):
             return True
