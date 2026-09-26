@@ -2058,7 +2058,7 @@ function PipelineCard({
 
       {/* Dedicated 1-Click Action Buttons on Card */}
       <div className="pt-1 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-        {(card.report_generated || card.bulk_batch_id) && (
+        {(card.report_generated || card.bulk_batch_id) ? (
           <button
             type="button"
             onClick={() => {
@@ -2068,73 +2068,71 @@ function PipelineCard({
                 navigate('/sales/bulk-assessment');
               }
             }}
-            className="w-full py-1.5 px-2.5 rounded-lg text-xs font-black border-2 border-teal-500 bg-teal-50 hover:bg-teal-100 text-teal-900 flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow-md cursor-pointer active:scale-98"
+            className="w-full py-2 px-2.5 rounded-lg text-xs font-black border-2 border-teal-500 bg-teal-50 hover:bg-teal-100 text-teal-900 flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow-md cursor-pointer active:scale-98"
             title={`Open this client's generated report in Batch: ${card.bulk_batch_id || 'Bulk Pre-Assessment'}`}
           >
             <FileSpreadsheet className="h-4 w-4 text-teal-600 shrink-0" />
-            <span className="truncate">View in Bulk Batch {card.bulk_batch_id ? `(${card.bulk_batch_id})` : ''}</span>
+            <span className="truncate font-extrabold">View in Bulk Batch {card.bulk_batch_id ? `(${card.bulk_batch_id})` : ''}</span>
           </button>
-        )}
-
-        {isNavratri && card.type === 'lead' && (
+        ) : isNavratri && card.type === 'lead' ? (
           <>
             {navCategory === 'paid_resume_pending' && (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onSendResumeRequest && onSendResumeRequest(card.id)}
-                className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
-                style={{ background: '#D97706' }}
-                title="Send Resume Upload link via Email and WhatsApp"
-              >
-                <Mail className="h-3 w-3" /> Request Resume (Email+WA)
-              </button>
-              {card.resume_upload_url && (
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => onCopyLink && onCopyLink(card.resume_upload_url, `resume-${card.id}`)}
-                  className="px-2 py-1.5 rounded-md border text-[10px] font-semibold flex items-center gap-1 transition-colors hover:bg-slate-50 cursor-pointer"
-                  style={{ borderColor: C.border, color: C.body, background: '#FFF' }}
-                  title="Copy direct Resume Upload Link"
+                  onClick={() => onSendResumeRequest && onSendResumeRequest(card.id)}
+                  className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
+                  style={{ background: '#D97706' }}
+                  title="Send Resume Upload link via Email and WhatsApp"
                 >
-                  {copiedId === `resume-${card.id}` ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-slate-500" />}
-                  {copiedId === `resume-${card.id}` ? 'Copied' : 'Link'}
+                  <Mail className="h-3 w-3" /> Request Resume (Email+WA)
                 </button>
-              )}
-            </div>
-          )}
+                {card.resume_upload_url && (
+                  <button
+                    type="button"
+                    onClick={() => onCopyLink && onCopyLink(card.resume_upload_url, `resume-${card.id}`)}
+                    className="px-2 py-1.5 rounded-md border text-[10px] font-semibold flex items-center gap-1 transition-colors hover:bg-slate-50 cursor-pointer"
+                    style={{ borderColor: C.border, color: C.body, background: '#FFF' }}
+                    title="Copy direct Resume Upload Link"
+                  >
+                    {copiedId === `resume-${card.id}` ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-slate-500" />}
+                    {copiedId === `resume-${card.id}` ? 'Copied' : 'Link'}
+                  </button>
+                )}
+              </div>
+            )}
 
-          {navCategory === 'unpaid' && (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onSendPaymentLink && onSendPaymentLink(card.id)}
-                className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
-                style={{ background: '#DC2626' }}
-                title="Send Navratri Offer payment link via Email and WhatsApp"
-              >
-                <CreditCard className="h-3 w-3" /> Send Payment Link
-              </button>
-              <button
-                type="button"
-                onClick={() => onMarkPaid && onMarkPaid(card.id)}
-                className="px-2 py-1.5 rounded-md border text-[10px] font-bold transition-all shadow-sm hover:opacity-90 flex items-center gap-1 cursor-pointer"
-                style={{ borderColor: '#059669', background: '#ECFDF5', color: '#047857' }}
-                title="Manually verify & mark lead as Paid"
-              >
-                <Check className="h-3 w-3" /> Mark Paid
-              </button>
-            </div>
-          )}
+            {navCategory === 'unpaid' && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onSendPaymentLink && onSendPaymentLink(card.id)}
+                  className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
+                  style={{ background: '#DC2626' }}
+                  title="Send Navratri Offer payment link via Email and WhatsApp"
+                >
+                  <CreditCard className="h-3 w-3" /> Send Payment Link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMarkPaid && onMarkPaid(card.id)}
+                  className="px-2 py-1.5 rounded-md border text-[10px] font-bold transition-all shadow-sm hover:opacity-90 flex items-center gap-1 cursor-pointer"
+                  style={{ borderColor: '#059669', background: '#ECFDF5', color: '#047857' }}
+                  title="Manually verify & mark lead as Paid"
+                >
+                  <Check className="h-3 w-3" /> Mark Paid
+                </button>
+              </div>
+            )}
 
-          {navCategory === 'paid_resume_received' && !card.report_generated && (
-            <div className="px-2.5 py-1 rounded-md text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-              <span>✓ Ready for Bulk Pre-Assessment</span>
-              <Zap className="h-3 w-3 text-emerald-600" />
-            </div>
-          )}
+            {navCategory === 'paid_resume_received' && (
+              <div className="px-2.5 py-1 rounded-md text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                <span>✓ Ready for Bulk Pre-Assessment</span>
+                <Zap className="h-3 w-3 text-emerald-600" />
+              </div>
+            )}
           </>
-        )}
+        ) : null}
       </div>
 
       {/* 7-step lifecycle bar */}
