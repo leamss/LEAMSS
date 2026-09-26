@@ -210,15 +210,11 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         has_report = False
 
     resume_fid = d.get("resume_file_id")
-    has_resume = bool(
-        resume_fid
-        or d.get("resume_url")
-        or d.get("resume_path")
-        or d.get("resume_link")
-        or d.get("resume_uploaded") is True
-    )
-    resume_fname = d.get("resume_filename") or ("Resume.pdf" if has_resume else None)
-    resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")
+    has_resume = has_lead_resume(d)
+    resume_fname = d.get("resume_filename") if has_resume else None
+    if has_resume and not resume_fname:
+        resume_fname = "Resume.pdf"
+    resume_link = (f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")) if has_resume else ""
 
     upload_url = get_resume_upload_url(d)
     pay_url = get_payment_url(d)

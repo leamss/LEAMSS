@@ -129,11 +129,31 @@ async def send(
         except Exception as e:
             logger.warning("DWD send failed, attempting SMTP fallback: %s", e)
 
-    # 2. Try SMTP with Gmail App Password or SMTP credentials
-    smtp_user = os.environ.get("GMAIL_EMAIL") or os.environ.get("SMTP_USER") or "info@leamss.com"
-    smtp_pass = os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD") or "lqhtzzwyvxkbmmyh"
-    smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    # 2. Try SMTP with Gmail App Password or SMTP credentials (from DB or env)
+    from core.database import db
+    try:
+        settings_doc = await db["email_settings"].find_one({"id": "global"}) or {}
+    except Exception:
+        settings_doc = {}
+
+    smtp_user = (
+        settings_doc.get("smtp_user")
+        or settings_doc.get("gmail_email")
+        or os.environ.get("GMAIL_EMAIL")
+        or os.environ.get("SMTP_USER")
+        or "info@leamss.com"
+    ).strip()
+    smtp_pass = (
+        settings_doc.get("smtp_password")
+        or settings_doc.get("smtp_pass")
+        or settings_doc.get("gmail_app_password")
+        or os.environ.get("GMAIL_APP_PASSWORD")
+        or os.environ.get("SMTP_PASS")
+        or os.environ.get("SMTP_PASSWORD")
+        or "lqhtzzwyvxkbmmyh"
+    ).replace(" ", "").strip()
+    smtp_host = settings_doc.get("smtp_host") or os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(settings_doc.get("smtp_port") or os.environ.get("SMTP_PORT", "587"))
 
     if smtp_user and smtp_pass:
         import aiosmtplib
@@ -142,7 +162,7 @@ async def send(
             recipients.append(bcc)
         try:
             async with aiosmtplib.SMTP(hostname=smtp_host, port=smtp_port, start_tls=True, timeout=30) as smtp:
-                await smtp.login(smtp_user, smtp_pass.replace(" ", "").strip())
+                await smtp.login(smtp_user, smtp_pass)
                 await smtp.send_message(msg, sender=smtp_user, recipients=recipients)
             logger.info("Email sent via SMTP (%s) to %s", smtp_host, recipient)
             return

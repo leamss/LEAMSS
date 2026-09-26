@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.database import db
+from core.navratri_automation import is_valid_resume_path
 
 logger = logging.getLogger("website_sync")
 leads_col = db["leads"]
@@ -103,7 +104,7 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
         priority = "medium"
 
     # Resume URL formation
-    resume_path = (
+    raw_resume = (
         row.get("resume_link")
         or row.get("resume_url")
         or row.get("resume_path")
@@ -111,8 +112,10 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
         or row.get("resume")
         or ""
     )
+    resume_path = ""
     resume_url = ""
-    if resume_path:
+    if raw_resume and is_valid_resume_path(raw_resume):
+        resume_path = str(raw_resume).strip()
         if resume_path.startswith("http://") or resume_path.startswith("https://"):
             resume_url = resume_path
         else:
@@ -397,7 +400,7 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
         }
         leads = await leads_col.find(
             query,
-            {"_id": 1, "unique_id": 1, "external_id": 1, "tags": 1, "payment_status": 1, "service_interested": 1}
+            {"_id": 1, "unique_id": 1, "external_id": 1, "tags": 1, "payment_status": 1, "service_interested": 1, "resume_url": 1, "resume_path": 1, "resume_link": 1, "resume_file_id": 1}
         ).to_list(2000)
 
         if not leads:
@@ -420,41 +423,47 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
                 if "Payment Failed" not in tags: tags.append("Payment Failed")
                 if "Payment Success" in tags: tags.remove("Payment Success")
 
-            operations.append(
-                UpdateOne(
-                    {"_id": lead["_id"]},
-                    (
-                        {
-                            "$set": {
-                                "is_navratri": True,
-                                "source": "Navratri Offer (leamss.com)",
-                                "unique_id": uid or lead.get("unique_id"),
-                                "service_interested": lead.get("service_interested") or "Navratri Special Offer",
-                                "tags": tags,
-                                "updated_at": now
-                            }
-                        }
-                        if pay_st in ("success", "paid")
-                        else {
-                            "$set": {
-                                "is_navratri": True,
-                                "source": "Navratri Offer (leamss.com)",
-                                "unique_id": uid or lead.get("unique_id"),
-                                "service_interested": lead.get("service_interested") or "Navratri Special Offer",
-                                "tags": tags,
-                                "updated_at": now
-                            },
-                            "$unset": {
-                                "report_generated": "",
-                                "bulk_batch_id": "",
-                                "bulk_row_id": "",
-                                "assessment_report_id": "",
-                                "latest_report_snapshot_id": ""
-                            }
-                        }
-                    )
-                )
+            has_valid_res = (
+                is_valid_resume_path(lead.get("resume_url"))
+                or is_valid_resume_path(lead.get("resume_path"))
+                or is_valid_resume_path(lead.get("resume_link"))
+                or is_valid_resume_path(lead.get("resume_file_id"))
             )
+
+            set_doc = {
+                "is_navratri": True,
+                "source": "Navratri Offer (leamss.com)",
+                "unique_id": uid or lead.get("unique_id"),
+                "service_interested": lead.get("service_interested") or "Navratri Special Offer",
+                "tags": tags,
+                "updated_at": now
+            }
+            if not has_valid_res:
+                set_doc["resume_uploaded"] = False
+
+            unset_doc = {}
+            if pay_st not in ("success", "paid"):
+                unset_doc.update({
+                    "report_generated": "",
+                    "bulk_batch_id": "",
+                    "bulk_row_id": "",
+                    "assessment_report_id": "",
+                    "latest_report_snapshot_id": ""
+                })
+            if not has_valid_res:
+                unset_doc.update({
+                    "resume_url": "",
+                    "resume_path": "",
+                    "resume_link": "",
+                    "resume_filename": "",
+                    "resume_file_id": ""
+                })
+
+            update_dict = {"$set": set_doc}
+            if unset_doc:
+                update_dict["$unset"] = unset_doc
+
+            operations.append(UpdateOne({"_id": lead["_id"]}, update_dict))
 
         if operations:
             await leads_col.bulk_write(operations, ordered=False)

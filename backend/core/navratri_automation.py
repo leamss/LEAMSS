@@ -53,15 +53,27 @@ def is_lead_paid(lead: Dict[str, Any]) -> bool:
     return False
 
 
+def is_valid_resume_path(val: Any) -> bool:
+    if not val:
+        return False
+    s = str(val).strip()
+    if not s or s.lower() in ("null", "undefined", "none", "n/a", "no", "false", "0", "nan", "[]", "{}"):
+        return False
+    if s.rstrip("/") in ("http://leamss.com", "https://leamss.com", "http://app.leamss.com", "https://app.leamss.com", "https://leamss.com/uploads", "https://leamss.com/uploads/resumes", "uploads", "uploads/resumes"):
+        return False
+    has_ext = any(s.lower().endswith(ext) or f"{ext}?" in s.lower() for ext in (".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp"))
+    is_gridfs_oid = len(s) == 24 and all(c in "0123456789abcdefABCDEF" for c in s)
+    is_gridfs_route = "/cockpit/resume/" in s or "/upload-resume/" in s or "drive.google.com" in s or "cloudinary" in s or "s3" in s
+    return bool(has_ext or is_gridfs_oid or is_gridfs_route)
+
+
 def has_lead_resume(lead: Dict[str, Any]) -> bool:
-    """Checks if a resume is on file for this lead."""
-    return bool(
-        lead.get("resume_file_id")
-        or lead.get("resume_url")
-        or lead.get("resume_path")
-        or lead.get("resume_link")
-        or lead.get("resume_uploaded") is True
-    )
+    """Checks if a genuine resume file is on file for this lead."""
+    for field in ("resume_file_id", "resume_url", "resume_path", "resume_link"):
+        val = lead.get(field)
+        if val and is_valid_resume_path(val):
+            return True
+    return False
 
 
 def is_lead_navratri(lead: Dict[str, Any]) -> bool:
