@@ -826,6 +826,14 @@ export default function Cockpit() {
               >
                 <Zap className="h-3.5 w-3.5" /> ⚡ Bulk Pre-Assessment (Ready)
               </button>
+
+              <button
+                onClick={() => navigate('/sales/bulk-assessment')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-teal-300 bg-white text-teal-800 shadow-sm flex items-center gap-1.5 transition-all hover:bg-teal-50 cursor-pointer"
+                title="Open Bulk Pre-Assessment workspace and all generated batches"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-teal-600" /> 📊 All Batches
+              </button>
             </div>
           </div>
         )}
