@@ -328,7 +328,14 @@ export default function Cockpit() {
       const res = await axios.post(`${API}/cockpit/navratri/send-payment-link`, { lead_ids: ids }, { headers });
       setBulkActionLoading(false);
       fetchAll();
-      alert(`Sent Navratri Offer Payment Link to ${res.data?.dispatched_count || ids.length} lead(s) via Email & WhatsApp!`);
+      const firstRes = res.data?.results?.[0];
+      if (firstRes?.whatsapp_sent && firstRes?.email_sent) {
+        alert(`✓ Payment link sent successfully via Email & WhatsApp!`);
+      } else if (firstRes?.email_sent && !firstRes?.whatsapp_sent) {
+        alert(`✓ Email sent! Note: WhatsApp API returned: ${firstRes?.errors?.join(', ') || 'Outside 24h window'}. You can also click the green WhatsApp button on the card to send directly via WhatsApp!`);
+      } else {
+        alert(`Dispatched payment link to ${res.data?.dispatched_count || ids.length} lead(s)!`);
+      }
     } catch (e) {
       setBulkActionLoading(false);
       alert(e.response?.data?.detail || 'Failed to dispatch payment links');
@@ -2060,7 +2067,7 @@ function PipelineCard({
 
       {/* Dedicated 1-Click Action Buttons on Card */}
       <div className="pt-1 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-        {/* 1. UNPAID / PENDING LEADS: ALWAYS Show Send Payment Link + Mark Paid */}
+        {/* 1. UNPAID / PENDING LEADS: ALWAYS Show Send Payment Link + Direct WhatsApp + Mark Paid */}
         {(!card.is_paid || card.payment_status === 'pending' || card.payment_status === 'failed' || card.payment_status === 'unpaid' || navCategory === 'unpaid') ? (
           <div className="flex items-center gap-1.5">
             <button
@@ -2068,10 +2075,24 @@ function PipelineCard({
               onClick={() => onSendPaymentLink && onSendPaymentLink(card.id)}
               className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
               style={{ background: '#DC2626' }}
-              title="Send Navratri Offer payment link via Email and WhatsApp"
+              title="Auto-dispatch Navratri Offer payment link via Email & WhatsApp API"
             >
-              <CreditCard className="h-3 w-3" /> Send Payment Link
+              <CreditCard className="h-3 w-3" /> Send Link
             </button>
+            {card.phone && (
+              <a
+                href={`https://wa.me/${card.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                  `✨ *LEAMSS Navratri Special Offer — Payment Link*\n\nDear ${card.name},\nComplete your registration for the *LEAMSS Navratri Special Offer* and receive your strategic Australia PR Pre-Assessment Report.\n\n💳 *Complete Payment Securely:*\n${card.payment_link || 'https://leamss.com/navratri-offers'}\n\n— *LEAMSS Admissions Team*`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2 py-1.5 rounded-md border text-[10px] font-bold flex items-center gap-1 transition-colors hover:bg-emerald-100 cursor-pointer shadow-xs"
+                style={{ borderColor: '#A7F3D0', color: '#047857', background: '#ECFDF5' }}
+                title="Send Payment Link directly via WhatsApp Web / App"
+              >
+                <MessageSquare className="h-3 w-3 text-emerald-600" /> WA
+              </a>
+            )}
             <button
               type="button"
               onClick={() => onMarkPaid && onMarkPaid(card.id)}
