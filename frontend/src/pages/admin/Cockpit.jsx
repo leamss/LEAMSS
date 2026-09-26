@@ -17,7 +17,7 @@ import {
   Filter, ArrowDownUp, ChevronRight, Wand2, Sparkles, Send, Bot, Zap,
   Home, Bell, Inbox, Shield, FileBadge, MessageSquare, X, AlertCircle,
   Clock, Mail, Loader2, RefreshCw, CheckSquare, Square, UserPlus, ExternalLink, Download,
-  Copy, Check, CreditCard, Flame,
+  Copy, Check, CreditCard, Flame, FileSpreadsheet,
 } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose,
