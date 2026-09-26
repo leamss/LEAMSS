@@ -163,7 +163,7 @@ export default function Cockpit() {
     }
   };
 
-  const handleSendToBulkAssessment = async (leadIds = [], paidOnly = false, reportPendingOnly = false) => {
+  const handleSendToBulkAssessment = async (leadIds = [], paidOnly = true, reportPendingOnly = true) => {
     try {
       setBulkActionLoading(true);
       const res = await axios.post(`${API}/bulk-assessments/from-leads`, {
@@ -171,15 +171,20 @@ export default function Cockpit() {
         paid_only: paidOnly,
         report_pending_only: reportPendingOnly,
         batch_name: paidOnly
-          ? `Paid Registrations (${new Date().toLocaleDateString('en-GB')})`
-          : `Website Registrations (${new Date().toLocaleDateString('en-GB')})`,
+          ? `Paid Batch (${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`
+          : `Website Registrations (${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`,
       }, { headers });
       setBulkActionLoading(false);
       setSelectedLeadIds([]);
-      navigate('/sales/bulk-assessment');
+      const targetBatchId = res.data?.batch_id;
+      if (targetBatchId) {
+        navigate(`/sales/bulk-assessment?batch_id=${targetBatchId}`);
+      } else {
+        navigate('/sales/bulk-assessment');
+      }
     } catch (e) {
       setBulkActionLoading(false);
-      alert(e.response?.data?.detail || 'Failed to add leads to bulk assessment batch');
+      alert(e.response?.data?.detail || 'Failed to create bulk assessment batch');
     }
   };
 
@@ -353,12 +358,18 @@ export default function Cockpit() {
       setBulkActionLoading(true);
       const res = await axios.post(`${API}/cockpit/navratri/bulk-process-pre-assessment`, {
         lead_ids: leadIds.length ? leadIds : undefined,
+        report_pending_only: true,
       }, { headers });
       setBulkActionLoading(false);
       setSelectedLeadIds([]);
       fetchAll();
-      alert(`Queued ${res.data?.leads_queued_count || 'all'} Paid Navratri leads for Bulk Pre-Assessment!`);
-      navigate('/sales/bulk-assessment');
+      const targetBatchId = res.data?.batch_id || res.data?.batch_info?.batch_id;
+      alert(`Created fresh batch with ${res.data?.leads_queued_count || 'all'} Paid Navratri leads pending reports!`);
+      if (targetBatchId) {
+        navigate(`/sales/bulk-assessment?batch_id=${targetBatchId}`);
+      } else {
+        navigate('/sales/bulk-assessment');
+      }
     } catch (e) {
       setBulkActionLoading(false);
       alert(e.response?.data?.detail || 'Failed to process Navratri Bulk Pre-Assessment');

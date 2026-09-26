@@ -863,11 +863,11 @@ async def api_bulk_process_navratri(
     payload: Dict[str, Any],
     current_user: dict = Depends(get_current_user),
 ):
-    """Enqueues all selected or all 'Paid · Resume Received' Navratri leads into Bulk Pre-Assessment batch for Report Generation."""
+    """Enqueues all selected or all 'Paid · Resume Received' Navratri leads whose reports are pending into Bulk Pre-Assessment batch for Report Generation."""
     from routers.bulk_assessments import create_batch_from_leads
     lead_ids = payload.get("lead_ids") or []
     
-    # If no specific IDs provided, get all Navratri paid leads with resume
+    # If no specific IDs provided, get all Navratri paid leads with resume whose report is pending
     if not lead_ids:
         q = NAVRATRI_QUERY | {
             "$or": [
@@ -881,29 +881,34 @@ async def api_bulk_process_navratri(
                     {"resume_url": {"$exists": True, "$ne": None, "$ne": ""}},
                     {"resume_path": {"$exists": True, "$ne": None, "$ne": ""}},
                     {"resume_uploaded": True}
+                ]},
+                {"$or": [
+                    {"report_generated": {"$ne": True}},
+                    {"report_status": {"$ne": "generated"}},
                 ]}
             ]
         }
-        cursor = db["leads"].find(q, {"id": 1}).limit(200)
+        cursor = db["leads"].find(q, {"id": 1}).limit(500)
         async for row in cursor:
             if row.get("id"):
                 lead_ids.append(row["id"])
 
     if not lead_ids:
-        raise HTTPException(status_code=404, detail="No Paid Navratri leads with resumes found ready for processing.")
+        raise HTTPException(status_code=404, detail="No Paid Navratri leads with resumes found pending report generation.")
 
     batch_res = await create_batch_from_leads(
         payload={
             "lead_ids": lead_ids,
             "paid_only": True,
-            "report_pending_only": payload.get("report_pending_only", False),
-            "batch_name": f"Navratri Offer Paid Batch ({datetime.now(timezone.utc).strftime('%d %b %Y')})",
+            "report_pending_only": payload.get("report_pending_only", True),
+            "batch_name": f"Navratri Offer Paid Batch ({datetime.now(timezone.utc).strftime('%d %b %Y %H:%M')})",
         },
         current_user=current_user,
     )
     return {
         "ok": True,
-        "leads_queued_count": len(lead_ids),
+        "leads_queued_count": batch_res.get("total", len(lead_ids)),
+        "batch_id": batch_res.get("batch_id"),
         "batch_info": batch_res,
     }
 

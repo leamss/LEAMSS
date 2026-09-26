@@ -8,7 +8,7 @@
  * Route: /sales/bulk-assessment
  */
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import EmailSettingsDialog from './EmailSettingsDialog';
@@ -42,7 +42,7 @@ import {
   ArrowLeft, Upload, Download, FileSpreadsheet, Loader2, RefreshCw, Play,
   CheckCircle2, XCircle, AlertTriangle, Edit3, FileText, Users, Package, Sparkles,
   Info, Check, ClipboardCheck, FileUser, ExternalLink, Search, Star, Mail, Send,
-  MoreVertical, Ban, RotateCcw, LayoutTemplate, Trash2, MessageSquare,
+  MoreVertical, Ban, RotateCcw, LayoutTemplate, Trash2, MessageSquare, Zap,
 } from 'lucide-react';
 
 // Open a client's resume link (from the uploaded Excel) in a new tab
@@ -73,6 +73,9 @@ const money = (tbc) => Object.entries(tbc || {}).map(([c, v]) => `${c === 'INR' 
 
 export default function BulkPreAssessment() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlBatchId = searchParams.get('batch_id');
+
   const token = localStorage.getItem('token');
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
@@ -116,14 +119,8 @@ export default function BulkPreAssessment() {
   }, [headers]);
   useEffect(() => { loadWhatsAppTemplates(); }, [loadWhatsAppTemplates]);
 
-  const loadBatches = useCallback(async () => {
-    try {
-      const r = await axios.get(`${API}/bulk-assessments`, { headers });
-      setBatches(r.data.batches || []);
-    } catch (e) { /* silent */ }
-  }, [headers]);
-
   const loadBatch = useCallback(async (id) => {
+    if (!id) return;
     try {
       const r = await axios.get(`${API}/bulk-assessments/${id}`, { headers });
       setBatch(r.data.batch);
@@ -132,13 +129,61 @@ export default function BulkPreAssessment() {
     } catch (e) { toast.error(formatApiError(e, 'Failed to load batch')); }
   }, [headers]);
 
+  const loadBatches = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API}/bulk-assessments`, { headers });
+      const blist = r.data.batches || [];
+      setBatches(blist);
+      return blist;
+    } catch (e) { return []; }
+  }, [headers]);
+
+  useEffect(() => {
+    loadBatches().then((blist) => {
+      if (urlBatchId) {
+        loadBatch(urlBatchId);
+      } else if (blist && blist.length > 0) {
+        loadBatch(blist[0].id);
+      }
+    });
+  }, [urlBatchId, loadBatch, loadBatches]);
+
+  const handleCreateNewPaidBatch = async () => {
+    try {
+      setUploading(true);
+      const res = await axios.post(`${API}/bulk-assessments/from-leads`, {
+        paid_only: true,
+        report_pending_only: true,
+      }, { headers });
+      setUploading(false);
+      toast.success(`Created fresh batch with ${res.data?.total || 0} paid clients pending reports!`);
+      const createdId = res.data?.batch_id;
+      await loadBatches();
+      if (createdId) {
+        setSearchParams({ batch_id: createdId });
+        await loadBatch(createdId);
+      }
+    } catch (err) {
+      setUploading(false);
+      toast.error(formatApiError(err, 'No paid clients with pending reports found'));
+    }
+  };
+
   const deleteBatch = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this batch history?')) return;
     try {
       await axios.delete(`${API}/bulk-assessments/${id}`, { headers });
       toast.success('Batch deleted');
-      await loadBatches();
+      const blist = await loadBatches();
+      if (batch?.id === id) {
+        if (blist && blist.length > 0) {
+          loadBatch(blist[0].id);
+        } else {
+          setBatch(null);
+          setRows([]);
+        }
+      }
     } catch (err) {
       toast.error(formatApiError(err, 'Failed to delete batch'));
     }
@@ -467,10 +512,15 @@ export default function BulkPreAssessment() {
         {/* Upload */}
         <Card className="p-4 space-y-3" data-testid="bulk-upload-card">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-base font-bold flex items-center gap-2"><Upload className="h-4 w-4 text-teal-600" />Step 1 · Upload Client List</h2>
-            <Button variant="outline" size="sm" onClick={downloadTemplate} data-testid="download-template-btn">
-              <Download className="h-4 w-4 mr-1" />Download Excel Template
-            </Button>
+            <h2 className="text-base font-bold flex items-center gap-2"><Upload className="h-4 w-4 text-teal-600" />Step 1 · Upload Client List or Pull Paid Leads</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button onClick={handleCreateNewPaidBatch} size="sm" disabled={uploading} className="bg-teal-700 hover:bg-teal-800 text-white font-bold shadow-sm" data-testid="fetch-paid-pending-btn">
+                <Zap className="h-4 w-4 mr-1.5" />Create New Batch (Paid & Report Pending)
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadTemplate} data-testid="download-template-btn">
+                <Download className="h-4 w-4 mr-1" />Download Excel Template
+              </Button>
+            </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" disabled={uploading}

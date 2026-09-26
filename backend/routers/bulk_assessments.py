@@ -542,14 +542,15 @@ async def create_batch_from_leads(
     payload: dict,
     current_user: dict = Depends(get_current_user),
 ):
-    """Create a Bulk Pre-Assessment batch directly from CRM leads, or append to existing open batch."""
+    """Create a new Bulk Pre-Assessment batch directly from CRM leads, containing only clients whose report is pending."""
     if not _can(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
 
     lead_ids = payload.get("lead_ids", [])
-    paid_only = payload.get("paid_only") or payload.get("payment_status") == "success"
-    report_pending_only = payload.get("report_pending_only", False)
-    default_name = f"Paid Registrations ({datetime.now(timezone.utc).strftime('%d %b %Y')})" if paid_only else f"Website Registrations ({datetime.now(timezone.utc).strftime('%d %b %Y')})"
+    paid_only = payload.get("paid_only", True) if "paid_only" in payload else True
+    # By default, strictly exclude leads whose reports have already been generated
+    report_pending_only = payload.get("report_pending_only", True)
+    default_name = f"Paid Batch ({datetime.now(timezone.utc).strftime('%d %b %Y %H:%M')})" if paid_only else f"Website Registrations ({datetime.now(timezone.utc).strftime('%d %b %Y %H:%M')})"
     batch_name = payload.get("batch_name") or default_name
 
     query = {}
@@ -570,104 +571,74 @@ async def create_batch_from_leads(
             {"unique_id": {"$exists": True, "$ne": None}}
         ]
 
-    if report_pending_only:
-        query["report_generated"] = {"$ne": True}
+    cursor = db["leads"].find(query).sort("created_at", -1).limit(1000)
+    leads = await cursor.to_list(length=1000)
 
-    cursor = db["leads"].find(query).sort("created_at", -1).limit(500)
-    leads = await cursor.to_list(length=500)
-
-    # Collect all IDs/emails of generated reports across bulk_rows and sales_assessments
+    # Collect all IDs/emails of generated reports across bulk_rows, assessments, and report_snapshots
     gen_leads_set: set = set()
     gen_emails_set: set = set()
+
     async for r in ROWS.find(
         {"$or": [{"status": "generated"}, {"snapshot_id": {"$exists": True, "$ne": None}}]},
         {"lead_id": 1, "parsed.email": 1}
     ):
-        if r.get("lead_id"): gen_leads_set.add(r["lead_id"])
+        if r.get("lead_id"):
+            gen_leads_set.add(str(r["lead_id"]))
         em = (r.get("parsed") or {}).get("email")
-        if em: gen_emails_set.add(str(em).strip().lower())
+        if em:
+            gen_emails_set.add(str(em).strip().lower())
 
     async for a in ASSESSMENTS.find(
         {"$or": [{"latest_report_snapshot_id": {"$exists": True, "$ne": None}}, {"report_snapshot_ids": {"$exists": True, "$ne": []}}]},
         {"lead_id": 1, "client_email": 1}
     ):
-        if a.get("lead_id"): gen_leads_set.add(a["lead_id"])
-        if a.get("client_email"): gen_emails_set.add(str(a["client_email"]).strip().lower())
+        if a.get("lead_id"):
+            gen_leads_set.add(str(a["lead_id"]))
+        if a.get("client_email"):
+            gen_emails_set.add(str(a["client_email"]).strip().lower())
 
-    # If report_pending_only is requested, exclude any lead whose report is already generated
-    if report_pending_only:
-        leads = [
-            l for l in leads
-            if not (
+    async for s in REPORT_SNAPSHOTS.find({}, {"lead_id": 1, "client_email": 1, "parsed.email": 1}):
+        if s.get("lead_id"):
+            gen_leads_set.add(str(s["lead_id"]))
+        if s.get("client_email"):
+            gen_emails_set.add(str(s["client_email"]).strip().lower())
+        em = (s.get("parsed") or {}).get("email")
+        if em:
+            gen_emails_set.add(str(em).strip().lower())
+
+    # Filter out any client whose report is ALREADY generated
+    if report_pending_only or paid_only:
+        filtered_leads = []
+        for l in leads:
+            lid = str(l.get("id") or "")
+            lemail = str(l.get("email") or "").strip().lower()
+            is_done = bool(
                 l.get("report_generated") is True
                 or l.get("report_status") == "generated"
                 or l.get("latest_report_snapshot_id")
                 or l.get("assessment_report_id")
-                or (l.get("id") and l.get("id") in gen_leads_set)
-                or (str(l.get("email") or "").strip().lower() in gen_emails_set)
+                or (lid and lid in gen_leads_set)
+                or (lemail and lemail in gen_emails_set)
             )
-        ]
-
-    # Check for existing active or open batch to append to instead of creating duplicate batches
-    existing_batch = await BATCHES.find_one(
-        {"status": {"$in": ["ready", "draft", "enriching", "enriched", "processing", "paused"]}},
-        sort=[("created_at", -1)]
-    )
-    if not existing_batch:
-        existing_batch = await BATCHES.find_one({}, sort=[("created_at", -1)])
+            if not is_done:
+                filtered_leads.append(l)
+        leads = filtered_leads
 
     if not leads:
-        if existing_batch:
-            return {
-                "batch_id": existing_batch["id"],
-                "total": existing_batch.get("total", 0),
-                "valid": existing_batch.get("valid", 0),
-                "needs_ai": existing_batch.get("needs_ai", 0),
-                "invalid": existing_batch.get("invalid", 0),
-                "appended": 0,
-                "message": "All matching leads already have Client Assessment Reports generated."
-            }
-        raise HTTPException(status_code=404, detail="No matching leads pending report generation found.")
+        raise HTTPException(
+            status_code=404,
+            detail="No paid clients with pending reports found. All matching clients already have reports generated."
+        )
 
+    # Always create a brand-new batch for this run
     now = datetime.now(timezone.utc)
-    batch_id = existing_batch["id"] if existing_batch else f"BATCH-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-
-    # Check already present leads in batch to avoid duplicate rows
-    existing_lead_ids = set()
-    existing_emails = set()
-    existing_row_count = 0
-    if existing_batch:
-        # Purge any previously generated rows from the existing batch so the active queue only has fresh pending leads
-        await ROWS.delete_many({"batch_id": batch_id, "status": "generated"})
-        async for r in ROWS.find({"batch_id": batch_id}, {"lead_id": 1, "parsed.email": 1}):
-            if r.get("lead_id"):
-                existing_lead_ids.add(r["lead_id"])
-            em = (r.get("parsed") or {}).get("email")
-            if em:
-                existing_emails.add(str(em).strip().lower())
-        existing_row_count = await ROWS.count_documents({"batch_id": batch_id})
+    batch_id = f"BATCH-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
     row_docs = []
     valid = 0
     needs_ai = 0
 
-    filtered_leads = [
-        l for l in leads
-        if l.get("id") not in existing_lead_ids and (not l.get("email") or str(l.get("email")).strip().lower() not in existing_emails)
-    ] if existing_batch else leads
-
-    if existing_batch and not filtered_leads:
-        return {
-            "batch_id": batch_id,
-            "total": existing_batch.get("total", existing_row_count),
-            "valid": existing_batch.get("valid", 0),
-            "needs_ai": existing_batch.get("needs_ai", 0),
-            "invalid": existing_batch.get("invalid", 0),
-            "appended": 0,
-            "message": "All selected leads are already present in the current bulk batch."
-        }
-
-    for idx, lead in enumerate(filtered_leads):
+    for idx, lead in enumerate(leads):
         dob_val = lead.get("date_of_birth") or lead.get("dob") or ""
         name_val = lead.get("name") or lead.get("full_name") or "Unnamed Client"
         raw_row = {
@@ -679,7 +650,7 @@ async def create_batch_from_leads(
             "experience": lead.get("total_work_experience") or lead.get("experience") or "",
             "gender": lead.get("gender") or "",
             "marital_status": lead.get("marital_status") or "",
-            "resume_link": lead.get("resume_url") or lead.get("resume_path") or "",
+            "resume_link": lead.get("resume_url") or lead.get("resume_path") or lead.get("resume_link") or "",
             "anzsco_code": lead.get("occupation_code") or lead.get("anzsco_code") or "",
         }
 
@@ -699,7 +670,7 @@ async def create_batch_from_leads(
         row_docs.append({
             "id": str(uuid.uuid4()),
             "batch_id": batch_id,
-            "row_index": existing_row_count + idx + 1,
+            "row_index": idx + 1,
             "lead_id": lead.get("id"),
             "parsed": res["parsed"],
             "errors": res["errors"],
@@ -714,40 +685,12 @@ async def create_batch_from_leads(
     if row_docs:
         await ROWS.insert_many(row_docs)
 
-    if existing_batch:
-        total_in_db = await ROWS.count_documents({"batch_id": batch_id})
-        valid_in_db = await ROWS.count_documents({"batch_id": batch_id, "status": "valid"})
-        needs_ai_in_db = await ROWS.count_documents({"batch_id": batch_id, "status": "needs_ai"})
-        invalid_in_db = await ROWS.count_documents({"batch_id": batch_id, "status": "error"})
-        generated_in_db = await ROWS.count_documents({"batch_id": batch_id, "status": "generated"})
-        await BATCHES.update_one(
-            {"id": batch_id},
-            {
-                "$set": {
-                    "total": total_in_db,
-                    "valid": valid_in_db,
-                    "needs_ai": needs_ai_in_db,
-                    "invalid": invalid_in_db,
-                    "generated": generated_in_db,
-                    "status": "ready" if existing_batch.get("status") in ("done", "draft") else existing_batch.get("status", "ready"),
-                    "updated_at": now,
-                }
-            }
-        )
-        return {
-            "batch_id": batch_id,
-            "total": total_in_db,
-            "valid": valid_in_db,
-            "needs_ai": needs_ai_in_db,
-            "invalid": invalid_in_db,
-            "appended": len(row_docs),
-        }
-
     batch = {
         "id": batch_id,
         "name": batch_name,
         "status": "ready",
         "source": "crm_leads",
+        "paid_only": paid_only,
         "total": len(row_docs),
         "valid": valid,
         "invalid": len(row_docs) - valid - needs_ai,
@@ -1614,7 +1557,9 @@ async def _generate_row(row: Dict[str, Any], batch: Dict[str, Any], user: Dict[s
     if row.get("lead_id"):
         lead_query.append({"id": row.get("lead_id")})
     if p.get("email"):
-        lead_query.append({"email": p.get("email")})
+        em_str = str(p.get("email")).strip()
+        lead_query.append({"email": em_str})
+        lead_query.append({"email": {"$regex": f"^{re.escape(em_str)}$", "$options": "i"}})
     if lead_query:
         await db["leads"].update_many(
             {"$or": lead_query},
