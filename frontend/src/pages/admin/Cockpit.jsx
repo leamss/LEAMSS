@@ -1538,6 +1538,27 @@ export default function Cockpit() {
                   </div>
                 )}
 
+                {/* Generated Batch Banner if Report is Generated */}
+                {selectedCard.report_generated && (selectedCard.bulk_batch_id || cardDetail?.record?.bulk_batch_id) && (
+                  <div className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/70 shadow-xs flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-teal-800 flex items-center gap-1">
+                        <Check className="h-3.5 w-3.5 text-teal-600" /> Report Generated in Batch
+                      </p>
+                      <p className="text-xs font-mono font-bold text-slate-800 truncate mt-0.5">
+                        {selectedCard.bulk_batch_id || cardDetail?.record?.bulk_batch_id}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/sales/bulk-assessment?batch_id=${selectedCard.bulk_batch_id || cardDetail?.record?.bulk_batch_id}`)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-1.5 transition-all hover:opacity-90 shrink-0 cursor-pointer"
+                      style={{ background: '#0F766E' }}
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" /> View in Batch
+                    </button>
+                  </div>
+                )}
+
                 {/* 1-Click Pre-Assessment & Client Assessment Action Banner */}
                 {selectedCard.type === 'lead' && (
                   <div className="p-4 rounded-xl border shadow-sm space-y-3" style={{ background: '#FFFFFF', borderColor: C.gold }}>
@@ -1920,9 +1941,24 @@ function PipelineCard({
         ) : (
           <div className="flex flex-col items-end gap-1 shrink-0">
             {card.report_generated ? (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-sm">
-                ✓ Report Generated
-              </span>
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-sm">
+                  ✓ Report Generated
+                </span>
+                {card.bulk_batch_id && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/sales/bulk-assessment?batch_id=${card.bulk_batch_id}`);
+                    }}
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-slate-200 hover:border-teal-300 flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+                    title={`Click to view this client in Batch: ${card.bulk_batch_id}`}
+                  >
+                    <FileSpreadsheet className="h-2.5 w-2.5 text-teal-600" />
+                    <span>Batch: {card.bulk_batch_id.replace('BATCH-', '')}</span>
+                  </button>
+                )}
+              </div>
             ) : (card.payment_status === 'success' || (card.payment_amount && card.payment_amount > 0)) ? (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shadow-sm">
                 ⚡ Paid · Report Pending

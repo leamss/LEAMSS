@@ -179,7 +179,7 @@ def _humanize_ago(dt: Optional[datetime]) -> str:
     return dt.strftime("%d %b %Y")
 
 
-def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_emails: Optional[set] = None) -> Dict[str, Any]:
+def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_emails: Optional[set] = None, batch_map: Optional[dict] = None) -> Dict[str, Any]:
     """Normalize a `leads` doc into a cockpit card."""
     country = d.get("country_of_interest") or ""
     unique_id = d.get("unique_id") or ""
@@ -194,6 +194,8 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         or (lid and gen_leads and lid in gen_leads)
         or (lemail and len(lemail) >= 3 and gen_emails and lemail in gen_emails)
     )
+
+    batch_id = d.get("bulk_batch_id") or (batch_map.get(lid) if batch_map and lid else None) or (batch_map.get(lemail) if batch_map and lemail else None)
 
     resume_fid = d.get("resume_file_id")
     has_resume = bool(
@@ -253,6 +255,8 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         "report_status": "generated" if has_report else (d.get("report_status") or "pending"),
         "report_generated_at": d.get("report_generated_at"),
         "assessment_report_id": d.get("assessment_report_id") or d.get("latest_report_snapshot_id"),
+        "bulk_batch_id": batch_id,
+        "bulk_row_id": d.get("bulk_row_id"),
         "lifecycle": 2 if has_report else (1 if is_paid else 0),
         "next_action": next_action,
         "urgency": d.get("priority") or ("high" if not has_report and is_paid else "medium"),
@@ -456,24 +460,35 @@ async def get_cards(
     # Collect all IDs/emails of generated reports across bulk_assessment_rows and sales_assessments
     gen_leads_set: set = set()
     gen_emails_set: set = set()
+    gen_batch_map: dict = {}
     async for r in db["bulk_assessment_rows"].find(
         {"$or": [{"status": "generated"}, {"snapshot_id": {"$exists": True, "$ne": None}}]},
-        {"lead_id": 1, "parsed.email": 1}
+        {"lead_id": 1, "parsed.email": 1, "batch_id": 1}
     ):
+        bid = r.get("batch_id")
         if r.get("lead_id"):
-            gen_leads_set.add(str(r["lead_id"]).strip())
+            lid_str = str(r["lead_id"]).strip()
+            gen_leads_set.add(lid_str)
+            if bid: gen_batch_map[lid_str] = bid
         em = (r.get("parsed") or {}).get("email")
         if em and str(em).strip():
-            gen_emails_set.add(str(em).strip().lower())
+            em_str = str(em).strip().lower()
+            gen_emails_set.add(em_str)
+            if bid: gen_batch_map[em_str] = bid
 
     async for a in db["sales_assessments"].find(
         {"$or": [{"latest_report_snapshot_id": {"$exists": True, "$ne": None}}, {"report_snapshot_ids": {"$exists": True, "$ne": []}}]},
-        {"lead_id": 1, "client_email": 1}
+        {"lead_id": 1, "client_email": 1, "bulk_batch_id": 1}
     ):
+        bid = a.get("bulk_batch_id")
         if a.get("lead_id"):
-            gen_leads_set.add(str(a["lead_id"]).strip())
+            lid_str = str(a["lead_id"]).strip()
+            gen_leads_set.add(lid_str)
+            if bid: gen_batch_map[lid_str] = bid
         if a.get("client_email") and str(a["client_email"]).strip():
-            gen_emails_set.add(str(a["client_email"]).strip().lower())
+            em_str = str(a["client_email"]).strip().lower()
+            gen_emails_set.add(em_str)
+            if bid: gen_batch_map[em_str] = bid
 
     # 1) Navratri Offer Leads (Full unfiltered list for campaign)
     if is_navratri_stage:
@@ -485,7 +500,7 @@ async def get_cards(
         if text_re:
             q = {"$and": [q, {"$or": [{"name": text_re}, {"email": text_re}, {"phone": text_re}, {"unique_id": text_re}]}]}
         async for d in db["leads"].find(q, {"_id": 0}).sort("created_at", -1).limit(limit):
-            cards.append(_build_lead_card(d, gen_leads_set, gen_emails_set))
+            cards.append(_build_lead_card(d, gen_leads_set, gen_emails_set, gen_batch_map))
 
     # 2) Standard Leads (when in 'all' or 'leads')
     elif want_all or stage == "leads":
@@ -493,7 +508,7 @@ async def get_cards(
         if text_re:
             q["$or"] = [{"name": text_re}, {"email": text_re}, {"phone": text_re}]
         async for d in db["leads"].find(q, {"_id": 0}).sort("updated_at", -1).limit(limit):
-            cards.append(_build_lead_card(d, gen_leads_set, gen_emails_set))
+            cards.append(_build_lead_card(d, gen_leads_set, gen_emails_set, gen_batch_map))
 
     # 3) Sales assessments (no PA yet)
     if (want_all or stage == "assessments") and not is_navratri_stage:
