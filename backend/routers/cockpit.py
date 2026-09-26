@@ -488,13 +488,6 @@ async def get_cards(
     cards: List[Dict[str, Any]] = []
     is_admin = _is_admin(current_user)
 
-    # Automatically purge dirty placeholders and reconcile all leads
-    try:
-        from core.website_sync import reconcile_navratri_leads
-        await reconcile_navratri_leads()
-    except Exception:
-        pass
-
     # Owner override
     if owner == "me":
         own_filter_lead = {"$or": [{"assigned_to": current_user["id"]}, {"partner_id": current_user["id"]}]}
@@ -650,9 +643,17 @@ async def get_cards(
     def _sort_key_recent(c):
         u = c.get("created_at") or c.get("updated_at")
         if isinstance(u, str):
-            try: u = datetime.fromisoformat(u.replace("Z", "+00:00"))
-            except ValueError: u = None
-        dt_val = u or datetime.min.replace(tzinfo=timezone.utc)
+            try:
+                u = datetime.fromisoformat(u.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                u = None
+        if isinstance(u, datetime):
+            if u.tzinfo is None:
+                dt_val = u.replace(tzinfo=timezone.utc)
+            else:
+                dt_val = u
+        else:
+            dt_val = datetime.min.replace(tzinfo=timezone.utc)
         
         # Extract numeric registration sequence from unique_id (e.g. NN2427111 -> 2427111)
         uid = str(c.get("unique_id") or "")
