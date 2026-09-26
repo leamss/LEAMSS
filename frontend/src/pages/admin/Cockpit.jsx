@@ -1895,6 +1895,7 @@ function PipelineCard({
   onCopyLink,
   copiedId,
 }) {
+  const navigate = useNavigate();
   const ringColor = URGENCY_RING[card.urgency] || C.teal;
   const flags = (card.countries || []).map(c => COUNTRY_FLAG[c] || c).join(' ');
   const isNavratri = card.is_navratri;
