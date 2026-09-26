@@ -426,8 +426,8 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
         }
         leads = await leads_col.find(
             query,
-            {"_id": 1, "unique_id": 1, "external_id": 1, "tags": 1, "payment_status": 1, "service_interested": 1, "resume_url": 1, "resume_path": 1, "resume_link": 1, "resume_file_id": 1}
-        ).to_list(2000)
+            {"_id": 1, "unique_id": 1, "external_id": 1, "tags": 1, "payment_status": 1, "service_interested": 1, "resume_url": 1, "resume_path": 1, "resume_link": 1, "resume_file_id": 1, "resume_filename": 1}
+        ).to_list(5000)
 
         if not leads:
             return {"status": "success", "reconciled_leads_count": 0}
@@ -449,12 +449,7 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
                 if "Payment Failed" not in tags: tags.append("Payment Failed")
                 if "Payment Success" in tags: tags.remove("Payment Success")
 
-            has_valid_res = (
-                is_valid_resume_path(lead.get("resume_url"))
-                or is_valid_resume_path(lead.get("resume_path"))
-                or is_valid_resume_path(lead.get("resume_link"))
-                or is_valid_resume_path(lead.get("resume_file_id"))
-            )
+            has_valid_res = has_lead_resume(lead)
 
             set_doc = {
                 "is_navratri": True,
@@ -462,10 +457,9 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
                 "unique_id": uid or lead.get("unique_id"),
                 "service_interested": lead.get("service_interested") or "Navratri Special Offer",
                 "tags": tags,
+                "resume_uploaded": has_valid_res,
                 "updated_at": now
             }
-            if not has_valid_res:
-                set_doc["resume_uploaded"] = False
 
             unset_doc = {}
             if pay_st not in ("success", "paid"):

@@ -69,47 +69,55 @@ def is_valid_resume_path(val: Any) -> bool:
         "http://app.leamss.com", "https://app.leamss.com",
         "https://leamss.com/uploads", "http://leamss.com/uploads",
         "https://leamss.com/uploads/resumes", "http://leamss.com/uploads/resumes",
+        "https://leamss.com/uploads/resumes/resume.pdf", "http://leamss.com/uploads/resumes/resume.pdf",
         "uploads", "uploads/resumes", "/uploads", "/uploads/resumes",
-        "uploads/resumes/", "/uploads/resumes/"
+        "uploads/resumes/", "/uploads/resumes/",
+        "uploads/resumes/resume.pdf", "/uploads/resumes/resume.pdf",
+        "resume.pdf", "resume.doc", "resume.docx", "cv.pdf", "cv.docx"
     ):
         return False
 
     # Extract filename portion
     fname = lower_clean.split("/")[-1].strip()
 
-    # Blacklist default non-uploaded placeholder filenames written by PHP/MySQL form defaults
+    # Blacklist default non-uploaded placeholder filenames
     if fname in (
         "", "resume.pdf", "resume.doc", "resume.docx", "resume",
         "cv.pdf", "cv.doc", "cv.docx", "cv",
         "sample.pdf", "test.pdf", "placeholder.pdf", "default.pdf",
-        "undefined", "null", "none", "n/a", "no-file.pdf", "nofile.pdf", "no_file.pdf"
+        "undefined", "null", "none", "n/a", "no-file.pdf", "nofile.pdf", "no_file.pdf",
+        "uploaded_resume.pdf", "candidate_resume.pdf"
     ):
         return False
 
-    # Check for synthesized PHP placeholder formats like 1727351123_, 1727351123_.pdf, 1727351123_resume.pdf, NN2427112.pdf
-    # 1. Filenames starting with resume_, resume-, cv_, cv-, sample_, test_, default_, placeholder_
-    if any(fname.startswith(prefix) for prefix in ("resume_", "resume-", "cv_", "cv-", "sample_", "sample-", "default_", "default-", "placeholder_", "test_")):
-        # e.g. resume_1727351123.pdf, resume-2026.pdf
+    # Reject any filename ending with resume.pdf / cv.pdf
+    if any(fname.endswith(suf) for suf in ("_resume.pdf", "-resume.pdf", ".resume.pdf", "resume.pdf", "_cv.pdf", "-cv.pdf", "cv.pdf", "_sample.pdf", "_test.pdf", "_placeholder.pdf", "_default.pdf", "resume.docx", "cv.docx", "resume.doc", "cv.doc")):
         return False
 
-    # 2. Filenames ending with _resume.pdf, -resume.pdf, _cv.pdf, -cv.pdf, etc.
-    if any(fname.endswith(suffix) for suffix in ("_resume.pdf", "-resume.pdf", "_cv.pdf", "-cv.pdf", "_sample.pdf", "_test.pdf", "_placeholder.pdf", "_default.pdf", "_resume.docx", "_cv.docx")):
+    # Reject filenames starting with generic resume/cv prefixes
+    if any(fname.startswith(pre) for pre in ("resume_", "resume-", "resume.", "cv_", "cv-", "cv.", "sample_", "sample-", "default_", "default-", "placeholder_", "test_")):
         return False
 
-    # 3. Filenames with no name before extension (e.g. 1727351123_.pdf, _.pdf, 1727351123_)
+    # Check base name (without extension)
     base_name = fname.rsplit(".", 1)[0] if "." in fname else fname
-    if not base_name or base_name.endswith("_") or base_name.startswith("_"):
+    if not base_name or base_name.endswith("_") or base_name.startswith("_") or base_name in ("resume", "cv", "sample", "test", "default", "placeholder"):
         return False
 
-    # 4. Filenames that are purely numeric / timestamp / lead IDs generated without a real uploaded file
+    # Reject pure numbers / IDs generated without an attached resume
     if base_name.isdigit() or (base_name.startswith("nn") and base_name[2:].isdigit()) or (base_name.startswith("ld") and base_name[2:].isdigit()):
         return False
 
-    # Genuine file check
-    has_ext = any(lower_clean.endswith(ext) or f"{ext}?" in lower_clean for ext in (".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp"))
+    # Genuine file check:
+    # 1. GridFS ObjectId (24-hex string)
     is_gridfs_oid = len(s) == 24 and all(c in "0123456789abcdefABCDEF" for c in s)
-    is_gridfs_route = "/cockpit/resume/" in lower_clean or "/upload-resume/" in lower_clean or "drive.google.com" in lower_clean or "cloudinary" in lower_clean or "s3" in lower_clean
-    return bool(has_ext or is_gridfs_oid or is_gridfs_route)
+    # 2. GridFS stream route (/cockpit/resume/...)
+    is_gridfs_route = "/cockpit/resume/" in lower_clean or "/upload-resume/" in lower_clean
+    # 3. Third-party cloud storage
+    is_cloud_storage = "drive.google.com" in lower_clean or "cloudinary" in lower_clean or "s3" in lower_clean or "blob.core.windows.net" in lower_clean
+    # 4. Genuine uploaded file with real name
+    has_ext = any(lower_clean.endswith(ext) or f"{ext}?" in lower_clean for ext in (".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp"))
+
+    return bool(is_gridfs_oid or is_gridfs_route or is_cloud_storage or (has_ext and len(base_name) >= 3 and "resume" not in fname and "cv" not in fname))
 
 
 def has_lead_resume(lead: Dict[str, Any]) -> bool:

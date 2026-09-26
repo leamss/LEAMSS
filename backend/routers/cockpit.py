@@ -488,6 +488,13 @@ async def get_cards(
     cards: List[Dict[str, Any]] = []
     is_admin = _is_admin(current_user)
 
+    # Automatically purge dirty placeholders and reconcile all leads
+    try:
+        from core.website_sync import reconcile_navratri_leads
+        await reconcile_navratri_leads()
+    except Exception:
+        pass
+
     # Owner override
     if owner == "me":
         own_filter_lead = {"$or": [{"assigned_to": current_user["id"]}, {"partner_id": current_user["id"]}]}
