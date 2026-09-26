@@ -309,13 +309,16 @@ export default function Cockpit() {
     const ids = Array.isArray(leadIds) ? leadIds : [leadIds];
     if (!ids.length) return;
 
+    // Resolve target card (passed directly or looked up from cards list)
+    const targetCard = leadCard || cards.find(c => c.id === ids[0]);
+
     // Instantly open WhatsApp Web / App with pre-filled message before async call to avoid popup blockers
-    if (leadCard?.phone) {
-      const cleanPhone = leadCard.phone.replace(/[^0-9]/g, '');
-      const uploadUrl = leadCard.resume_upload_url || `https://app.leamss.com/upload-resume/${leadCard.unique_id || leadCard.id || cleanPhone}`;
+    if (targetCard?.phone) {
+      const cleanPhone = targetCard.phone.replace(/[^0-9]/g, '');
+      const uploadUrl = targetCard.resume_upload_url || `https://app.leamss.com/upload-resume/${targetCard.unique_id || targetCard.id || cleanPhone}`;
       const msg = encodeURIComponent(
         `🌟 *LEAMSS Navratri Offer — Action Needed*\n\n` +
-        `Hi ${leadCard.name || 'Applicant'},\n` +
+        `Hi ${targetCard.name || 'Applicant'},\n` +
         `Thank you for your registration with LEAMSS! To complete your *Australia PR Pre-Assessment Report*, our migration team needs your latest resume / CV.\n\n` +
         `📄 *Upload your resume securely in 1 minute:*\n${uploadUrl}\n\n` +
         `_(No login or password required. Simply click the link and upload your PDF or Word document.)_\n\n` +
@@ -345,13 +348,16 @@ export default function Cockpit() {
     const ids = Array.isArray(leadIds) ? leadIds : [leadIds];
     if (!ids.length) return;
 
+    // Resolve target card (passed directly or looked up from cards list)
+    const targetCard = leadCard || cards.find(c => c.id === ids[0]);
+
     // Instantly open WhatsApp Web / App with pre-filled payment message before async call to avoid popup blockers
-    if (leadCard?.phone) {
-      const cleanPhone = leadCard.phone.replace(/[^0-9]/g, '');
-      const payUrl = leadCard.payment_link || `https://leamss.com/navratri-offers?ref=${leadCard.unique_id || leadCard.id || ''}`;
+    if (targetCard?.phone) {
+      const cleanPhone = targetCard.phone.replace(/[^0-9]/g, '');
+      const payUrl = targetCard.payment_link || `https://leamss.com/navratri-offers?ref=${targetCard.unique_id || targetCard.id || ''}`;
       const msg = encodeURIComponent(
         `✨ *LEAMSS Navratri Special Offer — Payment Link*\n\n` +
-        `Dear ${leadCard.name || 'Applicant'},\n` +
+        `Dear ${targetCard.name || 'Applicant'},\n` +
         `Complete your registration for the *LEAMSS Navratri Special Offer* and receive your strategic Australia PR Pre-Assessment Report.\n\n` +
         `💳 *Complete Payment Securely:*\n${payUrl}\n\n` +
         `Once payment is completed, our expert migration team will immediately process your profile.\n\n` +
@@ -1007,8 +1013,8 @@ export default function Cockpit() {
                 isSelected={selectedLeadIds.includes(card.id)}
                 onToggleSelect={card.type === 'lead' ? (e) => toggleLeadSelection(card.id, e) : null}
                 onConvertToPA={card.type === 'lead' ? (e) => { e.stopPropagation(); handleConvertToPA(card.id); } : null}
-                onSendResumeRequest={(leadId) => handleSendResumeRequest(leadId)}
-                onSendPaymentLink={(leadId) => handleSendPaymentLink(leadId)}
+                onSendResumeRequest={(leadId, cardObj) => handleSendResumeRequest(leadId, cardObj || card)}
+                onSendPaymentLink={(leadId, cardObj) => handleSendPaymentLink(leadId, cardObj || card)}
                 onMarkPaid={(leadId) => handleMarkPaid(leadId)}
                 onCopyLink={(url, id) => handleCopyLink(url, id)}
                 copiedId={copiedId}
