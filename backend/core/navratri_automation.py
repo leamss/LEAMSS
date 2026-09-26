@@ -277,11 +277,36 @@ async def send_navratri_resume_request(
                 f"Once uploaded, our team will analyze your profile and prepare your Pre-Assessment Report.\n\n"
                 f"— *LEAMSS Migration Team*"
             )
-            await send_whatsapp_text(to_phone=clean_phone, text=wa_text)
+            await send_whatsapp_text(
+                to_phone=clean_phone,
+                text=wa_text,
+                content_variables={"1": name, "2": upload_url},
+                client_name=name,
+            )
             results["whatsapp_sent"] = True
         except Exception as e_wa:
-            logger.error("Failed to send resume request WhatsApp to %s: %s", phone, e_wa)
-            results["errors"].append(f"WhatsApp error: {str(e_wa)}")
+            logger.warning("Standard WhatsApp failed, attempting template broadcast fallback for %s: %s", phone, e_wa)
+            try:
+                from core.whatsapp_service import send_whatsapp_template
+                components = [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": name},
+                            {"type": "text", "text": upload_url},
+                        ],
+                    }
+                ]
+                await send_whatsapp_template(
+                    to_phone=clean_phone,
+                    template_name="resume_upload_request",
+                    language_code="en_US",
+                    components=components,
+                )
+                results["whatsapp_sent"] = True
+            except Exception as e_tpl:
+                logger.error("Failed to broadcast resume request WhatsApp to %s: %s", phone, e_tpl)
+                results["errors"].append(f"WhatsApp error: {str(e_wa)}")
 
     # 3. Log to lead notes and update timestamp
     note_text = f"Auto/Admin sent Resume Upload Link via {'Email & WhatsApp' if results['email_sent'] and results['whatsapp_sent'] else 'Email' if results['email_sent'] else 'WhatsApp' if results['whatsapp_sent'] else 'Failed Dispatch'}: {upload_url}"
@@ -358,11 +383,36 @@ async def send_navratri_payment_link(
                 f"Once payment is completed, your profile will be immediately queued for evaluation by our expert migration team.\n\n"
                 f"— *LEAMSS Global Education & Migration*"
             )
-            await send_whatsapp_text(to_phone=clean_phone, text=wa_text)
+            await send_whatsapp_text(
+                to_phone=clean_phone,
+                text=wa_text,
+                content_variables={"1": name, "2": payment_url},
+                client_name=name,
+            )
             results["whatsapp_sent"] = True
         except Exception as e_wa:
-            logger.error("Failed to send payment link WhatsApp to %s: %s", phone, e_wa)
-            results["errors"].append(f"WhatsApp error: {str(e_wa)}")
+            logger.warning("Standard WhatsApp failed, attempting payment template broadcast for %s: %s", phone, e_wa)
+            try:
+                from core.whatsapp_service import send_whatsapp_template
+                components = [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": name},
+                            {"type": "text", "text": payment_url},
+                        ],
+                    }
+                ]
+                await send_whatsapp_template(
+                    to_phone=clean_phone,
+                    template_name="navratri_payment_link",
+                    language_code="en_US",
+                    components=components,
+                )
+                results["whatsapp_sent"] = True
+            except Exception as e_tpl:
+                logger.error("Failed to broadcast payment link WhatsApp to %s: %s", phone, e_tpl)
+                results["errors"].append(f"WhatsApp error: {str(e_wa)}")
 
     # 3. Log to lead notes
     note_text = f"Sent Navratri Offer Payment Link via {'Email & WhatsApp' if results['email_sent'] and results['whatsapp_sent'] else 'Email' if results['email_sent'] else 'WhatsApp' if results['whatsapp_sent'] else 'Failed Dispatch'}: {payment_url}"
