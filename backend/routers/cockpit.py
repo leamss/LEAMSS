@@ -262,11 +262,11 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         "resume_url": resume_link,
         "report_generated": has_report,
         "report_status": "generated" if has_report else (d.get("report_status") or "pending"),
-        "report_generated_at": d.get("report_generated_at"),
-        "assessment_report_id": d.get("assessment_report_id") or d.get("latest_report_snapshot_id"),
+        "report_generated_at": d.get("report_generated_at") if is_paid else None,
+        "assessment_report_id": (d.get("assessment_report_id") or d.get("latest_report_snapshot_id")) if is_paid else None,
         "bulk_batch_id": batch_id,
-        "bulk_row_id": d.get("bulk_row_id"),
-        "lifecycle": 2 if has_report else (1 if is_paid else 0),
+        "bulk_row_id": d.get("bulk_row_id") if is_paid else None,
+        "lifecycle": 2 if has_report else (1 if (is_paid and has_resume) else (1 if is_paid else 0)),
         "next_action": next_action,
         "urgency": d.get("priority") or ("high" if not has_report and is_paid else "medium"),
         "owner": {
@@ -479,8 +479,10 @@ async def get_cards(
         {"lead_id": 1, "parsed.email": 1, "batch_id": 1}
     ):
         bid = r.get("batch_id")
-        if r.get("lead_id"):
-            lid_str = str(r["lead_id"]).strip()
+        lid = r.get("lead_id")
+        em = (r.get("parsed") or {}).get("email") if isinstance(r.get("parsed"), dict) else r.get("email")
+        if lid:
+            lid_str = str(lid).strip()
             gen_leads_set.add(lid_str)
             if bid: gen_batch_map[lid_str] = bid
         if em and "@" in str(em):

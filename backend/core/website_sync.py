@@ -419,16 +419,36 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
             operations.append(
                 UpdateOne(
                     {"_id": lead["_id"]},
-                    {
-                        "$set": {
-                            "is_navratri": True,
-                            "source": "Navratri Offer (leamss.com)",
-                            "unique_id": uid or lead.get("unique_id"),
-                            "service_interested": lead.get("service_interested") or "Navratri Special Offer",
-                            "tags": tags,
-                            "updated_at": now
+                    (
+                        {
+                            "$set": {
+                                "is_navratri": True,
+                                "source": "Navratri Offer (leamss.com)",
+                                "unique_id": uid or lead.get("unique_id"),
+                                "service_interested": lead.get("service_interested") or "Navratri Special Offer",
+                                "tags": tags,
+                                "updated_at": now
+                            }
                         }
-                    }
+                        if pay_st in ("success", "paid")
+                        else {
+                            "$set": {
+                                "is_navratri": True,
+                                "source": "Navratri Offer (leamss.com)",
+                                "unique_id": uid or lead.get("unique_id"),
+                                "service_interested": lead.get("service_interested") or "Navratri Special Offer",
+                                "tags": tags,
+                                "updated_at": now
+                            },
+                            "$unset": {
+                                "report_generated": "",
+                                "bulk_batch_id": "",
+                                "bulk_row_id": "",
+                                "assessment_report_id": "",
+                                "latest_report_snapshot_id": ""
+                            }
+                        }
+                    )
                 )
             )
 
