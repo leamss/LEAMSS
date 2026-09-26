@@ -596,7 +596,13 @@ async def get_cards(
         if isinstance(u, str):
             try: u = datetime.fromisoformat(u.replace("Z", "+00:00"))
             except ValueError: u = None
-        return u or datetime.min.replace(tzinfo=timezone.utc)
+        dt_val = u or datetime.min.replace(tzinfo=timezone.utc)
+        
+        # Extract numeric registration sequence from unique_id (e.g. NN2427111 -> 2427111)
+        uid = str(c.get("unique_id") or "")
+        digits = "".join(ch for ch in uid if ch.isdigit())
+        num_part = int(digits) if digits else 0
+        return (dt_val, num_part)
 
     if sort == "paid_first":
         cards.sort(key=lambda c: (
