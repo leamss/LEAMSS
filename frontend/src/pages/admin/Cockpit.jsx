@@ -308,30 +308,32 @@ export default function Cockpit() {
   const handleSendResumeRequest = async (leadIds, leadCard = null) => {
     const ids = Array.isArray(leadIds) ? leadIds : [leadIds];
     if (!ids.length) return;
+
+    // Instantly open WhatsApp Web / App with pre-filled message before async call to avoid popup blockers
+    if (leadCard?.phone) {
+      const cleanPhone = leadCard.phone.replace(/[^0-9]/g, '');
+      const uploadUrl = leadCard.resume_upload_url || `https://app.leamss.com/upload-resume/${leadCard.unique_id || leadCard.id || cleanPhone}`;
+      const msg = encodeURIComponent(
+        `🌟 *LEAMSS Navratri Offer — Action Needed*\n\n` +
+        `Hi ${leadCard.name || 'Applicant'},\n` +
+        `Thank you for your registration with LEAMSS! To complete your *Australia PR Pre-Assessment Report*, our migration team needs your latest resume / CV.\n\n` +
+        `📄 *Upload your resume securely in 1 minute:*\n${uploadUrl}\n\n` +
+        `_(No login or password required. Simply click the link and upload your PDF or Word document.)_\n\n` +
+        `— *LEAMSS Migration Team*`
+      );
+      window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
+    }
+
     try {
       setBulkActionLoading(true);
       const res = await axios.post(`${API}/cockpit/navratri/send-resume-request`, { lead_ids: ids }, { headers });
       setBulkActionLoading(false);
       fetchAll();
       const firstRes = res.data?.results?.[0];
-      if (firstRes?.whatsapp_sent && firstRes?.email_sent) {
-        alert(`✓ Resume upload link sent successfully via Email & WhatsApp!`);
-      } else if (firstRes?.email_sent) {
-        if (leadCard?.phone) {
-          const openWA = window.confirm(
-            `✓ Email sent to ${leadCard.email || 'client'}!\n\nAutomated WhatsApp has a 24h Meta/Twilio window policy for this number.\nWould you like to open WhatsApp now to send the resume upload link with 1 click?`
-          );
-          if (openWA) {
-            const cleanPhone = leadCard.phone.replace(/[^0-9]/g, '');
-            const uploadUrl = leadCard.resume_upload_url || firstRes?.upload_url || 'https://app.leamss.com';
-            const msg = encodeURIComponent(`🌟 *LEAMSS Navratri Offer — Action Needed*\n\nHi ${leadCard.name || 'Applicant'},\nThank you for your registration with LEAMSS! To complete your *Australia PR Pre-Assessment Report*, our migration team needs your latest resume / CV.\n\n📄 *Upload your resume securely in 1 minute:*\n${uploadUrl}\n\n— *LEAMSS Migration Team*`);
-            window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
-          }
-        } else {
-          alert(`✓ Email sent successfully! (WhatsApp API status: ${firstRes?.errors?.join(', ') || 'Outside 24h window'}).`);
-        }
+      if (firstRes?.email_sent) {
+        alert(`✓ Resume upload link sent via Email and WhatsApp window opened!`);
       } else {
-        alert(`Sent Resume Upload Link to ${res.data?.dispatched_count || ids.length} lead(s)!`);
+        alert(`Dispatched resume request to ${res.data?.dispatched_count || ids.length} lead(s)!`);
       }
     } catch (e) {
       setBulkActionLoading(false);
@@ -342,28 +344,30 @@ export default function Cockpit() {
   const handleSendPaymentLink = async (leadIds, leadCard = null) => {
     const ids = Array.isArray(leadIds) ? leadIds : [leadIds];
     if (!ids.length) return;
+
+    // Instantly open WhatsApp Web / App with pre-filled payment message before async call to avoid popup blockers
+    if (leadCard?.phone) {
+      const cleanPhone = leadCard.phone.replace(/[^0-9]/g, '');
+      const payUrl = leadCard.payment_link || `https://leamss.com/navratri-offers?ref=${leadCard.unique_id || leadCard.id || ''}`;
+      const msg = encodeURIComponent(
+        `✨ *LEAMSS Navratri Special Offer — Payment Link*\n\n` +
+        `Dear ${leadCard.name || 'Applicant'},\n` +
+        `Complete your registration for the *LEAMSS Navratri Special Offer* and receive your strategic Australia PR Pre-Assessment Report.\n\n` +
+        `💳 *Complete Payment Securely:*\n${payUrl}\n\n` +
+        `Once payment is completed, our expert migration team will immediately process your profile.\n\n` +
+        `— *LEAMSS Admissions Team*`
+      );
+      window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
+    }
+
     try {
       setBulkActionLoading(true);
       const res = await axios.post(`${API}/cockpit/navratri/send-payment-link`, { lead_ids: ids }, { headers });
       setBulkActionLoading(false);
       fetchAll();
       const firstRes = res.data?.results?.[0];
-      if (firstRes?.whatsapp_sent && firstRes?.email_sent) {
-        alert(`✓ Payment link sent successfully via Email & WhatsApp!`);
-      } else if (firstRes?.email_sent) {
-        if (leadCard?.phone) {
-          const openWA = window.confirm(
-            `✓ Email sent to ${leadCard.email || 'client'}!\n\nAutomated WhatsApp has a 24h Meta/Twilio window policy for this number.\nWould you like to open WhatsApp now to send the payment link with 1 click?`
-          );
-          if (openWA) {
-            const cleanPhone = leadCard.phone.replace(/[^0-9]/g, '');
-            const payUrl = leadCard.payment_link || firstRes?.payment_url || 'https://leamss.com/navratri-offers';
-            const msg = encodeURIComponent(`✨ *LEAMSS Navratri Special Offer — Payment Link*\n\nDear ${leadCard.name || 'Applicant'},\nComplete your registration for the *LEAMSS Navratri Special Offer* and receive your strategic Australia PR Pre-Assessment Report.\n\n💳 *Complete Payment Securely:*\n${payUrl}\n\n— *LEAMSS Admissions Team*`);
-            window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
-          }
-        } else {
-          alert(`✓ Email sent successfully! (WhatsApp API status: ${firstRes?.errors?.join(', ') || 'Outside 24h window'}).`);
-        }
+      if (firstRes?.email_sent) {
+        alert(`✓ Payment link sent via Email and WhatsApp window opened!`);
       } else {
         alert(`Dispatched payment link to ${res.data?.dispatched_count || ids.length} lead(s)!`);
       }
@@ -1511,7 +1515,7 @@ export default function Cockpit() {
                         </p>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleSendPaymentLink(selectedCard.id)}
+                            onClick={() => handleSendPaymentLink(selectedCard.id, { ...selectedCard, ...(cardDetail?.record || {}), ...(cardDetail || {}) })}
                             disabled={bulkActionLoading}
                             className="flex-1 py-2 px-3 rounded-lg font-bold text-xs text-white shadow-sm flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
                             style={{ background: '#DC2626' }}
@@ -1546,7 +1550,7 @@ export default function Cockpit() {
                           Payment received (₹499). Client has not yet uploaded their resume. Dispatch the secure 1-click upload link via Email and WhatsApp.
                         </p>
                         <button
-                          onClick={() => handleSendResumeRequest(selectedCard.id)}
+                          onClick={() => handleSendResumeRequest(selectedCard.id, { ...selectedCard, ...(cardDetail?.record || {}), ...(cardDetail || {}) })}
                           disabled={bulkActionLoading}
                           className="w-full py-2 px-3 rounded-lg font-bold text-xs text-white shadow-sm flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
                           style={{ background: '#D97706' }}
