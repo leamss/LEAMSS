@@ -536,7 +536,7 @@ async def get_cards(
         q = own_filter_lead | {"stage": {"$ne": "converted"}}
         if text_re:
             q["$or"] = [{"name": text_re}, {"email": text_re}, {"phone": text_re}]
-        async for d in db["leads"].find(q, {"_id": 0}).sort("updated_at", -1).limit(limit):
+        async for d in db["leads"].find(q, {"_id": 0}).sort("created_at", -1).limit(limit):
             cards.append(_build_lead_card(d, gen_leads_set, gen_emails_set, gen_batch_map))
 
     # 3) Sales assessments (no PA yet)
