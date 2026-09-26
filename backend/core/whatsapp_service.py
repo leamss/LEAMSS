@@ -223,7 +223,7 @@ async def send_whatsapp_text(
                 auth=(account_sid, auth_token),
             )
             if resp.status_code >= 400:
-                logger.error("Twilio WhatsApp API error (%s): %s", resp.status_code, resp.text)
+                logger.warning("Twilio WhatsApp API error (%s): %s", resp.status_code, resp.text)
                 err_json = {}
                 try:
                     err_json = resp.json()
@@ -252,43 +252,52 @@ async def send_whatsapp_text(
                     )
                 elif err_code == 63007:
                     err_msg = f"Twilio WhatsApp Sender {raw_from} is not active or not approved on WhatsApp."
-                raise RuntimeError(f"Twilio WhatsApp Error: {err_msg}")
+
+                # If Meta Cloud API is configured as fallback, try Meta now
+                if cfg.get("is_meta") and cfg.get("phone_number_id") and cfg.get("access_token"):
+                    logger.info("Attempting Meta Cloud API fallback for +%s...", clean_phone)
+                else:
+                    raise RuntimeError(f"Twilio WhatsApp Error: {err_msg}")
+            else:
+                return resp.json()
+
+    # ── 2. Meta Provider (Fallback / Direct) ──────────────────────────────────
+    if cfg.get("is_meta") and cfg.get("phone_number_id") and cfg.get("access_token"):
+        url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
+        headers = {
+            "Authorization": f"Bearer {cfg['access_token']}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": clean_phone,
+            "type": "text",
+            "text": {
+                "preview_url": preview_url,
+                "body": text,
+            },
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            if resp.status_code >= 400:
+                logger.error("Meta WhatsApp API error (%s): %s", resp.status_code, resp.text)
+                try:
+                    err_data = resp.json()
+                    error_obj = err_data.get("error", {})
+                    code = error_obj.get("code")
+                    err_msg = error_obj.get("message", resp.text)
+                    if code == 190:
+                        err_msg = "Meta WhatsApp Access Token has expired. Please update token in Settings -> WhatsApp."
+                    elif code == 131030:
+                        err_msg = f"Recipient +{clean_phone} is not in Meta developer test list."
+                    elif code in (131047, 131026):
+                        err_msg = f"Meta WhatsApp requires an approved Message Template outside 24h window for +{clean_phone}."
+                except Exception:
+                    err_msg = resp.text
+                raise RuntimeError(f"WhatsApp Error: {err_msg}")
             return resp.json()
-
-    # ── 2. Meta Provider (Fallback) ──────────────────────────────────────────
-    url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
-    headers = {
-        "Authorization": f"Bearer {cfg['access_token']}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": clean_phone,
-        "type": "text",
-        "text": {
-            "preview_url": preview_url,
-            "body": text,
-        },
-    }
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(url, json=payload, headers=headers)
-        if resp.status_code >= 400:
-            logger.error("Meta WhatsApp API error (%s): %s", resp.status_code, resp.text)
-            try:
-                err_data = resp.json()
-                error_obj = err_data.get("error", {})
-                code = error_obj.get("code")
-                err_msg = error_obj.get("message", resp.text)
-                if code == 190:
-                    err_msg = "Meta WhatsApp Access Token has expired. Please update token in Settings -> WhatsApp."
-                elif code == 131030:
-                    err_msg = f"Recipient +{clean_phone} is not in Meta developer test list."
-            except Exception:
-                err_msg = resp.text
-            raise RuntimeError(f"{err_msg}")
-        return resp.json()
 
 
 async def send_whatsapp_template(
