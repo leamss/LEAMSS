@@ -2,11 +2,15 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
 
+ARG REACT_APP_BACKEND_URL=https://api.leamss.com
+ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+ENV GENERATE_SOURCEMAP=false
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
 COPY package.json yarn.lock* ./
 RUN yarn install --prefer-offline --network-timeout 100000
 
 COPY . .
-ENV GENERATE_SOURCEMAP=false
 RUN yarn build
 
 # Stage 2: Serve with Nginx
