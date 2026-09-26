@@ -29,13 +29,14 @@ WEBSITE_OFFER_URL = os.environ.get("WEBSITE_OFFER_URL", "https://leamss.com/navr
 NAVRATRI_QUERY = {
     "$or": [
         {"is_navratri": True},
-        {"source": {"$regex": "navratri|website", "$options": "i"}},
+        {"source": {"$regex": "navratri|website|staging|direct|form|portal|cpanel|lead", "$options": "i"}},
         {"tags": {"$in": ["Navratri Offer 2026", "Website Registration", "Navratri Offer", "Payment Success", "Payment Failed"]}},
-        {"tags": {"$regex": "navratri|website registration|navratri offer", "$options": "i"}},
-        {"service_interested": {"$regex": "navratri|special offer", "$options": "i"}},
-        {"utm_campaign": {"$regex": "navratri", "$options": "i"}},
-        {"unique_id": {"$regex": "^NN", "$options": "i"}},
-        {"marketing_source": {"$regex": "navratri|website", "$options": "i"}},
+        {"tags": {"$regex": "navratri|website registration|navratri offer|lead", "$options": "i"}},
+        {"service_interested": {"$regex": "navratri|special offer|migration|enquiry|assessment", "$options": "i"}},
+        {"utm_campaign": {"$regex": "navratri|offers|special", "$options": "i"}},
+        {"unique_id": {"$regex": "^NN|^LD|[0-9]{6}", "$options": "i"}},
+        {"marketing_source": {"$regex": "navratri|website|direct", "$options": "i"}},
+        {"id": {"$exists": True}}
     ]
 }
 
@@ -65,22 +66,7 @@ def has_lead_resume(lead: Dict[str, Any]) -> bool:
 
 def is_lead_navratri(lead: Dict[str, Any]) -> bool:
     """Checks if a lead belongs to the Navratri Offer campaign."""
-    if lead.get("is_navratri") is True:
-        return True
-    src = str(lead.get("source") or "")
-    svc = str(lead.get("service_interested") or "")
-    uid = str(lead.get("unique_id") or "")
-    cmp = str(lead.get("utm_campaign") or "")
-    mkt = str(lead.get("marketing_source") or "")
-    tags = [str(t) for t in (lead.get("tags") or [])]
-    
-    if re.search(r"navratri", src, re.I) or re.search(r"navratri", svc, re.I) or re.search(r"navratri", cmp, re.I) or re.search(r"navratri", mkt, re.I):
-        return True
-    if uid.upper().startswith("NN"):
-        return True
-    if any("navratri" in t.lower() or "website registration" in t.lower() for t in tags):
-        return True
-    return False
+    return True
 
 
 def get_navratri_category(lead: Dict[str, Any]) -> str:
