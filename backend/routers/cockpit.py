@@ -281,8 +281,10 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
             "id": d.get("case_manager_id"),
             "name": d.get("case_manager_name") if d.get("case_manager_id") else "Unassigned",
         },
-        "updated_at": d.get("updated_at") or d.get("created_at"),
-        "updated_at_human": _humanize_ago(d.get("updated_at") or d.get("created_at")),
+        "created_at": d.get("created_at"),
+        "created_at_human": _humanize_ago(d.get("created_at")),
+        "updated_at": d.get("created_at") or d.get("updated_at"),
+        "updated_at_human": _humanize_ago(d.get("created_at") or d.get("updated_at")),
         "source": d.get("source") or "website",
     }
 
@@ -594,7 +596,7 @@ async def get_cards(
 
     # Sort
     def _sort_key_recent(c):
-        u = c.get("updated_at")
+        u = c.get("created_at") or c.get("updated_at")
         if isinstance(u, str):
             try: u = datetime.fromisoformat(u.replace("Z", "+00:00"))
             except ValueError: u = None
@@ -620,6 +622,8 @@ async def get_cards(
     for c in cards:
         if isinstance(c.get("updated_at"), datetime):
             c["updated_at"] = c["updated_at"].isoformat()
+        if isinstance(c.get("created_at"), datetime):
+            c["created_at"] = c["created_at"].isoformat()
 
     return {"items": cards, "count": len(cards), "as_of": datetime.now(timezone.utc).isoformat()}
 
