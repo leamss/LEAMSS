@@ -1990,19 +1990,22 @@ function PipelineCard({
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-sm">
                   ✓ Report Generated
                 </span>
-                {card.bulk_batch_id && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (card.bulk_batch_id) {
                       navigate(`/sales/bulk-assessment?batch_id=${card.bulk_batch_id}`);
-                    }}
-                    className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-slate-200 hover:border-teal-300 flex items-center gap-1 cursor-pointer transition-all shadow-xs"
-                    title={`Click to view this client in Batch: ${card.bulk_batch_id}`}
-                  >
-                    <FileSpreadsheet className="h-2.5 w-2.5 text-teal-600" />
-                    <span>Batch: {card.bulk_batch_id.replace('BATCH-', '')}</span>
-                  </button>
-                )}
+                    } else {
+                      navigate('/sales/bulk-assessment');
+                    }
+                  }}
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+                  title={card.bulk_batch_id ? `Click to view this client in Batch: ${card.bulk_batch_id}` : 'Click to view in Bulk Assessment Batch'}
+                >
+                  <FileSpreadsheet className="h-2.5 w-2.5 text-teal-600" />
+                  <span>{card.bulk_batch_id ? `Batch: ${card.bulk_batch_id.replace('BATCH-', '')}` : 'View in Batch'}</span>
+                </button>
               </div>
             ) : (card.payment_status === 'success' || (card.payment_amount && card.payment_amount > 0)) ? (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shadow-sm">
@@ -2058,7 +2061,7 @@ function PipelineCard({
 
       {/* Dedicated 1-Click Action Buttons on Card */}
       <div className="pt-1 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-        {(card.report_generated || card.bulk_batch_id) ? (
+        {(card.report_generated || card.bulk_batch_id || card.assessment_report_id) ? (
           <button
             type="button"
             onClick={() => {
