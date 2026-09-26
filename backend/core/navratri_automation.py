@@ -59,76 +59,17 @@ def is_valid_resume_path(val: Any) -> bool:
     s = str(val).strip()
     if not s or s.lower() in ("null", "undefined", "none", "n/a", "no", "false", "0", "nan", "[]", "{}"):
         return False
-    
-    clean = s.replace("\\", "/").strip().rstrip("/")
-    lower_clean = clean.lower()
-
-    # Reject domain roots, upload folders, and generic placeholder paths
-    if lower_clean in (
-        "http://leamss.com", "https://leamss.com",
-        "http://app.leamss.com", "https://app.leamss.com",
-        "https://leamss.com/uploads", "http://leamss.com/uploads",
-        "https://leamss.com/uploads/resumes", "http://leamss.com/uploads/resumes",
-        "https://leamss.com/uploads/resumes/resume.pdf", "http://leamss.com/uploads/resumes/resume.pdf",
-        "uploads", "uploads/resumes", "/uploads", "/uploads/resumes",
-        "uploads/resumes/", "/uploads/resumes/",
-        "uploads/resumes/resume.pdf", "/uploads/resumes/resume.pdf",
-        "resume.pdf", "resume.doc", "resume.docx", "cv.pdf", "cv.docx"
-    ):
+    if s.rstrip("/") in ("http://leamss.com", "https://leamss.com", "http://app.leamss.com", "https://app.leamss.com", "https://leamss.com/uploads", "https://leamss.com/uploads/resumes", "uploads", "uploads/resumes"):
         return False
-
-    # Extract filename portion
-    fname = lower_clean.split("/")[-1].strip()
-
-    # Blacklist default non-uploaded placeholder filenames
-    if fname in (
-        "", "resume.pdf", "resume.doc", "resume.docx", "resume",
-        "cv.pdf", "cv.doc", "cv.docx", "cv",
-        "sample.pdf", "test.pdf", "placeholder.pdf", "default.pdf",
-        "undefined", "null", "none", "n/a", "no-file.pdf", "nofile.pdf", "no_file.pdf",
-        "uploaded_resume.pdf", "candidate_resume.pdf"
-    ):
-        return False
-
-    # Reject any filename ending with resume.pdf / cv.pdf
-    if any(fname.endswith(suf) for suf in ("_resume.pdf", "-resume.pdf", ".resume.pdf", "resume.pdf", "_cv.pdf", "-cv.pdf", "cv.pdf", "_sample.pdf", "_test.pdf", "_placeholder.pdf", "_default.pdf", "resume.docx", "cv.docx", "resume.doc", "cv.doc")):
-        return False
-
-    # Reject filenames starting with generic resume/cv prefixes
-    if any(fname.startswith(pre) for pre in ("resume_", "resume-", "resume.", "cv_", "cv-", "cv.", "sample_", "sample-", "default_", "default-", "placeholder_", "test_")):
-        return False
-
-    # Check base name (without extension)
-    base_name = fname.rsplit(".", 1)[0] if "." in fname else fname
-    if not base_name or base_name.endswith("_") or base_name.startswith("_") or base_name in ("resume", "cv", "sample", "test", "default", "placeholder"):
-        return False
-
-    # Reject pure numbers / IDs generated without an attached resume
-    if base_name.isdigit() or (base_name.startswith("nn") and base_name[2:].isdigit()) or (base_name.startswith("ld") and base_name[2:].isdigit()):
-        return False
-
-    # Genuine file check:
-    # 1. GridFS ObjectId (24-hex string)
+    has_ext = any(s.lower().endswith(ext) or f"{ext}?" in s.lower() for ext in (".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp"))
     is_gridfs_oid = len(s) == 24 and all(c in "0123456789abcdefABCDEF" for c in s)
-    # 2. GridFS stream route (/cockpit/resume/...)
-    is_gridfs_route = "/cockpit/resume/" in lower_clean or "/upload-resume/" in lower_clean
-    # 3. Third-party cloud storage
-    is_cloud_storage = "drive.google.com" in lower_clean or "cloudinary" in lower_clean or "s3" in lower_clean or "blob.core.windows.net" in lower_clean
-    # 4. Genuine uploaded file with real name
-    has_ext = any(lower_clean.endswith(ext) or f"{ext}?" in lower_clean for ext in (".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp"))
-
-    return bool(is_gridfs_oid or is_gridfs_route or is_cloud_storage or (has_ext and len(base_name) >= 3 and "resume" not in fname and "cv" not in fname))
+    is_gridfs_route = "/cockpit/resume/" in s or "/upload-resume/" in s or "drive.google.com" in s or "cloudinary" in s or "s3" in s
+    return bool(has_ext or is_gridfs_oid or is_gridfs_route)
 
 
 def has_lead_resume(lead: Dict[str, Any]) -> bool:
     """Checks if a genuine resume file is on file for this lead."""
-    if not lead or lead.get("resume_uploaded") is False:
-        return False
-    # If GridFS file ID is present and valid
-    fid = lead.get("resume_file_id")
-    if fid and is_valid_resume_path(fid):
-        return True
-    for field in ("resume_url", "resume_path", "resume_link"):
+    for field in ("resume_file_id", "resume_url", "resume_path", "resume_link"):
         val = lead.get(field)
         if val and is_valid_resume_path(val):
             return True
@@ -310,36 +251,11 @@ async def send_navratri_resume_request(
                 f"Once uploaded, our team will analyze your profile and prepare your Pre-Assessment Report.\n\n"
                 f"— *LEAMSS Migration Team*"
             )
-            await send_whatsapp_text(
-                to_phone=clean_phone,
-                text=wa_text,
-                content_variables={"1": name, "2": upload_url},
-                client_name=name,
-            )
+            await send_whatsapp_text(to_phone=clean_phone, text=wa_text)
             results["whatsapp_sent"] = True
         except Exception as e_wa:
-            logger.warning("Standard WhatsApp failed, attempting template broadcast fallback for %s: %s", phone, e_wa)
-            try:
-                from core.whatsapp_service import send_whatsapp_template
-                components = [
-                    {
-                        "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": name},
-                            {"type": "text", "text": upload_url},
-                        ],
-                    }
-                ]
-                await send_whatsapp_template(
-                    to_phone=clean_phone,
-                    template_name="resume_upload_request",
-                    language_code="en_US",
-                    components=components,
-                )
-                results["whatsapp_sent"] = True
-            except Exception as e_tpl:
-                logger.error("Failed to broadcast resume request WhatsApp to %s: %s", phone, e_tpl)
-                results["errors"].append(f"WhatsApp error: {str(e_wa)}")
+            logger.error("Failed to send resume request WhatsApp to %s: %s", phone, e_wa)
+            results["errors"].append(f"WhatsApp error: {str(e_wa)}")
 
     # 3. Log to lead notes and update timestamp
     note_text = f"Auto/Admin sent Resume Upload Link via {'Email & WhatsApp' if results['email_sent'] and results['whatsapp_sent'] else 'Email' if results['email_sent'] else 'WhatsApp' if results['whatsapp_sent'] else 'Failed Dispatch'}: {upload_url}"
@@ -416,36 +332,11 @@ async def send_navratri_payment_link(
                 f"Once payment is completed, your profile will be immediately queued for evaluation by our expert migration team.\n\n"
                 f"— *LEAMSS Global Education & Migration*"
             )
-            await send_whatsapp_text(
-                to_phone=clean_phone,
-                text=wa_text,
-                content_variables={"1": name, "2": payment_url},
-                client_name=name,
-            )
+            await send_whatsapp_text(to_phone=clean_phone, text=wa_text)
             results["whatsapp_sent"] = True
         except Exception as e_wa:
-            logger.warning("Standard WhatsApp failed, attempting payment template broadcast for %s: %s", phone, e_wa)
-            try:
-                from core.whatsapp_service import send_whatsapp_template
-                components = [
-                    {
-                        "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": name},
-                            {"type": "text", "text": payment_url},
-                        ],
-                    }
-                ]
-                await send_whatsapp_template(
-                    to_phone=clean_phone,
-                    template_name="navratri_payment_link",
-                    language_code="en_US",
-                    components=components,
-                )
-                results["whatsapp_sent"] = True
-            except Exception as e_tpl:
-                logger.error("Failed to broadcast payment link WhatsApp to %s: %s", phone, e_tpl)
-                results["errors"].append(f"WhatsApp error: {str(e_wa)}")
+            logger.error("Failed to send payment link WhatsApp to %s: %s", phone, e_wa)
+            results["errors"].append(f"WhatsApp error: {str(e_wa)}")
 
     # 3. Log to lead notes
     note_text = f"Sent Navratri Offer Payment Link via {'Email & WhatsApp' if results['email_sent'] and results['whatsapp_sent'] else 'Email' if results['email_sent'] else 'WhatsApp' if results['whatsapp_sent'] else 'Failed Dispatch'}: {payment_url}"

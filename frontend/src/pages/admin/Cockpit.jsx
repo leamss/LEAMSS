@@ -305,75 +305,34 @@ export default function Cockpit() {
   };
 
 
-  const handleSendResumeRequest = async (leadIds, leadCard = null) => {
+  const handleSendResumeRequest = async (leadIds) => {
     const ids = Array.isArray(leadIds) ? leadIds : [leadIds];
     if (!ids.length) return;
-
-    // Resolve target card (passed directly or looked up from cards list)
-    const targetCard = leadCard || cards.find(c => c.id === ids[0]);
-
-    // Instantly open WhatsApp Web / App with pre-filled message before async call to avoid popup blockers
-    if (targetCard?.phone) {
-      const cleanPhone = targetCard.phone.replace(/[^0-9]/g, '');
-      const uploadUrl = targetCard.resume_upload_url || `https://app.leamss.com/upload-resume/${targetCard.unique_id || targetCard.id || cleanPhone}`;
-      const msg = encodeURIComponent(
-        `🌟 *LEAMSS Navratri Offer — Action Needed*\n\n` +
-        `Hi ${targetCard.name || 'Applicant'},\n` +
-        `Thank you for your registration with LEAMSS! To complete your *Australia PR Pre-Assessment Report*, our migration team needs your latest resume / CV.\n\n` +
-        `📄 *Upload your resume securely in 1 minute:*\n${uploadUrl}\n\n` +
-        `_(No login or password required. Simply click the link and upload your PDF or Word document.)_\n\n` +
-        `— *LEAMSS Migration Team*`
-      );
-      window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
-    }
-
     try {
       setBulkActionLoading(true);
       const res = await axios.post(`${API}/cockpit/navratri/send-resume-request`, { lead_ids: ids }, { headers });
       setBulkActionLoading(false);
       fetchAll();
-      const firstRes = res.data?.results?.[0];
-      if (firstRes?.email_sent) {
-        alert(`✓ Resume upload link sent via Email and WhatsApp window opened!`);
-      } else {
-        alert(`Dispatched resume request to ${res.data?.dispatched_count || ids.length} lead(s)!`);
-      }
+      alert(`Sent Resume Upload Link to ${res.data?.dispatched_count || ids.length} lead(s) via Email & WhatsApp!`);
     } catch (e) {
       setBulkActionLoading(false);
       alert(e.response?.data?.detail || 'Failed to dispatch resume requests');
     }
   };
 
-  const handleSendPaymentLink = async (leadIds, leadCard = null) => {
+  const handleSendPaymentLink = async (leadIds) => {
     const ids = Array.isArray(leadIds) ? leadIds : [leadIds];
     if (!ids.length) return;
-
-    // Resolve target card (passed directly or looked up from cards list)
-    const targetCard = leadCard || cards.find(c => c.id === ids[0]);
-
-    // Instantly open WhatsApp Web / App with pre-filled payment message before async call to avoid popup blockers
-    if (targetCard?.phone) {
-      const cleanPhone = targetCard.phone.replace(/[^0-9]/g, '');
-      const payUrl = targetCard.payment_link || `https://leamss.com/navratri-offers?ref=${targetCard.unique_id || targetCard.id || ''}`;
-      const msg = encodeURIComponent(
-        `✨ *LEAMSS Navratri Special Offer — Payment Link*\n\n` +
-        `Dear ${targetCard.name || 'Applicant'},\n` +
-        `Complete your registration for the *LEAMSS Navratri Special Offer* and receive your strategic Australia PR Pre-Assessment Report.\n\n` +
-        `💳 *Complete Payment Securely:*\n${payUrl}\n\n` +
-        `Once payment is completed, our expert migration team will immediately process your profile.\n\n` +
-        `— *LEAMSS Admissions Team*`
-      );
-      window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
-    }
-
     try {
       setBulkActionLoading(true);
       const res = await axios.post(`${API}/cockpit/navratri/send-payment-link`, { lead_ids: ids }, { headers });
       setBulkActionLoading(false);
       fetchAll();
       const firstRes = res.data?.results?.[0];
-      if (firstRes?.email_sent) {
-        alert(`✓ Payment link sent via Email and WhatsApp window opened!`);
+      if (firstRes?.whatsapp_sent && firstRes?.email_sent) {
+        alert(`✓ Payment link sent successfully via Email & WhatsApp!`);
+      } else if (firstRes?.email_sent && !firstRes?.whatsapp_sent) {
+        alert(`✓ Email sent! Note: WhatsApp API returned: ${firstRes?.errors?.join(', ') || 'Outside 24h window'}. You can also click the green WhatsApp button on the card to send directly via WhatsApp!`);
       } else {
         alert(`Dispatched payment link to ${res.data?.dispatched_count || ids.length} lead(s)!`);
       }
@@ -1013,8 +972,8 @@ export default function Cockpit() {
                 isSelected={selectedLeadIds.includes(card.id)}
                 onToggleSelect={card.type === 'lead' ? (e) => toggleLeadSelection(card.id, e) : null}
                 onConvertToPA={card.type === 'lead' ? (e) => { e.stopPropagation(); handleConvertToPA(card.id); } : null}
-                onSendResumeRequest={(leadId, cardObj) => handleSendResumeRequest(leadId, cardObj || card)}
-                onSendPaymentLink={(leadId, cardObj) => handleSendPaymentLink(leadId, cardObj || card)}
+                onSendResumeRequest={(leadId) => handleSendResumeRequest(leadId)}
+                onSendPaymentLink={(leadId) => handleSendPaymentLink(leadId)}
                 onMarkPaid={(leadId) => handleMarkPaid(leadId)}
                 onCopyLink={(url, id) => handleCopyLink(url, id)}
                 copiedId={copiedId}
@@ -1302,13 +1261,13 @@ export default function Cockpit() {
                     </div>
 
                     {/* Prominent Uploaded Resume Box */}
-                    {(cardDetail.has_resume && (cardDetail.record.resume_url || cardDetail.record.resume_file_id || selectedCard.resume_url)) ? (
+                    {(cardDetail.record.resume_url || cardDetail.record.resume_file_id || selectedCard.resume_url) ? (
                       <div className="p-3 rounded-lg border flex items-center justify-between" style={{ background: C.tealWash, borderColor: C.tealWash2 }}>
                         <div className="flex items-center gap-2 min-w-0">
                           <FileText className="h-5 w-5 shrink-0" style={{ color: C.teal }} />
                           <div className="min-w-0">
                             <p className="text-xs font-bold truncate" style={{ color: C.tealDark }}>
-                              {cardDetail.record.resume_filename || selectedCard.resume_filename || 'Candidate_Resume.pdf'}
+                              {cardDetail.record.resume_filename || selectedCard.resume_filename || 'Uploaded Resume'}
                             </p>
                             <p className="text-[10px] truncate" style={{ color: C.body }}>Ready for evaluation</p>
                           </div>
@@ -1521,7 +1480,7 @@ export default function Cockpit() {
                         </p>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleSendPaymentLink(selectedCard.id, { ...selectedCard, ...(cardDetail?.record || {}), ...(cardDetail || {}) })}
+                            onClick={() => handleSendPaymentLink(selectedCard.id)}
                             disabled={bulkActionLoading}
                             className="flex-1 py-2 px-3 rounded-lg font-bold text-xs text-white shadow-sm flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
                             style={{ background: '#DC2626' }}
@@ -1556,7 +1515,7 @@ export default function Cockpit() {
                           Payment received (₹499). Client has not yet uploaded their resume. Dispatch the secure 1-click upload link via Email and WhatsApp.
                         </p>
                         <button
-                          onClick={() => handleSendResumeRequest(selectedCard.id, { ...selectedCard, ...(cardDetail?.record || {}), ...(cardDetail || {}) })}
+                          onClick={() => handleSendResumeRequest(selectedCard.id)}
                           disabled={bulkActionLoading}
                           className="w-full py-2 px-3 rounded-lg font-bold text-xs text-white shadow-sm flex items-center justify-center gap-1.5 transition-all hover:opacity-95"
                           style={{ background: '#D97706' }}
@@ -2087,8 +2046,8 @@ function PipelineCard({
         >
           <div className="flex items-center gap-1.5 min-w-0">
             <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: C.teal }} />
-            <span className="font-semibold truncate text-[11px]" style={{ color: C.tealDark }} title={card.resume_filename || 'Candidate Resume'}>
-              {card.resume_filename || 'Candidate_Resume.pdf'}
+            <span className="font-semibold truncate text-[11px]" style={{ color: C.tealDark }} title={card.resume_filename || 'Resume'}>
+              {card.resume_filename || 'Resume.pdf'}
             </span>
           </div>
           {card.resume_url && (
@@ -2113,7 +2072,7 @@ function PipelineCard({
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => onSendPaymentLink && onSendPaymentLink(card.id, card)}
+              onClick={() => onSendPaymentLink && onSendPaymentLink(card.id)}
               className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
               style={{ background: '#DC2626' }}
               title="Auto-dispatch Navratri Offer payment link via Email & WhatsApp API"
@@ -2150,7 +2109,7 @@ function PipelineCard({
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => onSendResumeRequest && onSendResumeRequest(card.id, card)}
+                onClick={() => onSendResumeRequest && onSendResumeRequest(card.id)}
                 className="flex-1 py-1.5 px-2 rounded-md text-[11px] font-bold text-white shadow-sm flex items-center justify-center gap-1 transition-all hover:opacity-90 cursor-pointer"
                 style={{ background: '#D97706' }}
                 title="Send Resume Upload link via Email and WhatsApp"
@@ -2216,16 +2175,12 @@ function PipelineCard({
       <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: C.borderSoft }}>
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-               style={{
-                 background: (card.owner?.id || (card.partner?.id && card.partner?.name !== 'Unassigned')) ? C.tealWash : '#F1F5F9',
-                 color: (card.owner?.id || (card.partner?.id && card.partner?.name !== 'Unassigned')) ? C.tealDeep : '#64748B',
-                 border: `1px solid ${(card.owner?.id || (card.partner?.id && card.partner?.name !== 'Unassigned')) ? C.tealWash2 : '#CBD5E1'}`
-               }}>
-            {card.owner?.id ? (card.owner?.name || '—').slice(0, 1).toUpperCase() : (card.partner?.id && card.partner?.name !== 'Unassigned') ? (card.partner?.name || '—').slice(0, 1).toUpperCase() : '—'}
+               style={{ background: C.tealWash, color: C.tealDeep, border: `1px solid ${C.tealWash2}` }}>
+            {(card.owner?.name || card.partner?.name || '—').slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold leading-none truncate" style={{ color: (card.owner?.id || (card.partner?.id && card.partner?.name !== 'Unassigned')) ? C.ink : '#64748B' }}>
-              {card.owner?.id ? card.owner?.name : (card.partner?.id && card.partner?.name !== 'Unassigned') ? card.partner?.name : 'Unassigned'}
+            <p className="text-[10px] font-bold leading-none truncate" style={{ color: C.ink }}>
+              {card.owner?.name || card.partner?.name || 'Unassigned'}
             </p>
             <p className="text-[10px] leading-none mt-0.5" style={{ color: C.muted }}>{card.updated_at_human}</p>
           </div>

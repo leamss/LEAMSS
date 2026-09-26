@@ -136,31 +136,6 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
     elif payment_status == "failed":
         tags.append("Payment Failed")
 
-    # STRICT RULE: New website registrations are ALWAYS Unassigned by default
-    raw_assigned = row.get("assigned_to")
-    if not raw_assigned or str(raw_assigned).strip().lower() in ("unassigned", "none", "null", "0", ""):
-        assigned_to = None
-        assigned_to_name = "Unassigned"
-    else:
-        assigned_to = str(raw_assigned).strip()
-        assigned_to_name = row.get("assigned_to_name") or "Assigned"
-
-    raw_partner = row.get("partner_id")
-    if not raw_partner or str(raw_partner).strip().lower() in ("unassigned", "none", "null", "0", ""):
-        partner_id = None
-        partner_name = "Unassigned"
-    else:
-        partner_id = str(raw_partner).strip()
-        partner_name = row.get("partner_name") or "Unassigned"
-
-    raw_cm = row.get("case_manager_id")
-    if not raw_cm or str(raw_cm).strip().lower() in ("unassigned", "none", "null", "0", ""):
-        case_manager_id = None
-        case_manager_name = "Unassigned"
-    else:
-        case_manager_id = str(raw_cm).strip()
-        case_manager_name = row.get("case_manager_name") or "Unassigned"
-
     lead_doc = {
         "unique_id": unique_id,
         "external_id": str(row.get("id") or unique_id),
@@ -181,21 +156,20 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
         "is_navratri": True,
         "stage": row.get("stage") or stage,
         "priority": row.get("priority") or priority,
-        "assigned_to": assigned_to,
-        "assigned_to_name": assigned_to_name,
-        "partner_id": partner_id,
-        "partner_name": partner_name,
-        "case_manager_id": case_manager_id,
-        "case_manager_name": case_manager_name,
+        "assigned_to": row.get("assigned_to") or None,
+        "assigned_to_name": row.get("assigned_to_name") if row.get("assigned_to") else "Unassigned",
+        "partner_id": row.get("partner_id") or None,
+        "partner_name": row.get("partner_name") if row.get("partner_id") else "Unassigned",
+        "case_manager_id": row.get("case_manager_id") or None,
+        "case_manager_name": row.get("case_manager_name") if row.get("case_manager_id") else "Unassigned",
         "date_of_birth": dob,
         "occupation": row.get("occupation") or "",
         "total_work_experience": experience,
         "latest_qualification": qualification,
         "gender": gender,
         "marital_status": marital_status,
-        "resume_path": resume_path or None,
-        "resume_url": resume_url or None,
-        "resume_uploaded": bool(resume_url or resume_path),
+        "resume_path": resume_path,
+        "resume_url": resume_url,
         "sales_person_name": sales_person_name,
         "reference": reference,
         "payment_status": payment_status,
@@ -260,8 +234,8 @@ async def upsert_website_lead(data: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
             "total_work_experience": mapped["total_work_experience"] or existing.get("total_work_experience"),
             "gender": mapped["gender"] or existing.get("gender"),
             "marital_status": mapped["marital_status"] or existing.get("marital_status"),
-            "resume_url": mapped["resume_url"] if (mapped.get("resume_url") and is_valid_resume_path(mapped["resume_url"])) else (existing.get("resume_url") if is_valid_resume_path(existing.get("resume_url")) else None),
-            "resume_path": mapped["resume_path"] if (mapped.get("resume_path") and is_valid_resume_path(mapped["resume_path"])) else (existing.get("resume_path") if is_valid_resume_path(existing.get("resume_path")) else None),
+            "resume_url": mapped["resume_url"] or existing.get("resume_url"),
+            "resume_path": mapped["resume_path"] or existing.get("resume_path"),
             "payment_status": mapped["payment_status"],
             "payment_mode": mapped["payment_mode"] or existing.get("payment_mode"),
             "payment_amount": mapped["payment_amount"] if mapped["payment_amount"] is not None else existing.get("payment_amount"),
@@ -426,8 +400,8 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
         }
         leads = await leads_col.find(
             query,
-            {"_id": 1, "unique_id": 1, "external_id": 1, "tags": 1, "payment_status": 1, "service_interested": 1, "resume_url": 1, "resume_path": 1, "resume_link": 1, "resume_file_id": 1, "resume_filename": 1}
-        ).to_list(5000)
+            {"_id": 1, "unique_id": 1, "external_id": 1, "tags": 1, "payment_status": 1, "service_interested": 1, "resume_url": 1, "resume_path": 1, "resume_link": 1, "resume_file_id": 1}
+        ).to_list(2000)
 
         if not leads:
             return {"status": "success", "reconciled_leads_count": 0}
@@ -449,7 +423,12 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
                 if "Payment Failed" not in tags: tags.append("Payment Failed")
                 if "Payment Success" in tags: tags.remove("Payment Success")
 
-            has_valid_res = has_lead_resume(lead)
+            has_valid_res = (
+                is_valid_resume_path(lead.get("resume_url"))
+                or is_valid_resume_path(lead.get("resume_path"))
+                or is_valid_resume_path(lead.get("resume_link"))
+                or is_valid_resume_path(lead.get("resume_file_id"))
+            )
 
             set_doc = {
                 "is_navratri": True,
@@ -457,9 +436,10 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
                 "unique_id": uid or lead.get("unique_id"),
                 "service_interested": lead.get("service_interested") or "Navratri Special Offer",
                 "tags": tags,
-                "resume_uploaded": has_valid_res,
                 "updated_at": now
             }
+            if not has_valid_res:
+                set_doc["resume_uploaded"] = False
 
             unset_doc = {}
             if pay_st not in ("success", "paid"):

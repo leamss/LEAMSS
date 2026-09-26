@@ -28,12 +28,6 @@ leads_col = db["leads"]
 
 
 @router.post("/navratri-webhook")
-@router.post("/webhook")
-@router.post("/website-webhook")
-@router.post("/capture")
-@router.post("/register")
-@router.post("/registration")
-@router.post("/navratri-registration")
 async def navratri_lead_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -48,11 +42,8 @@ async def navratri_lead_webhook(
     try:
         data = await request.json()
     except Exception:
-        try:
-            form_data = await request.form()
-            data = dict(form_data)
-        except Exception:
-            data = {}
+        form_data = await request.form()
+        data = dict(form_data)
 
     if not data:
         raise HTTPException(status_code=400, detail="No registration data provided in payload")
@@ -114,17 +105,6 @@ async def sync_mysql_endpoint(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database sync failed: {str(e)}")
-
-
-@router.post("/sync-now")
-@router.get("/sync-now")
-async def sync_now_public():
-    """Public sync endpoint that can be triggered by cPanel cron or web hooks without JWT."""
-    try:
-        result = await sync_from_mysql_database()
-        return result
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
 
 
 @router.post("/bulk-import-navratri")
