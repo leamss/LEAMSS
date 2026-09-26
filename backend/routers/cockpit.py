@@ -693,6 +693,23 @@ async def get_card_detail(
             raise HTTPException(status_code=404, detail="Lead not found")
         if not _is_admin(current_user) and d.get("assigned_to") != current_user["id"]:
             raise HTTPException(status_code=403, detail="Not your lead")
+
+        # Resolve bulk_batch_id and report generation if not on doc
+        if not d.get("bulk_batch_id") or not d.get("report_generated"):
+            row_match = await db["bulk_assessment_rows"].find_one(
+                {"$or": [
+                    {"lead_id": d.get("id")},
+                    {"parsed.email": {"$regex": f"^{re.escape(str(d.get('email') or '').strip())}$", "$options": "i"}} if d.get("email") else {"_id": None},
+                ]},
+                {"batch_id": 1, "status": 1, "snapshot_id": 1}
+            )
+            if row_match:
+                if row_match.get("batch_id"):
+                    d["bulk_batch_id"] = row_match["batch_id"]
+                if row_match.get("status") == "generated" or row_match.get("snapshot_id"):
+                    d["report_generated"] = True
+                    d["report_status"] = "generated"
+
         # Format string date fields
         for f in ("created_at", "updated_at", "paid_at", "last_contacted_at"):
             if isinstance(d.get(f), datetime):
