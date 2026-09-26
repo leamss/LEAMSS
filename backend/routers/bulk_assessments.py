@@ -1857,12 +1857,22 @@ async def delete_mail_sender(sender_id: str, current_user: dict = Depends(get_cu
 async def get_batch(batch_id: str, current_user: dict = Depends(get_current_user)):
     if not _can(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
-    batch = await BATCHES.find_one({"id": batch_id}, {"_id": 0})
+    clean_id = (batch_id or "").strip()
+    batch = await BATCHES.find_one({
+        "$or": [
+            {"id": clean_id},
+            {"id": f"BATCH-{clean_id}"},
+            {"id": clean_id.replace("BATCH-", "")},
+            {"id": {"$regex": f"^{re.escape(clean_id)}$", "$options": "i"}},
+            {"batch_name": {"$regex": re.escape(clean_id), "$options": "i"}},
+        ]
+    }, {"_id": 0})
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
     if not _can_access_batch(batch, current_user):
         raise HTTPException(status_code=403, detail="Not authorised to view this batch")
-    rows = await ROWS.find({"batch_id": batch_id}, {"_id": 0}).sort("row_index", 1).to_list(100000)
+    actual_batch_id = batch["id"]
+    rows = await ROWS.find({"$or": [{"batch_id": actual_batch_id}, {"batch_id": clean_id}]}, {"_id": 0}).sort("row_index", 1).to_list(100000)
 
     # Auto-synchronize batch counts with actual row states
     generated_count = sum(1 for r in rows if r.get("status") == "generated")

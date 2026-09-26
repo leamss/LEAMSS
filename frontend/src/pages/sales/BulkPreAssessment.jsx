@@ -138,15 +138,27 @@ export default function BulkPreAssessment() {
     } catch (e) { return []; }
   }, [headers]);
 
+  const clientSearchParam = searchParams.get('search') || searchParams.get('client') || '';
+
   useEffect(() => {
     loadBatches().then((blist) => {
       if (urlBatchId) {
-        loadBatch(urlBatchId);
+        const cleanTarget = urlBatchId.trim();
+        const matched = (blist || []).find(b =>
+          b.id === cleanTarget ||
+          b.id === `BATCH-${cleanTarget}` ||
+          b.id.replace('BATCH-', '') === cleanTarget.replace('BATCH-', '')
+        );
+        const targetId = matched ? matched.id : cleanTarget;
+        loadBatch(targetId);
       } else if (blist && blist.length > 0) {
         loadBatch(blist[0].id);
       }
     });
-  }, [urlBatchId, loadBatch, loadBatches]);
+    if (clientSearchParam) {
+      setSearch(clientSearchParam);
+    }
+  }, [urlBatchId, clientSearchParam, loadBatch, loadBatches]);
 
   const handleCreateNewPaidBatch = async () => {
     try {

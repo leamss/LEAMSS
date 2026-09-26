@@ -2066,9 +2066,9 @@ function PipelineCard({
             type="button"
             onClick={() => {
               if (card.bulk_batch_id) {
-                navigate(`/sales/bulk-assessment?batch_id=${card.bulk_batch_id}`);
+                navigate(`/sales/bulk-assessment?batch_id=${encodeURIComponent(card.bulk_batch_id)}&search=${encodeURIComponent(card.name || '')}`);
               } else {
-                navigate('/sales/bulk-assessment');
+                navigate(`/sales/bulk-assessment?search=${encodeURIComponent(card.name || card.email || '')}`);
               }
             }}
             className="w-full py-2 px-2.5 rounded-lg text-xs font-black border-2 border-teal-500 bg-teal-50 hover:bg-teal-100 text-teal-900 flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow-md cursor-pointer active:scale-98"
