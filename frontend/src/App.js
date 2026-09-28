@@ -38,6 +38,7 @@ import PayrollAdminHub from '@/pages/admin/PayrollAdminHub';
 import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
+import ResumeDirectViewer from '@/pages/ResumeDirectViewer';
 import ForceChangePassword from '@/pages/ForceChangePassword';
 import RequirePermission from '@/components/RequirePermission';
 import MyAttendance from '@/pages/MyAttendance';
@@ -172,6 +173,8 @@ function App() {
           <Route path="/resume-upload/*" element={<ResumeUpload />} />
           <Route path="/resume" element={<ResumeUpload />} />
           <Route path="/resume/*" element={<ResumeUpload />} />
+          <Route path="/cockpit/resume/:fileId" element={<ResumeDirectViewer />} />
+          <Route path="/cockpit/resume/*" element={<ResumeDirectViewer />} />
           {/* ─── Phase 14: LEAMSS Public Brand Experience (no auth) ─── */}
           <Route path="/start" element={<MegaLanding />} />
           {/* Phase 19: /atlas/* paths are served by setupProxy.js as static SSR HTML files.

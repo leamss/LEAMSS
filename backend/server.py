@@ -807,6 +807,13 @@ async def get_expiring_documents():
     return {"documents": [], "count": 0}
 
 
+@app.get("/cockpit/resume/{file_id}")
+async def direct_cockpit_resume(file_id: str):
+    """Direct root fallback to stream cockpit resume file without /api prefix."""
+    from routers.cockpit import get_cockpit_resume
+    return await get_cockpit_resume(file_id)
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=8001, reload=True)

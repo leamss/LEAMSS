@@ -53,6 +53,10 @@ def _normalize_resume_url(url: str) -> str:
     if not u:
         return ""
 
+    # Don't mangle cockpit or internal resume routes
+    if "cockpit/resume/" in u or "bulk-assessments/" in u:
+        return u
+
     # Relative paths from leamss.com
     if not u.startswith("http://") and not u.startswith("https://"):
         if u.startswith("/"):
@@ -118,22 +122,51 @@ def _extract_text_from_bytes(file_bytes: bytes, filename: str) -> str:
 
 
 async def fetch_resume_bytes(url: str) -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
-    """Download a resume file from a public link → (bytes, filename, error).
+    """Download a resume file from a public link or GridFS → (bytes, filename, error).
 
-    Used to attach the client's original resume to their report email.
+    Used to attach the client's original resume to their report email or AI enricher.
     """
     if not url:
         return None, None, "No resume link provided"
     
+    clean_url = str(url).strip()
+
+    # 1. Check if url is a GridFS file ID or cockpit/resume/<id> path
+    gridfs_id = None
+    if "cockpit/resume/" in clean_url:
+        m_fid = re.search(r"cockpit/resume/([a-fA-F0-9]{24})", clean_url)
+        if m_fid:
+            gridfs_id = m_fid.group(1)
+    elif re.match(r"^[a-fA-F0-9]{24}$", clean_url):
+        gridfs_id = clean_url
+
+    if gridfs_id:
+        try:
+            from bson import ObjectId
+            from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+            from core.database import db
+            for bname in ("bulk_resumes", "resume_files", "fs"):
+                try:
+                    gfs = AsyncIOMotorGridFSBucket(db, bucket_name=bname)
+                    stream = await gfs.open_download_stream(ObjectId(gridfs_id))
+                    data = await stream.read()
+                    if data:
+                        fname = stream.filename or "resume.pdf"
+                        return data, fname, None
+                except Exception:
+                    continue
+        except Exception as e:
+            logger.warning("Failed to fetch GridFS resume %s: %s", gridfs_id, e)
+
     # Extract Google Drive ID if present
     gdrive_id = None
-    m_gd = re.search(r"drive\.google\.com/(?:file/d/|open\?id=|uc\?id=|uc\?export=download&id=)([A-Za-z0-9_-]+)", url)
-    if not m_gd and "drive.google.com" in url:
-        m_gd = re.search(r"[?&]id=([A-Za-z0-9_-]+)", url)
+    m_gd = re.search(r"drive\.google\.com/(?:file/d/|open\?id=|uc\?id=|uc\?export=download&id=)([A-Za-z0-9_-]+)", clean_url)
+    if not m_gd and "drive.google.com" in clean_url:
+        m_gd = re.search(r"[?&]id=([A-Za-z0-9_-]+)", clean_url)
     if m_gd:
         gdrive_id = m_gd.group(1)
 
-    urls_to_try = [_normalize_resume_url(url)]
+    urls_to_try = [_normalize_resume_url(clean_url)]
     norm_url = urls_to_try[0]
     if "leamss.com" in norm_url:
         basename = norm_url.split("/")[-1]
@@ -235,14 +268,15 @@ async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[
     if not api_key:
         return {"_error": "PERPLEXITY_API_KEY not configured"}
 
-    # Only pull the few fields we actually send to the LLM
     proj = {
         "_id": 0, "code": 1, "title": 1,
         "hierarchy.unit_group_name": 1, "assessing_authority.name": 1, "alternative_titles": 1,
     }
     query = {"country_code": "AU", "status": {"$ne": "superseded"}}
     docs: List[Dict[str, Any]] = []
+    
     if (description or "").strip():
+        # 1. Try $text search first
         tq = dict(query)
         tq["$text"] = {"$search": description}
         tproj = dict(proj)
@@ -253,6 +287,32 @@ async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[
             ).sort([("score", {"$meta": "textScore"})]).limit(max_candidates)]
         except Exception:
             docs = []
+
+        # 2. If $text yielded few or 0 results, do keyword regex search
+        if len(docs) < 10:
+            words = re.findall(r"[A-Za-z]{3,}", description)
+            # Take prominent occupation words
+            stop_words = {"and", "the", "with", "for", "from", "that", "this", "have", "been", "work", "years", "role", "team", "candidate", "client", "profile", "australia"}
+            kw_list = [w for w in words if w.lower() not in stop_words][:8]
+            if kw_list:
+                regex_clauses = []
+                for kw in kw_list:
+                    regex_clauses.extend([
+                        {"title": {"$regex": kw, "$options": "i"}},
+                        {"alternative_titles": {"$regex": kw, "$options": "i"}},
+                    ])
+                if regex_clauses:
+                    rq = dict(query)
+                    rq["$or"] = regex_clauses
+                    try:
+                        seen_codes = {d.get("code") for d in docs}
+                        async for o in db["occupation_master"].find(rq, proj).limit(max_candidates):
+                            if o.get("code") not in seen_codes:
+                                docs.append(o)
+                                seen_codes.add(o.get("code"))
+                    except Exception:
+                        pass
+
     if not docs:
         docs = [o async for o in db["occupation_master"].find(query, proj).limit(max_candidates)]
     if not docs:

@@ -18,6 +18,7 @@ Endpoints:
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
+import re
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
@@ -84,6 +85,21 @@ async def get_cockpit_resume(file_id: str):
             "Content-Length": str(grid_out.length),
         },
     )
+
+
+def _format_cockpit_resume_url(resume_fid: Optional[str], fallback: Optional[str] = None) -> str:
+    if resume_fid and re.match(r"^[a-fA-F0-9]{24}$", str(resume_fid).strip()):
+        return f"https://api.leamss.com/api/cockpit/resume/{str(resume_fid).strip()}"
+    fb = str(fallback or "").strip()
+    if not fb:
+        return ""
+    if "cockpit/resume/" in fb:
+        m = re.search(r"cockpit/resume/([a-fA-F0-9]{24})", fb)
+        if m:
+            return f"https://api.leamss.com/api/cockpit/resume/{m.group(1)}"
+    if re.match(r"^[a-fA-F0-9]{24}$", fb):
+        return f"https://api.leamss.com/api/cockpit/resume/{fb}"
+    return fb
 
 
 # ─── Stage taxonomy ──────────────────────────────────────────────────────────
@@ -214,7 +230,7 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
     resume_fname = d.get("resume_filename") if has_resume else None
     if has_resume and not resume_fname:
         resume_fname = "Resume.pdf"
-    resume_link = (f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "")) if has_resume else ""
+    resume_link = _format_cockpit_resume_url(resume_fid, d.get("resume_url") or d.get("resume_path") or d.get("resume_link") or "") if has_resume else ""
 
     upload_url = get_resume_upload_url(d)
     pay_url = get_payment_url(d)
@@ -302,7 +318,7 @@ def _build_assessment_card(d: Dict[str, Any]) -> Dict[str, Any]:
         or pri.get("resume_filename")
         or ("Resume.pdf" if has_resume else None)
     )
-    resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or d.get("resume_link") or "")
+    resume_link = _format_cockpit_resume_url(resume_fid, d.get("resume_url") or snap.get("resume_url") or d.get("resume_link") or "")
 
     return {
         "id": d.get("id"),
@@ -353,7 +369,7 @@ def _build_pa_card(d: Dict[str, Any], stage_group: str) -> Dict[str, Any]:
         or pri.get("resume_filename")
         or ("Resume.pdf" if has_resume else None)
     )
-    resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or "")
+    resume_link = _format_cockpit_resume_url(resume_fid, d.get("resume_url") or snap.get("resume_url") or "")
 
     return {
         "id": d.get("id"),
@@ -758,7 +774,7 @@ async def get_card_detail(
             or pri.get("resume_filename")
             or ("Resume.pdf" if has_resume else None)
         )
-        resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or d.get("resume_link") or "")
+        resume_link = _format_cockpit_resume_url(resume_fid, d.get("resume_url") or snap.get("resume_url") or d.get("resume_link") or "")
 
         return {
             "kind": "assessment",
@@ -798,7 +814,7 @@ async def get_card_detail(
             or pri.get("resume_filename")
             or ("Resume.pdf" if has_resume else None)
         )
-        resume_link = f"/cockpit/resume/{resume_fid}" if resume_fid else (d.get("resume_url") or snap.get("resume_url") or "")
+        resume_link = _format_cockpit_resume_url(resume_fid, d.get("resume_url") or snap.get("resume_url") or "")
 
         return {
             "kind": "pa",

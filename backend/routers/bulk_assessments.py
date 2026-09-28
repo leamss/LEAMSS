@@ -18,7 +18,7 @@ import re
 import time
 import uuid
 import zipfile
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -171,7 +171,7 @@ def _norm_qualification(raw: Any) -> Optional[str]:
         return None
 
     # Clean punctuation for token checks
-    clean = re.sub(r"[\.\-\/\_]", "", s)
+    clean = re.sub(r"[\.\-\/\_\(\)]", " ", s)
     tokens = set(re.findall(r"[a-z0-9\+]+", s)) | set(re.findall(r"[a-z0-9\+]+", clean))
 
     # Doctorate
@@ -179,25 +179,28 @@ def _norm_qualification(raw: Any) -> Optional[str]:
     if tokens & doc_tokens or "ph.d" in s or "doctor of philosophy" in s or "doctorate" in s:
         return "doctorate"
 
-    # Master / Post-grad
+    # Master / Post-grad / Advanced professional certifications
     master_tokens = {
         "master", "masters", "mtech", "msc", "me", "mba", "mca", "mcom", "ma", "ms",
         "postgrad", "postgraduate", "pg", "pgdm", "pgdca", "pgd", "mpharm", "mpt", "march",
-        "llm", "med", "msw", "mdes", "ca", "icwa", "cma", "cfa"
+        "llm", "med", "msw", "mdes", "ca", "icwa", "cma", "cfa", "cpa", "acca"
     }
-    if tokens & master_tokens or "master" in s or "post graduate" in s or "post-graduate" in s or "m.sc" in s or "m.tech" in s:
+    if tokens & master_tokens or "master" in s or "post graduate" in s or "post-graduate" in s or "m.sc" in s or "m.tech" in s or "m.com" in s or "m.b.a" in s:
         return "master"
 
-    # Bachelor / Undergrad / Professional degrees
+    # Bachelor / Undergrad / Professional degrees / Commerce & Accounting
     bachelor_tokens = {
         "bachelor", "bachelors", "btech", "be", "bsc", "bs", "bcom", "bca", "ba",
         "bba", "bms", "bhm", "bpharm", "bds", "mbbs", "bpt", "barch", "llb",
         "bed", "bams", "bhms", "bsw", "bdes", "bvsc", "undergrad", "undergraduate",
         "degree", "graduate", "graduation", "ug", "cs", "it", "cse", "ece", "eee",
         "mech", "civil", "computer", "computerscience", "informationtechnology",
-        "software", "engineering", "ai", "datascience", "b.sc", "b.tech", "b.e"
+        "software", "engineering", "ai", "datascience", "b.sc", "b.tech", "b.e",
+        "commerce", "accountant", "accounting", "finance", "banking", "economics",
+        "chartered", "chartered accountant", "business", "management", "marketing",
+        "science", "arts", "law", "legal", "hotel", "hospitality", "aviation"
     }
-    if tokens & bachelor_tokens or "bachelor" in s or "engineering" in s or "under graduate" in s or "computer" in s or s in ("cs", "it", "cse", "ece", "mech", "civil"):
+    if tokens & bachelor_tokens or "bachelor" in s or "engineering" in s or "under graduate" in s or "computer" in s or "commerce" in s or "account" in s or "finance" in s:
         return "bachelor"
 
     # Diploma / Nursing diplomas (GNM / ANM)
@@ -253,11 +256,23 @@ def _parse_dob_to_age(raw: Any) -> Optional[int]:
 
 
 def _to_float(v: Any) -> Optional[float]:
-    try:
-        f = float(str(v).strip())
-        return f
-    except (ValueError, TypeError):
+    if v is None:
         return None
+    s = str(v).strip()
+    if not s or s.lower() == "nan":
+        return None
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        pass
+    # Extract numerical float or int from strings like "3.5 years", "3+ yrs", "4-5 years", "5 Yrs", "10 Years"
+    m = re.search(r"(\d+(?:\.\d+)?)", s)
+    if m:
+        try:
+            return float(m.group(1))
+        except (ValueError, TypeError):
+            pass
+    return None
 
 
 async def _parse_and_validate_row(rowmap: Dict[str, str], r: pd.Series) -> Dict[str, Any]:
@@ -288,8 +303,8 @@ async def _parse_and_validate_row(rowmap: Dict[str, str], r: pd.Series) -> Dict[
     if qualification is None:
         if raw_q:
             clean_q = raw_q.lower()
-            if any(k in clean_q for k in ("cs", "it", "eng", "tech", "grad", "degree", "bachelor", "master", "diploma", "msc", "mtech", "btech", "be", "bsc")):
-                qualification = "bachelor" if not any(m in clean_q for m in ("master", "msc", "mtech", "mba", "mca")) else "master"
+            if any(k in clean_q for k in ("cs", "it", "eng", "tech", "grad", "degree", "bachelor", "master", "diploma", "msc", "mtech", "btech", "be", "bsc", "com", "account", "finance", "business", "mgmt", "arts", "sci", "law")):
+                qualification = "master" if any(m in clean_q for m in ("master", "msc", "mtech", "mba", "mca", "mcom", "ca", "cpa", "post")) else "bachelor"
             else:
                 recoverable.append("Qualification")
         else:
@@ -606,6 +621,27 @@ async def create_batch_from_leads(
     for idx, lead in enumerate(leads):
         dob_val = lead.get("date_of_birth") or lead.get("dob") or ""
         name_val = lead.get("name") or lead.get("full_name") or "Unnamed Client"
+        
+        resume_fid = lead.get("resume_file_id")
+        raw_resume = lead.get("resume_url") or lead.get("resume_path") or lead.get("resume_link") or ""
+        resume_link_val = ""
+        if resume_fid and re.match(r"^[a-fA-F0-9]{24}$", str(resume_fid).strip()):
+            resume_link_val = f"https://api.leamss.com/api/cockpit/resume/{str(resume_fid).strip()}"
+        elif raw_resume:
+            raw_s = str(raw_resume).strip()
+            if re.match(r"^[a-fA-F0-9]{24}$", raw_s):
+                resume_link_val = f"https://api.leamss.com/api/cockpit/resume/{raw_s}"
+                resume_fid = raw_s
+            elif "cockpit/resume/" in raw_s:
+                m_fid = re.search(r"cockpit/resume/([a-fA-F0-9]{24})", raw_s)
+                if m_fid:
+                    resume_link_val = f"https://api.leamss.com/api/cockpit/resume/{m_fid.group(1)}"
+                    resume_fid = m_fid.group(1)
+                else:
+                    resume_link_val = raw_s
+            else:
+                resume_link_val = raw_s
+
         raw_row = {
             "name": name_val,
             "email": lead.get("email") or "",
@@ -615,7 +651,7 @@ async def create_batch_from_leads(
             "experience": lead.get("total_work_experience") or lead.get("experience") or "",
             "gender": lead.get("gender") or "",
             "marital_status": lead.get("marital_status") or "",
-            "resume_link": lead.get("resume_url") or lead.get("resume_path") or lead.get("resume_link") or "",
+            "resume_link": resume_link_val,
             "anzsco_code": lead.get("occupation_code") or lead.get("anzsco_code") or "",
         }
 
@@ -627,6 +663,11 @@ async def create_batch_from_leads(
         }
 
         res = await _parse_and_validate_row(rowmap, pd.Series(raw_row))
+        if resume_fid:
+            res["parsed"]["resume_file_id"] = str(resume_fid)
+        if resume_link_val:
+            res["parsed"]["resume_link"] = resume_link_val
+
         if res["status"] == "valid":
             valid += 1
         elif res["status"] == "needs_ai":
@@ -637,6 +678,7 @@ async def create_batch_from_leads(
             "batch_id": batch_id,
             "row_index": idx + 1,
             "lead_id": lead.get("id"),
+            "resume_file_id": str(resume_fid) if resume_fid else None,
             "parsed": res["parsed"],
             "errors": res["errors"],
             "status": res["status"],
@@ -765,10 +807,23 @@ async def _enrich_from_text(p: Dict[str, Any], text: str) -> Dict[str, Any]:
 
 async def _enrich_one(row: Dict[str, Any]) -> Dict[str, Any]:
     p = dict(row["parsed"])
-    resume_link = p.get("resume_link")
+    resume_fid = p.get("resume_file_id") or row.get("resume_file_id")
+    resume_link = p.get("resume_link") or row.get("resume_link")
     text = None
     err = None
-    if resume_link:
+
+    # 1. If uploaded to GridFS, extract text from GridFS bucket directly
+    if resume_fid:
+        try:
+            stream = await _resume_gridfs.open_download_stream(ObjectId(resume_fid))
+            data = await stream.read()
+            if data:
+                text, err = await extract_text_smart(p.get("resume_filename") or "resume.pdf", data)
+        except Exception as e_fid:
+            logger.warning("Could not read resume from GridFS (id=%s): %s", resume_fid, e_fid)
+
+    # 2. If no GridFS text, fetch from resume_link (Google Drive, Dropbox, public URL, etc.)
+    if not text and resume_link:
         text, err = await fetch_resume_text(resume_link)
     
     if text:
@@ -813,7 +868,19 @@ async def _enrich_one(row: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def _run_ai_enrich(batch_id: str, user: Dict[str, Any] | None = None):
-    rows = await ROWS.find({"batch_id": batch_id, "status": "needs_ai"}, {"_id": 0}).to_list(100000)
+    # Process needs_ai rows as well as error rows that have a resume link or uploaded file
+    query = {
+        "batch_id": batch_id,
+        "$or": [
+            {"status": "needs_ai"},
+            {"status": "error", "$or": [
+                {"parsed.resume_link": {"$ne": None, "$ne": ""}},
+                {"parsed.resume_file_id": {"$ne": None, "$ne": ""}},
+                {"resume_file_id": {"$ne": None, "$ne": ""}},
+            ]}
+        ]
+    }
+    rows = await ROWS.find(query, {"_id": 0}).to_list(100000)
     if not rows:
         await BATCHES.update_one({"id": batch_id}, {"$set": {"status": "ready", "ai_heartbeat": None}})
         return
@@ -911,7 +978,18 @@ async def ai_enrich(batch_id: str, current_user: dict = Depends(get_current_user
     if batch.get("status") == "enriching" and not _enrich_is_stale(batch):
         raise HTTPException(status_code=400, detail="AI detection is already running")
     # status is 'enriching' but stale (task died on a restart) → safe to resume
-    pending = await ROWS.count_documents({"batch_id": batch_id, "status": "needs_ai"})
+    query = {
+        "batch_id": batch_id,
+        "$or": [
+            {"status": "needs_ai"},
+            {"status": "error", "$or": [
+                {"parsed.resume_link": {"$ne": None, "$ne": ""}},
+                {"parsed.resume_file_id": {"$ne": None, "$ne": ""}},
+                {"resume_file_id": {"$ne": None, "$ne": ""}},
+            ]}
+        ]
+    }
+    pending = await ROWS.count_documents(query)
     if pending == 0:
         raise HTTPException(status_code=400, detail="No rows need AI ANZSCO detection")
     await BATCHES.update_one({"id": batch_id}, {"$set": {
@@ -2779,6 +2857,7 @@ async def _send_row_whatsapp(
                 # 1. Report PDF
                 if attach_report_flag and pdf_report_url:
                     try:
+                        await asyncio.sleep(0.35)
                         await send_whatsapp_document_by_url(
                             to_phone=clean_phone,
                             document_url=pdf_report_url,
@@ -2792,6 +2871,7 @@ async def _send_row_whatsapp(
                 # 2. SLA PDF (Eligible only)
                 if attach_sla_flag and sla_url:
                     try:
+                        await asyncio.sleep(0.35)
                         sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
                         await send_whatsapp_document_by_url(
                             to_phone=clean_phone,
@@ -2806,6 +2886,7 @@ async def _send_row_whatsapp(
                 # 3. Payment QR Image (Eligible only)
                 if attach_qr_flag and qr_url:
                     try:
+                        await asyncio.sleep(0.35)
                         await send_whatsapp_image_by_url(
                             to_phone=clean_phone,
                             image_url=qr_url,
@@ -2818,6 +2899,7 @@ async def _send_row_whatsapp(
                 # 4. Candidate Resume
                 if attach_resume_flag and resume_stream_url:
                     try:
+                        await asyncio.sleep(0.35)
                         r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
                         await send_whatsapp_document_by_url(
                             to_phone=clean_phone,
@@ -2862,13 +2944,31 @@ async def _send_row_whatsapp(
                     )
                 except Exception as e_res_tmpl:
                     logger.warning("Bulk resume template dispatch HX46d5 failed: %s", e_res_tmpl)
-                    res = await send_whatsapp_text(
-                        to_phone=clean_phone,
-                        text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
-                        client_name=name,
-                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                        content_variables={"1": name, "2": row_token[:20]},
-                    )
+                    try:
+                        res = await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
+                            client_name=name,
+                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                            content_variables={"1": name, "2": row_token[:20]},
+                        )
+                    except Exception as e_res_tmpl2:
+                        logger.warning("Bulk resume template HXecdec failed: %s; falling back to interactive/direct text", e_res_tmpl2)
+                        try:
+                            from core.whatsapp_service import send_whatsapp_interactive_buttons
+                            res = await send_whatsapp_interactive_buttons(
+                                to_phone=clean_phone,
+                                body_text=f"Hi {name}, our migration team is ready to prepare your Australia PR Pre-Assessment Report. Please click below or reply YES to upload your resume.",
+                                buttons=[
+                                    {"id": "btn_upload_resume", "title": "Upload Resume"},
+                                    {"id": "btn_not_now", "title": "Not Now"},
+                                ],
+                                header_text="LEAMSS — Resume Upload Request",
+                                footer_text="Ladhani Education & Migration Services",
+                                client_name=name,
+                            )
+                        except Exception:
+                            res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=name)
 
             elif is_not_eligible:
                 # Not-Eligible / Improvement Plan Flow
@@ -2932,13 +3032,30 @@ async def _send_row_whatsapp(
                                 },
                             )
                         except Exception:
-                            res = await send_whatsapp_text(
-                                to_phone=clean_phone,
-                                text=msg_text,
-                                client_name=name,
-                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                                content_variables={"1": name, "2": ref_id},
-                            )
+                            try:
+                                res = await send_whatsapp_text(
+                                    to_phone=clean_phone,
+                                    text=msg_text,
+                                    client_name=name,
+                                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                    content_variables={"1": name, "2": ref_id},
+                                )
+                            except Exception:
+                                from core.whatsapp_service import send_whatsapp_interactive_buttons
+                                try:
+                                    res = await send_whatsapp_interactive_buttons(
+                                        to_phone=clean_phone,
+                                        body_text=f"Hello {name},\n\nYour Australia PR profile evaluation summary is ready.\n\nClick below to view your full diagnostic report and improvement pathways:",
+                                        buttons=[
+                                            {"id": "btn_send_report", "title": "View Report"},
+                                            {"id": "btn_book_consultation", "title": "Consult Expert"},
+                                        ],
+                                        header_text="LEAMSS — Assessment Outcome",
+                                        footer_text="Ladhani Education & Migration Services",
+                                        client_name=name,
+                                    )
+                                except Exception:
+                                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=name)
 
             else:
                 ref_id = str(row.get("assessment_id") or row.get("id") or "LEAMSS-PR")[:25]
@@ -3007,29 +3124,87 @@ async def _send_row_whatsapp(
                                 },
                             )
                         except Exception:
-                            res = await send_whatsapp_text(
-                                to_phone=clean_phone,
-                                text=msg_text,
-                                client_name=name,
-                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                                content_variables={"1": name, "2": ref_id},
-                            )
+                            try:
+                                res = await send_whatsapp_text(
+                                    to_phone=clean_phone,
+                                    text=msg_text,
+                                    client_name=name,
+                                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                    content_variables={"1": name, "2": ref_id},
+                                )
+                            except Exception as e_tw_all_fail:
+                                logger.warning("All Twilio content SIDs failed: %s; falling back to interactive/direct send", e_tw_all_fail)
+                                try:
+                                    from core.whatsapp_service import send_whatsapp_interactive_buttons
+                                    res = await send_whatsapp_interactive_buttons(
+                                        to_phone=clean_phone,
+                                        body_text=f"Hello {name}!\n\nYour Australia PR Pre-Assessment Report ({occ_title} — {best_pts} pts) is ready.\n\nClick below to receive your complete 23-page report and documents on WhatsApp:",
+                                        buttons=[
+                                            {"id": "btn_send_report", "title": "Yes, Send Report"},
+                                            {"id": "btn_book_consultation", "title": "Book Consultation"},
+                                        ],
+                                        header_text="LEAMSS — Assessment Report Ready",
+                                        footer_text="Ladhani Education & Migration Services",
+                                        client_name=name,
+                                    )
+                                except Exception:
+                                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=name)
     else:
         # Meta Cloud API Mode
-        if attach_report_flag and pdf_bytes:
-            up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
-            if up_rep.get("id"):
-                res = await send_whatsapp_document_by_id(
-                    to_phone=clean_phone,
-                    media_id=up_rep["id"],
-                    filename=rep_fname,
-                    caption=msg_text[:1000],
-                )
-                dispatched_attachments.append("report_pdf")
+        if has_active_session:
+            if attach_report_flag and pdf_bytes:
+                up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
+                if up_rep.get("id"):
+                    res = await send_whatsapp_document_by_id(
+                        to_phone=clean_phone,
+                        media_id=up_rep["id"],
+                        filename=rep_fname,
+                        caption=msg_text[:1000],
+                    )
+                    dispatched_attachments.append("report_pdf")
+                else:
+                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
             else:
                 res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
         else:
-            res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+            # Outside 24h: Send Meta interactive button broadcast
+            from core.whatsapp_service import send_whatsapp_interactive_buttons
+            if is_resume:
+                res = await send_whatsapp_interactive_buttons(
+                    to_phone=clean_phone,
+                    body_text=f"Hi {name}, our migration team is ready to prepare your Australia PR Pre-Assessment Report. Please click below to upload your resume.",
+                    buttons=[
+                        {"id": "btn_upload_resume", "title": "Upload Resume"},
+                        {"id": "btn_not_now", "title": "Not Now"},
+                    ],
+                    header_text="LEAMSS — Resume Upload Request",
+                    footer_text="Ladhani Education & Migration Services",
+                    client_name=name,
+                )
+            elif is_not_eligible:
+                res = await send_whatsapp_interactive_buttons(
+                    to_phone=clean_phone,
+                    body_text=f"Hello {name},\n\nYour Australia PR profile evaluation summary is ready.\n\nClick below to view your full diagnostic report and improvement pathways:",
+                    buttons=[
+                        {"id": "btn_send_report", "title": "View Report"},
+                        {"id": "btn_book_consultation", "title": "Consult Expert"},
+                    ],
+                    header_text="LEAMSS — Assessment Outcome",
+                    footer_text="Ladhani Education & Migration Services",
+                    client_name=name,
+                )
+            else:
+                res = await send_whatsapp_interactive_buttons(
+                    to_phone=clean_phone,
+                    body_text=f"Hello {name}!\n\nYour Australia PR Pre-Assessment Report ({occ or 'Australia PR'} — {best_pts} pts) is ready.\n\nClick below to receive your complete 23-page report and documents on WhatsApp:",
+                    buttons=[
+                        {"id": "btn_send_report", "title": "Yes, Send Report"},
+                        {"id": "btn_book_consultation", "title": "Book Consultation"},
+                    ],
+                    header_text="LEAMSS — Assessment Report Ready",
+                    footer_text="Ladhani Education & Migration Services",
+                    client_name=name,
+                )
 
     try:
         from routers.whatsapp_chat import record_chat_message

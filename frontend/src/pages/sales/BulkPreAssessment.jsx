@@ -45,11 +45,97 @@ import {
   MoreVertical, Ban, RotateCcw, LayoutTemplate, Trash2, MessageSquare, Zap,
 } from 'lucide-react';
 
-// Open a client's resume link (from the uploaded Excel) in a new tab
-const openResume = (url) => {
-  if (!url) { toast.error('No resume link provided for this client'); return; }
-  const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-  window.open(href, '_blank', 'noopener,noreferrer');
+// Open a client's resume link (GridFS uploaded file, Google Drive, or public URL) in a new tab
+const resolveResumeUrl = (url, rowId, resumeFileId) => {
+  const raw = String(url || '').trim();
+  const backendBase = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/+$/, '');
+
+  // 1. If it's a relative cockpit resume path like "/cockpit/resume/..." or "cockpit/resume/..."
+  if (raw.includes('cockpit/resume/')) {
+    const fileId = raw.split('cockpit/resume/')[1].replace(/^\//, '').split(/[?#]/)[0];
+    if (fileId) {
+      return `${backendBase}/api/cockpit/resume/${fileId}`;
+    }
+  }
+
+  // 2. If it's a 24-character hexadecimal ObjectId
+  if (/^[a-fA-F0-9]{24}$/.test(raw)) {
+    return `${backendBase}/api/cockpit/resume/${raw}`;
+  }
+
+  // 3. If explicit resumeFileId passed
+  if (resumeFileId && /^[a-fA-F0-9]{24}$/.test(String(resumeFileId).trim())) {
+    return `${backendBase}/api/cockpit/resume/${String(resumeFileId).trim()}`;
+  }
+
+  // 4. If rowId provided and it's a public row stream
+  if (raw.startsWith('/api/') || raw.startsWith('api/')) {
+    return `${backendBase}/${raw.replace(/^\/+/, '')}`;
+  }
+
+  if (raw.startsWith('/')) {
+    return `${backendBase}${raw}`;
+  }
+
+  // 5. External full URL (Google Drive, Dropbox, Cloudinary, AWS S3, etc.)
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+
+  if (raw) {
+    return `https://${raw}`;
+  }
+
+  if (rowId) {
+    return `${backendBase}/api/bulk-assessments/public/row/${rowId}/resume`;
+  }
+
+  return null;
+};
+
+const openResume = async (url, row) => {
+  const p = row?.parsed || {};
+  const fileId = p.resume_file_id || row?.resume_file_id;
+  const link = url || p.resume_link || row?.resume_link || '';
+
+  // 1. If external public storage link (Google Drive / Dropbox / Cloudinary / AWS S3)
+  if (/^https?:\/\//i.test(link) && !link.includes('cockpit/resume/') && !link.includes('app.leamss.com') && !link.includes('localhost')) {
+    window.open(link, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  // 2. Fetch via Axios blob directly so it renders immediately in a clean blob URL
+  try {
+    let resp = null;
+    const API_URL = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
+    if (row?.id) {
+      try {
+        resp = await axios.get(`${API_URL}/bulk-assessments/public/row/${row.id}/resume`, { responseType: 'blob' });
+      } catch (e1) {
+        if (fileId) {
+          resp = await axios.get(`${API_URL}/cockpit/resume/${fileId}`, { responseType: 'blob' });
+        }
+      }
+    } else if (fileId) {
+      resp = await axios.get(`${API_URL}/cockpit/resume/${fileId}`, { responseType: 'blob' });
+    }
+
+    if (resp && resp.data) {
+      const blobUrl = URL.createObjectURL(resp.data);
+      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+  } catch (err) {
+    console.warn('Blob resume stream failed:', err);
+  }
+
+  // 3. Fallback direct URL
+  const resolved = resolveResumeUrl(link, row?.id, fileId);
+  if (resolved) {
+    window.open(resolved, '_blank', 'noopener,noreferrer');
+  } else {
+    toast.error('No readable resume found for this client');
+  }
 };
 import { formatApiError } from '@/lib/apiErrors';
 
@@ -948,12 +1034,12 @@ export default function BulkPreAssessment() {
                       </td>
                       <td className="p-2">
                         <div className="flex gap-1 justify-center">
-                          {r.parsed?.resume_link && (
+                          {(r.parsed?.resume_link || r.parsed?.resume_file_id || r.resume_file_id) && (
                             <TooltipProvider delayDuration={100}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button size="sm" variant="ghost" className="h-7 px-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50"
-                                    onClick={() => openResume(r.parsed.resume_link)} data-testid={`view-resume-${r.row_index}`}>
+                                    onClick={() => openResume(r.parsed?.resume_link || r.parsed?.resume_file_id || r.resume_file_id, r)} data-testid={`view-resume-${r.row_index}`}>
                                     <FileUser className="h-3.5 w-3.5" />
                                   </Button>
                                 </TooltipTrigger>
@@ -1308,9 +1394,11 @@ function EditRowDialog({ row, headers, senders = [], defaultSender, onClose, onS
       try {
         const r = await axios.get(`${API}/bulk-assessments/row/${row.id}/resume-file`, { headers, responseType: 'blob' });
         window.open(URL.createObjectURL(r.data), '_blank', 'noopener,noreferrer');
-      } catch (e) { toast.error('Could not open uploaded resume'); }
-    } else if (p.resume_link) {
-      openResume(p.resume_link);
+      } catch (e) {
+        openResume(p.resume_link || uploadedFileId, row);
+      }
+    } else if (p.resume_link || p.resume_file_id) {
+      openResume(p.resume_link || p.resume_file_id, row);
     }
   };
 

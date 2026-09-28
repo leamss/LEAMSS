@@ -10,7 +10,7 @@ import os
 import re
 import uuid
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -308,72 +308,157 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
         "pls", "please", "1", "interested", "proceed", "send report", "upload resume", "send pdf",
         "yes please", "yes send", "yes book a consultation", "book a consultation", "book consultation",
         "yes book", "consultation", "book", "yes send report", "send my report", "report", "yes report",
-        "send assessment", "yes assessment", "send assessment report", "yes send assessment"
+        "send assessment", "yes assessment", "send assessment report", "yes send assessment",
+        "yes send payment link", "send payment link", "yes send link", "send link", "payment link",
+        "pay now", "pay", "payment", "yes payment", "btn_send_payment_link", "yes, send link",
+        "yes, send payment link", "yes send payment", "send payment", "give link", "send pay link",
     }
     is_yes = (
         norm_text in yes_words
-        or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text or norm_text == w for w in ["yes", "ok", "sure", "send", "upload", "haan", "please", "book", "consultation", "report", "interested", "proceed"])
+        or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text or norm_text == w for w in ["yes", "ok", "sure", "send", "upload", "haan", "please", "book", "consultation", "report", "interested", "proceed", "pay", "payment", "link"])
     )
 
-    no_words = {"no", "n", "nope", "nah", "cancel", "stop", "dont", "not now", "not interested", "na", "2", "dont send", "dont upload", "no thanks", "no need"}
+    no_words = {"no", "n", "nope", "nah", "cancel", "stop", "dont", "not now", "not interested", "na", "2", "dont send", "dont upload", "no thanks", "no need", "btn_not_now"}
     is_no = (
         norm_text in no_words
         or any(norm_text.startswith(f"{w} ") or norm_text.endswith(f" {w}") or f" {w} " in norm_text for w in ["no", "nope", "cancel", "stop", "not interested", "dont send", "dont upload"])
     )
 
-    # Auto-infer flow if pending_flow is empty but user tapped/sent YES or SEND REPORT
+    # Auto-infer flow if pending_flow is empty but user tapped/sent YES or keywords
     if not flow:
         if not is_yes and not is_no:
             return False
         if is_yes:
             from core.database import db
-            ass_doc = await db["assessments"].find_one({
-                "$or": [
-                    {"client_phone": {"$regex": phone_suffix}},
-                    {"recipient_phone": {"$regex": phone_suffix}},
-                    {"phone": {"$regex": phone_suffix}},
-                ]
-            }, sort=[("created_at", -1)])
-            if not ass_doc:
-                ass_doc = await db["pre_assessments"].find_one({
+            is_payment_keyword = any(kw in norm_text for kw in ["payment", "pay", "link", "fee", "cost", "bill", "invoice"])
+            lead_doc = None
+            if is_payment_keyword:
+                lead_doc = await db["leads"].find_one({
+                    "$or": [
+                        {"phone": {"$regex": phone_suffix}},
+                        {"unique_id": {"$regex": phone_suffix}},
+                    ]
+                }, sort=[("created_at", -1)])
+
+            if lead_doc and (lead_doc.get("payment_status") != "success" or is_payment_keyword):
+                flow = "payment_link"
+                if not client_name or client_name in ("WhatsApp User", "there"):
+                    client_name = lead_doc.get("name") or client_name
+            else:
+                ass_doc = await db["assessments"].find_one({
                     "$or": [
                         {"client_phone": {"$regex": phone_suffix}},
                         {"recipient_phone": {"$regex": phone_suffix}},
                         {"phone": {"$regex": phone_suffix}},
                     ]
                 }, sort=[("created_at", -1)])
+                if not ass_doc:
+                    ass_doc = await db["pre_assessments"].find_one({
+                        "$or": [
+                            {"client_phone": {"$regex": phone_suffix}},
+                            {"recipient_phone": {"$regex": phone_suffix}},
+                            {"phone": {"$regex": phone_suffix}},
+                        ]
+                    }, sort=[("created_at", -1)])
 
-            if ass_doc:
-                if ass_doc.get("status") in ("needs_resume", "needs_ai") or ("upload" in norm_text and "resume" in norm_text):
-                    flow = "resume_request"
-                elif (ass_doc.get("best_total") or 0) < 65 or not ass_doc.get("is_eligible", True):
-                    flow = "send_not_eligible_report"
-                else:
-                    flow = "send_report"
-                if not client_name or client_name in ("WhatsApp User", "there"):
-                    client_name = ass_doc.get("client_name") or client_name
-            else:
-                row_doc = await db["bulk_assessment_rows"].find_one({
-                    "$or": [
-                        {"parsed.phone": {"$regex": phone_suffix}},
-                        {"phone": {"$regex": phone_suffix}},
-                    ]
-                }, sort=[("created_at", -1)])
-                if row_doc:
-                    if row_doc.get("status") in ("needs_resume", "needs_ai") or ("upload" in norm_text and "resume" in norm_text):
+                if ass_doc:
+                    if ass_doc.get("status") in ("needs_resume", "needs_ai") or ("upload" in norm_text and "resume" in norm_text):
                         flow = "resume_request"
-                    elif (row_doc.get("points") or 0) < 65:
+                    elif (ass_doc.get("best_total") or 0) < 65 or not ass_doc.get("is_eligible", True):
                         flow = "send_not_eligible_report"
                     else:
                         flow = "send_report"
                     if not client_name or client_name in ("WhatsApp User", "there"):
-                        client_name = (row_doc.get("parsed") or {}).get("name") or client_name
+                        client_name = ass_doc.get("client_name") or client_name
                 else:
-                    flow = "resume_request" if "resume" in norm_text else "send_report"
+                    # Check leads for unpaid status
+                    lead_doc = await db["leads"].find_one({
+                        "$or": [
+                            {"phone": {"$regex": phone_suffix}},
+                            {"unique_id": {"$regex": phone_suffix}},
+                        ]
+                    }, sort=[("created_at", -1)])
+                    if lead_doc and lead_doc.get("payment_status") != "success":
+                        flow = "payment_link"
+                        if not client_name or client_name in ("WhatsApp User", "there"):
+                            client_name = lead_doc.get("name") or client_name
+                    else:
+                        row_doc = await db["bulk_assessment_rows"].find_one({
+                            "$or": [
+                                {"parsed.phone": {"$regex": phone_suffix}},
+                                {"phone": {"$regex": phone_suffix}},
+                            ]
+                        }, sort=[("created_at", -1)])
+                        if row_doc:
+                            if row_doc.get("status") in ("needs_resume", "needs_ai") or ("upload" in norm_text and "resume" in norm_text):
+                                flow = "resume_request"
+                            elif (row_doc.get("points") or 0) < 65:
+                                flow = "send_not_eligible_report"
+                            else:
+                                flow = "send_report"
+                            if not client_name or client_name in ("WhatsApp User", "there"):
+                                client_name = (row_doc.get("parsed") or {}).get("name") or client_name
+                        else:
+                            flow = "resume_request" if "resume" in norm_text else ("payment_link" if is_payment_keyword else "send_report")
 
     from core.whatsapp_service import send_whatsapp_text, send_whatsapp_document_by_url, send_whatsapp_image_by_url
 
-    if flow == "resume_request":
+    if flow == "payment_link":
+        if is_yes:
+            payment_url = conv.get("pending_payment_url")
+            if not payment_url:
+                lead_id = conv.get("pending_lead_id") or conv.get("lead_id")
+                from core.database import db
+                from core.navratri_automation import get_payment_url
+                lead_doc = await db["leads"].find_one({
+                    "$or": [
+                        {"phone": {"$regex": phone_suffix}},
+                        {"id": lead_id or ""},
+                        {"unique_id": {"$regex": phone_suffix}},
+                    ]
+                }, sort=[("created_at", -1)])
+                if lead_doc:
+                    payment_url = get_payment_url(lead_doc)
+                    if not client_name or client_name in ("WhatsApp User", "there"):
+                        client_name = lead_doc.get("name") or client_name
+            if not payment_url:
+                payment_url = "https://leamss.com/navratri-offers"
+
+            reply_msg = (
+                f"Thank you, {client_name}! 💳✨\n\n"
+                f"Here is your direct secure link to complete your *LEAMSS Navratri Special Offer* payment:\n\n"
+                f"👉 {payment_url}\n\n"
+                f"Once payment is completed, your profile will be queued immediately for Australia PR evaluation by our expert migration team.\n\n"
+                f"If you have any questions or need international banking details, reply here anytime!\n\n"
+                f"— *LEAMSS Global Education & Migration*"
+            )
+            try:
+                await send_whatsapp_text(to_phone=clean_phone, text=reply_msg, client_name=client_name)
+                await record_chat_message(
+                    phone=clean_phone, text=reply_msg, direction="outbound",
+                    sender_type="system", sender_name="LEAMSS Admissions Team", status="sent"
+                )
+            except Exception as e_send:
+                logger.warning("Could not dispatch payment link reply to +%s: %s", clean_phone, e_send)
+            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {"pending_flow": "", "pending_payment_url": "", "pending_lead_id": ""}})
+            return True
+        elif is_no:
+            reply_msg = (
+                f"Thank you for letting us know, {client_name}! 🙏\n\n"
+                f"If you would like to complete your registration in the future or explore Australia PR pathways, feel free to reach out to us anytime. Have a wonderful day! — LEAMSS Team"
+            )
+            try:
+                await send_whatsapp_text(to_phone=clean_phone, text=reply_msg, client_name=client_name)
+                await record_chat_message(
+                    phone=clean_phone, text=reply_msg, direction="outbound",
+                    sender_type="system", sender_name="LEAMSS Assistant", status="sent"
+                )
+            except Exception as e_send:
+                logger.warning("Could not dispatch polite thank you to +%s: %s", clean_phone, e_send)
+            await CONVERSATIONS.update_one({"id": conv["id"]}, {"$unset": {"pending_flow": "", "pending_payment_url": "", "pending_lead_id": ""}})
+            return True
+
+    elif flow == "resume_request":
         if is_yes:
             resume_url = conv.get("pending_resume_url") or "https://app.leamss.com/upload-resume"
             custom_msg = conv.get("pending_selected_msg")
@@ -1483,6 +1568,9 @@ async def unified_whatsapp_webhook(request: Request):
                             media_url=media_url,
                             media_filename=media_filename,
                         )
+                        clean_wa_phone = normalize_phone_number(from_phone)
+                        if clean_wa_phone:
+                            await handle_inbound_flow_response(clean_wa_phone, msg_text, client_name)
                     except Exception as e:
                         logger.error("Error recording inbound WhatsApp message: %s", e)
 
@@ -1529,8 +1617,16 @@ async def simulate_inbound_message(
         status="received",
     )
 
+    flow_handled = await handle_inbound_flow_response(
+        clean_phone,
+        text,
+        req.client_name or "Applicant"
+    )
+
     return {
         "success": True,
         "simulated": True,
+        "flow_handled": flow_handled,
         "message": _clean_doc(msg),
     }
+

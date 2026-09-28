@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.database import db
@@ -241,7 +241,13 @@ async def send_navratri_resume_request(
     clean_phone = normalize_phone_number(phone)
     if clean_phone:
         try:
-            wa_text = (
+            from routers.whatsapp_chat import is_in_24h_window, set_pending_flow, record_chat_message
+            from core.whatsapp_service import get_whatsapp_config, send_whatsapp_interactive_buttons
+
+            cfg = await get_whatsapp_config()
+            has_active_session = await is_in_24h_window(clean_phone)
+
+            direct_wa_text = custom_message or (
                 f"🌟 *LEAMSS Navratri Offer — Action Needed*\n\n"
                 f"Hi {name},\n"
                 f"Thank you for your registration with LEAMSS! To complete your *Australia PR Pre-Assessment Report*, our migration team needs your latest resume / CV.\n\n"
@@ -251,8 +257,85 @@ async def send_navratri_resume_request(
                 f"Once uploaded, our team will analyze your profile and prepare your Pre-Assessment Report.\n\n"
                 f"— *LEAMSS Migration Team*"
             )
-            await send_whatsapp_text(to_phone=clean_phone, text=wa_text)
-            results["whatsapp_sent"] = True
+
+            sent_direct = False
+            if has_active_session:
+                try:
+                    await send_whatsapp_text(to_phone=clean_phone, text=direct_wa_text, client_name=name)
+                    await record_chat_message(
+                        phone=clean_phone,
+                        text=direct_wa_text,
+                        direction="outbound",
+                        sender_type="system",
+                        sender_name="LEAMSS Migration Team",
+                        client_name=name,
+                        client_email=email,
+                        status="sent",
+                    )
+                    sent_direct = True
+                    results["whatsapp_sent"] = True
+                except Exception as e_direct:
+                    err_s = str(e_direct)
+                    if "24-hour" in err_s or "63016" in err_s or "Outside" in err_s:
+                        logger.info("Resume direct send failed outside 24h for +%s, fallback to cold template: %s", clean_phone, err_s)
+                        has_active_session = False
+                    else:
+                        raise e_direct
+
+            if not has_active_session and not sent_direct:
+                upload_token = str(lead.get("unique_id") or lead.get("id") or "LEAMSS-PR")[:25]
+                await set_pending_flow(
+                    clean_phone,
+                    flow="resume_request",
+                    client_name=name,
+                    extra_data={
+                        "resume_url": upload_url,
+                        "selected_msg": direct_wa_text,
+                        "lead_id": lead_id,
+                    },
+                )
+                if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
+                    try:
+                        await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=direct_wa_text,
+                            client_name=name,
+                            content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                            content_variables={"1": name, "2": upload_token},
+                        )
+                    except Exception:
+                        await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=f"Please reply YES to upload your resume (Ref: {upload_token[:20]})",
+                            client_name=name,
+                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                            content_variables={"1": name, "2": upload_token[:20]},
+                        )
+                else:
+                    await send_whatsapp_interactive_buttons(
+                        to_phone=clean_phone,
+                        body_text=f"Hi {name}, our migration specialists are ready to prepare your Australia PR Pre-Assessment Report. Please click below to upload your resume.",
+                        buttons=[
+                            {"id": "btn_upload_resume", "title": "Upload Resume"},
+                            {"id": "btn_not_now", "title": "Not Now"},
+                        ],
+                        header_text="LEAMSS — Resume Request",
+                        footer_text="Ladhani Education & Migration Services",
+                        client_name=name,
+                    )
+
+                await record_chat_message(
+                    phone=clean_phone,
+                    text=f"[Resume Request Notice Dispatched]\nRef: {upload_token}\nButton: YES, UPLOAD RESUME",
+                    direction="outbound",
+                    sender_type="system",
+                    sender_name="LEAMSS Migration Team",
+                    client_name=name,
+                    client_email=email,
+                    status="sent",
+                )
+                results["whatsapp_sent"] = True
+
         except Exception as e_wa:
             logger.error("Failed to send resume request WhatsApp to %s: %s", phone, e_wa)
             results["errors"].append(f"WhatsApp error: {str(e_wa)}")
@@ -284,7 +367,14 @@ async def send_navratri_payment_link(
     lead: Dict[str, Any],
     payment_url_override: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Sends Navratri Offer Payment Link to an unpaid lead via Email + WhatsApp."""
+    """Sends Navratri Offer Payment Link to an unpaid lead via Email + WhatsApp.
+    
+    Checks 24-hour customer window for WhatsApp:
+    - If 24h window is OPEN: dispatches direct payment link.
+    - If 24h window is CLOSED (cold lead): sets pending 'payment_link' flow and dispatches
+      Meta broadcast/interactive button or Twilio approved quick-reply template ("Your payment is pending...").
+      When recipient replies or clicks 'Yes, Send Link', the direct payment link is automatically delivered.
+    """
     lead_id = lead.get("id")
     name = (lead.get("name") or "Applicant").strip()
     email = str(lead.get("email") or "").strip()
@@ -323,7 +413,13 @@ async def send_navratri_payment_link(
     clean_phone = normalize_phone_number(phone)
     if clean_phone:
         try:
-            wa_text = (
+            from routers.whatsapp_chat import is_in_24h_window, set_pending_flow, record_chat_message
+            from core.whatsapp_service import send_whatsapp_interactive_buttons, get_whatsapp_config
+
+            cfg = await get_whatsapp_config()
+            has_active_session = await is_in_24h_window(clean_phone)
+
+            direct_payment_text = (
                 f"✨ *LEAMSS Navratri Special Offer — Payment Link*\n\n"
                 f"Dear {name},\n"
                 f"Complete your registration for the *LEAMSS Navratri Special Offer* and get your personalized Australia PR Pre-Assessment Report.\n\n"
@@ -332,8 +428,116 @@ async def send_navratri_payment_link(
                 f"Once payment is completed, your profile will be immediately queued for evaluation by our expert migration team.\n\n"
                 f"— *LEAMSS Global Education & Migration*"
             )
-            await send_whatsapp_text(to_phone=clean_phone, text=wa_text)
-            results["whatsapp_sent"] = True
+
+            sent_direct = False
+            if has_active_session:
+                try:
+                    await send_whatsapp_text(to_phone=clean_phone, text=direct_payment_text, client_name=name)
+                    await record_chat_message(
+                        phone=clean_phone,
+                        text=direct_payment_text,
+                        direction="outbound",
+                        sender_type="system",
+                        sender_name="LEAMSS Admissions Team",
+                        client_name=name,
+                        client_email=email,
+                        status="sent",
+                    )
+                    sent_direct = True
+                    results["whatsapp_sent"] = True
+                except Exception as e_direct:
+                    err_s = str(e_direct)
+                    if "24-hour" in err_s or "63016" in err_s or "Outside" in err_s:
+                        logger.info("Direct send failed outside 24h window for +%s, falling back to cold template: %s", clean_phone, err_s)
+                        has_active_session = False
+                    else:
+                        raise e_direct
+
+            if not has_active_session and not sent_direct:
+                # ── COLD OUTREACH / OUTSIDE 24H: Set Pending Flow & Send Broadcast/Button Template ──
+                ref_id = str(lead.get("unique_id") or lead.get("id") or "Payment-Pending")[:25]
+                await set_pending_flow(
+                    clean_phone,
+                    flow="payment_link",
+                    client_name=name,
+                    extra_data={
+                        "payment_url": payment_url,
+                        "lead_id": lead_id,
+                        "unique_id": lead.get("unique_id"),
+                        "name": name,
+                        "email": email,
+                    },
+                )
+
+                cold_body_text = (
+                    f"Hello {name},\n\n"
+                    f"Your registration for the *LEAMSS Navratri Special Offer* is pending payment confirmation.\n\n"
+                    f"Would you like us to send you the secure direct payment link here on WhatsApp?\n\n"
+                    f"👉 Click *YES, SEND PAYMENT LINK* or reply *YES*."
+                )
+
+                if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
+                    # Use Twilio approved Quick-Reply Button Content Template
+                    try:
+                        await send_whatsapp_text(
+                            to_phone=clean_phone,
+                            text=cold_body_text,
+                            client_name=name,
+                            content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                            content_variables={"1": name, "2": ref_id},
+                        )
+                    except Exception as e_tw_tmpl:
+                        logger.warning("Twilio HX46d5 dispatch failed: %s, falling back to HXecdec", e_tw_tmpl)
+                        try:
+                            await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=f"Hello {name}, your registration payment is pending. Please reply YES to receive your payment link (Ref: {ref_id[:20]}).",
+                                client_name=name,
+                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                content_variables={"1": name, "2": ref_id[:20]},
+                            )
+                        except Exception as e_tw2:
+                            logger.warning("Twilio HXecdec failed: %s, falling back to HXe393", e_tw2)
+                            await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=cold_body_text,
+                                client_name=name,
+                                content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                                content_variables={
+                                    "1": name,
+                                    "2": "Australia PR Special Offer",
+                                    "3": "Enrolment Pending",
+                                    "4": "Subclass 189, 190, 491",
+                                    "5": "Payment Link Request",
+                                },
+                            )
+                else:
+                    # Meta Cloud API / Broadcasting Mode with Interactive Quick Reply Button
+                    buttons = [
+                        {"id": "btn_send_payment_link", "title": "Yes, Send Link"},
+                        {"id": "btn_not_now", "title": "Not Now"},
+                    ]
+                    await send_whatsapp_interactive_buttons(
+                        to_phone=clean_phone,
+                        body_text=cold_body_text,
+                        buttons=buttons,
+                        header_text="LEAMSS Special Offer — Payment Pending",
+                        footer_text="Ladhani Education & Migration Services",
+                        client_name=name,
+                    )
+
+                await record_chat_message(
+                    phone=clean_phone,
+                    text=f"[Payment Pending Notice Dispatched]\n{cold_body_text}\nButton: YES, SEND PAYMENT LINK",
+                    direction="outbound",
+                    sender_type="system",
+                    sender_name="LEAMSS Admissions Team",
+                    client_name=name,
+                    client_email=email,
+                    status="sent",
+                )
+                results["whatsapp_sent"] = True
+
         except Exception as e_wa:
             logger.error("Failed to send payment link WhatsApp to %s: %s", phone, e_wa)
             results["errors"].append(f"WhatsApp error: {str(e_wa)}")

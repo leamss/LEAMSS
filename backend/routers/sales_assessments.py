@@ -2128,13 +2128,31 @@ async def send_assessment_whatsapp(
                         )
                     except Exception as e_res_tmpl:
                         logger.warning("Resume upload template v4 dispatch: %s", e_res_tmpl)
-                        res = await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=f"Please reply YES to upload your resume (Ref: {str(id)[:20]})",
-                            client_name=client_name,
-                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                            content_variables={"1": client_name, "2": str(id)[:20]},
-                        )
+                        try:
+                            res = await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=f"Please reply YES to upload your resume (Ref: {str(id)[:20]})",
+                                client_name=client_name,
+                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                content_variables={"1": client_name, "2": str(id)[:20]},
+                            )
+                        except Exception as e_tw_res_last:
+                            logger.warning("Resume Twilio templates failed: %s; falling back to interactive/direct text", e_tw_res_last)
+                            try:
+                                from core.whatsapp_service import send_whatsapp_interactive_buttons
+                                res = await send_whatsapp_interactive_buttons(
+                                    to_phone=clean_phone,
+                                    body_text=f"Hi {client_name}, our migration team is ready to evaluate your profile. Please click below to upload your resume.",
+                                    buttons=[
+                                        {"id": "btn_upload_resume", "title": "Upload Resume"},
+                                        {"id": "btn_not_now", "title": "Not Now"},
+                                    ],
+                                    header_text="LEAMSS — Resume Upload Request",
+                                    footer_text="Ladhani Education & Migration Services",
+                                    client_name=client_name,
+                                )
+                            except Exception:
+                                res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
 
                 elif is_not_eligible_flow:
                     ref_id = str(id or "LEAMSS-PR")[:25]
@@ -2196,13 +2214,30 @@ async def send_assessment_whatsapp(
                                     },
                                 )
                             except Exception:
-                                res = await send_whatsapp_text(
-                                    to_phone=clean_phone,
-                                    text=msg_text,
-                                    client_name=client_name,
-                                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                                    content_variables={"1": client_name, "2": ref_id},
-                                )
+                                try:
+                                    res = await send_whatsapp_text(
+                                        to_phone=clean_phone,
+                                        text=msg_text,
+                                        client_name=client_name,
+                                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                        content_variables={"1": client_name, "2": ref_id},
+                                    )
+                                except Exception:
+                                    try:
+                                        from core.whatsapp_service import send_whatsapp_interactive_buttons
+                                        res = await send_whatsapp_interactive_buttons(
+                                            to_phone=clean_phone,
+                                            body_text=f"Hello {client_name},\n\nYour Australia PR assessment summary is ready.\n\nClick below to view your full evaluation report and diagnostic feedback:",
+                                            buttons=[
+                                                {"id": "btn_send_report", "title": "View Report"},
+                                                {"id": "btn_book_consultation", "title": "Consult Expert"},
+                                            ],
+                                            header_text="LEAMSS — Assessment Outcome",
+                                            footer_text="Ladhani Education & Migration Services",
+                                            client_name=client_name,
+                                        )
+                                    except Exception:
+                                        res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
 
                 else:
                     ref_id = str(id or "LEAMSS-PR")[:25]
@@ -2270,17 +2305,62 @@ async def send_assessment_whatsapp(
                                     },
                                 )
                             except Exception:
-                                res = await send_whatsapp_text(
-                                    to_phone=clean_phone,
-                                    text=msg_text,
-                                    client_name=client_name,
-                                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                                    content_variables={"1": client_name, "2": ref_id},
-                                )
+                                try:
+                                    res = await send_whatsapp_text(
+                                        to_phone=clean_phone,
+                                        text=msg_text,
+                                        client_name=client_name,
+                                        content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                        content_variables={"1": client_name, "2": ref_id},
+                                    )
+                                except Exception as e_tw_last:
+                                    logger.warning("All Twilio content SIDs failed: %s; falling back to interactive/direct send", e_tw_last)
+                                    try:
+                                        from core.whatsapp_service import send_whatsapp_interactive_buttons
+                                        res = await send_whatsapp_interactive_buttons(
+                                            to_phone=clean_phone,
+                                            body_text=f"Hello {client_name}!\n\nYour Australia PR Pre-Assessment Report ({occ_title} — {best_total} pts) is ready.\n\nClick below to receive your complete 23-page report and documents on WhatsApp:",
+                                            buttons=[
+                                                {"id": "btn_send_report", "title": "Yes, Send Report"},
+                                                {"id": "btn_book_consultation", "title": "Book Consultation"},
+                                            ],
+                                            header_text="LEAMSS — Assessment Report Ready",
+                                            footer_text="Ladhani Education & Migration Services",
+                                            client_name=client_name,
+                                        )
+                                    except Exception:
+                                        res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
         else:
             # ── Meta Cloud API / Non-Twilio Provider ──
             is_permission_template = False
-            res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
+            from core.whatsapp_service import send_whatsapp_interactive_buttons
+            if has_active_session:
+                res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
+            else:
+                if is_resume_flow:
+                    res = await send_whatsapp_interactive_buttons(
+                        to_phone=clean_phone,
+                        body_text=f"Hi {client_name}, our migration team is ready to evaluate your profile. Please click below to upload your resume.",
+                        buttons=[
+                            {"id": "btn_upload_resume", "title": "Upload Resume"},
+                            {"id": "btn_not_now", "title": "Not Now"},
+                        ],
+                        header_text="LEAMSS — Resume Upload Request",
+                        footer_text="Ladhani Education & Migration Services",
+                        client_name=client_name,
+                    )
+                else:
+                    res = await send_whatsapp_interactive_buttons(
+                        to_phone=clean_phone,
+                        body_text=f"Hello {client_name}!\n\nYour Australia PR Pre-Assessment Report is ready.\n\nClick below to receive your complete 23-page report and documents on WhatsApp:",
+                        buttons=[
+                            {"id": "btn_send_report", "title": "Yes, Send Report"},
+                            {"id": "btn_book_consultation", "title": "Book Consultation"},
+                        ],
+                        header_text="LEAMSS — Assessment Report Ready",
+                        footer_text="Ladhani Education & Migration Services",
+                        client_name=client_name,
+                    )
         
         is_simulated = res.get("status") == "simulated"
     except Exception as exc:

@@ -252,6 +252,54 @@ async def send_whatsapp_text(
                     )
                 elif err_code == 63007:
                     err_msg = f"Twilio WhatsApp Sender {raw_from} is not active or not approved on WhatsApp."
+
+                # If a ContentSid template failed on Twilio, attempt sending plain text body on Twilio before giving up
+                if content_sid and text and err_code not in (20003, 21211, 21608):
+                    logger.info("Twilio ContentSid failed (%s); retrying with plain text body on Twilio...", err_code)
+                    try:
+                        body_text = str(text or "").strip()
+                        if len(body_text) > 1550:
+                            body_text = body_text[:1540].strip() + "\n\n...(see report)"
+                        plain_data = {
+                            "From": from_wa,
+                            "To": to_wa,
+                            "Body": body_text,
+                        }
+                        if media_url:
+                            plain_data["MediaUrl"] = media_url
+                        plain_resp = await client.post(url, data=plain_data, auth=(account_sid, auth_token))
+                        if plain_resp.status_code < 400:
+                            return plain_resp.json()
+                    except Exception as plain_exc:
+                        logger.warning("Twilio plain-text retry after ContentSid failure failed: %s", plain_exc)
+
+                # Fallback to Meta Cloud API if configured
+                if cfg.get("is_meta") and cfg.get("phone_number_id") and cfg.get("access_token"):
+                    logger.info("Twilio error (%s); attempting Meta Cloud API fallback for +%s...", err_code, clean_phone)
+                    try:
+                        meta_url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
+                        meta_headers = {
+                            "Authorization": f"Bearer {cfg['access_token']}",
+                            "Content-Type": "application/json",
+                        }
+                        meta_payload = {
+                            "messaging_product": "whatsapp",
+                            "recipient_type": "individual",
+                            "to": clean_phone,
+                            "type": "text",
+                            "text": {
+                                "preview_url": preview_url,
+                                "body": text,
+                            },
+                        }
+                        async with httpx.AsyncClient(timeout=30.0) as meta_client:
+                            meta_resp = await meta_client.post(meta_url, json=meta_payload, headers=meta_headers)
+                            if meta_resp.status_code < 400:
+                                return meta_resp.json()
+                            logger.error("Meta fallback also returned error (%s): %s", meta_resp.status_code, meta_resp.text)
+                    except Exception as meta_exc:
+                        logger.error("Meta fallback failed: %s", meta_exc)
+
                 raise RuntimeError(f"Twilio WhatsApp Error: {err_msg}")
             return resp.json()
 
@@ -583,3 +631,89 @@ async def send_whatsapp_image_by_url(
                 err_msg = resp.text
             raise RuntimeError(f"WhatsApp Image Send Error: {err_msg}")
         return resp.json()
+
+
+async def send_whatsapp_interactive_buttons(
+    to_phone: str,
+    body_text: str,
+    buttons: List[Dict[str, str]],
+    header_text: Optional[str] = None,
+    footer_text: Optional[str] = None,
+    content_sid: Optional[str] = None,
+    content_variables: Optional[Dict[str, Any]] = None,
+    client_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Send an interactive button message via WhatsApp (Meta Cloud API or Twilio Content API).
+    
+    buttons format: [{"id": "btn_send_payment_link", "title": "Yes, Send Link"}]
+    """
+    cfg = await get_whatsapp_config()
+    clean_phone = normalize_phone_number(to_phone)
+    if not clean_phone:
+        raise ValueError("Invalid recipient phone number")
+
+    if not cfg["is_configured"]:
+        raise RuntimeError("WhatsApp API is not configured.")
+
+    if cfg["provider"] == "twilio" or cfg["is_twilio"]:
+        if content_sid:
+            return await send_whatsapp_text(
+                to_phone=to_phone,
+                text=body_text,
+                content_sid=content_sid,
+                content_variables=content_variables,
+                client_name=client_name,
+            )
+        btn_labels = " / ".join([f"*{b.get('title', '')}*" for b in buttons if b.get("title")])
+        text_with_buttons = f"{body_text}\n\n👉 Reply: {btn_labels}"
+        return await send_whatsapp_text(to_phone=to_phone, text=text_with_buttons, client_name=client_name)
+
+    # Meta Cloud API Interactive Button Message
+    url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
+    headers = {
+        "Authorization": f"Bearer {cfg['access_token']}",
+        "Content-Type": "application/json",
+    }
+    
+    meta_buttons = []
+    for i, b in enumerate(buttons[:3]):
+        b_id = str(b.get("id") or f"btn_{i}")[:256]
+        b_title = str(b.get("title") or "Select")[:20]
+        meta_buttons.append({
+            "type": "reply",
+            "reply": {
+                "id": b_id,
+                "title": b_title,
+            }
+        })
+
+    interactive_obj: Dict[str, Any] = {
+        "type": "button",
+        "body": {"text": body_text[:1024]},
+        "action": {"buttons": meta_buttons},
+    }
+    if header_text:
+        interactive_obj["header"] = {"type": "text", "text": header_text[:60]}
+    if footer_text:
+        interactive_obj["footer"] = {"text": footer_text[:60]}
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_phone,
+        "type": "interactive",
+        "interactive": interactive_obj,
+    }
+
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code >= 400:
+            logger.error("WhatsApp interactive button send error (%s): %s", resp.status_code, resp.text)
+            try:
+                err_data = resp.json()
+                err_msg = err_data.get("error", {}).get("message", resp.text)
+            except Exception:
+                err_msg = resp.text
+            raise RuntimeError(f"WhatsApp Interactive Button Error: {err_msg}")
+        return resp.json()
+
