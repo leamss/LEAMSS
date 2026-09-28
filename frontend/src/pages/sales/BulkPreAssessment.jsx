@@ -1136,38 +1136,99 @@ export default function BulkPreAssessment() {
           </Card>
         )}
 
-        {/* Past batches */}
-        {!batch && batches.length > 0 && (
-          <Card className="p-4" data-testid="past-batches-card">
-            <h2 className="text-base font-bold mb-2">Recent Batches</h2>
-            <div className="space-y-1">
-              {batches.map((b) => (
-                <div
-                  key={b.id}
-                  onClick={() => { setSearchParams({ batch_id: b.id }); loadBatch(b.id); }}
-                  className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 cursor-pointer text-left group transition-all"
-                  data-testid={`batch-${b.id}`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="text-sm font-medium text-slate-900 block truncate">{b.name}</span>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      {b.generated}/{b.valid} generated · <span className="capitalize">{b.status}</span>
-                      {b.created_by_name ? ` · by ${b.created_by_name}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                    <button
-                      onClick={(e) => deleteBatch(e, b.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-opacity"
-                      title="Delete batch history"
-                      data-testid={`delete-batch-${b.id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+        {/* Batches Overview Table */}
+        {!batch && (
+          <Card className="p-0 overflow-hidden shadow-sm" data-testid="past-batches-card">
+            <div className="p-4 border-b bg-slate-50 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-teal-600" />
+                  Pre-Assessment Batches ({batches.length})
+                </h2>
+                <p className="text-xs text-slate-500">Select any batch below to view clients, run AI detection, or broadcast reports</p>
+              </div>
+              <Button onClick={() => loadBatches()} size="sm" variant="outline" className="h-8 text-xs">
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh Batches
+              </Button>
             </div>
+
+            {batches.length === 0 ? (
+              <div className="p-12 text-center text-slate-400">
+                <FileSpreadsheet className="h-10 w-10 mx-auto text-slate-300 mb-2" />
+                <p className="font-semibold text-slate-600">No batches created yet</p>
+                <p className="text-xs mt-1">Upload an Excel file above or click "Create New Batch (Paid & Report Pending)" to begin.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-100 text-slate-600 border-b">
+                    <tr>
+                      <th className="p-3 text-left font-semibold">Batch Name & ID</th>
+                      <th className="p-3 text-center font-semibold">Status</th>
+                      <th className="p-3 text-center font-semibold">Ready</th>
+                      <th className="p-3 text-center font-semibold">Needs AI</th>
+                      <th className="p-3 text-center font-semibold">Needs Fix</th>
+                      <th className="p-3 text-center font-semibold">Generated</th>
+                      <th className="p-3 text-center font-semibold">Total Clients</th>
+                      <th className="p-3 text-right font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {batches.map((b) => (
+                      <tr
+                        key={b.id}
+                        onClick={() => { setSearchParams({ batch_id: b.id }); loadBatch(b.id); }}
+                        className="hover:bg-teal-50/50 cursor-pointer transition-colors group"
+                        data-testid={`batch-row-${b.id}`}
+                      >
+                        <td className="p-3">
+                          <p className="font-bold text-slate-900 group-hover:text-teal-700">{b.name}</p>
+                          <p className="text-[11px] text-slate-400 font-mono">{b.id}</p>
+                          {b.created_by_name && <p className="text-[10px] text-slate-500 mt-0.5">Created by {b.created_by_name}</p>}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                            b.status === 'ready' ? 'bg-sky-100 text-sky-800'
+                            : b.status === 'generating' ? 'bg-amber-100 text-amber-800 animate-pulse'
+                            : b.status === 'enriching' ? 'bg-violet-100 text-violet-800 animate-pulse'
+                            : 'bg-emerald-100 text-emerald-800'
+                          }`}>
+                            {b.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center font-bold text-sky-700">{b.valid ?? 0}</td>
+                        <td className="p-3 text-center font-bold text-violet-600">{b.needs_ai ?? 0}</td>
+                        <td className="p-3 text-center font-bold text-rose-600">{b.invalid ?? 0}</td>
+                        <td className="p-3 text-center font-bold text-emerald-700">{b.generated ?? 0}</td>
+                        <td className="p-3 text-center font-semibold text-slate-700">{b.total ?? (b.valid + b.invalid + (b.needs_ai || 0))}</td>
+                        <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => { setSearchParams({ batch_id: b.id }); loadBatch(b.id); }}
+                              className="h-7 text-xs bg-teal-600 hover:bg-teal-700 text-white font-semibold"
+                              data-testid={`open-batch-${b.id}`}
+                            >
+                              Open Batch →
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => deleteBatch(e, b.id)}
+                              className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              title="Delete batch"
+                              data-testid={`delete-batch-${b.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
         )}
       </div>
