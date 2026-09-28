@@ -2085,7 +2085,7 @@ function PipelineCard({
             {card.phone && (
               <a
                 href={`https://wa.me/${card.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                  `Hello ${card.name},\nThank you for consulting LEAMSS Immigration Services. 🇦🇺\nYour Australia PR Pre-Assessment registration is pending.\n🎉 Happy Navratri Special Offer – Complete your registration for just ₹999!\n\n💳 Payment Link:\n${card.payment_link || 'https://share.google/mc556otU2eie7F8SC'}\n\nOnce the payment is completed, your Australia PR Pre-Assessment will be processed.\nPlease complete your payment and reply to this message if you need any assistance.\n\n🌐 Website: https://leamss.com\n\nRegards,\nLEAMSS Immigration Services`
+                  `🇦🇺 *LEAMSS IMMIGRATION SERVICES*\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nHello ${card.name},\n\nThank you for consulting with *LEAMSS Immigration Services*. 🇦🇺\n\nYour *Australia PR Pre-Assessment* registration is currently pending.\n\n🎉 *HAPPY NAVRATRI SPECIAL OFFER*\nComplete your full profile assessment for just *₹999* (Limited Time Festive Offer)!\n\n💳 *Direct Secure Payment Link:*\n${card.payment_link || 'https://pages.razorpay.com/pl_TZSVimtLKxHnHx/view'}\n\n✨ *What happens after payment:*\n1️⃣ Profile allocated to senior MARA-aligned migration experts\n2️⃣ Accurate Points Score (Subclass 189, 190 & 491)\n3️⃣ Complete Australia PR Strategy & Assessment Report\n\n💬 Reply to this message if you need any assistance.\n\n🌐 *Website:* https://leamss.com\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nWarm Regards,\n*LEAMSS Immigration Expert*`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

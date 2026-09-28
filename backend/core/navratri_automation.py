@@ -24,7 +24,7 @@ logger = logging.getLogger("navratri_automation")
 leads_col = db["leads"]
 
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://app.leamss.com").rstrip("/")
-WEBSITE_OFFER_URL = os.environ.get("WEBSITE_OFFER_URL", "https://share.google/mc556otU2eie7F8SC").rstrip("/")
+WEBSITE_OFFER_URL = os.environ.get("WEBSITE_OFFER_URL", "https://pages.razorpay.com/pl_TZSVimtLKxHnHx/view").rstrip("/")
 
 NAVRATRI_QUERY = {
     "$or": [
@@ -170,7 +170,7 @@ def build_navratri_payment_email(lead: Dict[str, Any], payment_url: str) -> Tupl
 
         <p style="margin:26px 0 0;color:{SLATE};font-size:13px;line-height:1.75;">
           Warm Regards,<br>
-          <strong>LEAMSS Admissions &amp; Evaluation Team</strong><br>
+          <strong>LEAMSS Immigration Expert</strong><br>
           <span style="font-size:11px;color:#94a3b8;">Ladhani Education &amp; Migration Services Pvt. Ltd. · info@leamss.com · +91 77188 82427</span>
         </p>
       </td></tr>
@@ -191,7 +191,7 @@ What happens after payment:
 3. Your detailed report will be delivered to your Email and WhatsApp.
 
 Warm Regards,
-LEAMSS Admissions Team
+LEAMSS Immigration Expert
 info@leamss.com | +91 77188 82427 | www.leamss.com
 """
     return subject, html, plain
@@ -411,7 +411,7 @@ async def send_navratri_payment_link(
                 subject=subject,
                 html=html,
                 plain=plain,
-                sender_name="LEAMSS Admissions Team"
+                sender_name="LEAMSS Immigration Expert"
             )
             results["email_sent"] = True
             logger.info("Payment link email sent successfully to %s", email)
@@ -430,17 +430,24 @@ async def send_navratri_payment_link(
             ref_id = str(lead.get("unique_id") or lead.get("id") or "LEAMSS-PR")[:25]
 
             direct_payment_text = (
-                f"Hello {name},\n"
-                f"Thank you for consulting LEAMSS Immigration Services. 🇦🇺\n"
-                f"Your Australia PR Pre-Assessment registration is pending.\n"
-                f"🎉 Happy Navratri Special Offer – Complete your registration for just ₹999!\n\n"
-                f"💳 Payment Link:\n"
+                f"🇦🇺 *LEAMSS IMMIGRATION SERVICES*\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Hello {name},\n\n"
+                f"Thank you for consulting with *LEAMSS Immigration Services*. 🇦🇺\n\n"
+                f"Your *Australia PR Pre-Assessment* registration is currently pending.\n\n"
+                f"🎉 *HAPPY NAVRATRI SPECIAL OFFER*\n"
+                f"Complete your full profile assessment for just *₹999* (Limited Time Festive Offer)!\n\n"
+                f"💳 *Direct Secure Payment Link:*\n"
                 f"{payment_url}\n\n"
-                f"Once the payment is completed, your Australia PR Pre-Assessment will be processed.\n"
-                f"Please complete your payment and reply to this message if you need any assistance.\n\n"
-                f"🌐 Website: https://leamss.com\n\n"
-                f"Regards,\n"
-                f"LEAMSS Immigration Services"
+                f"✨ *What happens after payment:*\n"
+                f"1️⃣ Profile allocated to senior MARA-aligned migration experts\n"
+                f"2️⃣ Accurate Points Score (Subclass 189, 190 & 491)\n"
+                f"3️⃣ Complete Australia PR Strategy & Assessment Report\n\n"
+                f"💬 Reply to this message if you need any assistance.\n\n"
+                f"🌐 *Website:* https://leamss.com\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Warm Regards,\n"
+                f"*LEAMSS Immigration Expert*"
             )
 
             has_active_session = await is_in_24h_window(clean_phone)
@@ -455,7 +462,7 @@ async def send_navratri_payment_link(
                         text=direct_payment_text,
                         direction="outbound",
                         sender_type="system",
-                        sender_name="LEAMSS Admissions Team",
+                        sender_name="LEAMSS Immigration Expert",
                         client_name=name,
                         client_email=email,
                         status="sent",
@@ -482,17 +489,20 @@ async def send_navratri_payment_link(
                 )
 
                 cold_body_text = (
-                    f"Hello {name},\n"
-                    f"Thank you for consulting LEAMSS Immigration Services. 🇦🇺\n"
-                    f"Your Australia PR Pre-Assessment registration is pending.\n"
-                    f"🎉 Happy Navratri Special Offer – Complete your registration for just ₹999!\n\n"
-                    f"💳 Payment Link:\n"
+                    f"🇦🇺 *LEAMSS IMMIGRATION SERVICES*\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"Hello {name},\n\n"
+                    f"Thank you for consulting *LEAMSS Immigration Services*. 🇦🇺\n\n"
+                    f"Your *Australia PR Pre-Assessment* registration is pending.\n\n"
+                    f"🎉 *HAPPY NAVRATRI SPECIAL OFFER*\n"
+                    f"Complete your registration for just *₹999*:\n\n"
+                    f"💳 *Payment Link:*\n"
                     f"{payment_url}\n\n"
-                    f"Once the payment is completed, your Australia PR Pre-Assessment will be processed.\n"
-                    f"Please complete your payment and reply to this message if you need any assistance.\n\n"
-                    f"🌐 Website: https://leamss.com\n\n"
+                    f"Once payment is completed, your Australia PR Pre-Assessment will be processed.\n\n"
+                    f"🌐 *Website:* https://leamss.com\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"Regards,\n"
-                    f"LEAMSS Immigration Services"
+                    f"*LEAMSS Immigration Expert*"
                 )
 
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
@@ -506,7 +516,7 @@ async def send_navratri_payment_link(
                             content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                             content_variables={
                                 "1": name,
-                                "2": f"🇦🇺 Your Australia PR Pre-Assessment registration is pending. 🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! 💳 Payment Link: {payment_url} . Once the payment is completed, your Australia PR Pre-Assessment will be processed. 🌐 Website: https://leamss.com . Regards, LEAMSS Immigration Services.",
+                                "2": f"🇦🇺 Your Australia PR Pre-Assessment registration is pending. 🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! 💳 Payment Link: {payment_url} . Once completed, your assessment will be processed. 🌐 Website: https://leamss.com . Regards, LEAMSS Immigration Expert.",
                             },
                         )
                         sent_tmpl = True
@@ -516,7 +526,7 @@ async def send_navratri_payment_link(
                     if not sent_tmpl:
                         try:
                             custom_payment_body = (
-                                f"Your Australia PR Pre-Assessment registration is pending. 🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! 💳 Payment Link: {payment_url} . Once the payment is completed, your Australia PR Pre-Assessment will be processed. 🌐 Website: https://leamss.com . Regards, LEAMSS Immigration Services"
+                                f"Your Australia PR Pre-Assessment registration is pending. 🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! 💳 Payment Link: {payment_url} . Once completed, your assessment will be processed. 🌐 Website: https://leamss.com . Regards, LEAMSS Immigration Expert"
                             )
                             await send_whatsapp_text(
                                 to_phone=clean_phone,

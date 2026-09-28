@@ -422,26 +422,33 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                     if not client_name or client_name in ("WhatsApp User", "there"):
                         client_name = lead_doc.get("name") or client_name
             if not payment_url:
-                payment_url = "https://share.google/mc556otU2eie7F8SC"
+                payment_url = "https://pages.razorpay.com/pl_TZSVimtLKxHnHx/view"
 
             reply_msg = (
-                f"Hello {client_name},\n"
-                f"Thank you for consulting LEAMSS Immigration Services. 🇦🇺\n"
-                f"Your Australia PR Pre-Assessment registration is pending.\n"
-                f"🎉 Happy Navratri Special Offer – Complete your registration for just ₹999!\n\n"
-                f"💳 Payment Link:\n"
+                f"🇦🇺 *LEAMSS IMMIGRATION SERVICES*\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Hello {client_name},\n\n"
+                f"Thank you for consulting with *LEAMSS Immigration Services*. 🇦🇺\n\n"
+                f"Your *Australia PR Pre-Assessment* registration is currently pending.\n\n"
+                f"🎉 *HAPPY NAVRATRI SPECIAL OFFER*\n"
+                f"Complete your full profile assessment for just *₹999* (Limited Time Festive Offer)!\n\n"
+                f"💳 *Direct Secure Payment Link:*\n"
                 f"{payment_url}\n\n"
-                f"Once the payment is completed, your Australia PR Pre-Assessment will be processed.\n"
-                f"Please complete your payment and reply to this message if you need any assistance.\n\n"
-                f"🌐 Website: https://leamss.com\n\n"
-                f"Regards,\n"
-                f"LEAMSS Immigration Services"
+                f"✨ *What happens after payment:*\n"
+                f"1️⃣ Profile allocated to senior MARA-aligned migration experts\n"
+                f"2️⃣ Accurate Points Score (Subclass 189, 190 & 491)\n"
+                f"3️⃣ Complete Australia PR Strategy & Assessment Report\n\n"
+                f"💬 Reply to this message if you need any assistance.\n\n"
+                f"🌐 *Website:* https://leamss.com\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Warm Regards,\n"
+                f"*LEAMSS Immigration Expert*"
             )
             try:
                 await send_whatsapp_text(to_phone=clean_phone, text=reply_msg, client_name=client_name)
                 await record_chat_message(
                     phone=clean_phone, text=reply_msg, direction="outbound",
-                    sender_type="system", sender_name="LEAMSS Admissions Team", status="sent"
+                    sender_type="system", sender_name="LEAMSS Immigration Expert", status="sent"
                 )
             except Exception as e_send:
                 logger.warning("Could not dispatch payment link reply to +%s: %s", clean_phone, e_send)
