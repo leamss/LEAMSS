@@ -351,8 +351,11 @@ async def send_navratri_resume_request(
 
     # 3. Log to lead notes and update timestamp
     note_text = f"Auto/Admin sent Resume Upload Link via {'Email & WhatsApp' if results['email_sent'] and results['whatsapp_sent'] else 'Email' if results['email_sent'] else 'WhatsApp' if results['whatsapp_sent'] else 'Failed Dispatch'}: {upload_url}"
+    update_q: Dict[str, Any] = {"$or": [{"id": lead_id}, {"unique_id": lead_id}]}
+    if lead.get("_id"):
+        update_q["$or"].append({"_id": lead["_id"]})
     await leads_col.update_one(
-        {"id": lead_id},
+        update_q,
         {
             "$set": {
                 "last_resume_request_sent_at": now,
@@ -483,33 +486,75 @@ async def send_navratri_payment_link(
                 )
 
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
-                    # Use Twilio approved Quick-Reply or Special Offer Content Template (NEVER resume template)
+                    # 1. Primary: Approved Special Offer template HXe3933 (delivers to candidate's WhatsApp)
+                    sent_tmpl = False
                     try:
                         await send_whatsapp_text(
                             to_phone=clean_phone,
-                            text=f"Hello {name}, your LEAMSS Navratri Special Offer payment is pending. Please reply YES to receive your payment link (Ref: {ref_id[:20]}).",
+                            text=cold_body_text,
                             client_name=name,
-                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                            content_variables={"1": name, "2": ref_id[:20]},
+                            content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                            content_variables={
+                                "1": name,
+                                "2": "Australia PR Special Offer",
+                                "3": "Registration Pending (₹499)",
+                                "4": "Subclass 189, 190, 491",
+                                "5": f"Fee: {payment_url}",
+                            },
                         )
-                    except Exception as e_tw1:
-                        logger.warning("Twilio HXecdec failed: %s, falling back to HXe393", e_tw1)
+                        sent_tmpl = True
+                    except Exception as e_tw_hxe:
+                        logger.warning("Twilio HXe393 payment dispatch failed: %s; trying HXabf...", e_tw_hxe)
+
+                    if not sent_tmpl:
                         try:
                             await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=cold_body_text,
                                 client_name=name,
-                                content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                                content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
                                 content_variables={
                                     "1": name,
                                     "2": "Australia PR Special Offer",
-                                    "3": "Enrolment Pending",
+                                    "3": "Registration Pending (₹499)",
                                     "4": "Subclass 189, 190, 491",
-                                    "5": "Payment Link Request",
+                                    "5": f"Fee: {payment_url}",
                                 },
                             )
-                        except Exception as e_tw2:
-                            logger.warning("Twilio HXe393 failed: %s; sending direct payment text", e_tw2)
+                            sent_tmpl = True
+                        except Exception as e_tw_abf:
+                            logger.warning("Twilio HXabf failed: %s; trying HX3cf...", e_tw_abf)
+
+                    if not sent_tmpl:
+                        try:
+                            await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=cold_body_text,
+                                client_name=name,
+                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                                content_variables={
+                                    "1": name,
+                                    "2": ref_id,
+                                    "3": "Australia PR Special Offer",
+                                    "4": "Registration Pending",
+                                },
+                            )
+                            sent_tmpl = True
+                        except Exception as e_tw_3cf:
+                            logger.warning("Twilio HX3cf failed: %s; trying HXecdec...", e_tw_3cf)
+
+                    if not sent_tmpl:
+                        try:
+                            await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=f"Hello {name}, your LEAMSS Special Offer payment is pending. Please reply YES to receive your payment link (Ref: {ref_id[:20]}).",
+                                client_name=name,
+                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                content_variables={"1": name, "2": ref_id[:20]},
+                            )
+                            sent_tmpl = True
+                        except Exception as e_tw_ec:
+                            logger.warning("Twilio HXecdec failed: %s; sending direct payment text", e_tw_ec)
                             await send_whatsapp_text(to_phone=clean_phone, text=direct_payment_text, client_name=name)
                 else:
                     # Meta Cloud API / Broadcasting Mode with Interactive Quick Reply Button
@@ -544,8 +589,11 @@ async def send_navratri_payment_link(
 
     # 3. Log to lead notes
     note_text = f"Sent Navratri Offer Payment Link via {'Email & WhatsApp' if results['email_sent'] and results['whatsapp_sent'] else 'Email' if results['email_sent'] else 'WhatsApp' if results['whatsapp_sent'] else 'Failed Dispatch'}: {payment_url}"
+    update_q_pay: Dict[str, Any] = {"$or": [{"id": lead_id}, {"unique_id": lead_id}]}
+    if lead.get("_id"):
+        update_q_pay["$or"].append({"_id": lead["_id"]})
     await leads_col.update_one(
-        {"id": lead_id},
+        update_q_pay,
         {
             "$set": {
                 "last_payment_link_sent_at": now,
@@ -578,7 +626,14 @@ async def mark_lead_paid_and_transition(
     - If resume is on file -> moves to 'paid_resume_received' (Ready for Bulk Pre-Assessment).
     - If resume is NOT on file -> moves to 'paid_resume_pending' and auto-dispatches resume upload link via Email + WhatsApp.
     """
-    lead = await leads_col.find_one({"id": lead_id})
+    query_conditions = [{"id": lead_id}, {"unique_id": lead_id}]
+    try:
+        from bson import ObjectId
+        if ObjectId.is_valid(str(lead_id)):
+            query_conditions.append({"_id": ObjectId(str(lead_id))})
+    except Exception:
+        pass
+    lead = await leads_col.find_one({"$or": query_conditions})
     if not lead:
         raise ValueError("Lead not found")
 
@@ -603,7 +658,7 @@ async def mark_lead_paid_and_transition(
     tags = list(set((lead.get("tags") or []) + ["Payment Success"]))
     update_data["tags"] = tags
 
-    await leads_col.update_one({"id": lead_id}, {"$set": update_data})
+    await leads_col.update_one({"$or": query_conditions}, {"$set": update_data})
     updated_lead = {**lead, **update_data}
 
     has_resume = has_lead_resume(updated_lead)
