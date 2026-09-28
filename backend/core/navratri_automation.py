@@ -111,11 +111,11 @@ def get_resume_upload_url(lead: Dict[str, Any]) -> str:
     return f"{APP_BASE_URL}/upload-resume/{token}"
 
 
-def get_payment_url(lead: Dict[str, Any]) -> str:
+def get_payment_url(lead: Optional[Dict[str, Any]] = None) -> str:
     """Generate payment link for the lead."""
-    if lead.get("payment_link"):
+    if lead and lead.get("payment_link") and "razorpay.com" in str(lead.get("payment_link")):
         return lead["payment_link"]
-    return WEBSITE_OFFER_URL
+    return "https://pages.razorpay.com/pl_TZSVimtLKxHnHx/view"
 
 
 def build_navratri_payment_email(lead: Dict[str, Any], payment_url: str) -> Tuple[str, str, str]:
@@ -430,22 +430,22 @@ async def send_navratri_payment_link(
             ref_id = str(lead.get("unique_id") or lead.get("id") or "LEAMSS-PR")[:25]
 
             direct_payment_text = (
-                f"🇦🇺 *LEAMSS IMMIGRATION SERVICES*\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"Hello {name},\n\n"
-                f"Thank you for consulting with *LEAMSS Immigration Services*. 🇦🇺\n\n"
+                f"Thank you for consulting *LEAMSS Immigration Services*. 🇦🇺\n\n"
                 f"Your *Australia PR Pre-Assessment* registration is currently pending.\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🎉 *HAPPY NAVRATRI SPECIAL OFFER*\n"
-                f"Complete your full profile assessment for just *₹999* (Limited Time Festive Offer)!\n\n"
-                f"💳 *Direct Secure Payment Link:*\n"
+                f"Complete your registration for just *₹999*!\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"💳 *Payment Link:*\n"
                 f"{payment_url}\n\n"
-                f"✨ *What happens after payment:*\n"
-                f"1️⃣ Profile allocated to senior MARA-aligned migration experts\n"
-                f"2️⃣ Accurate Points Score (Subclass 189, 190 & 491)\n"
-                f"3️⃣ Complete Australia PR Strategy & Assessment Report\n\n"
-                f"💬 Reply to this message if you need any assistance.\n\n"
-                f"🌐 *Website:* https://leamss.com\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"✨ *What happens next:*\n"
+                f"• Your profile will be reviewed by senior migration specialists.\n"
+                f"• Comprehensive Points Assessment (189 / 190 / 491) will be prepared.\n"
+                f"• Complete strategic pathway report delivered to your WhatsApp & Email.\n\n"
+                f"Please complete your payment and reply to this message if you need any assistance.\n\n"
+                f"🌐 *Website:* https://leamss.com\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"Warm Regards,\n"
                 f"*LEAMSS Immigration Expert*"
             )
@@ -489,19 +489,15 @@ async def send_navratri_payment_link(
                 )
 
                 cold_body_text = (
-                    f"🇦🇺 *LEAMSS IMMIGRATION SERVICES*\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"Hello {name},\n\n"
                     f"Thank you for consulting *LEAMSS Immigration Services*. 🇦🇺\n\n"
-                    f"Your *Australia PR Pre-Assessment* registration is pending.\n\n"
-                    f"🎉 *HAPPY NAVRATRI SPECIAL OFFER*\n"
-                    f"Complete your registration for just *₹999*:\n\n"
+                    f"Your *Australia PR Pre-Assessment* registration is currently pending.\n\n"
+                    f"🎉 *HAPPY NAVRATRI SPECIAL OFFER* — Complete your registration for just *₹999*!\n\n"
                     f"💳 *Payment Link:*\n"
                     f"{payment_url}\n\n"
                     f"Once payment is completed, your Australia PR Pre-Assessment will be processed.\n\n"
-                    f"🌐 *Website:* https://leamss.com\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"Regards,\n"
+                    f"🌐 *Website:* https://leamss.com\n\n"
+                    f"Warm Regards,\n"
                     f"*LEAMSS Immigration Expert*"
                 )
 
@@ -551,7 +547,7 @@ async def send_navratri_payment_link(
                                 content_sid="HX64476ead028a5c3f2eab0c2d2e52f502",
                                 content_variables={
                                     "1": name,
-                                    "2": f"Please complete your registration payment: {payment_url}",
+                                    "2": f"Please complete your registration payment (Rs. 999): {payment_url}",
                                 },
                             )
                             sent_tmpl = True
@@ -568,9 +564,9 @@ async def send_navratri_payment_link(
                                 content_variables={
                                     "1": name,
                                     "2": "Australia PR Special Offer",
-                                    "3": "Registration Pending (₹499)",
+                                    "3": "Registration Pending (₹999)",
                                     "4": "Subclass 189, 190, 491",
-                                    "5": f"Fee: {payment_url}",
+                                    "5": f"Payment Link: {payment_url}",
                                 },
                             )
                             sent_tmpl = True
