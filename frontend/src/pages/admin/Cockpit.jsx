@@ -337,9 +337,11 @@ export default function Cockpit() {
       if (firstRes?.whatsapp_sent && firstRes?.email_sent) {
         alert(`✓ Payment link sent successfully via Email & WhatsApp!`);
       } else if (firstRes?.email_sent && !firstRes?.whatsapp_sent) {
-        alert(`✓ Email sent! Note: WhatsApp API returned: ${firstRes?.errors?.join(', ') || 'Outside 24h window'}. You can also click the green WhatsApp button on the card to send directly via WhatsApp!`);
+        alert(`✓ Email sent! (WhatsApp: ${firstRes?.errors?.join(', ') || 'Pending reply'}). You can also click the green WhatsApp button on the card to send directly via WhatsApp!`);
+      } else if (firstRes?.whatsapp_sent && !firstRes?.email_sent) {
+        alert(`✓ Payment link sent via WhatsApp!`);
       } else {
-        alert(`Dispatched payment link to ${res.data?.dispatched_count || ids.length} lead(s)!`);
+        alert(`Dispatched payment link to ${res.data?.dispatched_count || ids.length} lead(s) via Email & WhatsApp!`);
       }
     } catch (e) {
       setBulkActionLoading(false);
@@ -1464,21 +1466,21 @@ export default function Cockpit() {
                       </p>
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm"
                         style={{
-                          background: (selectedCard.navratri_category === 'paid_resume_received' || (selectedCard.is_paid && selectedCard.has_resume)) ? '#ECFDF5' : (selectedCard.is_paid || cardDetail?.record?.payment_status === 'success') ? '#FFFBEB' : '#FEF2F2',
-                          borderColor: (selectedCard.navratri_category === 'paid_resume_received' || (selectedCard.is_paid && selectedCard.has_resume)) ? '#A7F3D0' : (selectedCard.is_paid || cardDetail?.record?.payment_status === 'success') ? '#FDE68A' : '#FECACA',
-                          color: (selectedCard.navratri_category === 'paid_resume_received' || (selectedCard.is_paid && selectedCard.has_resume)) ? '#065F46' : (selectedCard.is_paid || cardDetail?.record?.payment_status === 'success') ? '#92400E' : '#991B1B',
+                          background: (selectedCard.is_paid && (selectedCard.has_resume || cardDetail?.record?.resume_url || cardDetail?.record?.resume_file_id)) ? '#ECFDF5' : selectedCard.is_paid ? '#FFFBEB' : '#FEF2F2',
+                          borderColor: (selectedCard.is_paid && (selectedCard.has_resume || cardDetail?.record?.resume_url || cardDetail?.record?.resume_file_id)) ? '#A7F3D0' : selectedCard.is_paid ? '#FDE68A' : '#FECACA',
+                          color: (selectedCard.is_paid && (selectedCard.has_resume || cardDetail?.record?.resume_url || cardDetail?.record?.resume_file_id)) ? '#065F46' : selectedCard.is_paid ? '#92400E' : '#991B1B',
                         }}
                       >
-                        {(selectedCard.navratri_category === 'paid_resume_received' || (selectedCard.is_paid && selectedCard.has_resume))
+                        {(selectedCard.is_paid && (selectedCard.has_resume || cardDetail?.record?.resume_url || cardDetail?.record?.resume_file_id))
                           ? '🟢 Paid · Resume Received'
-                          : (selectedCard.is_paid || cardDetail?.record?.payment_status === 'success')
+                          : selectedCard.is_paid
                           ? '🟡 Paid · Resume Pending'
                           : '🔴 Unpaid / Payment Pending'}
                       </span>
                     </div>
 
                     {/* Details / Action according to status */}
-                    {(!selectedCard.is_paid && cardDetail?.record?.payment_status !== 'success') ? (
+                    {!selectedCard.is_paid ? (
                       <div className="space-y-2 pt-1">
                         <p className="text-xs text-slate-700">
                           Client has registered for the ₹499 Navratri Offer. Send the festive payment link via Email & WhatsApp.
@@ -1930,18 +1932,18 @@ function PipelineCard({
       {isNavratri && (
         <div className="flex items-center justify-between px-2.5 py-1 rounded-lg border text-[11px] font-bold"
              style={{
-               background: navCategory === 'paid_resume_received' ? '#ECFDF5' : navCategory === 'paid_resume_pending' ? '#FFFBEB' : '#FEF2F2',
-               borderColor: navCategory === 'paid_resume_received' ? '#A7F3D0' : navCategory === 'paid_resume_pending' ? '#FDE68A' : '#FECACA',
-               color: navCategory === 'paid_resume_received' ? '#065F46' : navCategory === 'paid_resume_pending' ? '#92400E' : '#991B1B'
+               background: card.is_paid ? (card.has_resume ? '#ECFDF5' : '#FFFBEB') : '#FEF2F2',
+               borderColor: card.is_paid ? (card.has_resume ? '#A7F3D0' : '#FDE68A') : '#FECACA',
+               color: card.is_paid ? (card.has_resume ? '#065F46' : '#92400E') : '#991B1B'
              }}>
           <span className="flex items-center gap-1">
             <Flame className="h-3.5 w-3.5 text-amber-600" />
             Navratri Offer
           </span>
           <span>
-            {navCategory === 'paid_resume_received' && '🟢 Paid · Resume Ready'}
-            {navCategory === 'paid_resume_pending' && '🟡 Paid · Resume Pending'}
-            {navCategory === 'unpaid' && '🔴 Unpaid / Pending'}
+            {card.is_paid && card.has_resume && '🟢 Paid · Resume Ready'}
+            {card.is_paid && !card.has_resume && '🟡 Paid · Resume Pending'}
+            {!card.is_paid && '🔴 Unpaid / Pending'}
           </span>
         </div>
       )}
@@ -2018,19 +2020,15 @@ function PipelineCard({
                   </button>
                 )}
               </div>
-            ) : (card.is_paid || card.payment_status === 'success' || (card.payment_amount && card.payment_amount > 0)) ? (
+            ) : card.is_paid ? (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shadow-sm">
                 ⚡ Paid · Report Pending
               </span>
             ) : (
               <span
-                className="text-[10px] font-bold uppercase px-2 py-1 rounded-md whitespace-nowrap"
-                style={{
-                  background: C.borderSoft,
-                  color: C.muted
-                }}
+                className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md whitespace-nowrap bg-red-50 text-red-700 border border-red-200 flex items-center gap-1 shadow-xs"
               >
-                {card.type === 'lead' ? 'New' : '—'}
+                🔴 Unpaid / Pending
               </span>
             )}
           </div>
@@ -2073,7 +2071,7 @@ function PipelineCard({
       {/* Dedicated 1-Click Action Buttons on Card */}
       <div className="pt-1 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
         {/* 1. UNPAID / PENDING LEADS: ALWAYS Show Send Payment Link + Direct WhatsApp + Mark Paid */}
-        {(!card.is_paid || card.payment_status === 'pending' || card.payment_status === 'failed' || card.payment_status === 'unpaid' || navCategory === 'unpaid') ? (
+        {!card.is_paid ? (
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -2110,7 +2108,7 @@ function PipelineCard({
           </div>
         ) : (
           /* 2. PAID LEADS WITH RESUME PENDING: Show Request Resume Link */
-          (navCategory === 'paid_resume_pending' || !card.has_resume) ? (
+          !card.has_resume ? (
             <div className="flex items-center gap-1.5">
               <button
                 type="button"

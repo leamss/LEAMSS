@@ -43,12 +43,21 @@ NAVRATRI_QUERY = {
 
 def is_lead_paid(lead: Dict[str, Any]) -> bool:
     """Checks if a lead is marked as paid based on cPanel MySQL status and CRM payment fields."""
+    if not lead:
+        return False
+    if lead.get("is_paid") is True:
+        return True
     status = str(lead.get("payment_status") or "").strip().lower()
     if status in ("success", "paid", "completed", "captured"):
         return True
-    if status in ("failed", "pending", "unpaid", "cancelled", "refunded") or not status:
+    if status in ("failed", "pending", "unpaid", "cancelled", "refunded"):
         return False
     if lead.get("paid_at") and (lead.get("payment_amount") or 0) > 0:
+        return True
+    if lead.get("razorpay_payment_id") or lead.get("payment_id") or lead.get("txnid"):
+        return True
+    tags = [str(t).lower() for t in (lead.get("tags") or [])]
+    if any(t in ("payment success", "paid", "navratri paid") for t in tags):
         return True
     return False
 
@@ -430,30 +439,27 @@ async def send_navratri_payment_link(
             )
 
             sent_direct = False
-            if has_active_session:
-                try:
-                    await send_whatsapp_text(to_phone=clean_phone, text=direct_payment_text, client_name=name)
-                    await record_chat_message(
-                        phone=clean_phone,
-                        text=direct_payment_text,
-                        direction="outbound",
-                        sender_type="system",
-                        sender_name="LEAMSS Admissions Team",
-                        client_name=name,
-                        client_email=email,
-                        status="sent",
-                    )
-                    sent_direct = True
-                    results["whatsapp_sent"] = True
-                except Exception as e_direct:
-                    err_s = str(e_direct)
-                    if "24-hour" in err_s or "63016" in err_s or "Outside" in err_s:
-                        logger.info("Direct send failed outside 24h window for +%s, falling back to cold template: %s", clean_phone, err_s)
-                        has_active_session = False
-                    else:
-                        raise e_direct
+            # Always attempt direct WhatsApp message with full festive payment link first
+            try:
+                await send_whatsapp_text(to_phone=clean_phone, text=direct_payment_text, client_name=name)
+                await record_chat_message(
+                    phone=clean_phone,
+                    text=direct_payment_text,
+                    direction="outbound",
+                    sender_type="system",
+                    sender_name="LEAMSS Admissions Team",
+                    client_name=name,
+                    client_email=email,
+                    status="sent",
+                )
+                sent_direct = True
+                results["whatsapp_sent"] = True
+            except Exception as e_direct:
+                err_s = str(e_direct)
+                logger.info("Direct WhatsApp send for +%s (outside 24h or template required): %s. Executing template fallback...", clean_phone, err_s)
+                sent_direct = False
 
-            if not has_active_session and not sent_direct:
+            if not sent_direct:
                 # ── COLD OUTREACH / OUTSIDE 24H: Set Pending Flow & Send Broadcast/Button Template ──
                 ref_id = str(lead.get("unique_id") or lead.get("id") or "Payment-Pending")[:25]
                 await set_pending_flow(
