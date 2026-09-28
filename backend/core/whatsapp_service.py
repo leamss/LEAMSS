@@ -194,8 +194,7 @@ async def send_whatsapp_text(
                 sanitized_vars = {}
                 for k, v in content_variables.items():
                     if v is not None:
-                        s_val = str(v).replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
-                        s_val = re.sub(r"\s+", " ", s_val).strip()
+                        s_val = str(v).replace("\r\n", "\n").replace("\r", "\n").strip()
                         sanitized_vars[str(k)] = s_val
                 data["ContentVariables"] = json.dumps(sanitized_vars)
             if media_url:

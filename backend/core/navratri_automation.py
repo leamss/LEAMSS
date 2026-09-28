@@ -502,41 +502,57 @@ async def send_navratri_payment_link(
                 )
 
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
-                    # 1. Primary: Approved notification template HXa158 (Verified active delivery on Twilio)
+                    # 1. Primary: Approved notification template HX8695 (Multi-line layout with Hello {{1}}, {{2}})
                     sent_tmpl = False
                     try:
+                        custom_payment_body = (
+                            f"Thank you for consulting *LEAMSS Immigration Services*. 🇦🇺\n\n"
+                            f"Your *Australia PR Pre-Assessment* registration is currently pending.\n\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"🎉 *HAPPY NAVRATRI SPECIAL OFFER*\n"
+                            f"Complete your registration for just *₹999*!\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                            f"💳 *Payment Link:*\n"
+                            f"{payment_url}\n\n"
+                            f"✨ *What happens next:*\n"
+                            f"• Your profile will be reviewed by senior migration specialists.\n"
+                            f"• Comprehensive Points Assessment (189 / 190 / 491) will be prepared.\n"
+                            f"• Complete strategic pathway report delivered to your WhatsApp & Email.\n\n"
+                            f"Please complete your payment and reply to this message if you need any assistance.\n\n"
+                            f"🌐 *Website:* https://leamss.com\n\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"Warm Regards,\n"
+                            f"*LEAMSS Immigration Expert*"
+                        )
                         await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=cold_body_text,
                             client_name=name,
-                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                            content_sid="HX869521a5aaf6a533b2cff125489becb3",
                             content_variables={
                                 "1": name,
-                                "2": f"🇦🇺 Your Australia PR Pre-Assessment registration is pending. 🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! 💳 Payment Link: {payment_url} . Once completed, your assessment will be processed. 🌐 Website: https://leamss.com . Regards, LEAMSS Immigration Expert.",
+                                "2": custom_payment_body,
                             },
                         )
                         sent_tmpl = True
-                    except Exception as e_tw_a15:
-                        logger.warning("Twilio HXa158 failed: %s; trying HX8695...", e_tw_a15)
+                    except Exception as e_tw_gen:
+                        logger.warning("Twilio HX8695 payment dispatch failed: %s; trying HXa158...", e_tw_gen)
 
                     if not sent_tmpl:
                         try:
-                            custom_payment_body = (
-                                f"Your Australia PR Pre-Assessment registration is pending. 🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! 💳 Payment Link: {payment_url} . Once completed, your assessment will be processed. 🌐 Website: https://leamss.com . Regards, LEAMSS Immigration Expert"
-                            )
                             await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=cold_body_text,
                                 client_name=name,
-                                content_sid="HX869521a5aaf6a533b2cff125489becb3",
+                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                                 content_variables={
                                     "1": name,
-                                    "2": custom_payment_body,
+                                    "2": f"🇦🇺 Your Australia PR Pre-Assessment registration is pending. 🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! 💳 Payment Link: {payment_url} . Once completed, your assessment will be processed. 🌐 Website: https://leamss.com . Regards, LEAMSS Immigration Expert.",
                                 },
                             )
                             sent_tmpl = True
-                        except Exception as e_tw_gen:
-                            logger.warning("Twilio HX8695 payment dispatch failed: %s; trying HX644...", e_tw_gen)
+                        except Exception as e_tw_a15:
+                            logger.warning("Twilio HXa158 failed: %s; trying HX644...", e_tw_a15)
 
                     if not sent_tmpl:
                         try:
