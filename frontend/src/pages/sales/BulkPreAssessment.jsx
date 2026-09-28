@@ -202,8 +202,9 @@ export default function BulkPreAssessment() {
         );
         const targetId = matched ? matched.id : cleanTarget;
         loadBatch(targetId);
-      } else if (blist && blist.length > 0) {
-        loadBatch(blist[0].id);
+      } else {
+        setBatch(null);
+        setRows([]);
       }
     });
     if (clientSearchParam) {
@@ -555,17 +556,22 @@ export default function BulkPreAssessment() {
   return (
     <div className="min-h-screen bg-slate-50 p-5" data-testid="bulk-assessment-page">
       <div className="max-w-7xl mx-auto space-y-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => navigate('/sales/my-assessments')} data-testid="bulk-back-btn">
             <ArrowLeft className="h-4 w-4 mr-1" />Assessments
           </Button>
+          {batch && (
+            <Button variant="outline" size="sm" onClick={() => { setBatch(null); setRows([]); setSearchParams({}); }} className="border-teal-300 text-teal-700 hover:bg-teal-50" data-testid="all-batches-btn">
+              <ArrowLeft className="h-4 w-4 mr-1" />All Batches
+            </Button>
+          )}
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Users className="h-7 w-7 text-teal-600" />
               Bulk Pre-Assessment
               <Badge className="bg-teal-600 text-white text-[9px]">AU · 189/190/491</Badge>
             </h1>
-            <p className="text-sm text-slate-500">Upload your client list → generate accurate reports for everyone</p>
+            <p className="text-sm text-slate-500">{batch ? `Viewing ${batch.name}` : 'Select a batch or upload a new client list'}</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => navigate('/sales/fee-master')} className="ml-auto border-teal-300 text-teal-700 hover:bg-teal-50" data-testid="open-fee-master-btn">
             <Package className="h-4 w-4 mr-1" />Fee Master
