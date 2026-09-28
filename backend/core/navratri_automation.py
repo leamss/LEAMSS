@@ -442,29 +442,31 @@ async def send_navratri_payment_link(
                 f"— *LEAMSS Global Education & Migration*"
             )
 
+            has_active_session = await is_in_24h_window(clean_phone)
             sent_direct = False
-            # Always attempt direct WhatsApp message with full festive payment link first
-            try:
-                await send_whatsapp_text(to_phone=clean_phone, text=direct_payment_text, client_name=name)
-                await record_chat_message(
-                    phone=clean_phone,
-                    text=direct_payment_text,
-                    direction="outbound",
-                    sender_type="system",
-                    sender_name="LEAMSS Admissions Team",
-                    client_name=name,
-                    client_email=email,
-                    status="sent",
-                )
-                sent_direct = True
-                results["whatsapp_sent"] = True
-            except Exception as e_direct:
-                err_s = str(e_direct)
-                logger.info("Direct WhatsApp send for +%s (outside 24h or template required): %s. Executing template fallback...", clean_phone, err_s)
-                sent_direct = False
 
-            if not sent_direct:
-                # ── COLD OUTREACH / OUTSIDE 24H: Set Pending Flow & Send Broadcast/Button Template ──
+            # If inside 24h active customer window, send rich festive payment text directly
+            if has_active_session:
+                try:
+                    await send_whatsapp_text(to_phone=clean_phone, text=direct_payment_text, client_name=name)
+                    await record_chat_message(
+                        phone=clean_phone,
+                        text=direct_payment_text,
+                        direction="outbound",
+                        sender_type="system",
+                        sender_name="LEAMSS Admissions Team",
+                        client_name=name,
+                        client_email=email,
+                        status="sent",
+                    )
+                    sent_direct = True
+                    results["whatsapp_sent"] = True
+                except Exception as e_direct:
+                    logger.info("Direct WhatsApp send failed for +%s: %s. Falling back to template...", clean_phone, e_direct)
+                    sent_direct = False
+
+            # If outside 24h window (cold lead), dispatch verified Twilio Approved Template with payment link
+            if not has_active_session or not sent_direct:
                 await set_pending_flow(
                     clean_phone,
                     flow="payment_link",
@@ -481,48 +483,48 @@ async def send_navratri_payment_link(
                 cold_body_text = (
                     f"Hello {name},\n\n"
                     f"Your registration for the *LEAMSS Navratri Special Offer* is pending payment confirmation.\n\n"
-                    f"Would you like us to send you the secure direct payment link here on WhatsApp?\n\n"
-                    f"👉 Click *YES, SEND PAYMENT LINK* or reply *YES*."
+                    f"Complete your registration payment (₹499) at:\n{payment_url}\n\n"
+                    f"Or reply *YES* to get instant assistance."
                 )
 
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
-                    # 1. Primary: Approved general notification template (delivers direct payment link + instructions)
+                    # 1. Primary: Approved notification template HXa158 (Verified active delivery on Twilio)
                     sent_tmpl = False
                     try:
-                        custom_payment_body = (
-                            f"Complete your registration for the LEAMSS Navratri Special Offer (Ref: {ref_id}) and receive your personalized Australia PR Pre-Assessment Report.\n\n"
-                            f"💳 Complete Payment Securely (₹499):\n{payment_url}\n\n"
-                            f"Once payment is completed, our migration specialists will evaluate your profile and prepare your comprehensive report."
-                        )
                         await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=cold_body_text,
                             client_name=name,
-                            content_sid="HX869521a5aaf6a533b2cff125489becb3",
+                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                             content_variables={
                                 "1": name,
-                                "2": custom_payment_body,
+                                "2": f"Your Australia PR Pre-Assessment registration is pending. Complete your registration payment (Rs. 499) at: {payment_url}",
                             },
                         )
                         sent_tmpl = True
-                    except Exception as e_tw_gen:
-                        logger.warning("Twilio HX8695 payment dispatch failed: %s; trying HXa158...", e_tw_gen)
+                    except Exception as e_tw_a15:
+                        logger.warning("Twilio HXa158 failed: %s; trying HX8695...", e_tw_a15)
 
                     if not sent_tmpl:
                         try:
+                            custom_payment_body = (
+                                f"Complete your registration for the LEAMSS Navratri Special Offer (Ref: {ref_id}) and receive your personalized Australia PR Pre-Assessment Report.\n\n"
+                                f"Payment Link (Rs. 499): {payment_url}\n\n"
+                                f"Once payment is completed, our migration specialists will evaluate your profile and prepare your report."
+                            )
                             await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=cold_body_text,
                                 client_name=name,
-                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                                content_sid="HX869521a5aaf6a533b2cff125489becb3",
                                 content_variables={
                                     "1": name,
-                                    "2": f"Your registration payment is pending. Please complete your registration here: {payment_url}",
+                                    "2": custom_payment_body,
                                 },
                             )
                             sent_tmpl = True
-                        except Exception as e_tw_a15:
-                            logger.warning("Twilio HXa158 failed: %s; trying HX644...", e_tw_a15)
+                        except Exception as e_tw_gen:
+                            logger.warning("Twilio HX8695 payment dispatch failed: %s; trying HX644...", e_tw_gen)
 
                     if not sent_tmpl:
                         try:
