@@ -48,46 +48,42 @@ import {
 // Open a client's resume link (GridFS uploaded file, Google Drive, or public URL) in a new tab
 const resolveResumeUrl = (url, rowId, resumeFileId) => {
   const raw = String(url || '').trim();
-  const backendBase = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/+$/, '');
+  const backendBase = (
+    process.env.REACT_APP_BACKEND_URL ||
+    (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001')
+  ).replace(/\/+$/, '');
 
-  // 1. If it's a relative cockpit resume path like "/cockpit/resume/..." or "cockpit/resume/..."
-  if (raw.includes('cockpit/resume/')) {
-    const fileId = raw.split('cockpit/resume/')[1].replace(/^\//, '').split(/[?#]/)[0];
-    if (fileId) {
-      return `${backendBase}/api/cockpit/resume/${fileId}`;
-    }
+  // 1. Extract 24-char ObjectId if present in url, raw string, or resumeFileId
+  const hexMatch = raw.match(/[a-fA-F0-9]{24}/);
+  const fidMatch = (resumeFileId && String(resumeFileId).match(/[a-fA-F0-9]{24}/));
+  const fileId = fidMatch ? fidMatch[0] : (hexMatch ? hexMatch[0] : null);
+
+  if (fileId && (raw.includes('cockpit') || raw.includes('resume') || /^[a-fA-F0-9]{24}$/.test(raw) || resumeFileId)) {
+    return `${backendBase}/api/cockpit/resume/${fileId}`;
   }
 
-  // 2. If it's a 24-character hexadecimal ObjectId
-  if (/^[a-fA-F0-9]{24}$/.test(raw)) {
-    return `${backendBase}/api/cockpit/resume/${raw}`;
-  }
-
-  // 3. If explicit resumeFileId passed
-  if (resumeFileId && /^[a-fA-F0-9]{24}$/.test(String(resumeFileId).trim())) {
-    return `${backendBase}/api/cockpit/resume/${String(resumeFileId).trim()}`;
-  }
-
-  // 4. If rowId provided and it's a public row stream
-  if (raw.startsWith('/api/') || raw.startsWith('api/')) {
-    return `${backendBase}/${raw.replace(/^\/+/, '')}`;
-  }
-
-  if (raw.startsWith('/')) {
-    return `${backendBase}${raw}`;
-  }
-
-  // 5. External full URL (Google Drive, Dropbox, Cloudinary, AWS S3, etc.)
+  // 2. If it's an external public storage link (Google Drive, Dropbox, Cloudinary, AWS S3, etc.)
   if (/^https?:\/\//i.test(raw)) {
     return raw;
   }
 
-  if (raw) {
-    return `https://${raw}`;
+  // 3. If it starts with /api/
+  if (raw.startsWith('/api/')) {
+    return `${backendBase}${raw}`;
   }
 
+  // 4. If it starts with /
+  if (raw.startsWith('/')) {
+    return `${backendBase}/api${raw}`;
+  }
+
+  // 5. If row ID provided fallback
   if (rowId) {
     return `${backendBase}/api/bulk-assessments/public/row/${rowId}/resume`;
+  }
+
+  if (raw && (raw.includes('/') || raw.includes('.'))) {
+    return `https://${raw}`;
   }
 
   return null;
@@ -98,44 +94,13 @@ const openResume = async (url, row) => {
   const fileId = p.resume_file_id || row?.resume_file_id;
   const link = url || p.resume_link || row?.resume_link || '';
 
-  // 1. If external public storage link (Google Drive / Dropbox / Cloudinary / AWS S3)
-  if (/^https?:\/\//i.test(link) && !link.includes('cockpit/resume/') && !link.includes('app.leamss.com') && !link.includes('localhost')) {
-    window.open(link, '_blank', 'noopener,noreferrer');
+  const resolved = resolveResumeUrl(link, row?.id, fileId);
+  if (!resolved) {
+    toast.error('No readable resume found for this client');
     return;
   }
 
-  // 2. Fetch via Axios blob directly so it renders immediately in a clean blob URL
-  try {
-    let resp = null;
-    const API_URL = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
-    if (row?.id) {
-      try {
-        resp = await axios.get(`${API_URL}/bulk-assessments/public/row/${row.id}/resume`, { responseType: 'blob' });
-      } catch (e1) {
-        if (fileId) {
-          resp = await axios.get(`${API_URL}/cockpit/resume/${fileId}`, { responseType: 'blob' });
-        }
-      }
-    } else if (fileId) {
-      resp = await axios.get(`${API_URL}/cockpit/resume/${fileId}`, { responseType: 'blob' });
-    }
-
-    if (resp && resp.data) {
-      const blobUrl = URL.createObjectURL(resp.data);
-      window.open(blobUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-  } catch (err) {
-    console.warn('Blob resume stream failed:', err);
-  }
-
-  // 3. Fallback direct URL
-  const resolved = resolveResumeUrl(link, row?.id, fileId);
-  if (resolved) {
-    window.open(resolved, '_blank', 'noopener,noreferrer');
-  } else {
-    toast.error('No readable resume found for this client');
-  }
+  window.open(resolved, '_blank', 'noopener,noreferrer');
 };
 import { formatApiError } from '@/lib/apiErrors';
 

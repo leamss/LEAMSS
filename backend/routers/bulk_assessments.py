@@ -1958,6 +1958,25 @@ async def get_batch(batch_id: str, current_user: dict = Depends(get_current_user
     needs_ai_count = sum(1 for r in rows if r.get("status") == "needs_ai")
     error_count = sum(1 for r in rows if r.get("status") == "error")
 
+    # Normalize resume_link and resume_file_id on all returned rows
+    for r in rows:
+        p = r.get("parsed") or {}
+        rfid = p.get("resume_file_id") or r.get("resume_file_id")
+        rlink = p.get("resume_link") or r.get("resume_link") or ""
+        if rfid and re.match(r"^[a-fA-F0-9]{24}$", str(rfid).strip()):
+            p["resume_link"] = f"https://api.leamss.com/api/cockpit/resume/{str(rfid).strip()}"
+            p["resume_file_id"] = str(rfid).strip()
+        elif rlink:
+            rlink_s = str(rlink).strip()
+            if re.match(r"^[a-fA-F0-9]{24}$", rlink_s):
+                p["resume_link"] = f"https://api.leamss.com/api/cockpit/resume/{rlink_s}"
+                p["resume_file_id"] = rlink_s
+            elif "cockpit/resume" in rlink_s:
+                m = re.search(r"[a-fA-F0-9]{24}", rlink_s)
+                if m:
+                    p["resume_link"] = f"https://api.leamss.com/api/cockpit/resume/{m.group(0)}"
+                    p["resume_file_id"] = m.group(0)
+
     if batch.get("generated") != generated_count or batch.get("valid") != valid_count or batch.get("total") != len(rows):
         batch["generated"] = generated_count
         batch["valid"] = valid_count

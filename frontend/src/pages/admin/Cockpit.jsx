@@ -28,10 +28,15 @@ const API = `${BACKEND_URL}/api`;
 
 const getResumeHref = (url) => {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) return url;
-  if (url.startsWith('/api')) return `${BACKEND_URL}${url}`;
-  if (url.startsWith('/')) return `${BACKEND_URL}/api${url}`;
-  return `${BACKEND_URL}/api/${url}`;
+  const str = String(url).trim();
+  const hex = str.match(/[a-fA-F0-9]{24}/);
+  if (hex && (str.includes('cockpit') || str.includes('resume') || /^[a-fA-F0-9]{24}$/.test(str))) {
+    return `${BACKEND_URL}/api/cockpit/resume/${hex[0]}`;
+  }
+  if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('blob:') || str.startsWith('data:')) return str;
+  if (str.startsWith('/api')) return `${BACKEND_URL}${str}`;
+  if (str.startsWith('/')) return `${BACKEND_URL}/api${str}`;
+  return `${BACKEND_URL}/api/${str}`;
 };
 
 
