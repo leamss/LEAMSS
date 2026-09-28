@@ -486,25 +486,27 @@ async def send_navratri_payment_link(
                 )
 
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
-                    # 1. Primary: Approved Special Offer template HXe3933 (delivers to candidate's WhatsApp)
+                    # 1. Primary: Approved general notification template (delivers direct payment link + instructions)
                     sent_tmpl = False
                     try:
+                        custom_payment_body = (
+                            f"Complete your registration for the LEAMSS Navratri Special Offer (Ref: {ref_id}) and receive your personalized Australia PR Pre-Assessment Report.\n\n"
+                            f"💳 Complete Payment Securely (₹499):\n{payment_url}\n\n"
+                            f"Once payment is completed, our migration specialists will evaluate your profile and prepare your comprehensive report."
+                        )
                         await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=cold_body_text,
                             client_name=name,
-                            content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                            content_sid="HX869521a5aaf6a533b2cff125489becb3",
                             content_variables={
                                 "1": name,
-                                "2": "Australia PR Special Offer",
-                                "3": "Registration Pending (₹499)",
-                                "4": "Subclass 189, 190, 491",
-                                "5": f"Fee: {payment_url}",
+                                "2": custom_payment_body,
                             },
                         )
                         sent_tmpl = True
-                    except Exception as e_tw_hxe:
-                        logger.warning("Twilio HXe393 payment dispatch failed: %s; trying HXabf...", e_tw_hxe)
+                    except Exception as e_tw_gen:
+                        logger.warning("Twilio HX8695 payment dispatch failed: %s; trying HXa158...", e_tw_gen)
 
                     if not sent_tmpl:
                         try:
@@ -512,15 +514,31 @@ async def send_navratri_payment_link(
                                 to_phone=clean_phone,
                                 text=cold_body_text,
                                 client_name=name,
-                                content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                                 content_variables={
                                     "1": name,
-                                    "2": ref_id,
+                                    "2": f"Your registration payment is pending. Please complete your registration here: {payment_url}",
                                 },
                             )
                             sent_tmpl = True
-                        except Exception as e_tw_46d:
-                            logger.warning("Twilio HX46d failed: %s; trying HXabf...", e_tw_46d)
+                        except Exception as e_tw_a15:
+                            logger.warning("Twilio HXa158 failed: %s; trying HX644...", e_tw_a15)
+
+                    if not sent_tmpl:
+                        try:
+                            await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=cold_body_text,
+                                client_name=name,
+                                content_sid="HX64476ead028a5c3f2eab0c2d2e52f502",
+                                content_variables={
+                                    "1": name,
+                                    "2": f"Please complete your registration payment: {payment_url}",
+                                },
+                            )
+                            sent_tmpl = True
+                        except Exception as e_tw_644:
+                            logger.warning("Twilio HX644 failed: %s; trying HXabf...", e_tw_644)
 
                     if not sent_tmpl:
                         try:
@@ -557,20 +575,23 @@ async def send_navratri_payment_link(
                             )
                             sent_tmpl = True
                         except Exception as e_tw_3cf:
-                            logger.warning("Twilio HX3cf failed: %s; trying HXecdec...", e_tw_3cf)
+                            logger.warning("Twilio HX3cf failed: %s; trying HX46d...", e_tw_3cf)
 
                     if not sent_tmpl:
                         try:
                             await send_whatsapp_text(
                                 to_phone=clean_phone,
-                                text=f"Hello {name}, your LEAMSS Special Offer payment is pending. Please reply YES to receive your payment link (Ref: {ref_id[:20]}).",
+                                text=cold_body_text,
                                 client_name=name,
-                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                                content_variables={"1": name, "2": ref_id[:20]},
+                                content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                                content_variables={
+                                    "1": name,
+                                    "2": ref_id,
+                                },
                             )
                             sent_tmpl = True
-                        except Exception as e_tw_ec:
-                            logger.warning("Twilio HXecdec failed: %s; sending direct payment text", e_tw_ec)
+                        except Exception as e_tw_46d:
+                            logger.warning("Twilio HX46d failed: %s; sending direct text", e_tw_46d)
                             await send_whatsapp_text(to_phone=clean_phone, text=direct_payment_text, client_name=name)
                 else:
                     # Meta Cloud API / Broadcasting Mode with Interactive Quick Reply Button

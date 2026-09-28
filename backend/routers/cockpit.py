@@ -874,6 +874,12 @@ async def api_send_navratri_resume_request(
     if oids:
         query_conditions.append({"_id": {"$in": oids}})
     leads = await db["leads"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
+    if not leads:
+        leads = await db["sales_assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
+    if not leads:
+        leads = await db["assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
+    if not leads:
+        leads = await db["pre_assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
     
     results = []
     for l in leads:
@@ -914,6 +920,12 @@ async def api_send_navratri_payment_link(
     if oids:
         query_conditions.append({"_id": {"$in": oids}})
     leads = await db["leads"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
+    if not leads:
+        leads = await db["sales_assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
+    if not leads:
+        leads = await db["assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
+    if not leads:
+        leads = await db["pre_assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
     
     results = []
     for l in leads:
