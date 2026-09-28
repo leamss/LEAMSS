@@ -2601,7 +2601,16 @@ DEFAULT_WHATSAPP_ELIGIBLE_TEXT = (
     "🎯 *Nominated Occupation:* {occupation} (ANZSCO {code})\n"
     "🏆 *Immigration Points:* {points} pts (Pass Mark: 65)\n"
     "🌟 *Recommended Pathway:* Subclass {best_subclass}\n\n"
-    "📎 *Your official Pre-Assessment Report is attached with this message.*\n\n"
+    "━━━━━━━━━━━━━━━━━━━━\n"
+    "📄 *ATTACHED OFFICIAL DOCUMENTS:*\n"
+    "• 📑 *Pre-Assessment Report:* Official 23-page points assessment attached.\n"
+    "• 📑 *Service Level Agreement (SLA):* Official contract terms attached.\n"
+    "• 💳 *Payment QR Code:* Fast UPI / Banking details attached.\n"
+    "• 📄 *Candidate Resume:* Assessed Resume / CV attached.\n"
+    "━━━━━━━━━━━━━━━━━━━━\n\n"
+    "✨ *NAVRATRI SPECIAL IMMIGRATION OFFER*\n"
+    "• 🎁 *Offer:* {special_offer}\n"
+    "• 💳 *Payment Link:* {payment_link}\n\n"
     "Our migration strategy team is available to assist with your next steps.\n"
     "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
 )
@@ -3040,38 +3049,39 @@ async def _send_row_whatsapp(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=name,
-                        content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                        content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
                         content_variables={
                             "1": name,
-                            "2": occ_title,
-                            "3": str(best_pts),
-                            "4": "Subclass 189, 190, 491",
-                            "5": "Improvement Plan",
+                            "2": ref_id,
+                            "3": f"Score: {best_pts} pts (Pass mark 65) — Review report & improvement plan: {rep_url}",
                         },
                     )
                 except Exception as e_ne_tmpl:
-                    logger.warning("Not-eligible template dispatch with HXe393 failed in bulk row: %s", e_ne_tmpl)
+                    logger.warning("Not-eligible template dispatch with HX876 failed in bulk row: %s", e_ne_tmpl)
                     try:
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=name,
-                            content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                            content_variables={"1": name, "2": ref_id},
+                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                            content_variables={
+                                "1": name,
+                                "2": f"Your Pre-Assessment Outcome ({occ_title} — {best_pts} pts) is ready. View report & improvement pathway: {rep_url}",
+                            },
                         )
-                    except Exception:
+                    except Exception as e_ne_tmpl2:
+                        logger.warning("Not-eligible template dispatch with HXa15 failed in bulk row: %s", e_ne_tmpl2)
                         try:
                             res = await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=msg_text,
                                 client_name=name,
-                                content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
                                 content_variables={
                                     "1": name,
-                                    "2": occ_title,
-                                    "3": str(best_pts),
-                                    "4": "Subclass 189, 190, 491",
-                                    "5": "Improvement Plan",
+                                    "2": ref_id,
+                                    "3": occ_title,
+                                    "4": str(best_pts),
                                 },
                             )
                         except Exception:
