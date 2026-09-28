@@ -302,21 +302,37 @@ async def send_navratri_resume_request(
                 )
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
                     try:
+                        # 1. Primary Approved UTILITY CTA Template (resume_upload_request_v3) with Upload Resume button
                         await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=direct_wa_text,
                             client_name=name,
-                            content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                            content_sid="HX2cfa67abc427c31cc5a93e5c9ddea0fd",
                             content_variables={"1": name, "2": upload_token},
                         )
-                    except Exception:
-                        await send_whatsapp_text(
-                            to_phone=clean_phone,
-                            text=f"Please reply YES to upload your resume (Ref: {upload_token[:20]})",
-                            client_name=name,
-                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                            content_variables={"1": name, "2": upload_token[:20]},
-                        )
+                    except Exception as e_res_1:
+                        logger.warning("Resume template HX2cfa dispatch failed: %s; trying HXf719...", e_res_1)
+                        try:
+                            # 2. Approved UTILITY CTA Template v2
+                            await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=direct_wa_text,
+                                client_name=name,
+                                content_sid="HXf719452bc0939b9cad2d509bb95af6cc",
+                                content_variables={"1": name, "2": upload_token},
+                            )
+                        except Exception as e_res_2:
+                            logger.warning("Resume template HXf719 failed: %s; trying text util...", e_res_2)
+                            try:
+                                await send_whatsapp_text(
+                                    to_phone=clean_phone,
+                                    text=f"Please upload your resume: https://app.leamss.com/upload-resume/{upload_token}",
+                                    client_name=name,
+                                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                    content_variables={"1": name, "2": f"https://app.leamss.com/upload-resume/{upload_token}"},
+                                )
+                            except Exception:
+                                await send_whatsapp_text(to_phone=clean_phone, text=direct_wa_text, client_name=name)
                 else:
                     await send_whatsapp_interactive_buttons(
                         to_phone=clean_phone,

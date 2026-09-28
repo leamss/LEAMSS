@@ -2981,37 +2981,34 @@ async def _send_row_whatsapp(
                     },
                 )
                 try:
+                    # 1. Primary Approved UTILITY CTA Template (resume_upload_request_v3) with Upload Resume button
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=name,
-                        content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                        content_sid="HX2cfa67abc427c31cc5a93e5c9ddea0fd",
                         content_variables={"1": name, "2": row_token},
                     )
                 except Exception as e_res_tmpl:
-                    logger.warning("Bulk resume template dispatch HX46d5 failed: %s", e_res_tmpl)
+                    logger.warning("Bulk resume template dispatch HX2cfa failed: %s; trying HXf719...", e_res_tmpl)
                     try:
+                        # 2. Approved UTILITY CTA Template v2
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
-                            text=f"Please reply YES to upload your resume (Ref: {row_token[:20]})",
+                            text=msg_text,
                             client_name=name,
-                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                            content_variables={"1": name, "2": row_token[:20]},
+                            content_sid="HXf719452bc0939b9cad2d509bb95af6cc",
+                            content_variables={"1": name, "2": row_token},
                         )
                     except Exception as e_res_tmpl2:
-                        logger.warning("Bulk resume template HXecdec failed: %s; falling back to interactive/direct text", e_res_tmpl2)
+                        logger.warning("Bulk resume template HXf719 failed: %s; trying text util...", e_res_tmpl2)
                         try:
-                            from core.whatsapp_service import send_whatsapp_interactive_buttons
-                            res = await send_whatsapp_interactive_buttons(
+                            res = await send_whatsapp_text(
                                 to_phone=clean_phone,
-                                body_text=f"Hi {name}, our migration team is ready to prepare your Australia PR Pre-Assessment Report. Please click below or reply YES to upload your resume.",
-                                buttons=[
-                                    {"id": "btn_upload_resume", "title": "Upload Resume"},
-                                    {"id": "btn_not_now", "title": "Not Now"},
-                                ],
-                                header_text="LEAMSS — Resume Upload Request",
-                                footer_text="Ladhani Education & Migration Services",
+                                text=f"Please upload your resume: https://app.leamss.com/upload-resume/{row_token}",
                                 client_name=name,
+                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                content_variables={"1": name, "2": f"https://app.leamss.com/upload-resume/{row_token}"},
                             )
                         except Exception:
                             res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=name)
