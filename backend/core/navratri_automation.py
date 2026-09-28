@@ -502,32 +502,48 @@ async def send_navratri_payment_link(
                 )
 
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
-                    # 1. Primary Approved Twilio/Meta Template (leamss_pa_notification_v1): Hello {{1}}, {{2}}
                     sent_tmpl = False
+                    # 1. Primary Exact Formatted Meta Template (leamss_navratri_payment_v1)
                     try:
-                        pa_notification_var = (
-                            f"Thank you for consulting LEAMSS Immigration Services. 🇦🇺 "
-                            f"Your Australia PR Pre-Assessment registration is pending. "
-                            f"🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! "
-                            f"💳 Payment Link: {payment_url} . "
-                            f"Once the payment is completed, your Australia PR Pre-Assessment will be processed. "
-                            f"Please complete your payment and reply to this message if you need any assistance. "
-                            f"🌐 Website: https://leamss.com . "
-                            f"Regards, LEAMSS Immigration Expert"
-                        )
                         await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=cold_body_text,
                             client_name=name,
-                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                            content_sid="HXa305c6f62163719f294cfbba23733082",
                             content_variables={
                                 "1": name,
-                                "2": pa_notification_var,
                             },
                         )
                         sent_tmpl = True
-                    except Exception as e_tw_a15:
-                        logger.warning("Twilio HXa158 payment dispatch failed: %s; trying HX644...", e_tw_a15)
+                    except Exception as e_tw_nav:
+                        logger.info("Twilio HXa305 (leamss_navratri_payment_v1) pending/fallback: %s", e_tw_nav)
+
+                    # 2. Approved Twilio/Meta Template (leamss_pa_notification_v1): Hello {{1}}, {{2}}
+                    if not sent_tmpl:
+                        try:
+                            pa_notification_var = (
+                                f"Thank you for consulting LEAMSS Immigration Services. 🇦🇺 "
+                                f"Your Australia PR Pre-Assessment registration is pending. "
+                                f"🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! "
+                                f"💳 Payment Link: {payment_url} . "
+                                f"Once the payment is completed, your Australia PR Pre-Assessment will be processed. "
+                                f"Please complete your payment and reply to this message if you need any assistance. "
+                                f"🌐 Website: https://leamss.com . "
+                                f"Regards, LEAMSS Immigration Expert"
+                            )
+                            await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=cold_body_text,
+                                client_name=name,
+                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                                content_variables={
+                                    "1": name,
+                                    "2": pa_notification_var,
+                                },
+                            )
+                            sent_tmpl = True
+                        except Exception as e_tw_a15:
+                            logger.warning("Twilio HXa158 payment dispatch failed: %s; trying HX644...", e_tw_a15)
 
                     if not sent_tmpl:
                         try:
