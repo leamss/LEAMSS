@@ -1483,7 +1483,7 @@ export default function Cockpit() {
                     {!selectedCard.is_paid ? (
                       <div className="space-y-2 pt-1">
                         <p className="text-xs text-slate-700">
-                          Client has registered for the ₹499 Navratri Offer. Send the festive payment link via Email & WhatsApp.
+                          Client has registered for the ₹999 Navratri Offer. Send the festive payment link via Email & WhatsApp.
                         </p>
                         <div className="flex items-center gap-2">
                           <button
@@ -1519,7 +1519,7 @@ export default function Cockpit() {
                     ) : (!selectedCard.has_resume && !cardDetail?.record?.resume_url && !cardDetail?.record?.resume_file_id) ? (
                       <div className="space-y-2 pt-1">
                         <p className="text-xs text-slate-700">
-                          Payment received (₹499). Client has not yet uploaded their resume. Dispatch the secure 1-click upload link via Email and WhatsApp.
+                          Payment received (₹999). Client has not yet uploaded their resume. Dispatch the secure 1-click upload link via Email and WhatsApp.
                         </p>
                         <button
                           onClick={() => handleSendResumeRequest(selectedCard.id)}
@@ -2085,7 +2085,7 @@ function PipelineCard({
             {card.phone && (
               <a
                 href={`https://wa.me/${card.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                  `✨ *LEAMSS Navratri Special Offer — Payment Link*\n\nDear ${card.name},\nComplete your registration for the *LEAMSS Navratri Special Offer* and receive your strategic Australia PR Pre-Assessment Report.\n\n💳 *Complete Payment Securely:*\n${card.payment_link || 'https://leamss.com/navratri-offers'}\n\n— *LEAMSS Admissions Team*`
+                  `Hello ${card.name},\nThank you for consulting LEAMSS Immigration Services. 🇦🇺\nYour Australia PR Pre-Assessment registration is pending.\n🎉 Happy Navratri Special Offer – Complete your registration for just ₹999!\n\n💳 Payment Link:\n${card.payment_link || 'https://share.google/mc556otU2eie7F8SC'}\n\nOnce the payment is completed, your Australia PR Pre-Assessment will be processed.\nPlease complete your payment and reply to this message if you need any assistance.\n\n🌐 Website: https://leamss.com\n\nRegards,\nLEAMSS Immigration Services`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

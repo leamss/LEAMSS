@@ -422,15 +422,20 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                     if not client_name or client_name in ("WhatsApp User", "there"):
                         client_name = lead_doc.get("name") or client_name
             if not payment_url:
-                payment_url = "https://leamss.com/navratri-offers"
+                payment_url = "https://share.google/mc556otU2eie7F8SC"
 
             reply_msg = (
-                f"Thank you, {client_name}! 💳✨\n\n"
-                f"Here is your direct secure link to complete your *LEAMSS Navratri Special Offer* payment:\n\n"
-                f"👉 {payment_url}\n\n"
-                f"Once payment is completed, your profile will be queued immediately for Australia PR evaluation by our expert migration team.\n\n"
-                f"If you have any questions or need international banking details, reply here anytime!\n\n"
-                f"— *LEAMSS Global Education & Migration*"
+                f"Hello {client_name},\n"
+                f"Thank you for consulting LEAMSS Immigration Services. 🇦🇺\n"
+                f"Your Australia PR Pre-Assessment registration is pending.\n"
+                f"🎉 Happy Navratri Special Offer – Complete your registration for just ₹999!\n\n"
+                f"💳 Payment Link:\n"
+                f"{payment_url}\n\n"
+                f"Once the payment is completed, your Australia PR Pre-Assessment will be processed.\n"
+                f"Please complete your payment and reply to this message if you need any assistance.\n\n"
+                f"🌐 Website: https://leamss.com\n\n"
+                f"Regards,\n"
+                f"LEAMSS Immigration Services"
             )
             try:
                 await send_whatsapp_text(to_phone=clean_phone, text=reply_msg, client_name=client_name)
