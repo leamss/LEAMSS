@@ -241,12 +241,9 @@ export default function BulkPreAssessment() {
       toast.success('Batch deleted');
       const blist = await loadBatches();
       if (batch?.id === id) {
-        if (blist && blist.length > 0) {
-          loadBatch(blist[0].id);
-        } else {
-          setBatch(null);
-          setRows([]);
-        }
+        setBatch(null);
+        setRows([]);
+        setSearchParams({});
       }
     } catch (err) {
       toast.error(formatApiError(err, 'Failed to delete batch'));
@@ -1147,7 +1144,7 @@ export default function BulkPreAssessment() {
               {batches.map((b) => (
                 <div
                   key={b.id}
-                  onClick={() => loadBatch(b.id)}
+                  onClick={() => { setSearchParams({ batch_id: b.id }); loadBatch(b.id); }}
                   className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 cursor-pointer text-left group transition-all"
                   data-testid={`batch-${b.id}`}
                 >
