@@ -1355,16 +1355,9 @@ function EditRowDialog({ row, headers, senders = [], defaultSender, onClose, onS
   };
 
   const viewResume = async () => {
-    if (uploadedFileId) {
-      try {
-        const r = await axios.get(`${API}/bulk-assessments/row/${row.id}/resume-file`, { headers, responseType: 'blob' });
-        window.open(URL.createObjectURL(r.data), '_blank', 'noopener,noreferrer');
-      } catch (e) {
-        openResume(p.resume_link || uploadedFileId, row);
-      }
-    } else if (p.resume_link || p.resume_file_id) {
-      openResume(p.resume_link || p.resume_file_id, row);
-    }
+    const fid = uploadedFileId || p.resume_file_id || row?.resume_file_id;
+    const rlink = p.resume_link || row?.resume_link || '';
+    openResume(rlink || fid, row);
   };
 
   useEffect(() => {

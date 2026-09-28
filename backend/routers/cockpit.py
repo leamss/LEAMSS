@@ -45,16 +45,28 @@ router = APIRouter(prefix="/cockpit", tags=["Cockpit"])
 
 @router.get("/resume/{file_id}")
 async def get_cockpit_resume(file_id: str):
-    """Stream resume file from GridFS."""
+    """Stream resume file from GridFS across all candidate buckets."""
+    clean_id = str(file_id or "").strip()
+    m = re.search(r"[a-fA-F0-9]{24}", clean_id)
+    if m:
+        clean_id = m.group(0)
+
     try:
-        oid = ObjectId(file_id)
+        oid = ObjectId(clean_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid file ID")
 
-    gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="bulk_resumes")
-    try:
-        grid_out = await gridfs.open_download_stream(oid)
-    except Exception:
+    grid_out = None
+    for bucket_name in ("bulk_resumes", "resume_files", "fs", "resumes", "lead_resumes"):
+        try:
+            gridfs = AsyncIOMotorGridFSBucket(db, bucket_name=bucket_name)
+            grid_out = await gridfs.open_download_stream(oid)
+            if grid_out:
+                break
+        except Exception:
+            continue
+
+    if not grid_out:
         raise HTTPException(status_code=404, detail="Resume file not found")
 
     filename = grid_out.filename or "resume.pdf"

@@ -2262,15 +2262,42 @@ async def get_resume_file(row_id: str, current_user: dict = Depends(get_current_
     if not _can(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
     row = await ROWS.find_one({"id": row_id})
-    if not row or not (row.get("parsed") or {}).get("resume_file_id"):
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+    p = row.get("parsed") or {}
+    fid = p.get("resume_file_id") or row.get("resume_file_id")
+    if not fid:
+        rlink = p.get("resume_link") or row.get("resume_link") or ""
+        m = re.search(r"[a-fA-F0-9]{24}", rlink)
+        if m:
+            fid = m.group(0)
+    if not fid:
         raise HTTPException(status_code=404, detail="No uploaded resume for this client")
-    p = row["parsed"]
-    stream = await _resume_gridfs.open_download_stream(ObjectId(p["resume_file_id"]))
-    data = await stream.read()
-    ct = (stream.metadata or {}).get("contentType") or "application/octet-stream"
-    return StreamingResponse(io.BytesIO(data), media_type=ct, headers={
-        "Content-Disposition": f'inline; filename="{p.get("resume_filename") or "resume"}"',
-    })
+
+    try:
+        oid = ObjectId(str(fid).strip())
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid file ID")
+
+    for bucket_name in ("bulk_resumes", "resume_files", "fs", "resumes", "lead_resumes"):
+        try:
+            g_bucket = AsyncIOMotorGridFSBucket(db, bucket_name=bucket_name)
+            stream = await g_bucket.open_download_stream(oid)
+            data = await stream.read()
+            if data:
+                filename = stream.filename or p.get("resume_filename") or "resume.pdf"
+                ct = (stream.metadata or {}).get("contentType") or "application/pdf"
+                if filename.lower().endswith(".pdf"):
+                    ct = "application/pdf"
+                elif filename.lower().endswith(".docx"):
+                    ct = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                return StreamingResponse(io.BytesIO(data), media_type=ct, headers={
+                    "Content-Disposition": f'inline; filename="{filename}"',
+                })
+        except Exception:
+            continue
+
+    raise HTTPException(status_code=404, detail="Resume file not found in storage")
 
 
 class SuggestCodesRequest(BaseModel):
