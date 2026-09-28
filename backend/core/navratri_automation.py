@@ -512,6 +512,22 @@ async def send_navratri_payment_link(
                                 to_phone=clean_phone,
                                 text=cold_body_text,
                                 client_name=name,
+                                content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
+                                content_variables={
+                                    "1": name,
+                                    "2": ref_id,
+                                },
+                            )
+                            sent_tmpl = True
+                        except Exception as e_tw_46d:
+                            logger.warning("Twilio HX46d failed: %s; trying HXabf...", e_tw_46d)
+
+                    if not sent_tmpl:
+                        try:
+                            await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=cold_body_text,
+                                client_name=name,
                                 content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
                                 content_variables={
                                     "1": name,
