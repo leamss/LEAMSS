@@ -386,8 +386,8 @@ async def send_navratri_payment_link(
     """
     lead_id = lead.get("id")
     name = (lead.get("name") or "Applicant").strip()
-    email = str(lead.get("email") or "").strip()
-    phone = str(lead.get("phone") or "").strip()
+    email = str(lead.get("email") or lead.get("client_email") or "").strip()
+    phone = str(lead.get("phone") or lead.get("client_phone") or lead.get("mobile") or "").strip()
     payment_url = payment_url_override or get_payment_url(lead)
     now = datetime.now(timezone.utc)
 
@@ -414,6 +414,7 @@ async def send_navratri_payment_link(
                 sender_name="LEAMSS Admissions Team"
             )
             results["email_sent"] = True
+            logger.info("Payment link email sent successfully to %s", email)
         except Exception as e_email:
             logger.error("Failed to send payment link email to %s: %s", email, e_email)
             results["errors"].append(f"Email error: {str(e_email)}")
@@ -426,15 +427,15 @@ async def send_navratri_payment_link(
             from core.whatsapp_service import send_whatsapp_interactive_buttons, get_whatsapp_config
 
             cfg = await get_whatsapp_config()
-            has_active_session = await is_in_24h_window(clean_phone)
+            ref_id = str(lead.get("unique_id") or lead.get("id") or "LEAMSS-PR")[:25]
 
             direct_payment_text = (
                 f"✨ *LEAMSS Navratri Special Offer — Payment Link*\n\n"
-                f"Dear {name},\n"
-                f"Complete your registration for the *LEAMSS Navratri Special Offer* and get your personalized Australia PR Pre-Assessment Report.\n\n"
-                f"💳 *Complete Payment Securely:*\n"
+                f"Dear {name},\n\n"
+                f"Complete your registration for the *LEAMSS Navratri Special Offer* (Ref: {ref_id}) and get your personalized Australia PR Pre-Assessment Report.\n\n"
+                f"💳 *Complete Payment Securely (₹499):*\n"
                 f"{payment_url}\n\n"
-                f"Once payment is completed, your profile will be immediately queued for evaluation by our expert migration team.\n\n"
+                f"Once payment is completed, our migration experts will evaluate your profile and prepare your Pre-Assessment Report.\n\n"
                 f"— *LEAMSS Global Education & Migration*"
             )
 
@@ -461,7 +462,6 @@ async def send_navratri_payment_link(
 
             if not sent_direct:
                 # ── COLD OUTREACH / OUTSIDE 24H: Set Pending Flow & Send Broadcast/Button Template ──
-                ref_id = str(lead.get("unique_id") or lead.get("id") or "Payment-Pending")[:25]
                 await set_pending_flow(
                     clean_phone,
                     flow="payment_link",
@@ -483,27 +483,18 @@ async def send_navratri_payment_link(
                 )
 
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
-                    # Use Twilio approved Quick-Reply Button Content Template
+                    # Use Twilio approved Quick-Reply or Special Offer Content Template (NEVER resume template)
                     try:
                         await send_whatsapp_text(
                             to_phone=clean_phone,
-                            text=cold_body_text,
+                            text=f"Hello {name}, your LEAMSS Navratri Special Offer payment is pending. Please reply YES to receive your payment link (Ref: {ref_id[:20]}).",
                             client_name=name,
-                            content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                            content_variables={"1": name, "2": ref_id},
+                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                            content_variables={"1": name, "2": ref_id[:20]},
                         )
-                    except Exception as e_tw_tmpl:
-                        logger.warning("Twilio HX46d5 dispatch failed: %s, falling back to HXecdec", e_tw_tmpl)
+                    except Exception as e_tw1:
+                        logger.warning("Twilio HXecdec failed: %s, falling back to HXe393", e_tw1)
                         try:
-                            await send_whatsapp_text(
-                                to_phone=clean_phone,
-                                text=f"Hello {name}, your registration payment is pending. Please reply YES to receive your payment link (Ref: {ref_id[:20]}).",
-                                client_name=name,
-                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                                content_variables={"1": name, "2": ref_id[:20]},
-                            )
-                        except Exception as e_tw2:
-                            logger.warning("Twilio HXecdec failed: %s, falling back to HXe393", e_tw2)
                             await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=cold_body_text,
@@ -517,17 +508,20 @@ async def send_navratri_payment_link(
                                     "5": "Payment Link Request",
                                 },
                             )
+                        except Exception as e_tw2:
+                            logger.warning("Twilio HXe393 failed: %s; sending direct payment text", e_tw2)
+                            await send_whatsapp_text(to_phone=clean_phone, text=direct_payment_text, client_name=name)
                 else:
                     # Meta Cloud API / Broadcasting Mode with Interactive Quick Reply Button
                     buttons = [
-                        {"id": "btn_send_payment_link", "title": "Yes, Send Link"},
+                        {"id": "btn_send_payment_link", "title": "💳 Pay Now"},
                         {"id": "btn_not_now", "title": "Not Now"},
                     ]
                     await send_whatsapp_interactive_buttons(
                         to_phone=clean_phone,
-                        body_text=cold_body_text,
+                        body_text=f"Hello {name},\n\nComplete your registration for the *LEAMSS Navratri Special Offer* and get your Australia PR Pre-Assessment Report.\n\n💳 *Payment Link:* {payment_url}",
                         buttons=buttons,
-                        header_text="LEAMSS Special Offer — Payment Pending",
+                        header_text="LEAMSS — Festive Special Offer",
                         footer_text="Ladhani Education & Migration Services",
                         client_name=name,
                     )

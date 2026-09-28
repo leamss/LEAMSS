@@ -259,7 +259,7 @@ def _build_lead_card(d: Dict[str, Any], gen_leads: Optional[set] = None, gen_ema
         next_action = "Create Pre-Assessment" if has_report else "Start Eligibility Wizard"
 
     return {
-        "id": d.get("id"),
+        "id": d.get("id") or str(d.get("_id") or ""),
         "type": "lead",
         "name": d.get("name") or "Unnamed Lead",
         "email": d.get("email") or "",
@@ -863,7 +863,17 @@ async def api_send_navratri_resume_request(
         raise HTTPException(status_code=400, detail="No lead_ids specified.")
 
     sender_name = current_user.get("name") or "LEAMSS Migration Team"
-    leads = await db["leads"].find({"id": {"$in": lead_ids}}).to_list(len(lead_ids))
+    query_conditions = [{"id": {"$in": lead_ids}}, {"unique_id": {"$in": lead_ids}}]
+    oids = []
+    for lid in lead_ids:
+        try:
+            if ObjectId.is_valid(str(lid)):
+                oids.append(ObjectId(str(lid)))
+        except Exception:
+            pass
+    if oids:
+        query_conditions.append({"_id": {"$in": oids}})
+    leads = await db["leads"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
     
     results = []
     for l in leads:
@@ -893,7 +903,17 @@ async def api_send_navratri_payment_link(
     if not lead_ids:
         raise HTTPException(status_code=400, detail="No lead_ids specified.")
 
-    leads = await db["leads"].find({"id": {"$in": lead_ids}}).to_list(len(lead_ids))
+    query_conditions = [{"id": {"$in": lead_ids}}, {"unique_id": {"$in": lead_ids}}]
+    oids = []
+    for lid in lead_ids:
+        try:
+            if ObjectId.is_valid(str(lid)):
+                oids.append(ObjectId(str(lid)))
+        except Exception:
+            pass
+    if oids:
+        query_conditions.append({"_id": {"$in": oids}})
+    leads = await db["leads"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
     
     results = []
     for l in leads:
