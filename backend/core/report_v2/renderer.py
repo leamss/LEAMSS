@@ -165,46 +165,14 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
             ]
         }
 
-    # 5) Ensure Occupation Pathways Comparison is present (Page 7)
-    if not snap.get("occupation_comparison") or len((snap["occupation_comparison"].get("occupations") or [])) < 2:
-        alt_code = "133211" if clean_code == "133111" else ("261312" if clean_code.startswith("2613") else "224999")
-        alt_title = "Engineering Manager" if alt_code == "133211" else ("Developer Programmer" if alt_code == "261312" else "Information and Organisation Professionals (not covered elsewhere)")
-        snap["occupation_comparison"] = {
-            "occupations": [
-                {
-                    "is_primary": True,
-                    "country_code": cc,
-                    "code": clean_code,
-                    "title": clean_title,
-                    "assessing_authority_name": "VETASSESS",
-                    "skill_assessment_fee": {"amount": 1225, "currency": "AUD", "inr": 70000},
-                    "visa_subclasses": ["186", "189", "190", "407", "482", "485", "489", "491", "494"],
-                    "min_invitation_points": 90,
-                    "skillselect_tier": "Tier 2",
-                    "points": client_pts,
-                    "pass_mark": 65,
-                    "eligible": True,
-                },
-                {
-                    "is_primary": False,
-                    "country_code": cc,
-                    "code": alt_code,
-                    "title": alt_title,
-                    "assessing_authority_name": "EA",
-                    "skill_assessment_fee": {"amount": 1150, "currency": "AUD", "inr": 80000},
-                    "visa_subclasses": ["186", "189", "190", "407", "482", "485", "489", "491", "494"],
-                    "min_invitation_points": 90,
-                    "skillselect_tier": "Tier 2",
-                    "points": client_pts,
-                    "pass_mark": 65,
-                    "eligible": True,
-                }
-            ]
-        }
+    # 5) Occupation Pathways Comparison (Page 7) — only present when 2+ occupations were selected
+    comp_occs = (snap.get("occupation_comparison") or {}).get("occupations") or []
+    if len(comp_occs) < 2:
+        snap["occupation_comparison"] = None
+        comp_occs = []
 
     # 6) Ensure EOI Backlog is present (Page 8)
-    comp_occs = (snap.get("occupation_comparison") or {}).get("occupations") or []
-    alt_occ = next((o for o in comp_occs if not o.get("is_primary")), None)
+    alt_occ = next((o for o in comp_occs if not o.get("is_primary")), None) if len(comp_occs) >= 2 else None
     target_eoi_code = alt_occ.get("code") if alt_occ else clean_code
     target_eoi_title = alt_occ.get("title") if alt_occ else clean_title
 
@@ -212,9 +180,12 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
     if not has_valid_eoi:
         snap["eoi_backlog"] = _build_indicative_eoi(target_eoi_code, target_eoi_title, client_pts)
 
-    has_valid_alts = bool(snap.get("eoi_backlog_alts") and len(snap["eoi_backlog_alts"]) > 0 and (snap["eoi_backlog_alts"][0].get("unified") or {}).get("rows"))
-    if not has_valid_alts:
-        snap["eoi_backlog_alts"] = [_build_indicative_eoi(target_eoi_code, target_eoi_title, client_pts)]
+    if not alt_occ:
+        snap["eoi_backlog_alts"] = []
+    else:
+        has_valid_alts = bool(snap.get("eoi_backlog_alts") and len(snap["eoi_backlog_alts"]) > 0 and (snap["eoi_backlog_alts"][0].get("unified") or {}).get("rows"))
+        if not has_valid_alts:
+            snap["eoi_backlog_alts"] = [_build_indicative_eoi(target_eoi_code, target_eoi_title, client_pts)]
 
     # 7) Ensure Eligibility Verdict is present (Page 3)
     if not snap.get("eligibility_verdict"):

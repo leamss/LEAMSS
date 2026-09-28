@@ -165,7 +165,7 @@ async def _build_occupation_comparison(
 
     seen_codes = {str(primary.get("code")).strip()} if primary and primary.get("code") else set()
 
-    for key in ("additional_occupations", "alternative_occupations", "ai_alternatives", "occupations", "alternatives"):
+    for key in ("additional_occupations", "alternative_occupations", "alternatives"):
         for ao in (assessment.get(key) or []):
             if isinstance(ao, dict) and ao.get("code"):
                 c_str = str(ao.get("code")).strip()
@@ -177,21 +177,6 @@ async def _build_occupation_comparison(
                 if c_str not in seen_codes:
                     seen_codes.add(c_str)
                     occ_list.append({"code": c_str, "is_primary": False})
-
-    if len(occ_list) < 2 and primary and primary.get("code"):
-        pcode = str(primary.get("code")).strip()
-        pcc = (primary.get("country_code") or "AU").upper()
-        if pcc == "AU" and len(pcode) >= 4:
-            parent_unit = pcode[:4]
-            alts_cursor = OCCUPATION_MASTER.find(
-                {"country_code": "AU", "code": {"$regex": f"^{parent_unit}", "$ne": pcode}},
-                {"_id": 0, "code": 1, "title": 1, "country_code": 1, "assessing_body": 1, "pathway": 1}
-            ).limit(2)
-            alts = await alts_cursor.to_list(2)
-            for a in alts:
-                if a.get("code") and a["code"] not in seen_codes:
-                    seen_codes.add(a["code"])
-                    occ_list.append({**a, "is_primary": False})
 
     if len(occ_list) < 2:
         return None
@@ -571,7 +556,7 @@ async def _build_snapshot(
                             eoi_backlog_alts.append(alt_eoi)
 
         alt_candidates = []
-        for key in ("additional_occupations", "alternative_occupations", "ai_alternatives", "occupations", "alternatives"):
+        for key in ("additional_occupations", "alternative_occupations", "alternatives"):
             val = assessment.get(key)
             if isinstance(val, list):
                 alt_candidates.extend(val)

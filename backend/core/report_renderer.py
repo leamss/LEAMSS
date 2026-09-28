@@ -372,7 +372,7 @@ def _section_process_and_cost(snap, styles):
     steps = [
         ("1. Pre-Assessment", "Submit profile + supporting documents for review."),
         ("2. Admin Approval", "Internal verification + first approval."),
-        ("3. AI Proposal Generation", "Personalised proposal with detailed pricing + timeline."),
+        ("3. Proposal Generation", "Personalised proposal with detailed pricing + timeline."),
         ("4. Consent + Main Fee Payment", "Sign agreement + complete payment via secure portal."),
         ("5. Case Manager Assignment", "Dedicated CM contacts the client + provides detailed checklist."),
         ("6. Skill Assessment Lodgement", "Documents lodged with the relevant assessing authority."),
