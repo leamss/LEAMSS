@@ -325,6 +325,10 @@ export default function Cockpit() {
     }
   };
 
+  const unpaidLeadCards = useMemo(() => {
+    return cards.filter(c => c.type === 'lead' && !c.is_paid);
+  }, [cards]);
+
   const handleSendPaymentLink = async (leadIds) => {
     const ids = Array.isArray(leadIds) ? leadIds : [leadIds];
     if (!ids.length) return;
@@ -334,19 +338,48 @@ export default function Cockpit() {
       setBulkActionLoading(false);
       fetchAll();
       const firstRes = res.data?.results?.[0];
-      if (firstRes?.whatsapp_sent && firstRes?.email_sent) {
-        alert(`✓ Payment link sent successfully via Email & WhatsApp!`);
-      } else if (firstRes?.email_sent && !firstRes?.whatsapp_sent) {
-        alert(`✓ Email sent! (WhatsApp: ${firstRes?.errors?.join(', ') || 'Pending reply'}). You can also click the green WhatsApp button on the card to send directly via WhatsApp!`);
-      } else if (firstRes?.whatsapp_sent && !firstRes?.email_sent) {
-        alert(`✓ Payment link sent via WhatsApp!`);
+      if (ids.length === 1 && firstRes) {
+        if (firstRes.whatsapp_sent && firstRes.email_sent) {
+          alert(`✓ Payment link sent successfully via Email & WhatsApp!`);
+        } else if (firstRes.email_sent && !firstRes.whatsapp_sent) {
+          alert(`✓ Email sent! (WhatsApp: ${firstRes.errors?.join(', ') || 'Pending'}).`);
+        } else if (firstRes.whatsapp_sent && !firstRes.email_sent) {
+          alert(`✓ Payment link sent via WhatsApp!`);
+        } else {
+          alert(`Dispatched payment link to lead via Email & WhatsApp.`);
+        }
       } else {
-        alert(`Dispatched payment link to ${res.data?.dispatched_count || ids.length} lead(s) via Email & WhatsApp!`);
+        alert(`✓ Dispatched payment link via Email & WhatsApp to ${res.data?.dispatched_count || ids.length} lead(s) with pending payment!`);
       }
     } catch (e) {
       setBulkActionLoading(false);
       alert(e.response?.data?.detail || 'Failed to dispatch payment links');
     }
+  };
+
+  const handleSendPaymentLinkToUnpaid = async () => {
+    let targetIds = [];
+    if (selectedLeadIds.length > 0) {
+      const selectedUnpaid = selectedLeadIds.filter(id => unpaidLeadCards.some(c => c.id === id));
+      if (selectedUnpaid.length > 0) {
+        targetIds = selectedUnpaid;
+      } else {
+        alert('None of the selected leads have pending payment (red button). Please select leads with pending payment or clear selection to send to all pending leads.');
+        return;
+      }
+    } else {
+      targetIds = unpaidLeadCards.map(c => c.id);
+    }
+
+    if (!targetIds.length) {
+      alert('No leads with pending payment (red button) found in this view.');
+      return;
+    }
+
+    const confirmMsg = `Send Navratri Special Offer payment link (₹999) via Email & WhatsApp to ${targetIds.length} candidate(s) whose payment is pending?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    await handleSendPaymentLink(targetIds);
   };
 
   const handleMarkPaid = async (leadId) => {
@@ -833,6 +866,17 @@ export default function Cockpit() {
               </label>
 
               <button
+                type="button"
+                onClick={handleSendPaymentLinkToUnpaid}
+                disabled={bulkActionLoading || unpaidLeadCards.length === 0}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-extrabold text-white shadow-md flex items-center gap-1.5 transition-all hover:opacity-90 cursor-pointer disabled:opacity-50"
+                style={{ background: '#DC2626' }}
+                title="Send Navratri Special Offer payment link (₹999) via Email & WhatsApp to all leads whose payment is pending (red button)"
+              >
+                <CreditCard className="h-3.5 w-3.5" /> 💳 Send Payment Link (Email + WA) {unpaidLeadCards.length > 0 ? `(${unpaidLeadCards.length})` : ''}
+              </button>
+
+              <button
                 onClick={() => handleNavratriBulkPreAssessment([])}
                 className="px-3.5 py-1.5 rounded-lg text-xs font-extrabold text-white shadow-md flex items-center gap-1.5 transition-all hover:opacity-90 cursor-pointer"
                 style={{ background: '#0F766E' }}
@@ -943,6 +987,18 @@ export default function Cockpit() {
                 data-testid="cockpit-search-input"
               />
             </div>
+
+            {/* Send Payment Link to Unpaid / Pending Leads */}
+            <button
+              type="button"
+              onClick={handleSendPaymentLinkToUnpaid}
+              disabled={bulkActionLoading || unpaidLeadCards.length === 0}
+              className="px-3 py-1.5 rounded-md border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm hover:opacity-90 cursor-pointer disabled:opacity-50"
+              style={{ borderColor: '#DC2626', background: '#FEF2F2', color: '#991B1B' }}
+              title="Send Navratri Special Offer payment link via Email & WhatsApp to all leads whose payment is pending (red button)"
+            >
+              <CreditCard className="h-3.5 w-3.5 text-red-600" /> 🔴 Send Payment Link to Pending {unpaidLeadCards.length > 0 ? `(${unpaidLeadCards.length})` : ''}
+            </button>
 
             {/* Paid (Report Pending) Bulk Pre-Assessment */}
             <button
