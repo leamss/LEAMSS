@@ -250,8 +250,6 @@ export default function BulkPreAssessment() {
     }
   };
 
-  useEffect(() => { loadBatches(); }, [loadBatches]);
-
   const refreshEmailCfg = useCallback(async () => {
     try {
       const r = await axios.get(`${API}/bulk-assessments/email-config`, { headers });
