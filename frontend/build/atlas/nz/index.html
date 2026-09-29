@@ -907,6 +907,12 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     });
   }
 
+  function getApiEndpoint(q) {
+    var host = window.location.hostname;
+    var base = (host === 'localhost' || host === '127.0.0.1') ? '/api' : 'https://api.leamss.com/api';
+    return base + '/public-atlas/' + countryCode + '/list?search=' + encodeURIComponent(q) + '&limit=100';
+  }
+
   async function performSearch(q) {
     q = (q || '').trim();
     if (!q) {
@@ -934,10 +940,11 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     currentController = new AbortController();
     
     try {
-      var resp = await fetch('/api/public-atlas/' + countryCode + '/list?search=' + encodeURIComponent(q) + '&limit=100', {
+      var apiUrl = getApiEndpoint(q);
+      var resp = await fetch(apiUrl, {
         signal: currentController.signal
       });
-      if (!resp.ok) throw new Error('Search request failed');
+      if (!resp.ok) throw new Error('Search request failed (' + resp.status + ')');
       var data = await resp.json();
       var items = data.items || [];
       
