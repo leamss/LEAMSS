@@ -669,6 +669,10 @@ def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, 
 
 def _shape_for_card(d: Dict[str, Any]) -> Dict[str, Any]:
     """Compact shape for list / featured cards (smaller payload)."""
+    aa = d.get("assessing_authority") or {}
+    aa_name = aa.get("name") or aa.get("code") or ""
+    pw = d.get("visa_pathways") or {}
+    rec_visa = pw.get("recommended_visa") or ""
     return {
         "country_code": d.get("country_code"),
         "code": d.get("code"),
@@ -677,6 +681,8 @@ def _shape_for_card(d: Dict[str, Any]) -> Dict[str, Any]:
         "teer_category": d.get("teer_category"),
         "nz_green_list_tier": d.get("nz_green_list_tier"),
         "hierarchy": (d.get("hierarchy") or {}).get("unit_group_name"),
+        "assessing_authority_name": aa_name,
+        "recommended_visa": rec_visa,
         "verified": (d.get("status") or "") == "verified",
     }
 
@@ -803,7 +809,8 @@ async def list_country(
     else:
         total = await db["occupation_master"].count_documents(match)
     proj = {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
-            "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1}
+            "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
+            "assessing_authority": 1, "visa_pathways": 1}
     cursor = db["occupation_master"].find(match, proj).sort("code", 1).skip(offset).limit(limit)
     items = [_shape_for_card(d) async for d in cursor]
 

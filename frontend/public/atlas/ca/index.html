@@ -935,5 +935,135 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 </footer>
 
 <div id="root"></div>
+<script>
+(function() {
+  var form = document.querySelector('form.search-bar');
+  var input = form ? form.querySelector('input[name="q"]') : null;
+  var grid = document.querySelector('.occ-grid');
+  var meta = document.querySelector('.section-title-meta');
+  var countryCode = "CA";
+  var countryLower = "ca";
+  var classification = "NOC";
+  
+  if (!form || !input || !grid) return;
+  
+  var initialGridHtml = grid.innerHTML;
+  var initialMetaText = meta ? meta.textContent : '';
+  var debounceTimer = null;
+  var currentController = null;
+  
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+    });
+  }
+
+  async function performSearch(q) {
+    q = (q || '').trim();
+    if (!q) {
+      grid.innerHTML = initialGridHtml;
+      if (meta) meta.textContent = initialMetaText;
+      if (window.history.replaceState) {
+        var url = new URL(window.location);
+        url.searchParams.delete('q');
+        window.history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+      }
+      return;
+    }
+    
+    if (window.history.replaceState) {
+      var url = new URL(window.location);
+      url.searchParams.set('q', q);
+      window.history.replaceState(null, '', url.pathname + url.search);
+    }
+    
+    if (meta) meta.textContent = 'Searching ' + escapeHtml(q) + '...';
+    
+    if (currentController) {
+      currentController.abort();
+    }
+    currentController = new AbortController();
+    
+    try {
+      var resp = await fetch('/api/public-atlas/' + countryCode + '/list?search=' + encodeURIComponent(q) + '&limit=100', {
+        signal: currentController.signal
+      });
+      if (!resp.ok) throw new Error('Search request failed');
+      var data = await resp.json();
+      var items = data.items || [];
+      
+      if (meta) {
+        meta.textContent = 'Found ' + items.length + ' matching occupation' + (items.length === 1 ? '' : 's') + ' for "' + q + '"';
+      }
+      
+      if (items.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 48px 20px; text-align: center; background: #fff; border-radius: 16px; border: 1px dashed var(--border);">' +
+          '<div style="font-size: 32px; margin-bottom: 10px;">🔍</div>' +
+          '<h3 style="font-size: 19px; font-weight: 700; margin-bottom: 8px; color: var(--ink);">No occupations found matching "' + escapeHtml(q) + '"</h3>' +
+          '<p style="font-size: 14px; color: var(--muted); margin-bottom: 20px;">Try searching by occupation code (e.g. 261313) or general title (e.g. Engineer, Chef, Nurse).</p>' +
+          '<a class="btn btn-primary" href="/start">Free Eligibility Check →</a>' +
+        '</div>';
+        return;
+      }
+      
+      var html = '';
+      for (var i = 0; i < items.length; i++) {
+        var o = items[i];
+        var code = escapeHtml(o.code);
+        var title = escapeHtml(o.title || '—');
+        var authName = escapeHtml(o.assessing_authority_name || (countryCode === 'AU' ? 'LEAMSS verified' : 'Verified'));
+        
+        var pillHtml = '';
+        if (o.recommended_visa) {
+          pillHtml += '<span class="pill-sm pill-sm-amber">⭐ Recommended visa · ' + escapeHtml(o.recommended_visa) + '</span>';
+        }
+        if (o.skill_level !== undefined && o.skill_level !== null && o.skill_level !== '') {
+          pillHtml += '<span class="pill-sm pill-sm-slate">Skill Level ' + escapeHtml(o.skill_level) + '</span>';
+        } else if (o.teer_category !== undefined && o.teer_category !== null && o.teer_category !== '') {
+          pillHtml += '<span class="pill-sm pill-sm-slate">TEER ' + escapeHtml(o.teer_category) + '</span>';
+        }
+        pillHtml += '<span class="pill-sm pill-sm-emerald">✓ Verified</span>';
+        
+        html += '<a class="occ-card" href="/atlas/' + countryLower + '/' + code + '/" data-testid="occ-card-' + code + '">' +
+          '<div class="code-chip">' + classification + ' ' + code + '</div>' +
+          '<div class="title">' + title + '</div>' +
+          '<div class="pill-row">' + pillHtml + '</div>' +
+          '<div class="meta">' +
+            '<span>' + authName + '</span>' +
+            '<span class="arrow" aria-hidden="true">↗</span>' +
+          '</div>' +
+        '</a>';
+      }
+      grid.innerHTML = html;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      if (meta) meta.textContent = 'Search error. Please try again.';
+    }
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    performSearch(input.value);
+  });
+
+  input.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function() {
+      performSearch(input.value);
+    }, 250);
+  });
+
+  // Pre-fill and search if URL has ?q= parameter on page load
+  try {
+    var initialParams = new URLSearchParams(window.location.search);
+    var initialQ = initialParams.get('q');
+    if (initialQ) {
+      input.value = initialQ;
+      performSearch(initialQ);
+    }
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>
