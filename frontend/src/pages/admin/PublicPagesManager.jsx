@@ -133,17 +133,26 @@ function UrlsTab({ headers }) {
     return () => { active = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const copyLink = (url) => {
-    navigator.clipboard.writeText(url);
+  const formatLiveUrl = (url, path) => {
+    if (path) return `https://app.leamss.com${path}`;
+    if (url) return url.replace(/^https?:\/\/(www\.)?leamss\.com/, 'https://app.leamss.com');
+    return 'https://app.leamss.com';
+  };
+
+  const copyLink = (url, path) => {
+    const live = formatLiveUrl(url, path);
+    navigator.clipboard.writeText(live);
     showFlash('Link copied!');
   };
-  const whatsappShare = (url, title) => {
-    const msg = encodeURIComponent(`Check out the ${title} migration guide on LEAMSS Atlas:\n\n${url}`);
+  const whatsappShare = (url, path, title) => {
+    const live = formatLiveUrl(url, path);
+    const msg = encodeURIComponent(`Check out the ${title} migration guide on LEAMSS Atlas:\n\n${live}`);
     window.open(`https://wa.me/?text=${msg}`, '_blank');
   };
-  const emailShare = (url, title) => {
+  const emailShare = (url, path, title) => {
+    const live = formatLiveUrl(url, path);
     const subj = encodeURIComponent(`LEAMSS Migration Guide — ${title}`);
-    const body = encodeURIComponent(`Hi,\n\nThought you might find this useful — full migration guide for ${title}:\n\n${url}\n\nBest,\nLEAMSS Team`);
+    const body = encodeURIComponent(`Hi,\n\nThought you might find this useful — full migration guide for ${title}:\n\n${live}\n\nBest,\nLEAMSS Team`);
     window.location.href = `mailto:?subject=${subj}&body=${body}`;
   };
 
@@ -223,11 +232,11 @@ function UrlsTab({ headers }) {
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex justify-end gap-1">
-                    <IconBtn icon={ExternalLink} title="Preview"      onClick={() => window.open(r.url, '_blank')} testid={`url-preview-${r.path.replace(/\//g, '-')}`} />
-                    <IconBtn icon={Copy}         title="Copy link"    onClick={() => copyLink(r.url)} testid={`url-copy-${r.path.replace(/\//g, '-')}`} />
-                    <IconBtn icon={MessageCircle} title="WhatsApp"    onClick={() => whatsappShare(r.url, r.title)} testid={`url-wa-${r.path.replace(/\//g, '-')}`} color="#25D366" />
-                    <IconBtn icon={Mail}         title="Email"        onClick={() => emailShare(r.url, r.title)} testid={`url-email-${r.path.replace(/\//g, '-')}`} />
-                    <IconBtn icon={QrCode}       title="QR Code"      onClick={() => setQrTarget(r)} testid={`url-qr-${r.path.replace(/\//g, '-')}`} />
+                    <IconBtn icon={ExternalLink} title="Preview"      onClick={() => window.open(formatLiveUrl(r.url, r.path), '_blank')} testid={`url-preview-${r.path.replace(/\//g, '-')}`} />
+                    <IconBtn icon={Copy}         title="Copy link"    onClick={() => copyLink(r.url, r.path)} testid={`url-copy-${r.path.replace(/\//g, '-')}`} />
+                    <IconBtn icon={MessageCircle} title="WhatsApp"    onClick={() => whatsappShare(r.url, r.path, r.title)} testid={`url-wa-${r.path.replace(/\//g, '-')}`} color="#25D366" />
+                    <IconBtn icon={Mail}         title="Email"        onClick={() => emailShare(r.url, r.path, r.title)} testid={`url-email-${r.path.replace(/\//g, '-')}`} />
+                    <IconBtn icon={QrCode}       title="QR Code"      onClick={() => setQrTarget({ ...r, url: formatLiveUrl(r.url, r.path) })} testid={`url-qr-${r.path.replace(/\//g, '-')}`} />
                   </div>
                 </td>
               </tr>

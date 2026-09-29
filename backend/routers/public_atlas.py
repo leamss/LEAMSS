@@ -67,7 +67,7 @@ def _public_site_url() -> str:
 
     Priority: PUBLIC_SITE_URL env > FRONTEND_URL env > fallback.
     """
-    base = (PUBLIC_SITE_URL or "https://leamss.com").rstrip("/")
+    base = (PUBLIC_SITE_URL or os.environ.get("FRONTEND_URL") or "https://app.leamss.com").rstrip("/")
     if not base.startswith(("http://", "https://")):
         base = "https://" + base
     return base
