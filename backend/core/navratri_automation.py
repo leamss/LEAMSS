@@ -519,22 +519,38 @@ async def send_navratri_payment_link(
 
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
                     sent_tmpl = False
-                    # 1. Primary New Festive Approved Template (leamss_navratri_payment_v1): full multi-line layout with dividers & emojis
+                    # 1. Primary Approved Button Template (leamss_navratri_payment_btn_v1): full multi-line layout with interactive Quick Reply [YES, SEND PAYMENT LINK]
                     try:
                         await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=cold_body_text,
                             client_name=name,
-                            content_sid="HXa305c6f62163719f294cfbba23733082",
+                            content_sid="HXa722573c14f137c11d6f1c22ba45311b",
                             content_variables={
                                 "1": name,
                             },
                         )
                         sent_tmpl = True
-                    except Exception as e_tw_nav:
-                        logger.warning("Twilio HXa305 (leamss_navratri_payment_v1) error: %s; trying fallback...", e_tw_nav)
+                    except Exception as e_tw_btn:
+                        logger.warning("Twilio HXa722 (leamss_navratri_payment_btn_v1) error: %s; trying HXa305...", e_tw_btn)
 
-                    # 2. Approved Fallback Template (leamss_pa_notification_v1): Hello {{1}}, {{2}}
+                    # 2. Festive Template without button (leamss_navratri_payment_v1)
+                    if not sent_tmpl:
+                        try:
+                            await send_whatsapp_text(
+                                to_phone=clean_phone,
+                                text=cold_body_text,
+                                client_name=name,
+                                content_sid="HXa305c6f62163719f294cfbba23733082",
+                                content_variables={
+                                    "1": name,
+                                },
+                            )
+                            sent_tmpl = True
+                        except Exception as e_tw_nav:
+                            logger.warning("Twilio HXa305 (leamss_navratri_payment_v1) error: %s; trying fallback...", e_tw_nav)
+
+                    # 3. Approved Fallback Template (leamss_pa_notification_v1): Hello {{1}}, {{2}}
                     if not sent_tmpl:
                         try:
                             pa_notification_var = (
@@ -633,8 +649,7 @@ async def send_navratri_payment_link(
                 else:
                     # Meta Cloud API / Broadcasting Mode with Interactive Quick Reply Button
                     buttons = [
-                        {"id": "btn_send_payment_link", "title": "💳 Pay Now"},
-                        {"id": "btn_not_now", "title": "Not Now"},
+                        {"id": "yes_send_payment_link", "title": "YES, SEND PAYMENT LINK"},
                     ]
                     await send_whatsapp_interactive_buttons(
                         to_phone=clean_phone,
@@ -647,7 +662,7 @@ async def send_navratri_payment_link(
 
                 await record_chat_message(
                     phone=clean_phone,
-                    text=f"[Payment Pending Notice Dispatched]\n{cold_body_text}\nButton: YES, SEND PAYMENT LINK",
+                    text=f"[Payment Pending Notice Dispatched]\n{cold_body_text}",
                     direction="outbound",
                     sender_type="system",
                     sender_name="LEAMSS Admissions Team",
