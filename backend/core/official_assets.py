@@ -1,11 +1,151 @@
 import io
 from datetime import datetime
+from typing import Optional
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
+import docx
+
+def docx_to_pdf(docx_bytes: bytes, client_name: str = "Valued Applicant") -> bytes:
+    """Convert Microsoft Word DOCX bytes into a genuine ReportLab PDF."""
+    try:
+        doc_in = docx.Document(io.BytesIO(docx_bytes))
+    except Exception:
+        return generate_official_sla_pdf(client_name=client_name)
+
+    buf = io.BytesIO()
+    doc_out = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=40,
+        rightMargin=40,
+        topMargin=40,
+        bottomMargin=40
+    )
+
+    styles = getSampleStyleSheet()
+    teal = colors.HexColor("#12433B")
+    gold = colors.HexColor("#C99A3B")
+    slate = colors.HexColor("#334155")
+    dark = colors.HexColor("#0F172A")
+    gray_bg = colors.HexColor("#F8FAFC")
+    border_color = colors.HexColor("#CBD5E1")
+
+    h1_style = ParagraphStyle(
+        "DocxH1",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        leading=15,
+        textColor=teal,
+        spaceBefore=10,
+        spaceAfter=4,
+    )
+
+    h2_style = ParagraphStyle(
+        "DocxH2",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=9.5,
+        leading=13,
+        textColor=slate,
+        spaceBefore=6,
+        spaceAfter=2,
+    )
+
+    body_style = ParagraphStyle(
+        "DocxBody",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=8.5,
+        leading=12,
+        textColor=dark,
+        spaceAfter=4,
+    )
+
+    bullet_style = ParagraphStyle(
+        "DocxBullet",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=8.5,
+        leading=12,
+        textColor=slate,
+        leftIndent=12,
+        firstLineIndent=-8,
+        spaceAfter=3,
+    )
+
+    story = []
+
+    # Header
+    header_data = [
+        [
+            Paragraph("<b>LADHANI EDUCATION & MIGRATION SERVICES PVT. LTD.</b>", ParagraphStyle("Hdr1", fontName="Helvetica-Bold", fontSize=12, leading=15, textColor=colors.white)),
+            Paragraph("<b>SERVICE LEVEL AGREEMENT (SLA)</b><br/>Global Immigration Division", ParagraphStyle("Hdr2", fontName="Helvetica", fontSize=8, leading=10, textColor=gold, alignment=2))
+        ]
+    ]
+    t_hdr = Table(header_data, colWidths=[350, 165])
+    t_hdr.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), teal),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("PADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(t_hdr)
+    story.append(Spacer(1, 10))
+
+    # Add paragraphs from DOCX
+    for p in doc_in.paragraphs:
+        txt = p.text.strip()
+        if not txt:
+            continue
+        
+        # Replace empty client name if present
+        if txt.startswith("Name:") and len(txt) < 10 and client_name:
+            txt = f"Name: {client_name}"
+        
+        # Heading detection
+        if any(txt.startswith(prefix) for prefix in ["CLIENT DETAILS", "ANNEXURE", "Annexure", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "Stage 1", "Stage 2", "Stage 3", "LEAMSS Services", "Working together"]):
+            story.append(Paragraph(f"<b>{txt}</b>", h1_style))
+        elif txt.startswith("•") or txt.startswith("-") or txt.startswith("*"):
+            clean_txt = txt.lstrip("•-* ").strip()
+            story.append(Paragraph(f"• {clean_txt}", bullet_style))
+        else:
+            is_bold = any(run.bold for run in p.runs) if p.runs else False
+            if is_bold and len(txt) < 80:
+                story.append(Paragraph(f"<b>{txt}</b>", h2_style))
+            else:
+                story.append(Paragraph(txt, body_style))
+
+    # Add tables from DOCX
+    for t in doc_in.tables:
+        t_data = []
+        for row in t.rows:
+            row_cells = []
+            for cell in row.cells:
+                cell_txt = cell.text.strip()
+                row_cells.append(Paragraph(cell_txt or "-", body_style))
+            if row_cells:
+                t_data.append(row_cells)
+        if t_data:
+            num_cols = max(len(r) for r in t_data)
+            col_w = 515 / num_cols
+            t_elem = Table(t_data, colWidths=[col_w] * num_cols)
+            t_elem.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), gray_bg),
+                ("BOX", (0, 0), (-1, -1), 1, border_color),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, border_color),
+                ("PADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.append(Spacer(1, 6))
+            story.append(t_elem)
+            story.append(Spacer(1, 6))
+
+    doc_out.build(story)
+    return buf.getvalue()
+
 
 def generate_official_sla_pdf(client_name: str = "Valued Applicant", country: str = "Australia") -> bytes:
     buf = io.BytesIO()
@@ -23,7 +163,6 @@ def generate_official_sla_pdf(client_name: str = "Valued Applicant", country: st
     teal = colors.HexColor("#12433B")
     teal_light = colors.HexColor("#EBF3F1")
     gold = colors.HexColor("#C99A3B")
-    orange = colors.HexColor("#D4633F")
     slate = colors.HexColor("#334155")
     dark = colors.HexColor("#0F172A")
     gray_bg = colors.HexColor("#F8FAFC")
@@ -36,7 +175,7 @@ def generate_official_sla_pdf(client_name: str = "Valued Applicant", country: st
         fontSize=16,
         leading=20,
         textColor=teal,
-        alignment=1, # Centered
+        alignment=1,
     )
     
     subtitle_style = ParagraphStyle(
@@ -60,30 +199,10 @@ def generate_official_sla_pdf(client_name: str = "Valued Applicant", country: st
         spaceAfter=4,
     )
 
-    h2_style = ParagraphStyle(
-        "SlaH2",
-        parent=styles["Normal"],
-        fontName="Helvetica-Bold",
-        fontSize=10,
-        leading=14,
-        textColor=slate,
-        spaceBefore=6,
-        spaceAfter=2,
-    )
-
     body_style = ParagraphStyle(
         "SlaBody",
         parent=styles["Normal"],
         fontName="Helvetica",
-        fontSize=8.5,
-        leading=12.5,
-        textColor=dark,
-    )
-
-    body_bold = ParagraphStyle(
-        "SlaBodyBold",
-        parent=styles["Normal"],
-        fontName="Helvetica-Bold",
         fontSize=8.5,
         leading=12.5,
         textColor=dark,
@@ -286,8 +405,22 @@ def generate_official_sla_pdf(client_name: str = "Valued Applicant", country: st
     return buf.getvalue()
 
 
+def ensure_valid_sla_pdf(raw_data: Optional[bytes] = None, client_name: str = "Valued Applicant", country: str = "Australia") -> bytes:
+    """Ensure SLA data is 100% valid PDF bytes (starting with %PDF). If DOCX, converts to PDF; if none, generates official PDF."""
+    if raw_data:
+        if raw_data.startswith(b"%PDF"):
+            return raw_data
+        if raw_data.startswith(b"PK"):
+            try:
+                converted = docx_to_pdf(raw_data, client_name=client_name)
+                if converted and converted.startswith(b"%PDF"):
+                    return converted
+            except Exception:
+                pass
+    return generate_official_sla_pdf(client_name=client_name, country=country)
+
+
 def generate_official_qr_image(amount_str: str = "80,000", upi_id: str = "7738352427@okbizaxis") -> bytes:
-    # 1. Generate UPI QR
     upi_uri = f"upi://pay?pa={upi_id}&pn=Ladhani%20Education%20and%20Migration%20Services&cu=INR"
     qr = qrcode.QRCode(
         version=1,
@@ -299,31 +432,23 @@ def generate_official_qr_image(amount_str: str = "80,000", upi_id: str = "773835
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="#12433B", back_color="white").convert("RGB")
 
-    # 2. Create card with canvas
     card_w, card_h = 480, 560
     card = Image.new("RGB", (card_w, card_h), "#F8FAFC")
     draw = ImageDraw.Draw(card)
 
-    # Top Header banner (Teal)
     draw.rectangle([(0, 0), (card_w, 80)], fill="#12433B")
-    
-    # Text in banner
     draw.text((card_w // 2, 28), "LEAMSS OFFICIAL PAYMENT QR", fill="#FFFFFF", anchor="mm")
     draw.text((card_w // 2, 54), "Ladhani Education & Migration Services Pvt. Ltd.", fill="#C99A3B", anchor="mm")
 
-    # Paste QR in center
     qr_x = (card_w - qr_img.width) // 2
     qr_y = 100
-    # White background with border behind QR
     draw.rectangle([(qr_x - 6, qr_y - 6), (qr_x + qr_img.width + 6, qr_y + qr_img.height + 6)], fill="#FFFFFF", outline="#CBD5E1", width=2)
     card.paste(qr_img, (qr_x, qr_y))
 
-    # UPI & Banking Details at bottom
     text_y = qr_y + qr_img.height + 20
     draw.text((card_w // 2, text_y), f"UPI ID: {upi_id}", fill="#12433B", anchor="mm")
     draw.text((card_w // 2, text_y + 24), "Accepted: Google Pay · PhonePe · Paytm · BHIM · Axis Bank", fill="#64748B", anchor="mm")
     
-    # Bank box
     box_top = text_y + 44
     draw.rectangle([(25, box_top), (card_w - 25, box_top + 100)], fill="#FFFFFF", outline="#12433B", width=1)
     draw.text((38, box_top + 12), "Bank: AXIS Bank | Dombivali East Branch", fill="#0F172A")
@@ -334,9 +459,3 @@ def generate_official_qr_image(amount_str: str = "80,000", upi_id: str = "773835
     buf = io.BytesIO()
     card.save(buf, format="PNG")
     return buf.getvalue()
-
-if __name__ == "__main__":
-    pdf_bytes = generate_official_sla_pdf("Rohit Sharma", "Australia")
-    print(f"Generated SLA PDF: {len(pdf_bytes)} bytes")
-    qr_bytes = generate_official_qr_image()
-    print(f"Generated QR PNG: {len(qr_bytes)} bytes")

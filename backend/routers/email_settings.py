@@ -285,20 +285,19 @@ async def get_asset(asset: str):
     data = None
     if fid:
         data = await read_asset_bytes(fid)
-    if not data:
-        from core.official_assets import generate_official_sla_pdf, generate_official_qr_image
-        if asset == "sla":
-            data = generate_official_sla_pdf()
-        elif asset == "qr":
-            data = generate_official_qr_image()
-    if not data:
-        raise HTTPException(status_code=404, detail="Asset missing")
     if asset == "sla":
+        from core.official_assets import ensure_valid_sla_pdf
+        pdf_data = ensure_valid_sla_pdf(data)
         return Response(
-            content=data,
+            content=pdf_data,
             media_type="application/pdf",
             headers={"Content-Disposition": 'inline; filename="LEAMSS-Service-Level-Agreement-2026.pdf"'}
         )
+    if not data and asset == "qr":
+        from core.official_assets import generate_official_qr_image
+        data = generate_official_qr_image()
+    if not data:
+        raise HTTPException(status_code=404, detail="Asset missing")
     # infer image type from header
     ctype = "image/png"
     if data[:3] == b"\xff\xd8\xff":
