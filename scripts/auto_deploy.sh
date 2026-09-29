@@ -48,6 +48,8 @@ if [ -f "docker-compose.prod.yml" ]; then
     sudo fuser -k 8001/tcp || true
     sudo fuser -k 3000/tcp || true
     $DC -f docker-compose.prod.yml up -d --build --remove-orphans
+    # Run seed script inside backend container or local python to ensure skill levels in DB
+    $DC -f docker-compose.prod.yml exec -T backend python scripts/seed_au_skill_levels.py || true
 elif [ -f "docker-compose.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker containers..."
     $DC down || true
