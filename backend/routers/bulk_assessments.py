@@ -3133,57 +3133,64 @@ async def _send_row_whatsapp(
                 )
 
                 try:
+                    # 1. Primary Approved UTILITY Template (Guaranteed delivery without Meta 63049 rate limit)
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=name,
-                        content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                        content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
                         content_variables={
                             "1": name,
-                            "2": occ_title,
-                            "3": str(best_pts),
-                            "4": "Subclass 189, 190, 491",
-                            "5": special_off,
+                            "2": ref_id,
+                            "3": occ_title,
+                            "4": str(best_pts),
                         },
                     )
                 except Exception as e_tmpl:
-                    logger.warning("Navratri v5 template fallback in bulk row: %s", e_tmpl)
+                    logger.warning("Primary UTILITY template HX3cfb failed in bulk row: %s; trying HXef46...", e_tmpl)
                     try:
+                        # 2. Approved UTILITY Template with Yes/No
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=name,
-                            content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                            content_sid="HXef46b45b8e6501a39f2dd6cfffafb24c",
                             content_variables={
                                 "1": name,
-                                "2": occ_title,
-                                "3": str(best_pts),
-                                "4": "Subclass 189, 190, 491",
-                                "5": special_off,
+                                "2": ref_id,
+                                "3": occ_title,
+                                "4": str(best_pts),
                             },
                         )
                     except Exception:
                         try:
+                            # 3. Approved UTILITY Notice Template
                             res = await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=msg_text,
                                 client_name=name,
-                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                                content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
                                 content_variables={
                                     "1": name,
                                     "2": ref_id,
-                                    "3": occ_title,
-                                    "4": str(best_pts),
+                                    "3": f"Pre-Assessment Positive Outcome ({occ_title} — {best_pts} pts) is ready. View report: {rep_url}",
                                 },
                             )
                         except Exception:
                             try:
+                                # 4. Approved MARKETING Template (Navratri Offer)
                                 res = await send_whatsapp_text(
                                     to_phone=clean_phone,
                                     text=msg_text,
                                     client_name=name,
-                                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                                    content_variables={"1": name, "2": ref_id},
+                                    content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                                    content_variables={
+                                        "1": name,
+                                        "2": occ_title,
+                                        "3": str(best_pts),
+                                        "4": "Subclass 189, 190, 491",
+                                        "5": special_off,
+                                    },
                                 )
                             except Exception as e_tw_all_fail:
                                 logger.warning("All Twilio content SIDs failed: %s; falling back to interactive/direct send", e_tw_all_fail)
