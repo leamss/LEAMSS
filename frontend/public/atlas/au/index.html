@@ -1073,10 +1073,11 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
       }
       
       if (items.length === 0) {
+        var exampleCode = countryCode === 'CA' ? '21231' : '261313';
         grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 48px 20px; text-align: center; background: #fff; border-radius: 16px; border: 1px dashed var(--border);">' +
           '<div style="font-size: 32px; margin-bottom: 10px;">🔍</div>' +
           '<h3 style="font-size: 19px; font-weight: 700; margin-bottom: 8px; color: var(--ink);">No occupations found matching "' + escapeHtml(q) + '"</h3>' +
-          '<p style="font-size: 14px; color: var(--muted); margin-bottom: 20px;">Try searching by occupation code (e.g. 261313) or general title (e.g. Engineer, Chef, Nurse).</p>' +
+          '<p style="font-size: 14px; color: var(--muted); margin-bottom: 20px;">Try searching by ' + classification + ' code (e.g. ' + exampleCode + ') or general title (e.g. Engineer, Chef, Nurse).</p>' +
           '<a class="btn btn-primary" href="/start">Free Eligibility Check →</a>' +
         '</div>';
         return;

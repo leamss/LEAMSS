@@ -2098,7 +2098,7 @@ export function AtlasCountryV2() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-              placeholder={`Search ${cm.name || country} occupations — e.g., 261313 or Software Engineer`}
+              placeholder={`Search ${cm.name || country} occupations — e.g., ${country === 'CA' ? '21231' : '261313'} or Software Engineer`}
               className="flex-1 outline-none px-2 py-2 text-sm"
               data-testid="atlas-country-search"
             />
