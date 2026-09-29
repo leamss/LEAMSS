@@ -2872,8 +2872,8 @@ async def _send_row_whatsapp(
         except Exception as e:
             logger.warning(f"Could not read PDF from GridFS: {e}")
 
-    sla_url = f"{api_base_origin}/api/email-settings/asset/sla" if (attach_sla_flag and s.get("sla_file_id")) else None
-    qr_url = f"{api_base_origin}/api/email-settings/asset/qr" if (attach_qr_flag and s.get("qr_file_id")) else None
+    sla_url = f"{api_base_origin}/api/email-settings/asset/sla" if attach_sla_flag else None
+    qr_url = f"{api_base_origin}/api/email-settings/asset/qr" if attach_qr_flag else None
 
     # Check candidate resume availability
     has_resume = bool(
@@ -4222,4 +4222,28 @@ async def public_row_resume(row_id: str):
         media_type=m_type,
         headers={"Content-Disposition": f'inline; filename="{resume_fname}"'}
     )
+
+
+@router.get("/public/row/{row_id}/sla.pdf")
+async def public_row_sla_pdf(row_id: str):
+    row = await ROWS.find_one({"id": row_id})
+    name = "Valued Applicant"
+    if row:
+        p = row.get("parsed") or {}
+        name = p.get("name") or "Valued Applicant"
+    from core.official_assets import generate_official_sla_pdf
+    from routers.email_settings import get_settings, read_asset_bytes
+    s = await get_settings()
+    data = None
+    if s.get("sla_file_id"):
+        data = await read_asset_bytes(s["sla_file_id"])
+    if not data:
+        data = generate_official_sla_pdf(client_name=name)
+    fname = s.get("sla_filename") or f"LEAMSS_SLA_{re.sub(r'[^A-Za-z0-9_-]', '_', name)[:30]}.pdf"
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{fname}"'}
+    )
+
 

@@ -282,18 +282,32 @@ async def get_asset(asset: str):
     field = _ASSET_FIELDS[asset]
     s = await SETTINGS.find_one({"id": "global"}, {field: 1})
     fid = (s or {}).get(field)
-    if not fid:
-        raise HTTPException(status_code=404, detail="Asset not set")
-    data = await read_asset_bytes(fid)
+    data = None
+    if fid:
+        data = await read_asset_bytes(fid)
+    if not data:
+        from core.official_assets import generate_official_sla_pdf, generate_official_qr_image
+        if asset == "sla":
+            data = generate_official_sla_pdf()
+        elif asset == "qr":
+            data = generate_official_qr_image()
     if not data:
         raise HTTPException(status_code=404, detail="Asset missing")
     if asset == "sla":
-        return Response(content=data, media_type="application/pdf")
+        return Response(
+            content=data,
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'inline; filename="LEAMSS-Service-Level-Agreement-2026.pdf"'}
+        )
     # infer image type from header
     ctype = "image/png"
     if data[:3] == b"\xff\xd8\xff":
         ctype = "image/jpeg"
-    return Response(content=data, media_type=ctype, headers={"Cache-Control": "public, max-age=300"})
+    return Response(
+        content=data,
+        media_type=ctype,
+        headers={"Cache-Control": "public, max-age=300", "Content-Disposition": f'inline; filename="LEAMSS-{asset.upper()}.png"'}
+    )
 
 
 class TestEmailRequest(BaseModel):
