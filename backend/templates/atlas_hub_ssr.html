@@ -175,7 +175,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
           </div>
           <div class="stats-row">
             <div>
-              <div class="big-stat">{{ c.count }}</div>
+              <div class="big-stat">{{ '{:,}'.format(c.count) }}</div>
               <div class="stat-sub">verified occupations</div>
             </div>
             <span class="arrow" aria-hidden="true">↗</span>

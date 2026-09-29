@@ -410,9 +410,9 @@ function Hero({ content }) {
         {/* Right column: 3 country stacked cards */}
         <div className="lg:col-span-5 grid grid-cols-1 gap-3">
           {[
-            { code: 'AU', name: 'Australia', desc: 'ANZSCO · 932 verified codes', img: COUNTRY_HERO.AU },
-            { code: 'CA', name: 'Canada',    desc: 'NOC 2021 · Express Entry + 11 PNPs', img: COUNTRY_HERO.CA },
-            { code: 'NZ', name: 'New Zealand', desc: 'Green List Tier 1 + Tier 2 · AEWV', img: COUNTRY_HERO.NZ },
+            { code: 'AU', name: 'Australia', desc: 'ANZSCO · 1,236 verified codes', img: COUNTRY_HERO.AU },
+            { code: 'CA', name: 'Canada',    desc: 'NOC 2021 · 516 verified codes', img: COUNTRY_HERO.CA },
+            { code: 'NZ', name: 'New Zealand', desc: 'ANZSCO · 246 verified codes', img: COUNTRY_HERO.NZ },
           ].map((c, i) => (
             <motion.div
               key={c.code}
@@ -1962,7 +1962,7 @@ export function AtlasHubV2() {
               <span style={{ color: BRAND.accent, fontStyle: 'italic' }}>Indian professionals</span>
             </h1>
             <p className="mt-5 text-base sm:text-lg leading-relaxed max-w-2xl" style={{ color: BRAND.body }}>
-              1,500+ verified ANZSCO + NOC 2021 codes for Australia, Canada & New Zealand migration.
+              1,900+ verified ANZSCO + NOC 2021 codes for Australia, Canada & New Zealand migration.
               Visa pathways, eligibility, salary trends, assessing-body requirements — updated for 2026.
             </p>
             <div className="mt-7 flex gap-3 flex-wrap">

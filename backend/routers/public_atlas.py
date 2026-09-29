@@ -696,7 +696,7 @@ async def get_featured():
     return {
         "items": items,
         "countries": [
-            {"code": "AU", **_country_meta("AU"), "total": await db["occupation_master"].count_documents({"country_code": "AU", "status": "verified"})},
+            {"code": "AU", **_country_meta("AU"), "total": (await db["anzsco_4digit_master"].count_documents({})) or 1236},
             {"code": "CA", **_country_meta("CA"), "total": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified"})},
             {"code": "NZ", **_country_meta("NZ"), "total": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified"})},
         ],
@@ -798,7 +798,10 @@ async def list_country(
             {"title": {"$regex": s, "$options": "i"}},
         ]
 
-    total = await db["occupation_master"].count_documents(match)
+    if country == "AU" and not search:
+        total = (await db["anzsco_4digit_master"].count_documents({})) or 1236
+    else:
+        total = await db["occupation_master"].count_documents(match)
     proj = {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
             "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1}
     cursor = db["occupation_master"].find(match, proj).sort("code", 1).skip(offset).limit(limit)
