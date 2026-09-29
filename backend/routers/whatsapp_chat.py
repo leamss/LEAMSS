@@ -601,8 +601,6 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                     f"📄 *ATTACHED DOCUMENTS*\n"
                     f"📎 *Official Pre-Assessment Report:* Detailed 23-page points evaluation attached.\n"
                     f"📎 *Candidate Resume:* Your assessed Resume / CV attached.\n\n"
-                    f"🔗 *View your full diagnostic report online:*\n"
-                    f"{report_url}\n\n"
                     f"💬 *Reply directly to this chat* if you have any questions."
                 )
             else:

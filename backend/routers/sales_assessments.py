@@ -1965,8 +1965,6 @@ async def send_assessment_whatsapp(
         "📄 *ATTACHED DOCUMENTS*\n"
         "📎 *Pre-Assessment Report:* 23-page evaluation & roadmap attached.\n"
         "📎 *Candidate Resume:* Your assessed Resume / CV attached.\n\n"
-        "🔗 *View your full diagnostic report online:*\n"
-        "{report_url}\n\n"
         "💬 *Reply directly to this chat* if you have any questions.\n\n"
         "Warm Regards,\n"
         "*{consultant_name}*\n"

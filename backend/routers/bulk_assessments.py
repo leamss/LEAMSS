@@ -2633,8 +2633,6 @@ DEFAULT_WHATSAPP_NOT_ELIGIBLE_TEXT = (
     "📄 ATTACHED DOCUMENTS\n"
     "📎 Official Pre-Assessment Report: Detailed 23-page points evaluation & roadmap attached.\n"
     "📎 Candidate Resume: Your assessed Resume / CV attached for your reference.\n\n"
-    "🔗 View your assessment online:\n"
-    "{report_url}\n\n"
     "💬 Reply directly to this chat if you have any questions.\n\n"
     "Warm Regards,\n"
     "LEAMSS Migration Team\n"
