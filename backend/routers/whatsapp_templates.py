@@ -86,7 +86,7 @@ _STARTERS = [
             "🏆 Score: {points} points\n"
             "🎯 Recommended Pathway: Subclass {best_subclass}\n\n"
             "📧 For Registration ID: Please check your registered email.\n\n"
-            "📄 Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
+            "📄 Your official 23-page Pre-Assessment Report, Service Level Agreement (SLA), and relevant documentation are attached with this message.\n\n"
             "🌐 Explore LEAMSS Immigration:\n"
             "https://leamss.com\n\n"
             "✨ NAVRATRI SPECIAL IMMIGRATION OFFER\n"
@@ -100,9 +100,6 @@ _STARTERS = [
             "🏦 International Bank Account Details:\n"
             "For international payment and bank account details, visit:\n"
             "https://leamss.com/pay-now\n\n"
-            "🤝 Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
-            "Book a consultation with our LEAMSS Immigration Expert and discuss your next steps.\n\n"
-            "Button: YES, BOOK A CONSULTATION\n\n"
             "LEAMSS Immigration — Your Success, Our Dream."
         ),
         "is_default": True,

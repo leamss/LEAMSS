@@ -2601,7 +2601,7 @@ DEFAULT_WHATSAPP_ELIGIBLE_TEXT = (
     "🏆 Score: {points} points\n"
     "🎯 Recommended Pathway: Subclass {best_subclass}\n\n"
     "📧 For Registration ID: Please check your registered email.\n\n"
-    "📄 Your 23-page Assessment Report & documents are attached.\n\n"
+    "📄 Your official 23-page Pre-Assessment Report, Service Level Agreement (SLA) & documents are attached.\n\n"
     "🌐 Explore LEAMSS: https://leamss.com\n\n"
     "✨ NAVRATRI SPECIAL IMMIGRATION OFFER\n"
     "Take the next step towards Australia with our exclusive offer.\n"
@@ -2613,8 +2613,7 @@ DEFAULT_WHATSAPP_ELIGIBLE_TEXT = (
     "https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view\n\n"
     "🏦 International Bank Details:\n"
     "https://leamss.com/pay-now\n\n"
-    "🤝 Want to know more about the offer, lucky draw, or visa pathway?\n"
-    "Book a consultation with our LEAMSS Immigration Expert."
+    "LEAMSS Immigration — Your Success, Our Dream."
 )
 
 DEFAULT_WHATSAPP_NOT_ELIGIBLE_TEXT = (
@@ -3103,7 +3102,6 @@ async def _send_row_whatsapp(
                                         body_text=f"Hello {name},\n\nYour Australia PR profile evaluation summary is ready.\n\nClick below to view your full diagnostic report and improvement pathways:",
                                         buttons=[
                                             {"id": "btn_send_report", "title": "View Report"},
-                                            {"id": "btn_book_consultation", "title": "Consult Expert"},
                                         ],
                                         header_text="LEAMSS — Assessment Outcome",
                                         footer_text="Ladhani Education & Migration Services",
@@ -3290,7 +3288,6 @@ async def _send_row_whatsapp(
                     body_text=f"Hello {name},\n\nYour Australia PR profile evaluation summary is ready.\n\nClick below to view your full diagnostic report and improvement pathways:",
                     buttons=[
                         {"id": "btn_send_report", "title": "View Report"},
-                        {"id": "btn_book_consultation", "title": "Consult Expert"},
                     ],
                     header_text="LEAMSS — Assessment Outcome",
                     footer_text="Ladhani Education & Migration Services",
@@ -3302,7 +3299,6 @@ async def _send_row_whatsapp(
                     body_text=f"Hello {name}!\n\nYour Australia PR Pre-Assessment Report ({occ or 'Australia PR'} — {best_pts} pts) is ready.\n\nClick below to receive your complete 23-page report and documents on WhatsApp:",
                     buttons=[
                         {"id": "btn_send_report", "title": "Yes, Send Report"},
-                        {"id": "btn_book_consultation", "title": "Book Consultation"},
                     ],
                     header_text="LEAMSS — Assessment Report Ready",
                     footer_text="Ladhani Education & Migration Services",

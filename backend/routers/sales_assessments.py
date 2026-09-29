@@ -1658,7 +1658,7 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
         "🏆 Score: {points} points\n"
         "🎯 Recommended Pathway: Subclass {best_subclass}\n\n"
         "📧 For Registration ID: Please check your registered email.\n\n"
-        "📄 Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
+        "📄 Your official 23-page Pre-Assessment Report, Service Level Agreement (SLA), and relevant documentation are attached with this message.\n\n"
         "🌐 Explore LEAMSS Immigration:\n"
         "https://leamss.com\n\n"
         "✨ NAVRATRI SPECIAL IMMIGRATION OFFER\n"
@@ -1672,9 +1672,6 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
         "🏦 International Bank Account Details:\n"
         "For international payment and bank account details, visit:\n"
         "https://leamss.com/pay-now\n\n"
-        "🤝 Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
-        "Book a consultation with our LEAMSS Immigration Expert and discuss your next steps.\n\n"
-        "Button: YES, BOOK A CONSULTATION\n\n"
         "LEAMSS Immigration — Your Success, Our Dream."
     )
 
@@ -1934,7 +1931,7 @@ async def send_assessment_whatsapp(
         "🏆 Score: {points} points\n"
         "🎯 Recommended Pathway: Subclass {best_subclass}\n\n"
         "📧 For Registration ID: Please check your registered email.\n\n"
-        "📄 Your official 23-page Pre-Assessment Report and relevant documentation are attached with this message.\n\n"
+        "📄 Your official 23-page Pre-Assessment Report, Service Level Agreement (SLA), and relevant documentation are attached with this message.\n\n"
         "🌐 Explore LEAMSS Immigration:\n"
         "https://leamss.com\n\n"
         "✨ NAVRATRI SPECIAL IMMIGRATION OFFER\n"
@@ -1948,9 +1945,6 @@ async def send_assessment_whatsapp(
         "🏦 International Bank Account Details:\n"
         "For international payment and bank account details, visit:\n"
         "https://leamss.com/pay-now\n\n"
-        "🤝 Want to know more about the Navratri Immigration Offer, Lucky Draw eligibility, payment process, or your Australia immigration pathway?\n"
-        "Book a consultation with our LEAMSS Immigration Expert and discuss your next steps.\n\n"
-        "Button: YES, BOOK A CONSULTATION\n\n"
         "LEAMSS Immigration — Your Success, Our Dream."
     )
 
@@ -2404,10 +2398,10 @@ async def send_assessment_whatsapp(
                 logger.warning("Failed to dispatch Report PDF: %s", e_pdf)
 
         # 2b. Attach Service Level Agreement (SLA PDF)
-        if attach_sla_flag and s.get("sla_file_id"):
+        if attach_sla_flag and (s.get("sla_file_id") or sla_url):
             try:
                 await asyncio.sleep(0.5)
-                sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+                sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement-2026.pdf"
                 if is_twilio_mode and sla_url:
                     await send_whatsapp_document_by_url(
                         to_phone=clean_phone,
@@ -2417,7 +2411,10 @@ async def send_assessment_whatsapp(
                     )
                     dispatched_attachments.append("sla_pdf")
                 else:
-                    sla_bytes = await read_asset_bytes(s["sla_file_id"])
+                    sla_bytes = (await read_asset_bytes(s["sla_file_id"])) if s.get("sla_file_id") else None
+                    if not sla_bytes:
+                        from core.official_assets import generate_official_sla_pdf
+                        sla_bytes = generate_official_sla_pdf(client_name=client_name)
                     if sla_bytes:
                         up_sla = await upload_whatsapp_media(sla_bytes, mime_type="application/pdf", filename=sla_fname)
                         if up_sla.get("id"):
@@ -2432,7 +2429,7 @@ async def send_assessment_whatsapp(
                 logger.warning("Failed to dispatch WhatsApp SLA attachment: %s", e)
 
         # 2c. Attach Payment QR Image
-        if attach_qr_flag and s.get("qr_file_id"):
+        if attach_qr_flag and (s.get("qr_file_id") or qr_url):
             try:
                 await asyncio.sleep(0.5)
                 if is_twilio_mode and qr_url:
@@ -2443,7 +2440,10 @@ async def send_assessment_whatsapp(
                     )
                     dispatched_attachments.append("payment_qr")
                 else:
-                    qr_bytes = await read_asset_bytes(s["qr_file_id"])
+                    qr_bytes = (await read_asset_bytes(s["qr_file_id"])) if s.get("qr_file_id") else None
+                    if not qr_bytes:
+                        from core.official_assets import generate_official_qr_image
+                        qr_bytes = generate_official_qr_image()
                     if qr_bytes:
                         up_qr = await upload_whatsapp_media(qr_bytes, mime_type="image/png", filename="LEAMSS-Payment-QR.png")
                         if up_qr.get("id"):

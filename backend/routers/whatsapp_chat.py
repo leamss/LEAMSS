@@ -578,6 +578,12 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                         if not conv.get("pending_report_url") or conv.get("pending_report_url") == "https://leamss.com":
                             report_url = f"https://app.leamss.com/sales/report/{rid}"
 
+                if not is_not_eligible:
+                    if not sla_url:
+                        sla_url = f"{api_base_origin}/api/email-settings/asset/sla"
+                    if not qr_url:
+                        qr_url = f"{api_base_origin}/api/email-settings/asset/qr"
+
             if custom_msg and not any(kw in custom_msg for kw in ["Button:", "NAVRATRI", "Lucky Draw", "Book a consultation with", "Please reply YES", "reply YES"]):
                 reply_msg = custom_msg
             elif is_not_eligible:
@@ -605,7 +611,12 @@ async def handle_inbound_flow_response(clean_phone: str, body_text: str, profile
                     f"📋 *Client:* {client_name}\n"
                     f"🏆 *Score:* {points}/65 Points (Eligible)\n"
                     f"💼 *Occupation:* {occ}\n\n"
-                    f"🔗 *View & Download your Branded 23-Page Assessment Report:*\n"
+                    f"📑 *Attached Documents:*\n"
+                    f"1. 📄 Australia PR Pre-Assessment Report (23 Pages)\n"
+                    f"2. 📑 Official Service Level Agreement (SLA)\n"
+                    f"3. 💳 Official Payment QR & Banking Details\n"
+                    f"4. 📄 Your Assessed Resume / CV\n\n"
+                    f"🔗 *View your assessment online:*\n"
                     f"{report_url}\n\n"
                     f"Our Senior Migration Advisor is reviewing your file and will guide you on visa filing and state nominations. Feel free to reply here if you have any questions!"
                 )
