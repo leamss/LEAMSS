@@ -2595,49 +2595,51 @@ DEFAULT_WHATSAPP_RESUME_TEXT = (
 )
 
 DEFAULT_WHATSAPP_ELIGIBLE_TEXT = (
-    "Hello {name},\n\n"
-    "🎉 *Congratulations!* Your Australia Migration Pre-Assessment from LEAMSS has been completed.\n\n"
-    "📋 *Candidate:* {name}\n"
-    "🎯 *Nominated Occupation:* {occupation} (ANZSCO {code})\n"
-    "🏆 *Immigration Points:* {points} pts (Pass Mark: 65)\n"
-    "🌟 *Recommended Pathway:* Subclass {best_subclass}\n\n"
-    "━━━━━━━━━━━━━━━━━━━━\n"
-    "📄 *ATTACHED OFFICIAL DOCUMENTS:*\n"
-    "• 📑 *Pre-Assessment Report:* Official 23-page points assessment attached.\n"
-    "• 📑 *Service Level Agreement (SLA):* Official contract terms attached.\n"
-    "• 💳 *Payment QR Code:* Fast UPI / Banking details attached.\n"
-    "• 📄 *Candidate Resume:* Assessed Resume / CV attached.\n"
-    "━━━━━━━━━━━━━━━━━━━━\n\n"
-    "✨ *NAVRATRI SPECIAL IMMIGRATION OFFER*\n"
-    "• 🎁 *Offer:* {special_offer}\n"
-    "• 💳 *Payment Link:* {payment_link}\n\n"
-    "Our migration strategy team is available to assist with your next steps.\n"
-    "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+    "Hello {name}! 🎉\n"
+    "Congratulations! Your Australia PR Profile Pre-Assessment outcome is POSITIVE. 🇦🇺✨\n\n"
+    "📋 Occupation: {occupation}\n"
+    "🏆 Score: {points} points\n"
+    "🎯 Recommended Pathway: Subclass {best_subclass}\n\n"
+    "📧 For Registration ID: Please check your registered email.\n\n"
+    "📄 Your 23-page Assessment Report & documents are attached.\n\n"
+    "🌐 Explore LEAMSS: https://leamss.com\n\n"
+    "✨ NAVRATRI SPECIAL IMMIGRATION OFFER\n"
+    "Take the next step towards Australia with our exclusive offer.\n"
+    "🎁 Special Offer: {special_offer}\n\n"
+    "🎟️ NAVRATRI LUCKY DRAW\n"
+    "Pay on or before 10 Oct 2026 to enter our Lucky Draw.\n"
+    "🌟 1 lucky participant gets LEAMSS processing fees completely FREE!\n\n"
+    "💳 Make Full Payment:\n"
+    "https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view\n\n"
+    "🏦 International Bank Details:\n"
+    "https://leamss.com/pay-now\n\n"
+    "🤝 Want to know more about the offer, lucky draw, or visa pathway?\n"
+    "Book a consultation with our LEAMSS Immigration Expert."
 )
 
 DEFAULT_WHATSAPP_NOT_ELIGIBLE_TEXT = (
-    "📋 *Australia PR Pre-Assessment Outcome — NON-ELIGIBLE* ⚠️\n\n"
-    "Hello *{name}*,\n\n"
-    "Thank you for evaluating your Australia PR profile with *LEAMSS* for *{occupation}* (ANZSCO {code}).\n\n"
+    "📄 Australia PR Pre-Assessment Outcome — NON-ELIGIBLE ⚠️\n\n"
+    "Hello {name},\n\n"
+    "Thank you for evaluating your Australia PR profile with LEAMSS for {occupation} (ANZSCO {code}).\n\n"
     "━━━━━━━━━━━━━━━━━━━━\n"
-    "📊 *ASSESSMENT SUMMARY*\n"
-    "• 🎯 *Nominated Occupation:* {occupation} ({code})\n"
-    "• 📈 *Your Indicative Score:* *{points} Points*\n"
-    "• 🏁 *Pass Mark Required:* {pass_mark} Points\n"
-    "• 📑 *Current Status:* *NON-ELIGIBLE* (Below 65 Pass Mark)\n"
+    "📊 ASSESSMENT SUMMARY\n"
+    "• 🎯 Nominated Occupation: {occupation} ({code})\n"
+    "• 📈 Your Indicative Score: {points} Points\n"
+    "• 🏁 Pass Mark Required: {pass_mark} Points\n"
+    "• 📑 Current Status: NON-ELIGIBLE (Points Below 65 Threshold)\n"
     "━━━━━━━━━━━━━━━━━━━━\n\n"
-    "💡 *KEY IMPROVEMENT STEPS:*\n"
-    "{improvements}\n\n"
-    "━━━━━━━━━━━━━━━━━━━━\n"
-    "📄 *ATTACHED DOCUMENTS*\n"
-    "📎 *Pre-Assessment Report:* 23-page evaluation & roadmap attached.\n"
-    "📎 *Candidate Resume:* Your assessed Resume / CV attached.\n\n"
-    "🔗 *View your full diagnostic report online:*\n"
+    "💡 RECOMMENDED IMPROVEMENT ROADMAP:\n"
+    "{improvements}\n"
+    "━━━━━━━━━━━━━━━━━━━━\n\n"
+    "📄 ATTACHED DOCUMENTS\n"
+    "📎 Official Pre-Assessment Report: Detailed 23-page points evaluation & roadmap attached.\n"
+    "📎 Candidate Resume: Your assessed Resume / CV attached for your reference.\n\n"
+    "🔗 View your assessment online:\n"
     "{report_url}\n\n"
-    "💬 *Reply directly to this chat* if you have any questions.\n\n"
+    "💬 Reply directly to this chat if you have any questions.\n\n"
     "Warm Regards,\n"
-    "*{consultant_name}*\n"
-    "*LEAMSS Immigration* — Your Success, Our Dream.\n"
+    "LEAMSS Migration Team\n"
+    "LEAMSS Immigration — Your Success, Our Dream.\n"
     "🌐 https://leamss.com · 📞 +91 77188 82427"
 )
 
@@ -3133,82 +3135,123 @@ async def _send_row_whatsapp(
                 )
 
                 try:
-                    # 1. Primary Approved UTILITY Template (Guaranteed delivery without Meta 63049 rate limit)
+                    # 1. Primary Approved Navratri Offer Template (navratri_immigration_offer_v5)
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=name,
-                        content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                        content_sid="HXe3933b739857ce16642725b9e83a2b35",
                         content_variables={
                             "1": name,
-                            "2": ref_id,
-                            "3": occ_title,
-                            "4": str(best_pts),
+                            "2": occ_title,
+                            "3": str(best_pts),
+                            "4": f"Subclass {subclass}",
+                            "5": special_off,
                         },
                     )
                 except Exception as e_tmpl:
-                    logger.warning("Primary UTILITY template HX3cfb failed in bulk row: %s; trying HXef46...", e_tmpl)
+                    logger.warning("Navratri v5 template HXe393 failed in bulk row: %s; trying HXabf2...", e_tmpl)
                     try:
-                        # 2. Approved UTILITY Template with Yes/No
+                        # 2. Approved Navratri Offer Template v2
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=name,
-                            content_sid="HXef46b45b8e6501a39f2dd6cfffafb24c",
+                            content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
                             content_variables={
                                 "1": name,
-                                "2": ref_id,
-                                "3": occ_title,
-                                "4": str(best_pts),
+                                "2": occ_title,
+                                "3": str(best_pts),
+                                "4": f"Subclass {subclass}",
+                                "5": special_off,
                             },
                         )
                     except Exception:
                         try:
-                            # 3. Approved UTILITY Notice Template
+                            # 3. Approved UTILITY Template with Single Button
                             res = await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=msg_text,
                                 client_name=name,
-                                content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
+                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
                                 content_variables={
                                     "1": name,
                                     "2": ref_id,
-                                    "3": f"Pre-Assessment Positive Outcome ({occ_title} — {best_pts} pts) is ready. View report: {rep_url}",
+                                    "3": occ_title,
+                                    "4": str(best_pts),
                                 },
                             )
                         except Exception:
                             try:
-                                # 4. Approved MARKETING Template (Navratri Offer)
+                                # 4. Approved UTILITY Notice Template
                                 res = await send_whatsapp_text(
                                     to_phone=clean_phone,
                                     text=msg_text,
                                     client_name=name,
-                                    content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                                    content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
                                     content_variables={
                                         "1": name,
-                                        "2": occ_title,
-                                        "3": str(best_pts),
-                                        "4": "Subclass 189, 190, 491",
-                                        "5": special_off,
+                                        "2": ref_id,
+                                        "3": f"Pre-Assessment Positive Outcome ({occ_title} — {best_pts} pts) is ready. View report: {rep_url}",
                                     },
                                 )
                             except Exception as e_tw_all_fail:
-                                logger.warning("All Twilio content SIDs failed: %s; falling back to interactive/direct send", e_tw_all_fail)
-                                try:
-                                    from core.whatsapp_service import send_whatsapp_interactive_buttons
-                                    res = await send_whatsapp_interactive_buttons(
-                                        to_phone=clean_phone,
-                                        body_text=f"Hello {name}!\n\nYour Australia PR Pre-Assessment Report ({occ_title} — {best_pts} pts) is ready.\n\nClick below to receive your complete 23-page report and documents on WhatsApp:",
-                                        buttons=[
-                                            {"id": "btn_send_report", "title": "Yes, Send Report"},
-                                            {"id": "btn_book_consultation", "title": "Book Consultation"},
-                                        ],
-                                        header_text="LEAMSS — Assessment Report Ready",
-                                        footer_text="Ladhani Education & Migration Services",
-                                        client_name=name,
-                                    )
-                                except Exception:
-                                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=name)
+                                logger.warning("All Twilio content SIDs failed: %s; falling back to direct send", e_tw_all_fail)
+                                res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=name)
+
+                # ── Dispatch Attachments for Outreach ──
+                if attach_report_flag and pdf_report_url:
+                    try:
+                        await asyncio.sleep(0.35)
+                        await send_whatsapp_document_by_url(
+                            to_phone=clean_phone,
+                            document_url=pdf_report_url,
+                            filename=rep_fname,
+                            caption=f"📄 Pre-Assessment Report — {name}",
+                        )
+                        dispatched_attachments.append("report_pdf")
+                    except Exception as e_pdf:
+                        logger.warning("Failed to dispatch Report PDF attachment: %s", e_pdf)
+
+                if attach_sla_flag and sla_url:
+                    try:
+                        await asyncio.sleep(0.35)
+                        sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+                        await send_whatsapp_document_by_url(
+                            to_phone=clean_phone,
+                            document_url=sla_url,
+                            filename=sla_fname,
+                            caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
+                        )
+                        dispatched_attachments.append("sla_pdf")
+                    except Exception as e_sla:
+                        logger.warning("Failed to dispatch SLA PDF attachment: %s", e_sla)
+
+                if attach_qr_flag and qr_url:
+                    try:
+                        await asyncio.sleep(0.35)
+                        await send_whatsapp_image_by_url(
+                            to_phone=clean_phone,
+                            image_url=qr_url,
+                            caption="💳 LEAMSS Official Payment QR & Banking Details",
+                        )
+                        dispatched_attachments.append("payment_qr")
+                    except Exception as e_qr:
+                        logger.warning("Failed to dispatch QR image attachment: %s", e_qr)
+
+                if attach_resume_flag and resume_stream_url:
+                    try:
+                        await asyncio.sleep(0.35)
+                        r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
+                        await send_whatsapp_document_by_url(
+                            to_phone=clean_phone,
+                            document_url=resume_stream_url,
+                            filename=r_name,
+                            caption=f"📄 Candidate Resume — {name}",
+                        )
+                        dispatched_attachments.append("resume_file")
+                    except Exception as e_res:
+                        logger.warning("Failed to dispatch resume attachment: %s", e_res)
     else:
         # Meta Cloud API Mode
         if has_active_session:
