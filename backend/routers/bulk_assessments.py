@@ -2580,18 +2580,19 @@ async def email_row(row_id: str, req: RowEmailRequest, current_user: dict = Depe
 
 
 DEFAULT_WHATSAPP_RESUME_TEXT = (
-    "📄 Resume Required for Assessment\n\n"
-    "Hello {name},\n"
-    "To complete your Australia PR Pre-Assessment and accurately calculate your immigration points score, please upload your latest Resume / CV.\n\n"
-    "📎 Upload your Resume / CV using the link below:\n"
+    "🌟 *LEAMSS — Australia PR Pre-Assessment*\n\n"
+    "Dear {name},\n\n"
+    "We're excited to prepare your personalised Australia PR Pre-Assessment. To complete it accurately, our team needs your latest resume / CV. It only takes a minute — just click the secure link below and upload your resume.\n\n"
+    "📄 *Upload your resume securely:*\n"
     "{upload_url}\n\n"
-    "Our LEAMSS Immigration Team will review your profile and assess your qualifications, professional experience, occupation, skills and immigration eligibility.\n\n"
-    "⏱️ Once your resume is submitted, our team will review your profile and proceed with your Pre-Assessment.\n\n"
-    "Please ensure you upload your latest and updated Resume / CV in PDF or document format.\n\n"
-    "Thank you,\n"
-    "LEAMSS Immigration Team\n"
-    "LEAMSS — Your Success, Our Dream.\n\n"
-    "Button: 🟢 UPLOAD RESUME"
+    "*What Happens Next:*\n"
+    "1️⃣ Click the link and upload your resume (PDF or Word).\n"
+    "2️⃣ Our team matches your best ANZSCO occupation.\n"
+    "3️⃣ You receive your personalised Pre-Assessment report.\n\n"
+    "_(No login or password is required. Simply click the link and upload your document.)_\n\n"
+    "If you have any trouble uploading, simply reply to this message with your resume attached and we'll take care of the rest.\n\n"
+    "Warm Regards,\n"
+    "LEAMSS Migration Team"
 )
 
 DEFAULT_WHATSAPP_ELIGIBLE_TEXT = (
@@ -2977,7 +2978,7 @@ async def _send_row_whatsapp(
             if is_resume:
                 # Resume Request Flow
                 row_token = str(row.get("resume_token") or row.get("id") or "LEAMSS-PR")[:25]
-                full_resume_url = "https://app.leamss.com/upload-resume"
+                full_resume_url = upload_url or f"https://app.leamss.com/upload-resume/{row_token}"
                 await set_pending_flow(
                     clean_phone,
                     flow="resume_request",
