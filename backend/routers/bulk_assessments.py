@@ -3185,59 +3185,59 @@ async def _send_row_whatsapp(
                                 logger.warning("All Twilio content SIDs failed: %s; falling back to direct send", e_tw_all_fail)
                                 res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=name)
 
-                # ── Dispatch Attachments for Outreach ──
-                if attach_report_flag and pdf_report_url:
-                    try:
-                        await asyncio.sleep(0.35)
-                        await send_whatsapp_document_by_url(
-                            to_phone=clean_phone,
-                            document_url=pdf_report_url,
-                            filename=rep_fname,
-                            caption=f"📄 Pre-Assessment Report — {name}",
-                        )
-                        dispatched_attachments.append("report_pdf")
-                    except Exception as e_pdf:
-                        logger.warning("Failed to dispatch Report PDF attachment: %s", e_pdf)
+            # ── Dispatch Attachments for Outreach (Eligible & Not-Eligible) ──
+            if attach_report_flag and pdf_report_url:
+                try:
+                    await asyncio.sleep(0.35)
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=pdf_report_url,
+                        filename=rep_fname,
+                        caption=f"📄 Pre-Assessment Report — {name}",
+                    )
+                    dispatched_attachments.append("report_pdf")
+                except Exception as e_pdf:
+                    logger.warning("Failed to dispatch Report PDF attachment: %s", e_pdf)
 
-                if attach_sla_flag and sla_url:
-                    try:
-                        await asyncio.sleep(0.35)
-                        sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
-                        await send_whatsapp_document_by_url(
-                            to_phone=clean_phone,
-                            document_url=sla_url,
-                            filename=sla_fname,
-                            caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
-                        )
-                        dispatched_attachments.append("sla_pdf")
-                    except Exception as e_sla:
-                        logger.warning("Failed to dispatch SLA PDF attachment: %s", e_sla)
+            if attach_sla_flag and sla_url:
+                try:
+                    await asyncio.sleep(0.35)
+                    sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=sla_url,
+                        filename=sla_fname,
+                        caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
+                    )
+                    dispatched_attachments.append("sla_pdf")
+                except Exception as e_sla:
+                    logger.warning("Failed to dispatch SLA PDF attachment: %s", e_sla)
 
-                if attach_qr_flag and qr_url:
-                    try:
-                        await asyncio.sleep(0.35)
-                        await send_whatsapp_image_by_url(
-                            to_phone=clean_phone,
-                            image_url=qr_url,
-                            caption="💳 LEAMSS Official Payment QR & Banking Details",
-                        )
-                        dispatched_attachments.append("payment_qr")
-                    except Exception as e_qr:
-                        logger.warning("Failed to dispatch QR image attachment: %s", e_qr)
+            if attach_qr_flag and qr_url:
+                try:
+                    await asyncio.sleep(0.35)
+                    await send_whatsapp_image_by_url(
+                        to_phone=clean_phone,
+                        image_url=qr_url,
+                        caption="💳 LEAMSS Official Payment QR & Banking Details",
+                    )
+                    dispatched_attachments.append("payment_qr")
+                except Exception as e_qr:
+                    logger.warning("Failed to dispatch QR image attachment: %s", e_qr)
 
-                if attach_resume_flag and resume_stream_url:
-                    try:
-                        await asyncio.sleep(0.35)
-                        r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
-                        await send_whatsapp_document_by_url(
-                            to_phone=clean_phone,
-                            document_url=resume_stream_url,
-                            filename=r_name,
-                            caption=f"📄 Candidate Resume — {name}",
-                        )
-                        dispatched_attachments.append("resume_file")
-                    except Exception as e_res:
-                        logger.warning("Failed to dispatch resume attachment: %s", e_res)
+            if attach_resume_flag and resume_stream_url:
+                try:
+                    await asyncio.sleep(0.35)
+                    r_name = p.get("resume_filename") or f"{name.replace(' ', '_')}_Resume.pdf"
+                    await send_whatsapp_document_by_url(
+                        to_phone=clean_phone,
+                        document_url=resume_stream_url,
+                        filename=r_name,
+                        caption=f"📄 Candidate Resume — {name}",
+                    )
+                    dispatched_attachments.append("resume_file")
+                except Exception as e_res:
+                    logger.warning("Failed to dispatch resume attachment: %s", e_res)
     else:
         # Meta Cloud API Mode
         if has_active_session:
