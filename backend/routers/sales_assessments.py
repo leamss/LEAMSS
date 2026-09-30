@@ -2146,7 +2146,7 @@ async def send_assessment_whatsapp(
                                 to_phone=clean_phone,
                                 text=msg_text,
                                 client_name=client_name,
-                                content_sid="HX869521a5aaf6a533b2cff125489becb3",
+                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                                 content_variables={"1": client_name, "2": f"To complete your Australia PR Pre-Assessment, please upload your resume here: {resume_upload_url}"},
                             )
                         except Exception as e_tw_res_last:
@@ -2174,42 +2174,46 @@ async def send_assessment_whatsapp(
                     })
 
                     try:
+                        # 1. Primary Approved Text Utility Template (leamss_assessment_report_notice)
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=client_name,
-                            content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                            content_sid="HX8760730e0b3b3a1a839ab18ba60dd7c9",
                             content_variables={
                                 "1": client_name,
-                                "2": occ_title,
-                                "3": str(best_total),
-                                "4": "Subclass 189, 190, 491",
-                                "5": "Improvement Plan",
+                                "2": ref_id,
+                                "3": f"Score: {best_total} pts (Pass mark 65) — Review report & improvement plan: {public_url}",
                             },
                         )
                     except Exception as e_ne_tmpl:
-                        logger.warning("Not-eligible template dispatch with HXe393 failed in sales: %s", e_ne_tmpl)
+                        logger.warning("Not-eligible template dispatch with HX876 failed in sales: %s", e_ne_tmpl)
                         try:
+                            # 2. Approved Notification Template (leamss_pa_notification_v1)
                             res = await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=msg_text,
                                 client_name=client_name,
-                                content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                                content_variables={"1": client_name, "2": ref_id},
+                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                                content_variables={
+                                    "1": client_name,
+                                    "2": f"Your Pre-Assessment Outcome ({occ_title} — {best_total} pts) is ready. View report & improvement pathway: {public_url}",
+                                },
                             )
-                        except Exception:
+                        except Exception as e_ne_tmpl2:
+                            logger.warning("Not-eligible template dispatch with HXa15 failed: %s", e_ne_tmpl2)
                             try:
+                                # 3. Approved Single Button Template
                                 res = await send_whatsapp_text(
                                     to_phone=clean_phone,
                                     text=msg_text,
                                     client_name=client_name,
-                                    content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                                    content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
                                     content_variables={
                                         "1": client_name,
-                                        "2": occ_title,
-                                        "3": str(best_total),
-                                        "4": "Subclass 189, 190, 491",
-                                        "5": "Improvement Plan",
+                                        "2": ref_id,
+                                        "3": occ_title,
+                                        "4": str(best_total),
                                     },
                                 )
                             except Exception:
@@ -2219,7 +2223,7 @@ async def send_assessment_whatsapp(
                                         text=msg_text,
                                         client_name=client_name,
                                         content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                                        content_variables={"1": client_name, "2": ref_id},
+                                        content_variables={"1": client_name, "2": public_url},
                                     )
                                 except Exception:
                                     try:
@@ -2229,7 +2233,6 @@ async def send_assessment_whatsapp(
                                             body_text=f"Hello {client_name},\n\nYour Australia PR assessment summary is ready.\n\nClick below to view your full evaluation report and diagnostic feedback:",
                                             buttons=[
                                                 {"id": "btn_send_report", "title": "View Report"},
-                                                {"id": "btn_book_consultation", "title": "Consult Expert"},
                                             ],
                                             header_text="LEAMSS — Assessment Outcome",
                                             footer_text="Ladhani Education & Migration Services",

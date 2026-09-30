@@ -3004,11 +3004,11 @@ async def _send_row_whatsapp(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=name,
-                            content_sid="HX869521a5aaf6a533b2cff125489becb3",
+                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                             content_variables={"1": name, "2": f"To complete your Australia PR Pre-Assessment, please upload your resume here: {full_resume_url}"},
                         )
                     except Exception as e_res_tmpl2:
-                        logger.warning("Bulk resume template HX869 failed: %s; trying direct text...", e_res_tmpl2)
+                        logger.warning("Bulk resume template fallback failed: %s; trying direct text...", e_res_tmpl2)
                         res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=name)
 
             elif is_not_eligible:
@@ -3896,8 +3896,9 @@ async def _run_whatsapp_all(
     async def _send_one(row):
         nonlocal done, failed, skipped
         p = row.get("parsed") or {}
-        phone = (p.get("phone") or "").strip()
-        if not row.get("pdf_file_id") or not phone:
+        phone = (p.get("phone") or row.get("phone") or "").strip()
+        clean = _has_phone(row)
+        if not row.get("pdf_file_id") or not clean:
             async with lock:
                 skipped += 1
             return
@@ -4011,8 +4012,8 @@ async def whatsapp_all(batch_id: str, req: CategoryWhatsAppRequest, current_user
         raise HTTPException(status_code=404, detail="Batch not found")
     if batch.get("whatsapp_status") == "sending":
         raise HTTPException(status_code=400, detail="WhatsApp messages are already being sent for this batch.")
-    rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0, "pdf_file_id": 1, "parsed.phone": 1}).to_list(100000)
-    sendable = [r for r in rows if r.get("pdf_file_id") and ((r.get("parsed") or {}).get("phone") or "").strip()]
+    rows = await ROWS.find({"batch_id": batch_id, "status": "generated"}, {"_id": 0}).to_list(100000)
+    sendable = [r for r in rows if r.get("pdf_file_id") and _has_phone(r)]
     if not sendable:
         raise HTTPException(status_code=400, detail="No generated reports with a valid phone number to send.")
     await BATCHES.update_one({"id": batch_id}, {"$set": {
