@@ -2104,6 +2104,7 @@ async def send_assessment_whatsapp(
                 is_permission_template = True
                 if is_resume_flow:
                     upload_token = str(doc.get("resume_token") or doc.get("share_token") or id)[:25]
+                    resume_upload_url = f"https://app.leamss.com/upload-resume/{upload_token}"
                     await set_pending_flow(clean_phone, "resume_request", client_name=client_name, extra_data={
                         "resume_url": resume_upload_url,
                         "selected_msg": msg_text,
@@ -2115,36 +2116,22 @@ async def send_assessment_whatsapp(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=client_name,
-                            content_sid="HX46d5e5935b394d1208f6741d97e8c9a1",
-                            content_variables={"1": client_name, "2": upload_token},
+                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                            content_variables={"1": client_name, "2": resume_upload_url},
                         )
                     except Exception as e_res_tmpl:
-                        logger.warning("Resume upload template v4 dispatch: %s", e_res_tmpl)
+                        logger.warning("Resume upload template HXecdec dispatch: %s", e_res_tmpl)
                         try:
                             res = await send_whatsapp_text(
                                 to_phone=clean_phone,
-                                text=f"Please reply YES to upload your resume (Ref: {str(id)[:20]})",
+                                text=msg_text,
                                 client_name=client_name,
-                                content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                                content_variables={"1": client_name, "2": str(id)[:20]},
+                                content_sid="HX869521a5aaf6a533b2cff125489becb3",
+                                content_variables={"1": client_name, "2": f"To complete your Australia PR Pre-Assessment, please upload your resume here: {resume_upload_url}"},
                             )
                         except Exception as e_tw_res_last:
-                            logger.warning("Resume Twilio templates failed: %s; falling back to interactive/direct text", e_tw_res_last)
-                            try:
-                                from core.whatsapp_service import send_whatsapp_interactive_buttons
-                                res = await send_whatsapp_interactive_buttons(
-                                    to_phone=clean_phone,
-                                    body_text=f"Hi {client_name}, our migration team is ready to evaluate your profile. Please click below to upload your resume.",
-                                    buttons=[
-                                        {"id": "btn_upload_resume", "title": "Upload Resume"},
-                                        {"id": "btn_not_now", "title": "Not Now"},
-                                    ],
-                                    header_text="LEAMSS — Resume Upload Request",
-                                    footer_text="Ladhani Education & Migration Services",
-                                    client_name=client_name,
-                                )
-                            except Exception:
-                                res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
+                            logger.warning("Resume Twilio templates failed: %s; falling back to direct text", e_tw_res_last)
+                            res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
 
                 elif is_not_eligible_flow:
                     ref_id = str(id or "LEAMSS-PR")[:25]
@@ -2330,17 +2317,7 @@ async def send_assessment_whatsapp(
                 res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
             else:
                 if is_resume_flow:
-                    res = await send_whatsapp_interactive_buttons(
-                        to_phone=clean_phone,
-                        body_text=f"Hi {client_name}, our migration team is ready to evaluate your profile. Please click below to upload your resume.",
-                        buttons=[
-                            {"id": "btn_upload_resume", "title": "Upload Resume"},
-                            {"id": "btn_not_now", "title": "Not Now"},
-                        ],
-                        header_text="LEAMSS — Resume Upload Request",
-                        footer_text="Ladhani Education & Migration Services",
-                        client_name=client_name,
-                    )
+                    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text, client_name=client_name)
                 else:
                     res = await send_whatsapp_interactive_buttons(
                         to_phone=clean_phone,
