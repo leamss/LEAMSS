@@ -203,10 +203,11 @@ async def send_navratri_resume_request(
     sender_name: str = "LEAMSS",
 ) -> Dict[str, Any]:
     """Sends Resume Upload Link to a Paid or Unpaid Navratri lead via Email + WhatsApp."""
-    lead_id = lead.get("id")
-    name = (lead.get("name") or "Applicant").strip()
-    email = str(lead.get("email") or "").strip()
-    phone = str(lead.get("phone") or "").strip()
+    p = lead.get("parsed") or {}
+    lead_id = lead.get("id") or lead.get("unique_id") or str(lead.get("_id") or "")
+    name = (lead.get("name") or lead.get("client_name") or p.get("name") or "Applicant").strip()
+    email = str(lead.get("email") or lead.get("client_email") or p.get("email") or "").strip()
+    phone = str(lead.get("phone") or lead.get("client_phone") or lead.get("mobile") or p.get("phone") or "").strip()
     upload_url = get_resume_upload_url(lead)
     now = datetime.now(timezone.utc)
     
@@ -400,10 +401,11 @@ async def send_navratri_payment_link(
       Meta broadcast/interactive button or Twilio approved quick-reply template ("Your payment is pending...").
       When recipient replies or clicks 'Yes, Send Link', the direct payment link is automatically delivered.
     """
-    lead_id = lead.get("id")
-    name = (lead.get("name") or "Applicant").strip()
-    email = str(lead.get("email") or lead.get("client_email") or "").strip()
-    phone = str(lead.get("phone") or lead.get("client_phone") or lead.get("mobile") or "").strip()
+    p = lead.get("parsed") or {}
+    lead_id = lead.get("id") or lead.get("unique_id") or str(lead.get("_id") or "")
+    name = (lead.get("name") or lead.get("client_name") or p.get("name") or "Applicant").strip()
+    email = str(lead.get("email") or lead.get("client_email") or p.get("email") or "").strip()
+    phone = str(lead.get("phone") or lead.get("client_phone") or lead.get("mobile") or p.get("phone") or "").strip()
     payment_url = payment_url_override or get_payment_url(lead)
     now = datetime.now(timezone.utc)
 

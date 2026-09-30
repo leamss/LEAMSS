@@ -863,23 +863,28 @@ async def api_send_navratri_resume_request(
         raise HTTPException(status_code=400, detail="No lead_ids specified.")
 
     sender_name = current_user.get("name") or "LEAMSS Migration Team"
-    query_conditions = [{"id": {"$in": lead_ids}}, {"unique_id": {"$in": lead_ids}}]
-    oids = []
-    for lid in lead_ids:
-        try:
-            if ObjectId.is_valid(str(lid)):
-                oids.append(ObjectId(str(lid)))
-        except Exception:
-            pass
-    if oids:
-        query_conditions.append({"_id": {"$in": oids}})
-    leads = await db["leads"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
-    if not leads:
-        leads = await db["sales_assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
-    if not leads:
-        leads = await db["assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
-    if not leads:
-        leads = await db["pre_assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
+    leads: List[Dict[str, Any]] = []
+    found_id_set = set()
+    for col_name in ("leads", "sales_assessments", "assessments", "pre_assessments", "bulk_assessment_rows"):
+        rem = [lid for lid in lead_ids if str(lid) not in found_id_set]
+        if not rem:
+            break
+        q_conds: List[Dict[str, Any]] = [{"id": {"$in": rem}}, {"unique_id": {"$in": rem}}]
+        rem_oids = []
+        for lid in rem:
+            try:
+                if ObjectId.is_valid(str(lid)):
+                    rem_oids.append(ObjectId(str(lid)))
+            except Exception:
+                pass
+        if rem_oids:
+            q_conds.append({"_id": {"$in": rem_oids}})
+        docs = await db[col_name].find({"$or": q_conds}).to_list(len(rem) * 3)
+        for d in docs:
+            d_id = str(d.get("id") or d.get("unique_id") or d.get("_id") or "")
+            if d_id not in found_id_set:
+                found_id_set.add(d_id)
+                leads.append(d)
     
     results = []
     for l in leads:
@@ -909,23 +914,28 @@ async def api_send_navratri_payment_link(
     if not lead_ids:
         raise HTTPException(status_code=400, detail="No lead_ids specified.")
 
-    query_conditions = [{"id": {"$in": lead_ids}}, {"unique_id": {"$in": lead_ids}}]
-    oids = []
-    for lid in lead_ids:
-        try:
-            if ObjectId.is_valid(str(lid)):
-                oids.append(ObjectId(str(lid)))
-        except Exception:
-            pass
-    if oids:
-        query_conditions.append({"_id": {"$in": oids}})
-    leads = await db["leads"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
-    if not leads:
-        leads = await db["sales_assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
-    if not leads:
-        leads = await db["assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
-    if not leads:
-        leads = await db["pre_assessments"].find({"$or": query_conditions}).to_list(len(lead_ids) * 3)
+    leads: List[Dict[str, Any]] = []
+    found_id_set = set()
+    for col_name in ("leads", "sales_assessments", "assessments", "pre_assessments", "bulk_assessment_rows"):
+        rem = [lid for lid in lead_ids if str(lid) not in found_id_set]
+        if not rem:
+            break
+        q_conds: List[Dict[str, Any]] = [{"id": {"$in": rem}}, {"unique_id": {"$in": rem}}]
+        rem_oids = []
+        for lid in rem:
+            try:
+                if ObjectId.is_valid(str(lid)):
+                    rem_oids.append(ObjectId(str(lid)))
+            except Exception:
+                pass
+        if rem_oids:
+            q_conds.append({"_id": {"$in": rem_oids}})
+        docs = await db[col_name].find({"$or": q_conds}).to_list(len(rem) * 3)
+        for d in docs:
+            d_id = str(d.get("id") or d.get("unique_id") or d.get("_id") or "")
+            if d_id not in found_id_set:
+                found_id_set.add(d_id)
+                leads.append(d)
     
     results = []
     for l in leads:

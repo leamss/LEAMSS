@@ -35,6 +35,8 @@ def normalize_phone_number(raw_phone: Optional[str], default_country_code: str =
     # If 10 digits (e.g. Indian mobile), prepend default country code
     if len(cleaned) == 10 and default_country_code:
         cleaned = f"{default_country_code.lstrip('+')}{cleaned}"
+    elif len(cleaned) == 9 and cleaned.startswith("4"):
+        cleaned = f"61{cleaned}"
     return cleaned
 
 
