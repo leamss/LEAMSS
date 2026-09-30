@@ -254,19 +254,14 @@ async def send_navratri_resume_request(
             has_active_session = await is_in_24h_window(clean_phone)
 
             direct_wa_text = custom_message or (
-                f"🌟 *LEAMSS — Australia PR Pre-Assessment*\n\n"
-                f"Dear {name},\n\n"
-                f"We're excited to prepare your personalised Australia PR Pre-Assessment. To complete it accurately, our team needs your latest resume / CV. It only takes a minute — just click the secure link below and upload your resume.\n\n"
-                f"📄 *Upload your resume securely:*\n"
+                f"🌟 *LEAMSS Navratri Offer — Action Needed*\n\n"
+                f"Hi {name},\n"
+                f"Thank you for your registration with LEAMSS! To complete your *Australia PR Pre-Assessment Report*, our migration team needs your latest resume / CV.\n\n"
+                f"📄 *Upload your resume securely in 1 minute:*\n"
                 f"{upload_url}\n\n"
-                f"*What Happens Next:*\n"
-                f"1️⃣ Click the link and upload your resume (PDF or Word).\n"
-                f"2️⃣ Our team matches your best ANZSCO occupation.\n"
-                f"3️⃣ You receive your personalised Pre-Assessment report.\n\n"
-                f"_(No login or password is required. Simply click the link and upload your document.)_\n\n"
-                f"If you have any trouble uploading, simply reply to this message with your resume attached and we'll take care of the rest.\n\n"
-                f"Warm Regards,\n"
-                f"*LEAMSS Migration Team*"
+                f"_(No login or password required. Simply click the link and upload your PDF or Word document.)_\n\n"
+                f"Once uploaded, our team will analyze your profile and prepare your Pre-Assessment Report.\n\n"
+                f"— *LEAMSS Migration Team*"
             )
 
             sent_direct = False
@@ -306,64 +301,54 @@ async def send_navratri_resume_request(
                     },
                 )
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
-                    sent_tmpl = False
-                    # 1. Primary Approved Text Utility Template (leamss_resume_upload_request_util) with direct upload link
                     try:
+                        # 1. Primary Approved UTILITY CTA Template (resume_upload_request_v3) with Upload Resume button
                         await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=direct_wa_text,
                             client_name=name,
-                            content_sid="HXecdec14cc27a0857c49274c92f26d366",
-                            content_variables={"1": name, "2": upload_url},
+                            content_sid="HX2cfa67abc427c31cc5a93e5c9ddea0fd",
+                            content_variables={"1": name, "2": upload_token},
                         )
-                        sent_tmpl = True
                     except Exception as e_res_1:
-                        logger.warning("Resume template HXecdec dispatch failed: %s; trying HX869...", e_res_1)
-
-                    # 2. Approved General Notification Template (leamss_general_notification)
-                    if not sent_tmpl:
+                        logger.warning("Resume template HX2cfa dispatch failed: %s; trying HXf719...", e_res_1)
                         try:
-                            gen_msg = (
-                                f"To complete your Australia PR Pre-Assessment, please upload your resume here: {upload_url}\n\n"
-                                f"No login or password required. If you have any questions, simply reply to this message."
-                            )
+                            # 2. Approved UTILITY CTA Template v2
                             await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=direct_wa_text,
                                 client_name=name,
-                                content_sid="HX869521a5aaf6a533b2cff125489becb3",
-                                content_variables={"1": name, "2": gen_msg},
+                                content_sid="HXf719452bc0939b9cad2d509bb95af6cc",
+                                content_variables={"1": name, "2": upload_token},
                             )
-                            sent_tmpl = True
                         except Exception as e_res_2:
-                            logger.warning("Resume template HX869 failed: %s; trying HXa15...", e_res_2)
-
-                    # 3. Approved Pre-Assessment Notification Template (leamss_pa_notification_v1)
-                    if not sent_tmpl:
-                        try:
-                            pa_var = f"To complete your Australia PR Pre-Assessment, please upload your latest resume at {upload_url} . No login required."
-                            await send_whatsapp_text(
-                                to_phone=clean_phone,
-                                text=direct_wa_text,
-                                client_name=name,
-                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
-                                content_variables={"1": name, "2": pa_var},
-                            )
-                            sent_tmpl = True
-                        except Exception as e_res_3:
-                            logger.warning("Resume template HXa15 failed: %s; sending direct text", e_res_3)
-                            await send_whatsapp_text(to_phone=clean_phone, text=direct_wa_text, client_name=name)
+                            logger.warning("Resume template HXf719 failed: %s; trying text util...", e_res_2)
+                            try:
+                                await send_whatsapp_text(
+                                    to_phone=clean_phone,
+                                    text=f"Please upload your resume: https://app.leamss.com/upload-resume/{upload_token}",
+                                    client_name=name,
+                                    content_sid="HXecdec14cc27a0857c49274c92f26d366",
+                                    content_variables={"1": name, "2": f"https://app.leamss.com/upload-resume/{upload_token}"},
+                                )
+                            except Exception:
+                                await send_whatsapp_text(to_phone=clean_phone, text=direct_wa_text, client_name=name)
                 else:
-                    # Meta Cloud API / Direct WhatsApp Text (No button)
-                    await send_whatsapp_text(
+                    await send_whatsapp_interactive_buttons(
                         to_phone=clean_phone,
-                        text=direct_wa_text,
+                        body_text=f"Hi {name}, our migration specialists are ready to prepare your Australia PR Pre-Assessment Report. Please click below to upload your resume.",
+                        buttons=[
+                            {"id": "btn_upload_resume", "title": "Upload Resume"},
+                            {"id": "btn_not_now", "title": "Not Now"},
+                        ],
+                        header_text="LEAMSS — Resume Request",
+                        footer_text="Ladhani Education & Migration Services",
                         client_name=name,
                     )
 
                 await record_chat_message(
                     phone=clean_phone,
-                    text=f"[Resume Request Notice Dispatched]\n{direct_wa_text}",
+                    text=f"[Resume Request Notice Dispatched]\nRef: {upload_token}\nButton: YES, UPLOAD RESUME",
                     direction="outbound",
                     sender_type="system",
                     sender_name="LEAMSS Migration Team",
