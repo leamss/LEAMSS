@@ -264,8 +264,6 @@ async def send_navratri_resume_request(
                 f"1️⃣ Click the link and upload your resume (PDF or Word).\n"
                 f"2️⃣ Our team matches your best ANZSCO occupation.\n"
                 f"3️⃣ You receive your personalised Pre-Assessment report.\n\n"
-                f"_(No login or password is required. Simply click the link and upload your document.)_\n\n"
-                f"If you have any trouble uploading, simply reply to this message with your resume attached and we'll take care of the rest.\n\n"
                 f"Warm Regards,\n"
                 f"LEAMSS Migration Team"
             )

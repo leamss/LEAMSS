@@ -2589,8 +2589,6 @@ DEFAULT_WHATSAPP_RESUME_TEXT = (
     "1️⃣ Click the link and upload your resume (PDF or Word).\n"
     "2️⃣ Our team matches your best ANZSCO occupation.\n"
     "3️⃣ You receive your personalised Pre-Assessment report.\n\n"
-    "_(No login or password is required. Simply click the link and upload your document.)_\n\n"
-    "If you have any trouble uploading, simply reply to this message with your resume attached and we'll take care of the rest.\n\n"
     "Warm Regards,\n"
     "LEAMSS Migration Team"
 )
