@@ -3131,29 +3131,28 @@ async def _send_row_whatsapp(
                 )
 
                 try:
-                    # 1. Primary Approved Navratri Offer Template (navratri_immigration_offer_v5)
+                    # 1. Primary Approved UTILITY Template with Single Button (pre_assessment_completed_single_btn - 100% delivery rate)
                     res = await send_whatsapp_text(
                         to_phone=clean_phone,
                         text=msg_text,
                         client_name=name,
-                        content_sid="HXe3933b739857ce16642725b9e83a2b35",
+                        content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
                         content_variables={
                             "1": name,
-                            "2": occ_title,
-                            "3": str(best_pts),
-                            "4": f"Subclass {subclass}",
-                            "5": special_off,
+                            "2": ref_id,
+                            "3": occ_title,
+                            "4": str(best_pts),
                         },
                     )
                 except Exception as e_tmpl:
-                    logger.warning("Navratri v5 template HXe393 failed in bulk row: %s; trying HXabf2...", e_tmpl)
+                    logger.warning("UTILITY template HX3cf failed in bulk row: %s; trying HXe393...", e_tmpl)
                     try:
-                        # 2. Approved Navratri Offer Template v2
+                        # 2. Approved Navratri Offer Template (navratri_immigration_offer_v5)
                         res = await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=msg_text,
                             client_name=name,
-                            content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
+                            content_sid="HXe3933b739857ce16642725b9e83a2b35",
                             content_variables={
                                 "1": name,
                                 "2": occ_title,
@@ -3164,17 +3163,18 @@ async def _send_row_whatsapp(
                         )
                     except Exception:
                         try:
-                            # 3. Approved UTILITY Template with Single Button
+                            # 3. Approved Navratri Offer Template v2
                             res = await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=msg_text,
                                 client_name=name,
-                                content_sid="HX3cfb2f82a63a8e2cf3267cdb1a441195",
+                                content_sid="HXabf2abbb9ef2fbcf2b42bf132197584f",
                                 content_variables={
                                     "1": name,
-                                    "2": ref_id,
-                                    "3": occ_title,
-                                    "4": str(best_pts),
+                                    "2": occ_title,
+                                    "3": str(best_pts),
+                                    "4": f"Subclass {subclass}",
+                                    "5": special_off,
                                 },
                             )
                         except Exception:

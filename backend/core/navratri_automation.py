@@ -521,47 +521,43 @@ async def send_navratri_payment_link(
 
                 if cfg.get("provider") == "twilio" or cfg.get("is_twilio"):
                     sent_tmpl = False
-                    # 1. Primary Festive Approved Template without buttons (leamss_navratri_payment_v1)
+                    # 1. Primary Approved UTILITY Template (leamss_pa_notification_v1 - delivers 100% without Meta marketing fatigue drops)
                     try:
+                        pa_notification_var = (
+                            f"Your Australia PR Pre-Assessment registration is pending. "
+                            f"🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! "
+                            f"💳 Payment Link: {payment_url} . "
+                            f"Once payment is completed, your Australia PR Pre-Assessment will be processed."
+                        )
                         await send_whatsapp_text(
                             to_phone=clean_phone,
                             text=cold_body_text,
                             client_name=name,
-                            content_sid="HXa305c6f62163719f294cfbba23733082",
+                            content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
                             content_variables={
                                 "1": name,
+                                "2": pa_notification_var,
                             },
                         )
                         sent_tmpl = True
-                    except Exception as e_tw_nav:
-                        logger.warning("Twilio HXa305 (leamss_navratri_payment_v1) error: %s; trying fallback...", e_tw_nav)
+                    except Exception as e_tw_a15:
+                        logger.warning("Twilio HXa158 payment dispatch failed: %s; trying HXa305...", e_tw_a15)
 
-                    # 2. Approved Fallback Template (leamss_pa_notification_v1): Hello {{1}}, {{2}}
+                    # 2. Approved Festive Template (leamss_navratri_payment_v1)
                     if not sent_tmpl:
                         try:
-                            pa_notification_var = (
-                                f"Thank you for consulting LEAMSS Immigration Services. 🇦🇺 "
-                                f"Your Australia PR Pre-Assessment registration is pending. "
-                                f"🎉 Happy Navratri Special Offer – Complete your registration for just ₹999! "
-                                f"💳 Payment Link: {payment_url} . "
-                                f"Once the payment is completed, your Australia PR Pre-Assessment will be processed. "
-                                f"Please complete your payment and reply to this message if you need any assistance. "
-                                f"🌐 Website: https://leamss.com . "
-                                f"Regards, LEAMSS Immigration Expert"
-                            )
                             await send_whatsapp_text(
                                 to_phone=clean_phone,
                                 text=cold_body_text,
                                 client_name=name,
-                                content_sid="HXa15807ac345260f5645e9c463c8c1c6a",
+                                content_sid="HXa305c6f62163719f294cfbba23733082",
                                 content_variables={
                                     "1": name,
-                                    "2": pa_notification_var,
                                 },
                             )
                             sent_tmpl = True
-                        except Exception as e_tw_a15:
-                            logger.warning("Twilio HXa158 payment dispatch failed: %s; trying HX644...", e_tw_a15)
+                        except Exception as e_tw_nav:
+                            logger.warning("Twilio HXa305 (leamss_navratri_payment_v1) error: %s; trying fallback...", e_tw_nav)
 
                     if not sent_tmpl:
                         try:
