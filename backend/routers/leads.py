@@ -96,7 +96,7 @@ async def get_leads(
             {"assigned_to": ""},
             {"assigned_to": "Unassigned"},
             {"assigned_to": {"$exists": False}},
-            {"source": {"$regex": "website|navratri|landing", "$options": "i"}}
+            {"source": {"$regex": "website|navratri|landing|atlas|public", "$options": "i"}}
         ]
     
     leads = await leads_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
@@ -128,7 +128,7 @@ async def get_pipeline_stats(current_user: dict = Depends(get_current_user)):
                 {"assigned_to": ""},
                 {"assigned_to": "Unassigned"},
                 {"assigned_to": {"$exists": False}},
-                {"source": {"$regex": "website|navratri|landing", "$options": "i"}}
+                {"source": {"$regex": "website|navratri|landing|atlas|public", "$options": "i"}}
             ]
         stats[stage] = await leads_col.count_documents(query)
     
@@ -153,7 +153,7 @@ async def _get_source_stats(user):
             {"assigned_to": ""},
             {"assigned_to": "Unassigned"},
             {"assigned_to": {"$exists": False}},
-            {"source": {"$regex": "website|navratri|landing", "$options": "i"}}
+            {"source": {"$regex": "website|navratri|landing|atlas|public", "$options": "i"}}
         ]
     pipeline = [
         {"$match": query},
