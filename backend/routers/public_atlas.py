@@ -1005,52 +1005,82 @@ class PublicLeadCreate(BaseModel):
 
 
 @router.post("/lead")
-async def submit_lead(request: Request, body: PublicLeadCreate = Body(...)):
-    # Honeypot — if bot fills hidden field, silently 200 without writing.
-    if body.company_url:
+async def submit_lead(request: Request):
+    data = {}
+    try:
+        data = await request.json()
+    except Exception:
+        try:
+            form = await request.form()
+            data = dict(form)
+        except Exception:
+            data = {}
+
+    company_url = data.get("company_url")
+    if company_url:
         return {"ok": True, "lead_id": "honeypot_dropped"}
 
-    # Rate limit per IP
     ip = request.client.host if request.client else "unknown"
     if not _rate_limit(ip):
         raise HTTPException(429, "Too many requests. Please wait a minute before trying again.")
 
+    name = str(data.get("name") or "").strip()
+    email = str(data.get("email") or "").strip().lower()
+    phone = str(data.get("phone") or "").strip()
+
+    if not name or not email:
+        raise HTTPException(400, "Name and email are required.")
+
     now = datetime.now(timezone.utc)
     lead_id = str(uuid.uuid4())
 
-    # Service inferred from country_of_interest
-    coi = (body.country_of_interest or "").upper()
+    # Generate sequential lead number LD00XXXX
+    try:
+        count = await db["leads"].count_documents({})
+        lead_number = f"LD{(count + 6620):06d}"
+    except Exception:
+        lead_number = f"LD{int(now.timestamp())}"
+
+    coi = str(data.get("country_of_interest") or "AU").strip().upper()
     service_map = {"AU": "Australia PR", "CA": "Canada PR", "NZ": "New Zealand PR"}
     service = service_map.get(coi, "Migration Eligibility Check")
 
-    msg_parts = []
-    if body.atlas_code and body.atlas_title:
-        msg_parts.append(f"Interested in: {body.atlas_title} ({body.atlas_code})")
-    if body.interested_state:
-        msg_parts.append(f"State of interest: {body.interested_state}")
-    if body.message:
-        msg_parts.append(body.message.strip())
+    atlas_code = data.get("atlas_code")
+    atlas_title = data.get("atlas_title")
+    interested_state = data.get("interested_state")
+    user_msg = data.get("message")
 
-    src = body.source or "public_atlas"
+    msg_parts = []
+    if atlas_code and atlas_title:
+        msg_parts.append(f"Interested in: {atlas_title} ({atlas_code})")
+    if interested_state:
+        msg_parts.append(f"State of interest: {interested_state}")
+    if user_msg:
+        msg_parts.append(str(user_msg).strip())
+
+    src = data.get("source") or "public_atlas"
     tags = ["public_atlas"]
     if coi:
         tags.append(f"atlas_{coi.lower()}")
-    if body.interested_state:
-        tags.append(f"state_{body.interested_state.lower()}")
+    if interested_state:
+        tags.append(f"state_{interested_state.lower()}")
 
     doc = {
         "id": lead_id,
-        "name": body.name.strip(),
-        "email": body.email.lower(),
-        "phone": body.phone.strip(),
+        "lead_number": lead_number,
+        "name": name,
+        "email": email,
+        "phone": phone,
         "service_interested": service,
         "country_of_interest": coi,
-        "interested_state": body.interested_state,
-        "message": " · ".join(msg_parts),
+        "interested_state": interested_state,
+        "message": " · ".join(msg_parts) if msg_parts else "Public Atlas lead enquiry",
         "source": src,
-        "atlas_code": body.atlas_code,
-        "atlas_title": body.atlas_title,
-        "utm_source": "", "utm_medium": "", "utm_campaign": "",
+        "atlas_code": atlas_code,
+        "atlas_title": atlas_title,
+        "utm_source": data.get("utm_source") or "",
+        "utm_medium": data.get("utm_medium") or "",
+        "utm_campaign": data.get("utm_campaign") or "",
         "stage": "new",
         "assigned_to": None,
         "priority": "medium",
@@ -1064,8 +1094,11 @@ async def submit_lead(request: Request, body: PublicLeadCreate = Body(...)):
         "converted_sale_id": None,
     }
     await db["leads"].insert_one(doc)
+
     return {
         "ok": True,
         "lead_id": lead_id,
+        "lead_number": lead_number,
         "message": "Thank you! Our migration expert will contact you within 24 hours.",
     }
+

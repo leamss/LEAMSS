@@ -319,6 +319,8 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 <span class="pill pill-emerald" style="background:#e6f4ea;color:#137333;font-weight:600">★ Dental Clinic Operations Manager</span>
           </div>
         </div>
+        
+        
       </article>
 
       <article class="card">
@@ -613,6 +615,21 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 
       
 
+      
+
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
 
       
 
@@ -733,6 +750,13 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
       
 
       
+      
+
+      
+
+      
+      
+
       
 
       
@@ -982,6 +1006,59 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 </footer>
 
 <div id="root"></div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var form = document.querySelector('form.lead-form');
+  if (!form) return;
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var btn = form.querySelector('button[type="submit"]');
+    var origText = btn ? btn.innerText : 'Get my pathway plan →';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = 'Submitting pathway plan...';
+    }
+    
+    var formData = new FormData(form);
+    var data = {};
+    formData.forEach(function(v, k) { data[k] = v; });
+    
+    fetch('/api/public-atlas/lead', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(data)
+    })
+    .then(function(res) {
+      if (!res.ok) throw new Error('Submission failed');
+      return res.json();
+    })
+    .then(function(resp) {
+      var name = data.name || 'there';
+      var code = data.atlas_code || '';
+      var contact = data.phone || data.email || 'your contact details';
+      var wrap = form.parentElement;
+      wrap.innerHTML = '<div class="lead-form" style="text-align:center;padding:32px 20px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 24px rgba(31,77,68,.06);">' +
+        '<div style="width:52px;height:52px;background:#e6f4ea;color:#137333;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:26px;font-weight:bold;margin-bottom:14px">✓</div>' +
+        '<h3 style="font-family:\'Playfair Display\',Georgia,serif;font-size:22px;font-weight:700;color:var(--forest);margin-bottom:8px">Pathway plan requested!</h3>' +
+        '<p style="font-size:14px;color:var(--body);line-height:1.6;margin-bottom:18px">Thank you, <strong>' + name + '</strong>. Our Australian migration specialist for ANZSCO ' + code + ' will review your profile and contact you on ' + contact + ' within 24 hours.</p>' +
+        '<div style="font-size:12px;color:var(--muted);background:var(--cream);padding:10px 14px;border-radius:8px;border:1px solid var(--border)">Free consultation · 100% confidential · MARA registered network</div>' +
+        '</div>';
+    })
+    .catch(function(err) {
+      alert('Sorry, there was an issue submitting your request. Please try again or contact support@leamss.com');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = origText;
+      }
+    });
+  });
+});
+</script>
 
 </body>
 </html>

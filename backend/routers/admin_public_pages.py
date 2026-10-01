@@ -174,16 +174,40 @@ async def list_public_urls(
         })
 
     # Lead counts per URL (last 30 days)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff_str = cutoff_dt.isoformat()
     leads_by_code: Dict[str, int] = {}
     leads_by_kind: Dict[str, int] = {"landing": 0, "hub": 0, "country": 0, "occupation": 0}
+    
+    lead_match = {
+        "$and": [
+            {
+                "$or": [
+                    {"created_at": {"$gte": cutoff_dt}},
+                    {"created_at": {"$gte": cutoff_str}},
+                    {"created_at": {"$gte": cutoff_str[:10]}},
+                ]
+            },
+            {
+                "$or": [
+                    {"source": {"$regex": "atlas|public|landing", "$options": "i"}},
+                    {"atlas_code": {"$exists": True, "$ne": None, "$ne": ""}},
+                    {"tags": {"$in": ["public_atlas", "atlas_au", "atlas_ca", "atlas_nz"]}},
+                ]
+            }
+        ]
+    }
     async for lead in db["leads"].find(
-        {"source": "public_atlas", "created_at": {"$gte": cutoff}},
+        lead_match,
         {"_id": 0, "atlas_code": 1, "country_of_interest": 1},
     ):
-        ac = lead.get("atlas_code") or ""
-        if ac == "mega-landing":
+        ac = str(lead.get("atlas_code") or "").strip()
+        if ac in ("mega-landing", "start", "landing"):
             leads_by_kind["landing"] += 1
+        elif ac in ("hub", "atlas"):
+            leads_by_kind["hub"] += 1
+        elif ac in ("au", "ca", "nz"):
+            leads_by_kind["country"] += 1
         elif ac:
             leads_by_code[ac] = leads_by_code.get(ac, 0) + 1
 
@@ -193,6 +217,10 @@ async def list_public_urls(
             r["leads_30d"] = leads_by_code.get(r["code"], 0)
         elif r["kind"] == "landing":
             r["leads_30d"] = leads_by_kind["landing"]
+        elif r["kind"] == "hub":
+            r["leads_30d"] = leads_by_kind["hub"]
+        elif r["kind"] == "country" and r.get("country_code"):
+            r["leads_30d"] = leads_by_kind["country"]
         else:
             r["leads_30d"] = 0
 
@@ -366,14 +394,40 @@ async def get_analytics(
     if not _is_admin(current_user):
         raise HTTPException(403, "Admin only")
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_str = cutoff_dt.isoformat()
+
+    match_query = {
+        "$and": [
+            {
+                "$or": [
+                    {"created_at": {"$gte": cutoff_dt}},
+                    {"created_at": {"$gte": cutoff_str}},
+                    {"created_at": {"$gte": cutoff_str[:10]}},
+                ]
+            },
+            {
+                "$or": [
+                    {"source": {"$regex": "atlas|public|landing", "$options": "i"}},
+                    {"atlas_code": {"$exists": True, "$ne": None, "$ne": ""}},
+                    {"tags": {"$in": ["public_atlas", "atlas_au", "atlas_ca", "atlas_nz"]}},
+                ]
+            }
+        ]
+    }
 
     # Total leads in window
-    total_leads = await db["leads"].count_documents({"source": "public_atlas", "created_at": {"$gte": cutoff}})
+    total_leads = await db["leads"].count_documents(match_query)
 
     # Top occupation codes
+    code_match = {
+        "$and": [
+            match_query,
+            {"atlas_code": {"$exists": True, "$nin": [None, "", "mega-landing", "start", "landing", "hub", "atlas"]}}
+        ]
+    }
     pipeline = [
-        {"$match": {"source": "public_atlas", "created_at": {"$gte": cutoff}, "atlas_code": {"$ne": None}}},
+        {"$match": code_match},
         {"$group": {"_id": {"code": "$atlas_code", "title": "$atlas_title"}, "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
         {"$limit": 50},
@@ -382,31 +436,42 @@ async def get_analytics(
     async for doc in db["leads"].aggregate(pipeline):
         top_codes.append({
             "atlas_code": doc["_id"].get("code"),
-            "atlas_title": doc["_id"].get("title"),
+            "atlas_title": doc["_id"].get("title") or doc["_id"].get("code"),
             "leads": doc["count"],
         })
 
     # Country distribution
     country_pipeline = [
-        {"$match": {"source": "public_atlas", "created_at": {"$gte": cutoff}}},
+        {"$match": match_query},
         {"$group": {"_id": "$country_of_interest", "count": {"$sum": 1}}},
     ]
     country_dist: Dict[str, int] = {}
     async for doc in db["leads"].aggregate(country_pipeline):
-        country_dist[doc["_id"] or "unknown"] = doc["count"]
+        cid = (doc["_id"] or "AU").upper()
+        country_dist[cid] = country_dist.get(cid, 0) + doc["count"]
 
     # Daily trend
     trend_pipeline = [
-        {"$match": {"source": "public_atlas", "created_at": {"$gte": cutoff}}},
+        {"$match": match_query},
+        {"$project": {
+            "date_str": {
+                "$cond": {
+                    "if": {"$eq": [{"$type": "$created_at"}, "date"]},
+                    "then": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                    "else": {"$substrCP": [{"$toString": "$created_at"}, 0, 10]}
+                }
+            }
+        }},
         {"$group": {
-            "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+            "_id": "$date_str",
             "count": {"$sum": 1},
         }},
         {"$sort": {"_id": 1}},
     ]
     daily_trend: List[Dict[str, Any]] = []
     async for doc in db["leads"].aggregate(trend_pipeline):
-        daily_trend.append({"date": doc["_id"], "leads": doc["count"]})
+        if doc.get("_id"):
+            daily_trend.append({"date": doc["_id"], "leads": doc["count"]})
 
     return {
         "days": days,
@@ -426,9 +491,30 @@ async def get_top_pages(
     """Quick view of top-performing public pages by lead conversion."""
     if not _is_admin(current_user):
         raise HTTPException(403, "Admin only")
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_str = cutoff_dt.isoformat()
+
+    match_query = {
+        "$and": [
+            {
+                "$or": [
+                    {"created_at": {"$gte": cutoff_dt}},
+                    {"created_at": {"$gte": cutoff_str}},
+                    {"created_at": {"$gte": cutoff_str[:10]}},
+                ]
+            },
+            {
+                "$or": [
+                    {"source": {"$regex": "atlas|public|landing", "$options": "i"}},
+                    {"atlas_code": {"$exists": True, "$ne": None, "$ne": ""}},
+                    {"tags": {"$in": ["public_atlas", "atlas_au", "atlas_ca", "atlas_nz"]}},
+                ]
+            },
+            {"atlas_code": {"$exists": True, "$nin": [None, ""]}}
+        ]
+    }
     pipeline = [
-        {"$match": {"source": "public_atlas", "created_at": {"$gte": cutoff}, "atlas_code": {"$ne": None}}},
+        {"$match": match_query},
         {"$group": {
             "_id": {"code": "$atlas_code", "title": "$atlas_title", "country": "$country_of_interest"},
             "leads": {"$sum": 1},
@@ -440,14 +526,18 @@ async def get_top_pages(
     base = _public_site_url()
     pages: List[Dict[str, Any]] = []
     async for doc in db["leads"].aggregate(pipeline):
-        c = (doc["_id"].get("country") or "").lower() or "au"
+        c = (doc["_id"].get("country") or "AU").lower()
         code = doc["_id"].get("code") or ""
+        title = doc["_id"].get("title") or code
+        last_dt = doc.get("last_lead_at")
+        last_str = last_dt.isoformat() if isinstance(last_dt, datetime) else (str(last_dt) if last_dt else None)
         pages.append({
             "atlas_code": code,
-            "atlas_title": doc["_id"].get("title"),
-            "country": doc["_id"].get("country"),
+            "atlas_title": title,
+            "country": c.upper(),
             "leads": doc["leads"],
-            "url": f"{base}/atlas/{c}/{code}" if code and code != "mega-landing" else f"{base}/start",
-            "last_lead_at": doc["last_lead_at"].isoformat() if doc["last_lead_at"] else None,
+            "url": f"{base}/atlas/{c}/{code}" if code and code not in ("mega-landing", "start", "landing") else f"{base}/start",
+            "last_lead_at": last_str,
         })
     return {"days": days, "pages": pages}
+
