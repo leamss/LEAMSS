@@ -48,12 +48,16 @@ if [ -f "docker-compose.prod.yml" ]; then
     sudo fuser -k 8001/tcp || true
     sudo fuser -k 3000/tcp || true
     $DC -f docker-compose.prod.yml up -d --build --remove-orphans
-    # Run seed script inside backend container or local python to ensure skill levels in DB
-    $DC -f docker-compose.prod.yml exec -T backend python scripts/seed_au_skill_levels.py || true
+    # Run complete JSA enrichment + SSG generation inside backend container
+    $DC -f docker-compose.prod.yml exec -T backend python scripts/enrich_jsa_and_ssg.py || true
+    # Ensure frontend container serves the freshly generated static Atlas files immediately
+    $DC -f docker-compose.prod.yml cp frontend/public/atlas/. frontend:/usr/share/nginx/html/atlas/ || true
 elif [ -f "docker-compose.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker containers..."
     $DC down || true
     $DC up -d --build --remove-orphans
+    $DC exec -T backend python scripts/enrich_jsa_and_ssg.py || true
+    $DC cp frontend/public/atlas/. frontend:/usr/share/nginx/html/atlas/ || true
 fi
 
 # Clean up dangling images to keep EC2 disk & RAM clean and fast
