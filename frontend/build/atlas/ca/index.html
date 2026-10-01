@@ -1031,6 +1031,14 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
         } else if (o.teer_category !== undefined && o.teer_category !== null && o.teer_category !== '') {
           pillHtml += '<span class="pill-sm pill-sm-slate">TEER ' + escapeHtml(o.teer_category) + '</span>';
         }
+        if (o.salary_chip) {
+          pillHtml += '<span class="pill-sm pill-sm-emerald" title="Median full-time annual earnings (ABS via JSA)">💼 ' + escapeHtml(o.salary_chip) + '</span>';
+        }
+        if (o.growth_chip) {
+          var isStrong = (o.growth_chip || '').indexOf('Strong') !== -1;
+          var growthClass = isStrong ? 'pill-sm-emerald' : 'pill-sm-slate';
+          pillHtml += '<span class="pill-sm ' + growthClass + '" title="10-year employment outlook (JSA Projections)">📈 ' + escapeHtml(o.growth_chip) + '</span>';
+        }
         pillHtml += '<span class="pill-sm pill-sm-emerald">✓ Verified</span>';
         
         html += '<a class="occ-card" href="/atlas/' + countryLower + '/' + code + '/" data-testid="occ-card-' + code + '">' +
