@@ -16,7 +16,7 @@ import hashlib
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -295,11 +295,12 @@ async def generate_pre_assessment(
     # Build context
     ctx = await _build_context(req, current_user)
     ref = _ref_for(ch, req.country_code, req.occupation_code)
+    now_ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
     ctx.update({
         "ref": ref,
         "agent_name": current_user.get("name") or current_user.get("email") or "LEAMSS agent",
-        "generated_at": datetime.now(timezone.utc).strftime("%d %b %Y · %H:%M UTC"),
-        "generated_at_date": datetime.now(timezone.utc).strftime("%d %b %Y"),
+        "generated_at": now_ist.strftime("%d %b %Y · %I:%M %p"),
+        "generated_at_date": now_ist.strftime("%d %b %Y"),
     })
 
     # Render template

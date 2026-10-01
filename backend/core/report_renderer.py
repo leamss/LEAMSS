@@ -30,8 +30,8 @@ All data comes from the snapshot — never live KB.
 import io
 import logging
 import os
-from datetime import datetime
-from typing import Any, Dict, List
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, List, Optional
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -886,5 +886,28 @@ def render_pdf(snapshot: Dict[str, Any]) -> bytes:
     return pdf
 
 
-def now_human() -> str:
-    return datetime.now().strftime("%d %B %Y · %I:%M %p")
+IST_TZ = timezone(timedelta(hours=5, minutes=30))
+
+
+def now_human(dt: Any = None) -> str:
+    """Format datetime or ISO string to human-readable IST string: '01 October 2026 · 06:20 PM'."""
+    if dt is None:
+        dt_obj = datetime.now(IST_TZ)
+    elif isinstance(dt, str):
+        try:
+            clean = dt.replace("Z", "+00:00")
+            dt_obj = datetime.fromisoformat(clean)
+            if dt_obj.tzinfo is None:
+                dt_obj = dt_obj.replace(tzinfo=timezone.utc)
+            dt_obj = dt_obj.astimezone(IST_TZ)
+        except Exception:
+            return str(dt)
+    elif isinstance(dt, datetime):
+        if dt.tzinfo is None:
+            dt_obj = dt.replace(tzinfo=timezone.utc).astimezone(IST_TZ)
+        else:
+            dt_obj = dt.astimezone(IST_TZ)
+    else:
+        dt_obj = datetime.now(IST_TZ)
+    return dt_obj.strftime("%d %B %Y · %I:%M %p")
+

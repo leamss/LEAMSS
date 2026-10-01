@@ -8,7 +8,7 @@ Cache: lightweight in-memory cache keyed on the sorted (cc,code) tuple, TTL 60s.
 """
 from __future__ import annotations
 import time
-from datetime import datetime, timezone
+from datetime import datetime as _dt, datetime, timezone, timedelta
 from typing import Any, Dict, List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -263,10 +263,16 @@ def _ref_for(payload: Dict[str, Any]) -> str:
     return hashlib.sha1(seed.encode("utf-8")).hexdigest()[:8].upper()
 
 
+IST_TZ = timezone(timedelta(hours=5, minutes=30))
+
+
 def _human_dt(iso: str) -> str:
     try:
         d = _dt.fromisoformat(iso.replace("Z", "+00:00"))
-        return d.strftime("%d %b %Y · %H:%M UTC")
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        d = d.astimezone(IST_TZ)
+        return d.strftime("%d %b %Y · %I:%M %p")
     except Exception:  # noqa: BLE001
         return iso or ""
 

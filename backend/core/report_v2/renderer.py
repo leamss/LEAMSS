@@ -80,6 +80,14 @@ def _load_css() -> str:
 def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
     from core.country_guide_defaults import get_curated_country_guide
     from routers.eoi_backlog import _build_indicative_eoi
+    from core.report_renderer import now_human
+
+    # Ensure generated_on_human uses IST timezone
+    raw_dt = snap.get("generated_at") or snap.get("generated_at_iso") or snap.get("generated_on_human")
+    if raw_dt:
+        snap["generated_on_human"] = now_human(raw_dt)
+    elif not snap.get("generated_on_human"):
+        snap["generated_on_human"] = now_human()
 
     best = snap.get("best_country") or (snap.get("countries", [{}])[0] if snap.get("countries") else {})
     if isinstance(best, str):

@@ -39,7 +39,7 @@ def _generate_sales_pdf(sales_data, title, filename):
         elements.append(Paragraph("LEAMSS Immigration Services", title_style))
 
     elements.append(Paragraph(title, styles['Heading2']))
-    elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%d %b %Y, %I:%M %p')}", subtitle_style))
+    elements.append(Paragraph(f"Generated on: {datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%d %b %Y, %I:%M %p')}", subtitle_style))
     elements.append(Spacer(1, 15))
 
     # Summary

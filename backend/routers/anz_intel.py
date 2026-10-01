@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query,UploadFile, File, F
 
 from core.auth import get_current_user
 from core.database import db
+from core.report_renderer import now_human
 from openai import AsyncOpenAI
 from openpyxl import load_workbook
 from io import BytesIO
@@ -615,7 +616,7 @@ async def occupation_infosheet_pdf(
         occupation=d,
         state_dist_sorted=state_dist_sorted,
         logo_data_uri=logo_uri,
-        generated_on_human=datetime.now().strftime("%d %B %Y · %I:%M %p"),
+        generated_on_human=now_human(),
     )
     full_html = f"<!DOCTYPE html><html><head><meta charset='utf-8'><style>{css_text}</style></head><body>{inner}</body></html>"
     print("1. DB fetched")
