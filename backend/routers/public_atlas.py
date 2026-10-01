@@ -673,6 +673,15 @@ def _shape_for_card(d: Dict[str, Any]) -> Dict[str, Any]:
     aa_name = aa.get("name") or aa.get("code") or ""
     pw = d.get("visa_pathways") or {}
     rec_visa = pw.get("recommended_visa") or ""
+    abs_d = d.get("abs_data") or {}
+    jsa_d = d.get("jsa_data") or {}
+    annual = abs_d.get("median_ft_annual_aud")
+    salary_chip = f"${round(annual / 1000)}k/yr" if annual else None
+    growth_val = jsa_d.get("future_growth")
+    growth_chip = (
+        f"{growth_val} Growth" if growth_val and growth_val not in ("Unknown", "None") and not str(growth_val).endswith("Growth")
+        else (growth_val if growth_val not in (None, "Unknown") else None)
+    )
     return {
         "country_code": d.get("country_code"),
         "code": d.get("code"),
@@ -683,6 +692,8 @@ def _shape_for_card(d: Dict[str, Any]) -> Dict[str, Any]:
         "hierarchy": (d.get("hierarchy") or {}).get("unit_group_name"),
         "assessing_authority_name": aa_name,
         "recommended_visa": rec_visa,
+        "salary_chip": salary_chip,
+        "growth_chip": growth_chip,
         "verified": (d.get("status") or "") == "verified",
     }
 
@@ -810,7 +821,7 @@ async def list_country(
         total = await db["occupation_master"].count_documents(match)
     proj = {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
             "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
-            "assessing_authority": 1, "visa_pathways": 1}
+            "assessing_authority": 1, "visa_pathways": 1, "abs_data": 1, "jsa_data": 1}
     cursor = db["occupation_master"].find(match, proj).sort("code", 1).skip(offset).limit(limit)
     items = [_shape_for_card(d) async for d in cursor]
 
