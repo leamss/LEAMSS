@@ -1,10 +1,12 @@
 /**
- * Node.js script to enrich all AU occupation static HTML files with complete JSA & ABS data.
+ * Complete Node.js script to enrich all AU occupation static HTML files with full JSA & ABS data,
+ * including salary, 10-year projections, state distribution, age demographics, education graphs, and top industries.
  */
 const fs = require('fs');
 const path = require('path');
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const xlsx = require(path.join(PROJECT_ROOT, 'frontend', 'node_modules', 'xlsx'));
+
 const JSA_DIR = path.join(PROJECT_ROOT, 'backend', 'data', 'jsa_imports');
 const PUBLIC_AU_DIR = path.join(PROJECT_ROOT, 'frontend', 'public', 'atlas', 'au');
 const BUILD_AU_DIR = path.join(PROJECT_ROOT, 'frontend', 'build', 'atlas', 'au');
@@ -65,7 +67,7 @@ function slugify(name) {
 }
 
 function parseJsaData() {
-  console.log('Loading JSA Excel files...');
+  console.log('Loading JSA Excel workbooks...');
   const occWb = xlsx.readFile(path.join(JSA_DIR, 'occupation_profiles_feb_2026.xlsx'));
   const projWb = xlsx.readFile(path.join(JSA_DIR, 'employment_projections_may_2025_2035.xlsx'));
   const indWb = xlsx.readFile(path.join(JSA_DIR, 'industry_data_feb_2026.xlsx'));
@@ -96,9 +98,10 @@ function parseJsaData() {
     code4Map[c4].female_pct = typeof row[4] === 'number' ? row[4] : null;
     code4Map[c4].weekly_all = typeof row[5] === 'number' ? row[5] : null;
     code4Map[c4].median_age = typeof row[6] === 'number' ? row[6] : null;
+    code4Map[c4].annual_growth = typeof row[7] === 'number' ? row[7] : null;
   }
 
-  // Table 4 - Earnings
+  // Table 4 - Earnings & Hours
   const t4 = xlsx.utils.sheet_to_json(occWb.Sheets['Table_4'], { header: 1 });
   for (let r = 7; r < t4.length; r++) {
     const row = t4[r];
@@ -106,6 +109,7 @@ function parseJsaData() {
     const c4 = String(row[0]).trim().padStart(4, '0');
     code4Map[c4] = code4Map[c4] || {};
     code4Map[c4].ft_share_pct = typeof row[2] === 'number' ? row[2] : null;
+    code4Map[c4].avg_ft_hours = typeof row[3] === 'number' ? row[3] : null;
     code4Map[c4].weekly_ft = typeof row[4] === 'number' ? row[4] : (code4Map[c4].weekly_all || null);
     code4Map[c4].hourly_ft = typeof row[5] === 'number' ? row[5] : null;
     if (code4Map[c4].weekly_ft) {
@@ -124,6 +128,40 @@ function parseJsaData() {
     const indName = String(row[2]).trim();
     if (indName && !code4Map[c4].top_industries.includes(indName) && code4Map[c4].top_industries.length < 5) {
       code4Map[c4].top_industries.push(indName);
+    }
+  }
+
+  // Table 6 - State Distribution
+  const t6 = xlsx.utils.sheet_to_json(occWb.Sheets['Table_6'], { header: 1 });
+  const states = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
+  for (let r = 7; r < t6.length; r++) {
+    const row = t6[r];
+    if (!row || !row[0]) continue;
+    const c4 = String(row[0]).trim().padStart(4, '0');
+    code4Map[c4] = code4Map[c4] || {};
+    code4Map[c4].state_distribution = {};
+    for (let i = 0; i < states.length; i++) {
+      const val = typeof row[2 + i] === 'number' ? row[2 + i] : null;
+      if (val !== null) {
+        code4Map[c4].state_distribution[states[i]] = val;
+      }
+    }
+  }
+
+  // Table 7 - Age Profile
+  const t7 = xlsx.utils.sheet_to_json(occWb.Sheets['Table_7'], { header: 1 });
+  const ageBands = ['15-19', '20-24', '25-34', '35-44', '45-54', '55-59', '60-64', '65+'];
+  for (let r = 7; r < t7.length; r++) {
+    const row = t7[r];
+    if (!row || !row[0]) continue;
+    const c4 = String(row[0]).trim().padStart(4, '0');
+    code4Map[c4] = code4Map[c4] || {};
+    code4Map[c4].age_profile = {};
+    for (let i = 0; i < ageBands.length; i++) {
+      const val = typeof row[2 + i] === 'number' ? row[2 + i] : null;
+      if (val !== null) {
+        code4Map[c4].age_profile[ageBands[i]] = val;
+      }
     }
   }
 
@@ -190,7 +228,6 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap) {
     <div class="ms">of 5 (1 = highest)</div>
 </div>
 `;
-    // Insert right after <div class="metric-grid"> inside essentials card
     html = html.replace(/<div class="metric-grid">/, `<div class="metric-grid">${skillLevelMetric}`);
   }
 
@@ -247,7 +284,77 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap) {
 `;
   }
 
-  // 4. Build Top Employing Industries Card
+  // 4. Build Labour Market Key Metrics Card (Demographics + Employed + Gender + Hours)
+  let metricsCardHtml = '';
+  if (data.employed_count || data.median_age || data.ft_share_pct || data.female_pct) {
+    metricsCardHtml = `
+      <article class="card">
+        <span class="card-eyebrow">Labour Market Profile &middot; JSA Atlas</span>
+        <h2 class="card-title">📊 Workforce &amp; Employment Snapshot</h2>
+        <div class="metric-grid" style="grid-template-columns:repeat(4,1fr)">
+          ${data.employed_count ? `<div class="metric"><div class="ml">Employed (AU)</div><div class="mv">${data.employed_count.toLocaleString()}</div><div class="ms">workers</div></div>` : ''}
+          ${data.median_age ? `<div class="metric"><div class="ml">Median Age</div><div class="mv">${data.median_age} yrs</div><div class="ms">national avg: 39</div></div>` : ''}
+          ${data.ft_share_pct !== null ? `<div class="metric"><div class="ml">Full-Time</div><div class="mv">${data.ft_share_pct}%</div><div class="ms">${data.avg_ft_hours ? data.avg_ft_hours + ' hrs/wk' : 'employed'}</div></div>` : ''}
+          ${data.female_pct !== null ? `<div class="metric"><div class="ml">Female Share</div><div class="mv">${data.female_pct}%</div><div class="ms">${100 - data.female_pct}% male</div></div>` : ''}
+        </div>
+      </article>
+`;
+  }
+
+  // 5. Build State Distribution Graph (Visual Bars)
+  let stateDistCardHtml = '';
+  if (data.state_distribution && Object.keys(data.state_distribution).length > 0) {
+    const stateEntries = Object.entries(data.state_distribution)
+      .filter(([_, v]) => v !== null && v > 0)
+      .sort((a, b) => b[1] - a[1]);
+
+    const stateBars = stateEntries.map(([st, pct]) => `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <span style="width:45px;font-weight:700;color:var(--ink);font-size:13px">${st}</span>
+        <div style="flex:1;background:var(--border);height:14px;border-radius:999px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(pct * 2.5, 100)}%;background:linear-gradient(90deg,var(--forest),#2e7d32);border-radius:999px"></div>
+        </div>
+        <span style="width:50px;text-align:right;font-weight:700;color:var(--forest);font-size:13px">${pct.toFixed(1)}%</span>
+      </div>`).join('\n');
+
+    stateDistCardHtml = `
+      <article class="card">
+        <span class="card-eyebrow">Geographic Distribution</span>
+        <h2 class="card-title">📍 Employment by State &amp; Territory</h2>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Share of total workforce employed across Australian states &amp; territories:</p>
+        <div>
+          ${stateBars}
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:14px">Source: ABS via JSA Feb 2026 &middot; 4-digit ANZSCO ${code4}</p>
+      </article>
+`;
+  }
+
+  // 6. Build Age Demographics Graph
+  let ageDistCardHtml = '';
+  if (data.age_profile && Object.keys(data.age_profile).length > 0) {
+    const ageBars = Object.entries(data.age_profile).map(([band, pct]) => `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <span style="width:65px;color:var(--muted);font-size:12px">${band} yrs</span>
+        <div style="flex:1;background:var(--border);height:12px;border-radius:999px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(pct * 3, 100)}%;background:linear-gradient(90deg,var(--burnt),#e65100);border-radius:999px"></div>
+        </div>
+        <span style="width:45px;text-align:right;font-weight:700;color:var(--ink);font-size:12px">${pct.toFixed(1)}%</span>
+      </div>`).join('\n');
+
+    ageDistCardHtml = `
+      <article class="card">
+        <span class="card-eyebrow">Workforce Demographics</span>
+        <h2 class="card-title">👥 Age Breakdown</h2>
+        <div style="margin-top:12px">
+          ${ageBars}
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:14px">Source: ABS Census via JSA Feb 2026</p>
+      </article>
+`;
+  }
+
+  // 7. Build Top Employing Industries Card
   let industriesCardHtml = '';
   const topInds = data.top_industries || [];
   if (topInds.length > 0) {
@@ -276,7 +383,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap) {
 `;
   }
 
-  // 5. Build Education Profile Card
+  // 8. Build Education Profile Card
   let eduCardHtml = '';
   if (data.education) {
     const ed = data.education;
@@ -295,22 +402,22 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap) {
 
     if (bars.length > 0) {
       const barRows = bars.map(([name, v]) => `
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="width:90px;color:var(--muted)">${name}</span>
-            <div style="flex:1;background:var(--border);height:18px;border-radius:4px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <span style="width:90px;color:var(--muted);font-size:12px">${name}</span>
+            <div style="flex:1;background:var(--border);height:16px;border-radius:4px;overflow:hidden">
               <div style="height:100%;width:${v}%;background:var(--forest);"></div>
             </div>
-            <span style="width:42px;text-align:right;font-weight:700;color:var(--ink)">${Math.round(v)}%</span>
+            <span style="width:42px;text-align:right;font-weight:700;color:var(--ink);font-size:12px">${Math.round(v)}%</span>
           </div>`).join('\n');
 
       eduCardHtml = `
       <article class="card">
         <span class="card-eyebrow">Education profile</span>
         <h2 class="card-title">🎓 Workforce qualifications</h2>
-        <p style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:14px">
+        <p style="font-size:14px;color:var(--ink);font-weight:600;margin-bottom:14px">
           ${summaryText}
         </p>
-        <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+        <div style="display:flex;flex-direction:column;gap:4px">
           ${barRows}
         </div>
         <p style="font-size:11px;color:var(--muted);margin-top:12px">Source: ABS via JSA Feb 2026</p>
@@ -320,24 +427,28 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap) {
   }
 
   // Combine JSA cards to inject
-  const combinedJsaCards = salaryCardHtml + outlookCardHtml + industriesCardHtml + eduCardHtml;
+  const combinedJsaCards = salaryCardHtml + outlookCardHtml + metricsCardHtml + stateDistCardHtml + ageDistCardHtml + industriesCardHtml + eduCardHtml;
 
-  // Replace any existing salary / outlook / industries / education / coming soon cards or insert cleanly
-  // If "Overview" / "About this occupation" card exists, insert right after it
-  if (!html.includes('Salary &middot; ABS via JSA') && !html.includes('Salary · ABS via JSA')) {
-    // Remove "Coming Soon" card if present
-    html = html.replace(/<article class="card"[^>]*style="background:#FCFBF7[^"]*"[\s\S]*?<\/article>/g, '');
-    
-    // Find where About this occupation ends
-    const aboutMatch = html.match(/(<article class="card">[\s\S]*?<h2 class="card-title">About this occupation<\/h2>[\s\S]*?<\/article>)/);
-    if (aboutMatch) {
-      html = html.replace(aboutMatch[0], aboutMatch[0] + '\n' + combinedJsaCards);
-    } else {
-      // Otherwise insert after Skill assessment essentials
-      const essMatch = html.match(/(<article class="card">[\s\S]*?<h2 class="card-title">Skill assessment essentials<\/h2>[\s\S]*?<\/article>)/);
-      if (essMatch) {
-        html = html.replace(essMatch[0], essMatch[0] + '\n' + combinedJsaCards);
-      }
+  // Clean out any previously injected / placeholder cards
+  html = html.replace(/<article class="card"[^>]*style="background:#FCFBF7[^"]*"[\s\S]*?<\/article>/g, '');
+  
+  // Remove previously injected salary/outlook/metrics/statedist/agedist/industries/edu cards before re-injecting cleanly
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Salary &middot; ABS via JSA[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">10-year Outlook &middot; JSA Projections[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Labour Market Profile &middot; JSA Atlas[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Geographic Distribution[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Workforce Demographics[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card card-cream">\s*<span class="card-eyebrow">Where workers go[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Education profile[\s\S]*?<\/article>/g, '');
+
+  // Find where Overview / About this occupation ends
+  const aboutMatch = html.match(/(<article class="card">[\s\S]*?<h2 class="card-title">About this occupation<\/h2>[\s\S]*?<\/article>)/);
+  if (aboutMatch) {
+    html = html.replace(aboutMatch[0], aboutMatch[0] + '\n' + combinedJsaCards);
+  } else {
+    const essMatch = html.match(/(<article class="card">[\s\S]*?<h2 class="card-title">Skill assessment essentials<\/h2>[\s\S]*?<\/article>)/);
+    if (essMatch) {
+      html = html.replace(essMatch[0], essMatch[0] + '\n' + combinedJsaCards);
     }
   }
 
@@ -372,7 +483,7 @@ function main() {
     }
   }
 
-  console.log(`Enriched and synchronized ${updatedCount} AU occupation HTML files!`);
+  console.log(`Successfully enriched ${updatedCount} AU occupation HTML files with complete JSA graphs & data!`);
 }
 
 main();
