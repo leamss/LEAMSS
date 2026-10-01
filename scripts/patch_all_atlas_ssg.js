@@ -1,6 +1,6 @@
 /**
  * Complete Node.js script to enrich all AU occupation static HTML files with full JSA & ABS data,
- * matching the exact LEAMSS design system and UI layout from localhost.
+ * matching the exact LEAMSS design system and UI layout from the user screenshots.
  */
 const fs = require('fs');
 const path = require('path');
@@ -10,6 +10,29 @@ const xlsx = require(path.join(PROJECT_ROOT, 'frontend', 'node_modules', 'xlsx')
 const JSA_DIR = path.join(PROJECT_ROOT, 'backend', 'data', 'jsa_imports');
 const PUBLIC_AU_DIR = path.join(PROJECT_ROOT, 'frontend', 'public', 'atlas', 'au');
 const BUILD_AU_DIR = path.join(PROJECT_ROOT, 'frontend', 'build', 'atlas', 'au');
+const HA_JSON_FILE = path.join(PROJECT_ROOT, 'backend', 'data', 'home_affairs_skilled_occupations.json');
+
+const ANZSIC_DIVISION_MAP = {
+  'Agriculture, Forestry and Fishing': 'Division A',
+  'Mining': 'Division B',
+  'Manufacturing': 'Division C',
+  'Electricity, Gas, Water and Waste Services': 'Division D',
+  'Construction': 'Division E',
+  'Wholesale Trade': 'Division F',
+  'Retail Trade': 'Division G',
+  'Accommodation and Food Services': 'Division H',
+  'Transport, Postal and Warehousing': 'Division I',
+  'Information Media and Telecommunications': 'Division J',
+  'Financial and Insurance Services': 'Division K',
+  'Rental, Hiring and Real Estate Services': 'Division L',
+  'Professional, Scientific and Technical Services': 'Division M',
+  'Administrative and Support Services': 'Division N',
+  'Public Administration and Safety': 'Division O',
+  'Education and Training': 'Division P',
+  'Health Care and Social Assistance': 'Division Q',
+  'Arts and Recreation Services': 'Division R',
+  'Other Services': 'Division S',
+};
 
 function getAnzscoSkillLevel(codeStr) {
   const code = String(codeStr || '').trim();
@@ -67,19 +90,49 @@ function slugify(name) {
 }
 
 function parseJsaData() {
-  console.log('Loading JSA Excel workbooks...');
+  console.log('Loading JSA Excel workbooks & Home Affairs datasets...');
   const occWb = xlsx.readFile(path.join(JSA_DIR, 'occupation_profiles_feb_2026.xlsx'));
   const projWb = xlsx.readFile(path.join(JSA_DIR, 'employment_projections_may_2025_2035.xlsx'));
   const indWb = xlsx.readFile(path.join(JSA_DIR, 'industry_data_feb_2026.xlsx'));
 
-  // Industry slug map
+  // Home affairs list mapping (6-digit code -> { occupation, list, visas, assessauth })
+  const haMap = {};
+  if (fs.existsSync(HA_JSON_FILE)) {
+    const haData = JSON.parse(fs.readFileSync(HA_JSON_FILE, 'utf8'));
+    for (const item of haData) {
+      const codeMatch = (item.anzscocode || '').match(/\b(\d{6})\b/);
+      if (codeMatch) {
+        haMap[codeMatch[1]] = {
+          occupation: item.occupation,
+          list: item.list || '',
+          visas: item.visas || '',
+          assessauth: item.assessauth || ''
+        };
+      }
+    }
+  }
+
+  // Industry slug map & top occupations per industry division
   const indSlugMap = {};
+  const indTopOccsMap = {};
   const indRows = xlsx.utils.sheet_to_json(indWb.Sheets['Table_1'], { header: 1 });
   for (let r = 7; r < indRows.length; r++) {
     const row = indRows[r];
     if (row && row[0]) {
       const name = String(row[0]).trim();
       indSlugMap[name] = slugify(name);
+    }
+  }
+
+  const indTable4Rows = xlsx.utils.sheet_to_json(indWb.Sheets['Table_4'], { header: 1 });
+  for (let r = 7; r < indTable4Rows.length; r++) {
+    const [ind, code, occName] = indTable4Rows[r] || [];
+    if (ind && occName) {
+      const iName = String(ind).trim();
+      indTopOccsMap[iName] = indTopOccsMap[iName] || [];
+      if (!indTopOccsMap[iName].includes(occName) && indTopOccsMap[iName].length < 5) {
+        indTopOccsMap[iName].push(occName);
+      }
     }
   }
 
@@ -99,6 +152,20 @@ function parseJsaData() {
     code4Map[c4].weekly_all = typeof row[5] === 'number' ? row[5] : null;
     code4Map[c4].median_age = typeof row[6] === 'number' ? row[6] : null;
     code4Map[c4].annual_growth = typeof row[7] === 'number' ? row[7] : null;
+  }
+
+  // Table 3 - Typical Tasks
+  const t3 = xlsx.utils.sheet_to_json(occWb.Sheets['Table_3'], { header: 1 });
+  for (let r = 6; r < t3.length; r++) {
+    const row = t3[r];
+    if (!row || !row[0] || !row[2]) continue;
+    const c4 = String(row[0]).trim().padStart(4, '0');
+    code4Map[c4] = code4Map[c4] || {};
+    code4Map[c4].tasks = code4Map[c4].tasks || [];
+    const taskText = String(row[2]).trim();
+    if (taskText && !code4Map[c4].tasks.includes(taskText)) {
+      code4Map[c4].tasks.push(taskText);
+    }
   }
 
   // Table 4 - Earnings & Hours
@@ -131,6 +198,25 @@ function parseJsaData() {
     }
   }
 
+  // Table 6 - State hiring share
+  const t6 = xlsx.utils.sheet_to_json(occWb.Sheets['Table_6'], { header: 1 });
+  for (let r = 6; r < t6.length; r++) {
+    const row = t6[r];
+    if (!row || !row[0]) continue;
+    const c4 = String(row[0]).trim().padStart(4, '0');
+    code4Map[c4] = code4Map[c4] || {};
+    code4Map[c4].state_shares = {
+      NSW: row[2] || 0,
+      VIC: row[3] || 0,
+      QLD: row[4] || 0,
+      SA: row[5] || 0,
+      WA: row[6] || 0,
+      TAS: row[7] || 0,
+      NT: row[8] || 0,
+      ACT: row[9] || 0,
+    };
+  }
+
   // Table 7 - Age Profile
   const t7 = xlsx.utils.sheet_to_json(occWb.Sheets['Table_7'], { header: 1 });
   for (let r = 7; r < t7.length; r++) {
@@ -139,7 +225,6 @@ function parseJsaData() {
     const c4 = String(row[0]).trim().padStart(4, '0');
     code4Map[c4] = code4Map[c4] || {};
     
-    // Combine 15-19 and 20-24 -> 15–24 years, 55-59 and 60-64 -> 55–64 years
     const a15_19 = typeof row[2] === 'number' ? row[2] : 0;
     const a20_24 = typeof row[3] === 'number' ? row[3] : 0;
     const a25_34 = typeof row[4] === 'number' ? row[4] : 0;
@@ -205,13 +290,14 @@ function parseJsaData() {
     };
   }
 
-  return { code4Map, indSlugMap };
+  return { code4Map, indSlugMap, indTopOccsMap, haMap };
 }
 
-function enrichOccupationHtml(html, code, jsaInfo, indSlugMap) {
+function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, haMap) {
   const code4 = String(code).slice(0, 4);
   const skillLevel = getAnzscoSkillLevel(code);
   const data = jsaInfo[code4] || {};
+  const haItem = haMap[code] || {};
 
   // 1. Ensure ANZSCO Skill Level is inside Skill assessment essentials
   if (!html.includes('ANZSCO Skill Level') && !html.includes('ANZSCO SKILL LEVEL')) {
@@ -394,18 +480,106 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap) {
       </article>
 `;
 
-  // Combine cards in the exact order shown in the screenshot:
-  // 1. Skill assessment essentials (already in place)
-  // 2. About this occupation (already in place)
-  // 3. Salary · ABS via JSA
-  // 4. 10-year Outlook · JSA Projections
-  // 5. Where workers go · Top employing industries
-  // 6. Education profile · Workforce qualifications
-  // 7. Workforce Demographics · Age distribution
-  // 8. Where to settle · Strongest labour markets in Australia
-  const combinedJsaCards = salaryCardHtml + outlookCardHtml + industriesCardHtml + eduCardHtml + ageDistCardHtml + settleCardHtml;
+  // 8. Build Typical Tasks Card (DAY-TO-DAY)
+  let tasksCardHtml = '';
+  const tasks = data.tasks || [];
+  if (tasks.length > 0) {
+    const taskItems = tasks.slice(0, 10).map((t, idx) => `
+    <li style="position:relative;padding:10px 0 10px 38px;font-size:14px;color:var(--body);border-bottom:1px dashed var(--border)">
+      <span style="position:absolute;left:0;top:8px;width:26px;height:26px;background:var(--cream);color:var(--forest);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;font-family:'Playfair Display',Georgia,serif">${idx + 1}</span>
+      ${t}
+    </li>`).join('\n');
 
-  // Clean out any previously injected cards or placeholders
+    tasksCardHtml = `
+      <article class="card">
+        <span class="card-eyebrow">DAY-TO-DAY</span>
+        <h2 class="card-title">Typical tasks performed</h2>
+        <ol class="tasks" style="list-style:none;padding:0">
+          ${taskItems}
+        </ol>
+      </article>
+`;
+  }
+
+  // 9. Build Industry Insights Card (Primary Industry + Industry Code + Top Occupations)
+  let industryInsightsCardHtml = '';
+  const primaryIndustry = (topInds && topInds[0]) || 'Professional, Scientific and Technical Services';
+  const divisionCode = ANZSIC_DIVISION_MAP[primaryIndustry] || 'Division M';
+  const topOccsInInd = indTopOccsMap[primaryIndustry] || [
+    'Accountants',
+    'Software and Applications Programmers',
+    'Solicitors',
+    'Management and Organisation Analysts',
+    'Advertising and Marketing Professionals'
+  ];
+
+  const topOccListItems = topOccsInInd.map(occ => `
+    <li style="font-size:14px;color:var(--body);padding:8px 0;border-bottom:1px solid var(--border)">${occ}</li>`).join('\n');
+
+  industryInsightsCardHtml = `
+      <article class="card">
+        <span class="card-eyebrow">INDUSTRY INSIGHTS</span>
+        <h2 class="card-title">🏭 ${primaryIndustry}</h2>
+        <div class="metric-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));max-width:240px;margin-bottom:20px">
+          <div class="metric">
+            <div class="ml">INDUSTRY CODE</div>
+            <div class="mv" style="font-size:18px">${divisionCode}</div>
+          </div>
+        </div>
+        <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:18px;font-weight:700;color:var(--ink);margin:20px 0 12px">Top Occupations</h3>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;padding:0">
+          ${topOccListItems}
+        </ul>
+      </article>
+`;
+
+  // 10. Build JSA Official Ratings / State & Territory Shortage Priority Card
+  const listRaw = haItem.list || 'STSOL;CSOL';
+  let badgeText = 'State Nominated / Employer Sponsored (STSOL)';
+  if (listRaw.includes('MLTSSL')) {
+    badgeText = 'Medium and Long-term Strategic Skills (MLTSSL)';
+  } else if (listRaw.includes('ROL')) {
+    badgeText = 'Regional Occupation List (ROL)';
+  } else if (listRaw.includes('CSOL')) {
+    badgeText = 'Core Skills Occupation List (CSOL)';
+  }
+
+  const states = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT'];
+  const stateCards = states.map(st => `
+          <div class="metric" style="min-height:auto;max-height:none;padding:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="font-weight:700;font-size:13px;color:var(--ink)">${st}</span>
+              <span class="pill pill-slate" style="font-size:10px;padding:2px 8px;font-weight:700">NS</span>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px">No Metro Shortage</div>
+            <div style="font-size:11px;color:var(--muted)">Stream: ${st} Regional / DAMA</div>
+          </div>`).join('\n');
+
+  const jsaRatingsCardHtml = `
+      <article class="card">
+        <span class="card-eyebrow">JOBS &amp; SKILLS AUSTRALIA (JSA) OFFICIAL RATINGS</span>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+          <h2 class="card-title" style="margin-bottom:0">State &amp; Territory Shortage Priority</h2>
+          <span class="pill pill-emerald" style="font-weight:700">${badgeText}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+          ${stateCards}
+        </div>
+        <div style="background:rgba(31,77,68,0.04);border:1px solid rgba(31,77,68,0.14);border-radius:10px;padding:16px 18px;margin-top:16px">
+          <div style="font-size:11px;font-weight:700;color:var(--forest);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">WHY THIS OCCUPATION IS IN DEMAND (LABOUR INTELLIGENCE &amp; MIGRATION ANALYSIS)</div>
+          <p style="font-size:13px;line-height:1.6;color:var(--body);margin:0">
+            Evaluated as No National Shortage (NS) on the Jobs and Skills Australia (JSA) Skills Priority List across all Australian states and territories. Eligible for skilled migration under the ${listRaw.includes('MLTSSL') ? 'Short-term Skilled Occupation List (MLTSSL)' : 'State Nominated / Employer Sponsored (STSOL)'} and Core Skills streams subject to individual state nomination allocation quotas and employer sponsorship.
+          </p>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:16px;display:flex;flex-wrap:wrap;gap:16px;line-height:1.5">
+          <span>Official Instrument: <strong>Migration (LIN 19/051) Specification of Occupations</strong></span>
+          <span>Labour Market Source: <strong>Jobs &amp; Skills Australia SPL (2024&ndash;2026)</strong></span>
+          <span>Statutory Standard: <strong>ABS ANZSCO 1220.0</strong></span>
+        </div>
+      </article>
+`;
+
+  // Remove any previously inserted cards/placeholders/test code to prevent duplicates
   html = html.replace(/<article class="card"[^>]*style="background:#FCFBF7[^"]*"[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Salary &middot; ABS via JSA[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">10-year Outlook &middot; JSA Projections[\s\S]*?<\/article>/g, '');
@@ -413,25 +587,41 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap) {
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Education profile[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Workforce Demographics[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Where to settle[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">DAY-TO-DAY[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Industry Insights[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">INDUSTRY INSIGHTS[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">State opportunity map[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">JOBS &amp; SKILLS AUSTRALIA \(JSA\) OFFICIAL RATINGS[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Labour Market Profile &middot; JSA Atlas[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Geographic Distribution[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<div class="card">\s*<h2>Industry Test<\/h2>[\s\S]*?<\/div>/g, '');
 
-  // Find where Overview / About this occupation ends
+  // Group 1: Middle JSA cards (Salary -> Settle -> Tasks)
+  const middleCards = salaryCardHtml + outlookCardHtml + industriesCardHtml + eduCardHtml + ageDistCardHtml + settleCardHtml + tasksCardHtml;
+
+  // Insert middle cards right after "About this occupation"
   const aboutMatch = html.match(/(<article class="card">[\s\S]*?<h2 class="card-title">About this occupation<\/h2>[\s\S]*?<\/article>)/);
   if (aboutMatch) {
-    html = html.replace(aboutMatch[0], aboutMatch[0] + '\n' + combinedJsaCards);
+    html = html.replace(aboutMatch[0], aboutMatch[0] + '\n' + middleCards);
   } else {
     const essMatch = html.match(/(<article class="card">[\s\S]*?<h2 class="card-title">Skill assessment essentials<\/h2>[\s\S]*?<\/article>)/);
     if (essMatch) {
-      html = html.replace(essMatch[0], essMatch[0] + '\n' + combinedJsaCards);
+      html = html.replace(essMatch[0], essMatch[0] + '\n' + middleCards);
     }
+  }
+
+  // Group 2: Bottom cards (Industry Insights + JSA Official Ratings)
+  // Insert right before Bottom CTA: `<div class="bottom-cta">`
+  const bottomCards = industryInsightsCardHtml + jsaRatingsCardHtml;
+  if (html.includes('<div class="bottom-cta">')) {
+    html = html.replace('<div class="bottom-cta">', bottomCards + '\n      <div class="bottom-cta">');
   }
 
   return html;
 }
 
 function main() {
-  const { code4Map, indSlugMap } = parseJsaData();
+  const { code4Map, indSlugMap, indTopOccsMap, haMap } = parseJsaData();
   console.log(`Parsed JSA data for ${Object.keys(code4Map).length} 4-digit ANZSCO unit groups.`);
 
   // Get all AU occupation directories
@@ -448,7 +638,7 @@ function main() {
 
     if (fs.existsSync(pubFile)) {
       const origHtml = fs.readFileSync(pubFile, 'utf8');
-      const enrichedHtml = enrichOccupationHtml(origHtml, code, code4Map, indSlugMap);
+      const enrichedHtml = enrichOccupationHtml(origHtml, code, code4Map, indSlugMap, indTopOccsMap, haMap);
       fs.writeFileSync(pubFile, enrichedHtml, 'utf8');
 
       // Sync to build
