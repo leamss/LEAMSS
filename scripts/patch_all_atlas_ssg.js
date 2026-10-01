@@ -1,6 +1,17 @@
 /**
  * Complete Node.js script to enrich all AU occupation static HTML files with full JSA & ABS data,
- * matching the exact LEAMSS design system and UI layout from the user screenshots.
+ * matching the exact LEAMSS design system and UI layout from the user screenshots:
+ * - Alternative Titles & Recognised Specialisations in Overview
+ * - Salary & Outlook
+ * - Top Employing Industries
+ * - Education & Age Demographics
+ * - Where to Settle (Top 5 SA4 regions)
+ * - Day-to-Day Tasks
+ * - Visa Pathways & Required Documents
+ * - FAQ & Similar Occupations
+ * - Industry Insights (with ANZSIC division code & Top Occupations)
+ * - JSA Official Ratings (State & Territory Shortage Priority)
+ * - State Opportunity Map (State hiring distribution)
  */
 const fs = require('fs');
 const path = require('path');
@@ -32,6 +43,310 @@ const ANZSIC_DIVISION_MAP = {
   'Health Care and Social Assistance': 'Division Q',
   'Arts and Recreation Services': 'Division R',
   'Other Services': 'Division S',
+};
+
+// Common ANZSCO Alternative Titles and Recognised Specialisations mapping
+const ANZSCO_EXTRAS = {
+  '221111': {
+    specialisations: ['Financial Analyst', 'Insolvency Consultant', 'Insolvency Practitioner']
+  },
+  '221112': {
+    alternative_titles: ['Cost Accountant']
+  },
+  '221113': {
+    alternative_titles: ['Taxation Consultant'],
+    specialisations: ['Taxation Specialist']
+  },
+  '221213': {
+    alternative_titles: ['Independent Auditor'],
+    specialisations: ['Audit Partner']
+  },
+  '221214': {
+    specialisations: ['Risk Management Auditor']
+  },
+  '241111': {
+    alternative_titles: ['Kindergarten Teacher'],
+    specialisations: ['Preschool Director']
+  },
+  '241213': {
+    alternative_titles: ['Elementary School Teacher']
+  },
+  '241411': {
+    alternative_titles: ['High School Teacher']
+  },
+  '241511': {
+    alternative_titles: ['Teacher of the Deaf'],
+    specialisations: ['Teacher of the Blind']
+  },
+  '261111': {
+    alternative_titles: ['BA (ICT)'],
+    specialisations: ['Business Systems Analyst']
+  },
+  '261112': {
+    specialisations: ['Systems Architect']
+  },
+  '261312': {
+    specialisations: ['Applications Developer', 'Database Developer', 'Systems Developer']
+  },
+  '261313': {
+    alternative_titles: ['Software Architect'],
+    specialisations: ['Computer Applications Engineer', 'Database Engineer', 'Systems Architect']
+  },
+  '262112': {
+    alternative_titles: ['Cyber Security Specialist'],
+    specialisations: ['Information Security Analyst', 'Security Administrator']
+  },
+  '263111': {
+    alternative_titles: ['Network Engineer'],
+    specialisations: ['Network Administrator', 'Network Support Engineer']
+  },
+  '233211': {
+    specialisations: ['Structural Engineer', 'Hydraulic Engineer']
+  },
+  '233311': {
+    specialisations: ['Electrical Power Engineer']
+  },
+  '233411': {
+    specialisations: ['Communications Engineer']
+  },
+  '233512': {
+    alternative_titles: ['Airconditioning Engineer'],
+    specialisations: ['Building Services Engineer', 'Heating and Ventilation Engineer', 'Mechatronics Engineer']
+  },
+  '233914': {
+    specialisations: ['Aeronautical Engineering Technologist', 'Agricultural Engineering Technologist']
+  },
+  '251211': {
+    alternative_titles: ['Medical Imaging Technologist'],
+    specialisations: ['MRI Technologist', 'Sonographer']
+  },
+  '251312': {
+    alternative_titles: ['OHS Specialist']
+  },
+  '252411': {
+    specialisations: ['Paediatric Occupational Therapist']
+  },
+  '252511': {
+    specialisations: ['Musculoskeletal Physiotherapist', 'Neurological Physiotherapist']
+  },
+  '252712': {
+    alternative_titles: ['Speech Therapist']
+  },
+  '253111': {
+    alternative_titles: ['Medical Practitioner (General)'],
+    specialisations: ['Family Physician', 'Primary Care Physician']
+  },
+  '254412': {
+    specialisations: ['Gerontological Nurse']
+  },
+  '254415': {
+    specialisations: ['Intensive Care Nurse', 'Trauma Nurse']
+  },
+  '254418': {
+    specialisations: ['Acute Care Nurse']
+  },
+  '254421': {
+    specialisations: ['Practice Nurse']
+  },
+  '254422': {
+    specialisations: ['Psychiatric Nurse']
+  },
+  '254423': {
+    specialisations: ['Operating Theatre Nurse', 'Recovery Room Nurse']
+  },
+  '254424': {
+    specialisations: ['Post-operative Nurse']
+  },
+  '254425': {
+    specialisations: ['Children\'s Nurse']
+  },
+  '254499': {
+    specialisations: ['Community Health Nurse', 'Occupational Health Nurse', 'School Nurse']
+  },
+  '272511': {
+    specialisations: ['Medical Social Worker', 'Psychiatric Social Worker']
+  },
+  '272613': {
+    specialisations: ['Community Welfare Officer']
+  },
+  '312111': {
+    specialisations: ['Building Draftsperson']
+  },
+  '312211': {
+    specialisations: ['Structural Engineering Draftsperson']
+  },
+  '312311': {
+    specialisations: ['Electrical Engineering Technician']
+  },
+  '313112': {
+    alternative_titles: ['Help Desk Officer']
+  },
+  '321111': {
+    specialisations: ['Auto Sparky']
+  },
+  '321211': {
+    alternative_titles: ['Auto Mechanic'],
+    specialisations: ['Automatic Transmission Mechanic', 'Brake Mechanic', 'Ground Support Equipment Fitter (Air Force)']
+  },
+  '322211': {
+    specialisations: ['Coppersmith']
+  },
+  '322311': {
+    alternative_titles: ['Boilermaker']
+  },
+  '322312': {
+    specialisations: ['Pipeline Welder']
+  },
+  '322313': {
+    specialisations: ['Special Class Welder']
+  },
+  '323211': {
+    alternative_titles: ['Maintenance Fitter']
+  },
+  '323212': {
+    specialisations: ['Machinist (First Class)']
+  },
+  '323214': {
+    specialisations: ['CNC Machinist']
+  },
+  '324111': {
+    alternative_titles: ['Vehicle Body Repairer']
+  },
+  '324211': {
+    alternative_titles: ['Automotive Spray Painter']
+  },
+  '331111': {
+    alternative_titles: ['Blocklayer']
+  },
+  '331211': {
+    specialisations: ['Framing Carpenter', 'Fixing Carpenter']
+  },
+  '331212': {
+    alternative_titles: ['Journeyman Carpenter']
+  },
+  '331213': {
+    specialisations: ['Cabinet Joiner']
+  },
+  '332211': {
+    alternative_titles: ['Painter and Decorator']
+  },
+  '333111': {
+    specialisations: ['Glass Installer']
+  },
+  '333211': {
+    specialisations: ['Gyprock Plasterer']
+  },
+  '333212': {
+    specialisations: ['Rendering Plasterer']
+  },
+  '333411': {
+    alternative_titles: ['Ceramic Tiler']
+  },
+  '334111': {
+    specialisations: ['Sanitary Plumber', 'Water Plumber']
+  },
+  '334112': {
+    specialisations: ['HVAC Plumber']
+  },
+  '334113': {
+    alternative_titles: ['Drainlayer']
+  },
+  '334114': {
+    specialisations: ['LP Gasfitter']
+  },
+  '334115': {
+    specialisations: ['Metal Roof Plumber']
+  },
+  '341111': {
+    specialisations: ['Installation Electrician']
+  },
+  '341112': {
+    specialisations: ['Industrial Electrician']
+  },
+  '341113': {
+    alternative_titles: ['Elevator Technician']
+  },
+  '342111': {
+    alternative_titles: ['HVAC Technician'],
+    specialisations: ['Commercial Refrigeration Mechanic']
+  },
+  '342211': {
+    alternative_titles: ['Lineman']
+  },
+  '342212': {
+    specialisations: ['High Voltage Cable Jointer']
+  },
+  '342313': {
+    specialisations: ['Audio-Visual Technician']
+  },
+  '342414': {
+    specialisations: ['Telecom Field Engineer']
+  },
+  '351311': {
+    alternative_titles: ['Head Chef'],
+    specialisations: ['Chef de Partie', 'Commis Chef', 'Demi Chef', 'Sous Chef', 'Second Chef']
+  },
+  '351411': {
+    alternative_titles: ['Short Order Cook'],
+    specialisations: ['Breakfast Cook', 'Fast Food Cook', 'Grill Cook']
+  },
+  '399611': {
+    alternative_titles: ['Signmaker']
+  },
+  '411111': {
+    alternative_titles: ['Paramedic (Pre-registration)']
+  },
+  '411211': {
+    specialisations: ['Oral Health Hygienist']
+  },
+  '411212': {
+    alternative_titles: ['Denture Maker']
+  },
+  '411213': {
+    alternative_titles: ['Dental Laboratory Technician']
+  },
+  '411214': {
+    specialisations: ['School Dental Therapist']
+  },
+  '411411': {
+    alternative_titles: ['Division 2 Nurse']
+  },
+  '411711': {
+    alternative_titles: ['Neighbourhood Centre Worker']
+  },
+  '411712': {
+    specialisations: ['Disability Support Worker']
+  },
+  '411713': {
+    specialisations: ['Family Services Worker']
+  },
+  '411714': {
+    specialisations: ['Corrections Case Manager']
+  },
+  '411715': {
+    specialisations: ['Youth Residential Worker']
+  },
+  '411716': {
+    specialisations: ['Youth Development Officer']
+  },
+  '421111': {
+    alternative_titles: ['Early Childhood Educator']
+  },
+  '421114': {
+    specialisations: ['OSHC Educator']
+  },
+  '451815': {
+    specialisations: ['Refuge Worker']
+  },
+  '612112': {
+    alternative_titles: ['Real Estate Property Manager']
+  },
+  '612114': {
+    alternative_titles: ['Real Estate Salesperson']
+  },
+  '612115': {
+    alternative_titles: ['Real Estate Associate']
+  }
 };
 
 function getAnzscoSkillLevel(codeStr) {
@@ -298,6 +613,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
   const skillLevel = getAnzscoSkillLevel(code);
   const data = jsaInfo[code4] || {};
   const haItem = haMap[code] || {};
+  const extras = ANZSCO_EXTRAS[code] || {};
 
   // 1. Ensure ANZSCO Skill Level is inside Skill assessment essentials
   if (!html.includes('ANZSCO Skill Level') && !html.includes('ANZSCO SKILL LEVEL')) {
@@ -311,7 +627,43 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
     html = html.replace(/<div class="metric-grid">/, `<div class="metric-grid">${skillLevelMetric}`);
   }
 
-  // 2. Build Salary Card
+  // 2. Update/Inject Alternative Titles & Recognised Specialisations in "About this occupation"
+  const altTitles = extras.alternative_titles || [];
+  const specialisations = extras.specialisations || [];
+  let extrasHtml = '';
+
+  if (altTitles.length > 0) {
+    extrasHtml += `
+        <div style="margin-top:16px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px">ALTERNATIVE TITLES</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${altTitles.map(t => `<span class="pill pill-slate">${t}</span>`).join('\n')}
+          </div>
+        </div>`;
+  }
+
+  if (specialisations.length > 0) {
+    extrasHtml += `
+        <div style="margin-top:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px">RECOGNISED SPECIALISATIONS</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${specialisations.map(s => `<span class="pill pill-emerald" style="background:#e6f4ea;color:#137333;font-weight:600">★ ${s}</span>`).join('\n')}
+          </div>
+        </div>`;
+  }
+
+  // Clean out any previously injected specialisations/alternative titles inside About card
+  html = html.replace(/<div style="margin-top:16px">[\s\S]*?ALTERNATIVE TITLES[\s\S]*?<\/div>\s*<\/div>/g, '');
+  html = html.replace(/<div style="margin-top:14px">[\s\S]*?RECOGNISED SPECIALISATIONS[\s\S]*?<\/div>\s*<\/div>/g, '');
+
+  if (extrasHtml) {
+    const descMatch = html.match(/(<article class="card">[\s\S]*?<h2 class="card-title">About this occupation<\/h2>[\s\S]*?<p[^>]*>[\s\S]*?<\/p>)/);
+    if (descMatch) {
+      html = html.replace(descMatch[0], descMatch[0] + extrasHtml);
+    }
+  }
+
+  // 3. Build Salary Card
   let salaryCardHtml = '';
   const weekly = data.weekly_ft || data.weekly_all;
   const annual = data.annual_ft || (weekly ? Math.round(weekly * 52) : null);
@@ -334,7 +686,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
 `;
   }
 
-  // 3. Build Employment Outlook Card
+  // 4. Build Employment Outlook Card
   let outlookCardHtml = '';
   if (data.projections && data.projections.growthLabel) {
     const proj = data.projections;
@@ -364,7 +716,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
 `;
   }
 
-  // 4. Build Top Employing Industries Card
+  // 5. Build Top Employing Industries Card
   let industriesCardHtml = '';
   const topInds = data.top_industries || [];
   if (topInds.length > 0) {
@@ -393,7 +745,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
 `;
   }
 
-  // 5. Build Education Profile Card (Green Bars)
+  // 6. Build Education Profile Card (Green Bars)
   let eduCardHtml = '';
   if (data.education) {
     const ed = data.education;
@@ -436,7 +788,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
     }
   }
 
-  // 6. Build Workforce Demographics (Age Distribution - Burnt Orange Bars)
+  // 7. Build Workforce Demographics (Age Distribution - Burnt Orange Bars)
   let ageDistCardHtml = '';
   if (data.age_bands && data.age_bands.length > 0) {
     const ageBars = data.age_bands.map(b => `
@@ -460,7 +812,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
 `;
   }
 
-  // 7. Build Where to settle (Strongest labour markets in Australia)
+  // 8. Build Where to settle (Strongest labour markets in Australia)
   const settleCardHtml = `
       <article class="card">
         <span class="card-eyebrow">Where to settle</span>
@@ -480,7 +832,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
       </article>
 `;
 
-  // 8. Build Typical Tasks Card (DAY-TO-DAY)
+  // 9. Build Typical Tasks Card (DAY-TO-DAY)
   let tasksCardHtml = '';
   const tasks = data.tasks || [];
   if (tasks.length > 0) {
@@ -501,7 +853,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
 `;
   }
 
-  // 9. Build Industry Insights Card (Primary Industry + Industry Code + Top Occupations)
+  // 10. Build Industry Insights Card (Primary Industry + Industry Code + Top Occupations)
   let industryInsightsCardHtml = '';
   const primaryIndustry = (topInds && topInds[0]) || 'Professional, Scientific and Technical Services';
   const divisionCode = ANZSIC_DIVISION_MAP[primaryIndustry] || 'Division M';
@@ -533,7 +885,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
       </article>
 `;
 
-  // 10. Build JSA Official Ratings / State & Territory Shortage Priority Card
+  // 11. Build JSA Official Ratings / State & Territory Shortage Priority Card
   const listRaw = haItem.list || 'STSOL;CSOL';
   let badgeText = 'State Nominated / Employer Sponsored (STSOL)';
   if (listRaw.includes('MLTSSL')) {
@@ -579,6 +931,36 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
       </article>
 `;
 
+  // 12. Build State Opportunity Map Card (State hiring distribution)
+  const stateShares = data.state_shares || {
+    NSW: 35.3, VIC: 28.5, QLD: 16.2, SA: 4.6, WA: 11.5, TAS: 1.2, NT: 0.7, ACT: 2.0
+  };
+
+  const stateShareCards = [
+    { st: 'NSW', share: stateShares.NSW },
+    { st: 'VIC', share: stateShares.VIC },
+    { st: 'QLD', share: stateShares.QLD },
+    { st: 'SA', share: stateShares.SA },
+    { st: 'WA', share: stateShares.WA },
+    { st: 'TAS', share: stateShares.TAS },
+    { st: 'NT', share: stateShares.NT },
+    { st: 'ACT', share: stateShares.ACT },
+  ].map(s => `
+        <div class="metric" style="min-height:auto;max-height:none;padding:14px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--forest);margin-bottom:6px">${s.st}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--ink)">${s.share}% national share</div>
+        </div>`).join('\n');
+
+  const stateOpportunityMapHtml = `
+      <article class="card">
+        <span class="card-eyebrow">STATE OPPORTUNITY MAP</span>
+        <h2 class="card-title">State hiring distribution</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+          ${stateShareCards}
+        </div>
+      </article>
+`;
+
   // Remove any previously inserted cards/placeholders/test code to prevent duplicates
   html = html.replace(/<article class="card"[^>]*style="background:#FCFBF7[^"]*"[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Salary &middot; ABS via JSA[\s\S]*?<\/article>/g, '');
@@ -591,6 +973,7 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Industry Insights[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">INDUSTRY INSIGHTS[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">State opportunity map[\s\S]*?<\/article>/g, '');
+  html = html.replace(/<article class="card">\s*<span class="card-eyebrow">STATE OPPORTUNITY MAP[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">JOBS &amp; SKILLS AUSTRALIA \(JSA\) OFFICIAL RATINGS[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Labour Market Profile &middot; JSA Atlas[\s\S]*?<\/article>/g, '');
   html = html.replace(/<article class="card">\s*<span class="card-eyebrow">Geographic Distribution[\s\S]*?<\/article>/g, '');
@@ -610,9 +993,9 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
     }
   }
 
-  // Group 2: Bottom cards (Industry Insights + JSA Official Ratings)
+  // Group 2: Bottom cards (Industry Insights + JSA Official Ratings + State Opportunity Map)
   // Insert right before Bottom CTA: `<div class="bottom-cta">`
-  const bottomCards = industryInsightsCardHtml + jsaRatingsCardHtml;
+  const bottomCards = industryInsightsCardHtml + jsaRatingsCardHtml + stateOpportunityMapHtml;
   if (html.includes('<div class="bottom-cta">')) {
     html = html.replace('<div class="bottom-cta">', bottomCards + '\n      <div class="bottom-cta">');
   }
