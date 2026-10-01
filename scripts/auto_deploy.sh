@@ -50,6 +50,9 @@ if [ -f "docker-compose.prod.yml" ]; then
     $DC -f docker-compose.prod.yml up -d --build --remove-orphans
     # Run complete JSA enrichment + SSG generation inside backend container
     $DC -f docker-compose.prod.yml exec -T backend python scripts/enrich_jsa_and_ssg.py || true
+    if command -v node >/dev/null 2>&1; then
+        node scripts/patch_all_atlas_ssg.js || true
+    fi
     # Ensure frontend container serves the freshly generated static Atlas files immediately
     $DC -f docker-compose.prod.yml cp frontend/public/atlas/. frontend:/usr/share/nginx/html/atlas/ || true
 elif [ -f "docker-compose.yml" ]; then
@@ -57,6 +60,9 @@ elif [ -f "docker-compose.yml" ]; then
     $DC down || true
     $DC up -d --build --remove-orphans
     $DC exec -T backend python scripts/enrich_jsa_and_ssg.py || true
+    if command -v node >/dev/null 2>&1; then
+        node scripts/patch_all_atlas_ssg.js || true
+    fi
     $DC cp frontend/public/atlas/. frontend:/usr/share/nginx/html/atlas/ || true
 fi
 
