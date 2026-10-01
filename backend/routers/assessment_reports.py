@@ -556,7 +556,7 @@ async def _build_snapshot(
                             eoi_backlog_alts.append(alt_eoi)
 
         alt_candidates = []
-        for key in ("additional_occupations", "alternative_occupations", "alternatives"):
+        for key in ("occupations", "additional_occupations", "alternative_occupations", "alternatives"):
             val = assessment.get(key)
             if isinstance(val, list):
                 alt_candidates.extend(val)

@@ -179,21 +179,28 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
         snap["occupation_comparison"] = None
         comp_occs = []
 
-    # 6) Ensure EOI Backlog is present (Page 8)
-    alt_occ = next((o for o in comp_occs if not o.get("is_primary")), None) if len(comp_occs) >= 2 else None
-    target_eoi_code = alt_occ.get("code") if alt_occ else clean_code
-    target_eoi_title = alt_occ.get("title") if alt_occ else clean_title
+    # 6) Ensure Primary EOI Backlog is present for clean_code (Primary Occupation)
+    has_valid_primary_eoi = bool(snap.get("eoi_backlog") and (snap["eoi_backlog"].get("unified") or {}).get("rows"))
+    if not has_valid_primary_eoi:
+        snap["eoi_backlog"] = _build_indicative_eoi(clean_code, clean_title, client_pts)
 
-    has_valid_eoi = bool(snap.get("eoi_backlog") and (snap["eoi_backlog"].get("unified") or {}).get("rows"))
-    if not has_valid_eoi:
-        snap["eoi_backlog"] = _build_indicative_eoi(target_eoi_code, target_eoi_title, client_pts)
+    # Ensure Alternative EOI Backlogs are present for ALL alternate occupations
+    alt_occs = [o for o in comp_occs if not o.get("is_primary")] if len(comp_occs) >= 2 else []
+    existing_alts = snap.get("eoi_backlog_alts") or []
+    if not isinstance(existing_alts, list):
+        existing_alts = []
 
-    if not alt_occ:
-        snap["eoi_backlog_alts"] = []
-    else:
-        has_valid_alts = bool(snap.get("eoi_backlog_alts") and len(snap["eoi_backlog_alts"]) > 0 and (snap["eoi_backlog_alts"][0].get("unified") or {}).get("rows"))
-        if not has_valid_alts:
-            snap["eoi_backlog_alts"] = [_build_indicative_eoi(target_eoi_code, target_eoi_title, client_pts)]
+    existing_codes = {str(a.get("occupation_code") or "").strip() for a in existing_alts if isinstance(a, dict)}
+    for ao in alt_occs:
+        acode = str(ao.get("code") or "").strip()
+        atitle = ao.get("title") or acode
+        if acode and acode != clean_code and acode not in existing_codes:
+            alt_eoi_built = _build_indicative_eoi(acode, atitle, client_pts)
+            if alt_eoi_built and (alt_eoi_built.get("unified") or {}).get("rows"):
+                existing_alts.append(alt_eoi_built)
+                existing_codes.add(acode)
+
+    snap["eoi_backlog_alts"] = existing_alts
 
     # 7) Ensure Eligibility Verdict is present (Page 3)
     if not snap.get("eligibility_verdict"):

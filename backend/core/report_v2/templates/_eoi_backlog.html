@@ -10,8 +10,8 @@
 <div class="page">
 
   <div class="section-header">
-    <span class="eyebrow">SkillSelect Competition{% if is_alt %} · Alternate Pathway{% endif %}</span>
-    <h1>EOI Backlog &amp; Your Position{% if is_alt %} <span style="font-size:0.55em;color:var(--slate-500);">(Alternate · {{ eoi.occupation_code }})</span>{% endif %}</h1>
+    <span class="eyebrow">SkillSelect Competition{% if is_alt %} · Alternate Pathway{% else %} · Primary Pathway{% endif %}</span>
+    <h1>EOI Backlog &amp; Your Position <span style="font-size:0.55em;color:var(--slate-500);">({% if is_alt %}Alternate{% else %}Primary{% endif %} · {{ eoi.occupation_code }})</span></h1>
     <span class="rule"></span>
     <p class="lead">For <b>{{ eoi.occupation_code }} {{ eoi.occupation_title }}</b>, this is the number of
        Expressions of Interest currently sitting in the SkillSelect pool ("SUBMITTED"), by points score
