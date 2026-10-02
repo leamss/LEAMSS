@@ -2090,35 +2090,93 @@ function QuizResult({ result, onReset }) {
           {isAU
             ? 'Australia offers one of the world’s most transparent, merit-based immigration systems. Permanent residents enjoy high living standards, universal Medicare healthcare, free schooling, high wages, and a direct 4-year citizenship pathway.'
             : isCA
-            ? 'Canada is globally celebrated for its welcoming multicultural environment, universal healthcare, free K-12 education, thriving tech & healthcare sectors, and direct Express Entry permanent residency pathways.'
+            ? 'Canada is globally celebrated for its welcoming multicultural environment, universal healthcare, free K-12 schooling, thriving tech & healthcare industries, and fast Express Entry permanent residency pathways.'
             : 'New Zealand is internationally famous for its pristine natural beauty, unbeatable work-life balance, high safety, excellent public services, and progressive Skilled Migrant Category (SMC 6-Points) residence visa.'}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="font-bold text-sm text-slate-900 mb-1">🏥 Universal Healthcare</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Free medical treatment in public hospitals and subsidized prescription medicines from day one of Permanent Residency.</div>
-          </div>
-          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="font-bold text-sm text-slate-900 mb-1">💰 High Earning Potential</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Top global minimum wages with median professional salaries exceeding ₹50–₹75 Lakhs/year in high-demand occupations.</div>
-          </div>
-          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="font-bold text-sm text-slate-900 mb-1">🎓 Free Quality Education</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Free government primary and secondary schooling for children of Permanent Residents with domestic university fee benefits.</div>
-          </div>
-          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="font-bold text-sm text-slate-900 mb-1">🌟 Direct PR &amp; Citizenship</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Unrestricted work &amp; settlement rights across the country with fast-track eligibility for citizenship and powerful global passports.</div>
-          </div>
-          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="font-bold text-sm text-slate-900 mb-1">🏖️ World-Class Safety &amp; Living</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Consistently ranked among the top 10 most liveable, peaceful, and clean nations on Earth with exceptional family security.</div>
-          </div>
-          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="font-bold text-sm text-slate-900 mb-1">👵 Superannuation &amp; Social Security</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Mandatory employer retirement contributions (Superannuation / CPP) ensuring robust long-term financial freedom.</div>
-          </div>
+          {isAU ? (
+            <>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🏥 Universal Healthcare (Medicare)</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Free medical treatment in public hospitals, subsidized GP visits and PBS prescription medicines from day one of PR.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">💰 High Earning Potential</div>
+                <div className="text-xs text-slate-600 leading-relaxed">World’s highest minimum wage ($24.10/hr) with median professional salaries exceeding AUD $95,000/year.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🎓 Free Quality Education</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Free government schooling for dependent children and subsidized higher education fees under Commonwealth Support.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🌟 Direct PR &amp; Citizenship</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Unrestricted rights to live and work anywhere, leading to Australian citizenship and top-tier passport after 4 years.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🏖️ World-Class Lifestyle &amp; Safety</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Consistently ranked among the world’s most liveable countries with clean air, sunny climate, and safe cities.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">👵 Superannuation &amp; Security</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Mandatory 11.5% employer-paid superannuation retirement fund on top of your standard base salary.</div>
+              </div>
+            </>
+          ) : isCA ? (
+            <>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🏥 Medicare Universal Healthcare</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Free comprehensive healthcare coverage funded through taxes with no out-of-pocket costs for hospital care and doctors.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">💼 Lucrative Tech &amp; Industry Hubs</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Strong economic growth in Toronto, Vancouver, Calgary, and Montreal with median skilled salaries of CAD $85,000–$120,000+.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🍁 Fast-Track Express Entry PR</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Express Entry offers one of the fastest PR visa turnaround times in the world (as fast as 6 months from ITA).</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">👶 Canada Child Benefit (CCB)</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Generous monthly tax-free government payments provided to eligible families for each child under 18 years of age.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🎓 World-Class Free Education</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Free public schooling from kindergarten through Grade 12 and domestic tuition fees at top Canadian universities.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🇨🇦 Canadian Citizenship in 3 Years</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Eligible to apply for Canadian Citizenship and a Canadian passport after just 3 years (1,095 days) of PR residence.</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🌿 Ultimate Work-Life Balance</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Consistently ranked #1 globally for work-life harmony, generous 4-week annual leave, and family-first culture.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🏥 Comprehensive Public Healthcare</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Subsidized state-funded healthcare system covering emergencies, hospitalization, and maternity care.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">✨ Safe &amp; Progressive Nation</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Consistently ranked as one of the top 3 most peaceful and least corrupt countries on Earth.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🚀 Green List Fast-Track PR</div>
+                <div className="text-xs text-slate-600 leading-relaxed">Direct Straight to Residence pathway for Tier 1 Green List roles (IT, Doctors, Engineers, Nurses) with no queues.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🎒 Free Quality Schooling</div>
+                <div className="text-xs text-slate-600 leading-relaxed">World-renowned British-model education system with free schooling for children of work visa and residence holders.</div>
+              </div>
+              <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="font-bold text-sm text-slate-900 mb-1">🌏 Trans-Tasman Access</div>
+                <div className="text-xs text-slate-600 leading-relaxed">NZ Citizens can live, work, and settle indefinitely in Australia with full reciprocal work and residence rights.</div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -2132,6 +2190,32 @@ function QuizResult({ result, onReset }) {
             pathways.map((p) => (
               <PathwayResultCard key={p.slug} p={p} isBest={p.slug === top} />
             ))
+          ) : isCA ? (
+            <>
+              <div className="p-5 rounded-xl border bg-white" style={{ borderColor: BRAND.border }}>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white mb-2" style={{ backgroundColor: BRAND.primary }}>Direct PR</span>
+                <h5 className="font-bold text-base text-slate-900">Federal Skilled Worker Program (FSWP)</h5>
+                <p className="text-xs text-slate-600 mt-1">Primary Express Entry pathway for foreign skilled professionals scoring 67+ FSWP points.</p>
+              </div>
+              <div className="p-5 rounded-xl border bg-white" style={{ borderColor: BRAND.border }}>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white mb-2" style={{ backgroundColor: BRAND.accent }}>+600 CRS Points</span>
+                <h5 className="font-bold text-base text-slate-900">Provincial Nominee Program (PNP)</h5>
+                <p className="text-xs text-slate-600 mt-1">Provincial nomination grants +600 points, guaranteeing an Invitation to Apply in the next draw.</p>
+              </div>
+            </>
+          ) : isNZ ? (
+            <>
+              <div className="p-5 rounded-xl border bg-white" style={{ borderColor: BRAND.border }}>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white mb-2" style={{ backgroundColor: BRAND.primary }}>Direct PR</span>
+                <h5 className="font-bold text-base text-slate-900">SMC 6-Points Residence Visa</h5>
+                <p className="text-xs text-slate-600 mt-1">Direct points pathway claiming 3–6 points for qualifications or occupational registration + NZ job offer.</p>
+              </div>
+              <div className="p-5 rounded-xl border bg-white" style={{ borderColor: BRAND.border }}>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white mb-2" style={{ backgroundColor: BRAND.accent }}>Fast-Track PR</span>
+                <h5 className="font-bold text-base text-slate-900">Green List Tier 1 (Straight to Residence)</h5>
+                <p className="text-xs text-slate-600 mt-1">Direct permanent residence application from offshore or onshore for in-demand occupations.</p>
+              </div>
+            </>
           ) : (
             <>
               <div className="p-5 rounded-xl border bg-white" style={{ borderColor: BRAND.border }}>
@@ -2154,37 +2238,87 @@ function QuizResult({ result, onReset }) {
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xl">🛡️</span>
           <h4 className="font-serif-leamss text-xl font-bold" style={{ color: BRAND.primary }}>
-            The LEAMSS Advantage &amp; 100% Refund Protection Policy
+            {isAU
+              ? 'The LEAMSS Advantage & 100% Refund Protection for Australia'
+              : isCA
+              ? 'The LEAMSS Advantage & 100% Refund Protection for Canada'
+              : 'The LEAMSS Advantage & 100% Refund Protection for New Zealand'}
           </h4>
         </div>
         <p className="text-xs sm:text-sm text-slate-700 mb-6">
-          LEAMSS (Ladhani Education &amp; Migration Services) is India’s premier immigration consultancy operating since 2014. We safeguard your migration investment with total legal accountability.
+          {isAU
+            ? 'LEAMSS (Ladhani Education & Migration Services) is India’s premier Australian migration consultancy operating since 2014. We provide statutory migration advisory with total legal transparency.'
+            : isCA
+            ? 'LEAMSS (Ladhani Education & Migration Services) provides premier Canadian immigration consulting since 2014. We guide you through ECA, Express Entry, and Provincial Nominations with full legal compliance.'
+            : 'LEAMSS (Ladhani Education & Migration Services) provides expert New Zealand migration advice since 2014. We guide you through NZQA comparability, Green List mapping, and SMC residency.'}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
             <div className="font-bold text-sm mb-1" style={{ color: BRAND.accent }}>🛡️ 100% Refund Guarantee</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Full refund on professional fees if your skills assessment outcome is negative based on factors we verified upfront.</div>
+            <div className="text-xs text-slate-600 leading-relaxed">
+              {isAU
+                ? 'Full refund on professional fees if your skills assessment outcome is negative based on factors we verified upfront.'
+                : isCA
+                ? 'Full refund on professional fees if your preliminary credential assessment fails on verified grounds.'
+                : 'Full refund on professional fees if your qualification assessment fails based on verified factors.'}
+            </div>
           </div>
           <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="font-bold text-sm mb-1" style={{ color: BRAND.primary }}>📜 MARA &amp; Licensed Experts</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Case representation guided by certified MARA agents adhering strictly to statutory migration regulations.</div>
+            <div className="font-bold text-sm mb-1" style={{ color: BRAND.primary }}>
+              {isAU ? '📜 MARA Registered Network' : isCA ? '📜 Licensed RCIC & CICC Network' : '📜 Licensed Advisers (LIA) Network'}
+            </div>
+            <div className="text-xs text-slate-600 leading-relaxed">
+              {isAU
+                ? 'Official MARA registered migration agents ensuring 100% compliance with Australian statutory immigration laws.'
+                : isCA
+                ? 'Representation in strict compliance with the College of Immigration and Citizenship Consultants (CICC) regulatory framework.'
+                : 'Compliant advisory guided by licensed advisers under the Immigration Advisers Authority (IAA).'}
+            </div>
           </div>
           <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
             <div className="font-bold text-sm text-slate-900 mb-1">⭐ 10+ Years &amp; 4.9★ Reviews</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Over 10,000 successful visa approvals with proven mastery across 1,000+ ANZSCO and NOC occupation codes.</div>
+            <div className="text-xs text-slate-600 leading-relaxed">
+              {isAU
+                ? 'Over 10,000 successful Australian visa and skills assessment outcomes processed with 100% audit integrity.'
+                : isCA
+                ? 'Proven expertise with thousands of successful Canada Express Entry profile lodgements and PNP nominations.'
+                : 'Extensive track record securing New Zealand Accredited Employer Work Visas (AEWV) and SMC residence grants.'}
+            </div>
           </div>
           <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
             <div className="font-bold text-sm text-slate-900 mb-1">💎 Transparent Milestone Fees</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Stage-wise milestone payments aligned with tangible deliverables. No hidden charges or unexpected surprises.</div>
+            <div className="text-xs text-slate-600 leading-relaxed">
+              {isAU
+                ? 'Stage-wise milestone payments tied strictly to tangible outcomes (Skills Assessment, EOI, Visa Lodgement).'
+                : isCA
+                ? 'Stage-wise milestone payments aligned strictly with deliverables (ECA, Express Entry Pool, PNP & e-APR Filing).'
+                : 'Clear, stage-wise milestone billing tied directly to NZQA assessment, EOI submission, and resident visa lodgement.'}
+            </div>
           </div>
           <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="font-bold text-sm mb-1" style={{ color: BRAND.accent }}>🎯 Dedicated Case Officer</div>
-            <div className="text-xs text-slate-600 leading-relaxed">1-on-1 personalized document curation, reference letter drafting, and direct state nomination coordination.</div>
+            <div className="font-bold text-sm mb-1" style={{ color: BRAND.accent }}>
+              {isAU ? '🎯 Dedicated Australian Case Officer' : isCA ? '🎯 Dedicated Canadian Case Officer' : '🎯 Dedicated New Zealand Specialist'}
+            </div>
+            <div className="text-xs text-slate-600 leading-relaxed">
+              {isAU
+                ? 'Personalized 1-on-1 documentation support, CDR / RPL writing guidance, and direct state nomination representation.'
+                : isCA
+                ? '1-on-1 assistance with NOC TEER alignment, employer reference letter drafting, and provincial nomination strategy.'
+                : '1-on-1 assistance with NZQA International Qualifications Assessment (IQA), CV adaptation, and Green List alignment.'}
+            </div>
           </div>
           <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="font-bold text-sm mb-1" style={{ color: BRAND.primary }}>🤝 Landing &amp; Settlement Support</div>
-            <div className="text-xs text-slate-600 leading-relaxed">Comprehensive post-landing guidance including tax registrations (TFN/SIN), banking setup, and job search readiness.</div>
+            <div className="font-bold text-sm mb-1" style={{ color: BRAND.primary }}>
+              {isAU ? '🤝 Australian Settlement Support' : isCA ? '🤝 Canadian Settlement Guidance' : '🤝 New Zealand Settlement Support'}
+            </div>
+            <div className="text-xs text-slate-600 leading-relaxed">
+              {isAU
+                ? 'Assistance with Tax File Number (TFN), Australian bank account opening, Medicare enrolment, and arrival orientation.'
+                : isCA
+                ? 'Pre-landing & arrival support including Social Insurance Number (SIN) guidance, Canadian banking, and provincial health cards.'
+                : 'Post-arrival orientation including IRD tax number registration, New Zealand banking, and healthcare enrolment.'}
+            </div>
           </div>
         </div>
       </div>
@@ -2194,36 +2328,100 @@ function QuizResult({ result, onReset }) {
         <div className="flex items-center gap-2 mb-4">
           <span className="text-lg">🗺️</span>
           <h4 className="font-serif-leamss text-xl font-bold" style={{ color: BRAND.ink }}>
-            Your 5-Stage Migration Roadmap
+            {isAU
+              ? 'Your 5-Stage Australian Immigration Roadmap'
+              : isCA
+              ? 'Your 5-Stage Canadian Immigration Roadmap'
+              : 'Your 5-Stage New Zealand Immigration Roadmap'}
           </h4>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 1</div>
-            <div className="font-bold text-xs text-slate-900 mt-1">Profile Audit</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Document review &amp; ANZSCO code alignment.</div>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 2</div>
-            <div className="font-bold text-xs text-slate-900 mt-1">Skills Assessment</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Lodgement with assessing authority (ACS/EA/VETASSESS).</div>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 3</div>
-            <div className="font-bold text-xs text-slate-900 mt-1">EOI &amp; Nomination</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Expression of Interest &amp; State Nomination filing.</div>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 4</div>
-            <div className="font-bold text-xs text-slate-900 mt-1">Visa Application</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Formal PR visa filing after receiving ITA.</div>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 5</div>
-            <div className="font-bold text-xs text-slate-900 mt-1">Visa Grant &amp; Fly</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">PR grant &amp; pre-departure settlement.</div>
-          </div>
+          {isAU ? (
+            <>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 1</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">Profile Audit</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Document verification &amp; ANZSCO code alignment.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 2</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">Skills Assessment</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Lodgement with assessing authority (ACS/EA/VETASSESS/TRA).</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 3</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">SkillSelect EOI</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Expression of Interest &amp; State Nomination filing.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 4</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">Visa Application</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Formal PR visa filing (Subclass 189/190/491) after invitation.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 5</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">PR Grant &amp; Fly</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Permanent Residency grant, Medicare &amp; TFN setup.</div>
+              </div>
+            </>
+          ) : isCA ? (
+            <>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 1</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">Profile &amp; NOC Audit</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Educational review &amp; NOC TEER 0/1/2/3 classification alignment.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 2</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">ECA &amp; Language</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Credential Assessment (WES/ICAS/IQAS) &amp; IELTS/CELPIP test.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 3</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">Express Entry &amp; PNP</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Express Entry profile submission &amp; Provincial Nomination applications.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 4</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">ITA &amp; e-APR</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Full permanent residence filing with IRCC within 60 days of ITA.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 5</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">COPR &amp; Land</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Confirmation of Permanent Residence (COPR) &amp; Canadian PR card.</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 1</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">Profile &amp; Green List</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Qualification pre-assessment &amp; Green List Tier 1/2 eligibility mapping.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 2</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">NZQA IQA / Reg.</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">International Qualifications Assessment or NZ professional registration.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 3</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">Job Offer &amp; SMC</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Accredited Employer Work Visa (AEWV) &amp; SMC Expression of Interest.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 4</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">ITA &amp; Resident Visa</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Formal Residence Visa application filing with Immigration New Zealand.</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+                <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 5</div>
+                <div className="font-bold text-xs text-slate-900 mt-1">Resident Visa &amp; Fly</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">Permanent resident visa grant, IRD tax setup, and arrival support.</div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

@@ -578,72 +578,19 @@ a:hover { text-decoration: underline; }
         <!-- Section 4: Why Choose LEAMSS (Protection Policy & Expertise) -->
         <div class="report-section-card" style="background:rgba(31,77,68,0.04);border-color:rgba(31,77,68,0.18)">
           <div class="report-section-title">
-            <span>🛡️</span> The LEAMSS Advantage &amp; 100% Refund Protection
+            <span>🛡️</span> <span id="rep-why-leamss-title">The LEAMSS Advantage &amp; 100% Refund Protection</span>
           </div>
-          <p style="font-size:14px;color:var(--body);line-height:1.6;margin-bottom:16px">
-            LEAMSS (Ladhani Education &amp; Migration Services) is India&rsquo;s trusted immigration consultancy operating since 2014. We provide end-to-end statutory migration advisory with total transparency.
-          </p>
+          <p id="rep-why-leamss-desc" style="font-size:14px;color:var(--body);line-height:1.6;margin-bottom:16px"></p>
           
-          <div class="report-grid-3">
-            <div class="feature-box">
-              <div class="feature-box-title" style="color:var(--burnt)">🛡️ 100% Refund Guarantee</div>
-              <div class="feature-box-desc">India&rsquo;s first protection policy. Full refund on professional fees if your skills assessment is negative due to verified factors.</div>
-            </div>
-            <div class="feature-box">
-              <div class="feature-box-title" style="color:var(--forest)">📜 MARA &amp; Licensed Network</div>
-              <div class="feature-box-desc">Official MARA registered migration agents and licensed advisors ensuring 100% compliance with statutory immigration laws.</div>
-            </div>
-            <div class="feature-box">
-              <div class="feature-box-title" style="color:var(--ink)">⭐ 10+ Years &amp; 4.9★ Ratings</div>
-              <div class="feature-box-desc">Over 10,000 successful visa and skills assessment outcomes processed across Australia, Canada, New Zealand, UK, and Europe.</div>
-            </div>
-            <div class="feature-box">
-              <div class="feature-box-title" style="color:var(--forest)">💎 Transparent Milestone Fees</div>
-              <div class="feature-box-desc">Stage-wise milestone payments tied strictly to tangible outcomes. No hidden fees or lock-in contracts.</div>
-            </div>
-            <div class="feature-box">
-              <div class="feature-box-title" style="color:var(--burnt)">🎯 Dedicated Case Officer</div>
-              <div class="feature-box-desc">Personalized 1-on-1 documentation support, CDR / RPL writing guidance, and direct state nomination representation.</div>
-            </div>
-            <div class="feature-box">
-              <div class="feature-box-title" style="color:var(--ink)">🤝 Pre-Departure &amp; Settlement</div>
-              <div class="feature-box-desc">Assistance with tax numbers (TFN/SIN), banking setup, foreign exchange, and landing orientation support.</div>
-            </div>
-          </div>
+          <div id="rep-why-leamss-grid" class="report-grid-3"></div>
         </div>
 
         <!-- Section 5: Roadmap & Next Steps -->
         <div class="report-section-card">
           <div class="report-section-title">
-            <span>🗺️</span> Your 5-Step Immigration Roadmap
+            <span>🗺️</span> <span id="rep-roadmap-title">Your 5-Step Immigration Roadmap</span>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px">
-            <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px">
-              <div style="font-size:11px;font-weight:800;color:var(--burnt);text-transform:uppercase">Stage 1</div>
-              <div style="font-weight:700;font-size:14px;color:var(--ink);margin:4px 0">Profile Audit</div>
-              <div style="font-size:12px;color:var(--muted)">Document verification &amp; ANZSCO/NOC alignment.</div>
-            </div>
-            <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px">
-              <div style="font-size:11px;font-weight:800;color:var(--burnt);text-transform:uppercase">Stage 2</div>
-              <div style="font-weight:700;font-size:14px;color:var(--ink);margin:4px 0">Skills Assessment</div>
-              <div style="font-size:12px;color:var(--muted)">Lodgement with assessing authority (ACS/EA/VETASSESS).</div>
-            </div>
-            <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px">
-              <div style="font-size:11px;font-weight:800;color:var(--burnt);text-transform:uppercase">Stage 3</div>
-              <div style="font-weight:700;font-size:14px;color:var(--ink);margin:4px 0">EOI &amp; Nomination</div>
-              <div style="font-size:12px;color:var(--muted)">Expression of Interest &amp; State Nomination filing.</div>
-            </div>
-            <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px">
-              <div style="font-size:11px;font-weight:800;color:var(--burnt);text-transform:uppercase">Stage 4</div>
-              <div style="font-weight:700;font-size:14px;color:var(--ink);margin:4px 0">Visa Application</div>
-              <div style="font-size:12px;color:var(--muted)">Formal PR visa filing after receiving invitation.</div>
-            </div>
-            <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px">
-              <div style="font-size:11px;font-weight:800;color:var(--burnt);text-transform:uppercase">Stage 5</div>
-              <div style="font-weight:700;font-size:14px;color:var(--ink);margin:4px 0">Visa Grant &amp; Fly</div>
-              <div style="font-size:12px;color:var(--muted)">Permanent Residency grant &amp; arrival support.</div>
-            </div>
-          </div>
+          <div id="rep-roadmap-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px"></div>
         </div>
 
         <!-- Bottom Consultation Box -->
@@ -733,6 +680,28 @@ const CONFIG = {
       { name: 'Subclass 190 (Skilled Nominated PR)', desc: 'State/Territory nominated Permanent Residency. Awards +5 bonus points with a 2-year state settlement commitment.', req: '60+ Points (+5 State Points = 65 PR Qualified)' },
       { name: 'Subclass 491 (Skilled Work Regional)', desc: '5-year provisional regional pathway. Awards +15 bonus points, leading to direct Permanent Residency (Subclass 191) after 3 years.', req: '50+ Points (+15 Regional Points = 65 Qualified)' }
     ],
+    whyLeamss: {
+      title: 'The LEAMSS Advantage & 100% Refund Protection for Australia',
+      desc: 'LEAMSS (Ladhani Education & Migration Services) is India’s premier Australian migration consultancy operating since 2014. We provide statutory migration advisory with total legal transparency.',
+      items: [
+        { title: '🛡️ 100% Refund Guarantee', desc: 'India’s first protection policy. Full refund on professional fees if your skills assessment is negative due to verified factors.' },
+        { title: '📜 MARA Registered Network', desc: 'Official MARA registered migration agents ensuring 100% compliance with Australian statutory immigration laws.' },
+        { title: '⭐ 10+ Years & 4.9★ Ratings', desc: 'Over 10,000 successful Australian visa and skills assessment outcomes processed with 100% audit integrity.' },
+        { title: '💎 Transparent Milestone Fees', desc: 'Stage-wise milestone payments tied strictly to tangible outcomes (Skills Assessment, EOI, Visa Lodgement).' },
+        { title: '🎯 Dedicated Australian Case Officer', desc: 'Personalized 1-on-1 documentation support, CDR / RPL writing guidance, and direct state nomination representation.' },
+        { title: '🤝 Australian Settlement Support', desc: 'Assistance with Tax File Number (TFN), Australian bank account opening, Medicare enrolment, and arrival orientation.' }
+      ]
+    },
+    roadmap: {
+      title: 'Your 5-Stage Australian Immigration Roadmap',
+      stages: [
+        { stage: 'Stage 1', name: 'Profile Audit', desc: 'Document verification & ANZSCO occupation code alignment.' },
+        { stage: 'Stage 2', name: 'Skills Assessment', desc: 'Lodgement with assessing authority (ACS / EA / VETASSESS / TRA).' },
+        { stage: 'Stage 3', name: 'SkillSelect EOI & State Nomination', desc: 'Expression of Interest & State Nomination filing.' },
+        { stage: 'Stage 4', name: 'Visa Application', desc: 'Formal PR visa filing (Subclass 189/190/491) after receiving invitation.' },
+        { stage: 'Stage 5', name: 'PR Grant & Settle', desc: 'Permanent Residency grant, Medicare & TFN setup, and relocation.' }
+      ]
+    },
     steps: [
       {
         id: 'country', label: 'Destination Country', desc: 'Select your target country to evaluate.',
@@ -800,20 +769,42 @@ const CONFIG = {
   CA: {
     code: 'CA', name: 'Canada', flag: '🇨🇦', unit: 'Points', maxScore: 100, passMark: 67,
     countryGuideTitle: 'Why Migrate to Canada?',
-    countryGuideDesc: 'Canada is globally celebrated for its welcoming multicultural environment, universal healthcare, free K-12 education, thriving tech & healthcare sectors, and direct Express Entry permanent residency pathways.',
+    countryGuideDesc: 'Canada is globally celebrated for its welcoming multicultural environment, universal healthcare, free K-12 schooling, thriving tech & healthcare industries, and fast Express Entry permanent residency pathways.',
     features: [
-      { title: '🏥 Medicare Universal Healthcare', desc: 'Free comprehensive healthcare coverage funded through taxes with no out-of-pocket hospital costs.' },
-      { title: '💼 Thriving Tech & Industry Hubs', desc: 'Strong economic growth in Toronto, Vancouver, Calgary, and Montreal with high demand for skilled talent.' },
-      { title: '🍁 Fast-Track Permanent Residence', desc: 'Express Entry offers one of the fastest PR visa processing turnaround times in the world (6 months).' },
-      { title: '👶 Family Benefits & Child Care', desc: 'Canada Child Benefit (CCB) provides monthly tax-free payments to eligible families with young children.' },
-      { title: '🎓 World-Class Education', desc: 'Home to top global universities (U of T, McGill, UBC) with domestic tuition rates for Permanent Residents.' },
-      { title: '🇨🇦 Canadian Citizenship in 3 Years', desc: 'Eligible to apply for Canadian Citizenship and a Canadian passport after just 3 years (1,095 days) of residence.' }
+      { title: '🏥 Medicare Universal Healthcare', desc: 'Free comprehensive healthcare coverage funded through public taxes with no direct charges for doctors or hospital visits.' },
+      { title: '💼 Lucrative Tech & Industry Hubs', desc: 'Strong economic growth in Toronto, Vancouver, Calgary, and Montreal with high median skilled earnings (CAD $85,000–$120,000+).' },
+      { title: '🍁 Fast-Track Express Entry PR', desc: 'Express Entry offers one of the fastest PR visa turnaround times in the world (as fast as 6 months from ITA).' },
+      { title: '👶 Canada Child Benefit (CCB)', desc: 'Generous monthly tax-free government payments to families for each child under 18 years of age.' },
+      { title: '🎓 World-Class Free Education', desc: 'Free public schooling from kindergarten through Grade 12 and domestic tuition fees at world-renowned Canadian universities.' },
+      { title: '🇨🇦 Canadian Citizenship in 3 Years', desc: 'Eligible to apply for Canadian Citizenship and a Canadian passport after just 3 years (1,095 days) of PR residence.' }
     ],
     pathways: [
-      { name: 'Federal Skilled Worker Program (FSWP)', desc: 'Primary Express Entry stream for foreign skilled professionals with at least 1 year of continuous skilled experience.', req: '67/100 FSWP Points to enter pool' },
-      { name: 'Provincial Nominee Program (PNP)', desc: 'Provincial nomination gives +600 CRS points, practically guaranteeing an Invitation to Apply (ITA) in the next draw.', req: 'Provincial Nomination (+600 CRS Pts)' },
-      { name: 'Canadian Experience Class (CEC)', desc: 'For applicants with at least 1 year of Canadian skilled work experience.', req: '1 Year In-Canada Skilled Experience' }
+      { name: 'Federal Skilled Worker Program (FSWP - Express Entry)', desc: 'Primary direct Permanent Residency stream for foreign skilled professionals with at least 1 year of continuous skilled experience.', req: '67/100 FSWP Points to enter pool' },
+      { name: 'Provincial Nominee Program (PNP - OINP, BCPNP, SINP, AAIP)', desc: 'Provincial nomination gives +600 CRS points, guaranteeing an Invitation to Apply (ITA) in the very next Express Entry draw.', req: 'Provincial Nomination (+600 CRS Pts)' },
+      { name: 'Category-Based Express Entry Selection', desc: 'Targeted invitation rounds for high-demand occupations in Healthcare, STEM, Trades, Transport, Agriculture, and French proficiency.', req: 'Eligible NOC Experience in Demand Category' }
     ],
+    whyLeamss: {
+      title: 'The LEAMSS Advantage & 100% Refund Protection for Canada',
+      desc: 'LEAMSS (Ladhani Education & Migration Services) provides premier Canadian immigration consulting since 2014. We guide you through ECA, Express Entry, and Provincial Nominations with full legal compliance.',
+      items: [
+        { title: '🛡️ 100% Refund Guarantee', desc: 'India’s premier protection policy. Full refund on professional fees if your preliminary credential assessment fails on verified grounds.' },
+        { title: '📜 Licensed RCIC & CICC Network', desc: 'Representation in strict compliance with the College of Immigration and Citizenship Consultants (CICC) regulatory framework.' },
+        { title: '⭐ 10+ Years & 4.9★ Client Ratings', desc: 'Proven expertise with thousands of successful Canada Express Entry profile lodgements and PNP nominations.' },
+        { title: '💎 Transparent Milestone Fees', desc: 'Stage-wise milestone payments aligned strictly with deliverables (ECA, Express Entry Pool, PNP & e-APR Filing).' },
+        { title: '🎯 Dedicated Canadian Case Officer', desc: '1-on-1 assistance with NOC TEER alignment, employer reference letter drafting, and provincial nomination strategy.' },
+        { title: '🤝 Canadian Settlement Guidance', desc: 'Pre-landing & arrival support including Social Insurance Number (SIN) guidance, Canadian banking, and provincial health cards.' }
+      ]
+    },
+    roadmap: {
+      title: 'Your 5-Stage Canadian Immigration Roadmap',
+      stages: [
+        { stage: 'Stage 1', name: 'Profile & NOC TEER Audit', desc: 'Educational review & NOC TEER 0/1/2/3 classification alignment.' },
+        { stage: 'Stage 2', name: 'ECA & Language Test', desc: 'Educational Credential Assessment (WES/ICAS/IQAS) & IELTS/CELPIP test.' },
+        { stage: 'Stage 3', name: 'Express Entry & PNP Pool', desc: 'Express Entry profile submission & Provincial Nomination applications.' },
+        { stage: 'Stage 4', name: 'ITA & e-APR Application', desc: 'Full permanent residence filing with IRCC within 60 days of ITA.' },
+        { stage: 'Stage 5', name: 'COPR & Land in Canada', desc: 'Confirmation of Permanent Residence (COPR), Canadian PR card, and arrival support.' }
+      ]
+    },
     steps: [
       {
         id: 'country', label: 'Destination Country', desc: 'Select your target country to evaluate.',
@@ -887,18 +878,40 @@ const CONFIG = {
     countryGuideTitle: 'Why Migrate to New Zealand?',
     countryGuideDesc: 'New Zealand is internationally famous for its pristine natural beauty, unbeatable work-life balance, high safety, excellent public services, and progressive Skilled Migrant Category (SMC 6-Points) residence visa.',
     features: [
-      { title: '🌿 Ultimate Work-Life Balance', desc: 'Consistently ranked #1 globally for work-life harmony, generous annual leave, and family-first culture.' },
-      { title: '🏥 Public Healthcare System', desc: 'Subsidized state-funded healthcare system covering emergencies, hospitalization, and maternity.' },
-      { title: '✨ Safe & Progressive Nation', desc: 'Ranked as one of the top 3 most peaceful and least corrupt countries on Earth.' },
+      { title: '🌿 Ultimate Work-Life Balance', desc: 'Consistently ranked #1 globally for work-life harmony, generous 4-week annual leave, and family-first culture.' },
+      { title: '🏥 Comprehensive Public Healthcare', desc: 'Subsidized state-funded healthcare system covering emergencies, hospitalization, and maternity care.' },
+      { title: '✨ Safe & Progressive Nation', desc: 'Consistently ranked as one of the top 3 most peaceful and least corrupt countries on Earth.' },
       { title: '🚀 Green List Fast-Track PR', desc: 'Direct Straight to Residence pathway for Tier 1 Green List roles with no long waiting queues.' },
-      { title: '🎒 Free Quality Schooling', desc: 'World-renowned British-model education system with free schooling for children of residents.' },
-      { title: '🌏 Trans-Tasman Access', desc: 'NZ Citizens can live, work, and settle indefinitely in Australia with full work rights.' }
+      { title: '🎒 Free Quality British-Model Schooling', desc: 'World-renowned education system with free schooling for children of work visa and residence holders.' },
+      { title: '🌏 Trans-Tasman Access', desc: 'NZ Citizens can live, work, and settle indefinitely in Australia with full reciprocal work and residence rights.' }
     ],
     pathways: [
-      { name: 'SMC 6-Points Residence Visa', desc: 'New simplified points system where you claim points for your qualification, professional registration, or income + NZ experience.', req: '6 Points + Accredited Job Offer' },
-      { name: 'Green List Tier 1 (Straight to Residence)', desc: 'Direct fast-track PR application from offshore or onshore for Tier 1 occupations (Software Engineers, Doctors, Engineers).', req: 'Direct PR Grant' },
-      { name: 'Green List Tier 2 (Work to Residence)', desc: '24-month work pathway leading to Permanent Residence for designated Tier 2 shortage trades and healthcare roles.', req: '24 Mo. Pathway to PR' }
+      { name: 'SMC 6-Points Residence Visa', desc: 'Simplified points system where you claim points for your qualification, professional registration, or income + NZ experience.', req: '6 Points + Accredited Job Offer' },
+      { name: 'Green List Tier 1 (Straight to Residence)', desc: 'Direct fast-track PR application from offshore or onshore for Tier 1 occupations (Software Engineers, Doctors, Engineers, Nurses).', req: 'Direct Fast-Track PR Grant' },
+      { name: 'Green List Tier 2 (Work to Residence)', desc: '24-month structured work pathway leading to Permanent Residence for designated Tier 2 shortage trades and healthcare roles.', req: '24 Mo. Pathway to PR' }
     ],
+    whyLeamss: {
+      title: 'The LEAMSS Advantage & 100% Refund Protection for New Zealand',
+      desc: 'LEAMSS (Ladhani Education & Migration Services) provides expert New Zealand migration advice since 2014. We guide you through NZQA comparability, Green List mapping, and SMC residency.',
+      items: [
+        { title: '🛡️ 100% Refund Guarantee', desc: 'India’s premier protection policy. Full refund on professional fees if your qualification assessment fails based on verified factors.' },
+        { title: '📜 Licensed Immigration Advisers (LIA) Network', desc: 'Compliant advisory guided by licensed advisers under the Immigration Advisers Authority (IAA).' },
+        { title: '⭐ 10+ Years & 4.9★ Client Reviews', desc: 'Extensive track record securing New Zealand Accredited Employer Work Visas (AEWV) and SMC residence grants.' },
+        { title: '💎 Transparent Milestone Fees', desc: 'Clear, stage-wise milestone billing tied directly to NZQA assessment, EOI submission, and resident visa lodgement.' },
+        { title: '🎯 Dedicated New Zealand Specialist', desc: '1-on-1 assistance with NZQA International Qualifications Assessment (IQA), CV adaptation, and Green List alignment.' },
+        { title: '🤝 New Zealand Settlement Support', desc: 'Post-arrival orientation including IRD tax number registration, New Zealand banking, and healthcare enrolment.' }
+      ]
+    },
+    roadmap: {
+      title: 'Your 5-Stage New Zealand Immigration Roadmap',
+      stages: [
+        { stage: 'Stage 1', name: 'Profile & Green List Audit', desc: 'Qualification pre-assessment & Green List Tier 1/2 eligibility mapping.' },
+        { stage: 'Stage 2', name: 'NZQA IQA / Registration', desc: 'International Qualifications Assessment or NZ professional registration.' },
+        { stage: 'Stage 3', name: 'Job Offer & SMC EOI', desc: 'Accredited Employer Work Visa (AEWV) & SMC Expression of Interest filing.' },
+        { stage: 'Stage 4', name: 'ITA & Resident Visa Lodgement', desc: 'Formal Residence Visa application filing with Immigration New Zealand.' },
+        { stage: 'Stage 5', name: 'Resident Visa Grant & Fly', desc: 'Permanent resident visa grant, IRD tax setup, and arrival support.' }
+      ]
+    },
     steps: [
       {
         id: 'country', label: 'Destination Country', desc: 'Select your target country to evaluate.',
@@ -1205,7 +1218,7 @@ function renderReportView() {
   document.getElementById('rep-summary-para').innerHTML =
     'Dear <strong>' + (clientInfo.name || 'Applicant') + '</strong>, your profile was evaluated for <strong>' + cfg.name + '</strong> skilled migration. ' +
     'Your profile scored a total of <strong>' + scoreData.total + ' ' + scoreData.unit + '</strong>. ' +
-    (scoreData.qualifies ? 'You meet the minimum statutory criteria for invitation rounds.' : 'You can bridge the points gap through State/Regional nominations or partner skill claims.') +
+    (scoreData.qualifies ? 'You meet the minimum statutory criteria for invitation rounds.' : 'You can bridge the points gap through Provincial/State nominations or partner skill claims.') +
     ' Below is your complete parameter breakdown and verified visa pathways.';
 
   // Table breakdown
@@ -1220,7 +1233,7 @@ function renderReportView() {
     tbody.appendChild(tr);
   });
 
-  // Country intelligence
+  // Section 2: Country intelligence
   document.getElementById('rep-country-icon').innerText = cfg.flag;
   document.getElementById('rep-country-guide-title').innerText = cfg.countryGuideTitle;
   document.getElementById('rep-country-guide-desc').innerText = cfg.countryGuideDesc;
@@ -1234,7 +1247,7 @@ function renderReportView() {
     featContainer.appendChild(box);
   });
 
-  // Pathways
+  // Section 3: Pathways
   const pathContainer = document.getElementById('rep-pathways-grid');
   pathContainer.innerHTML = '';
   cfg.pathways.forEach((p, idx) => {
@@ -1248,6 +1261,36 @@ function renderReportView() {
       'Requirement: ' + p.req + '</div>';
     pathContainer.appendChild(card);
   });
+
+  // Section 4: Why Choose LEAMSS
+  if (cfg.whyLeamss) {
+    document.getElementById('rep-why-leamss-title').innerText = cfg.whyLeamss.title;
+    document.getElementById('rep-why-leamss-desc').innerText = cfg.whyLeamss.desc;
+    const whyContainer = document.getElementById('rep-why-leamss-grid');
+    whyContainer.innerHTML = '';
+    cfg.whyLeamss.items.forEach(item => {
+      const box = document.createElement('div');
+      box.className = 'feature-box';
+      box.innerHTML = '<div class="feature-box-title" style="color:var(--forest)">' + item.title + '</div><div class="feature-box-desc">' + item.desc + '</div>';
+      whyContainer.appendChild(box);
+    });
+  }
+
+  // Section 5: 5-Stage Roadmap
+  if (cfg.roadmap) {
+    document.getElementById('rep-roadmap-title').innerText = cfg.roadmap.title;
+    const roadmapContainer = document.getElementById('rep-roadmap-grid');
+    roadmapContainer.innerHTML = '';
+    cfg.roadmap.stages.forEach(st => {
+      const box = document.createElement('div');
+      box.style.cssText = 'background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px';
+      box.innerHTML =
+        '<div style="font-size:11px;font-weight:800;color:var(--burnt);text-transform:uppercase">' + st.stage + '</div>' +
+        '<div style="font-weight:700;font-size:14px;color:var(--ink);margin:4px 0">' + st.name + '</div>' +
+        '<div style="font-size:12px;color:var(--muted)">' + st.desc + '</div>';
+      roadmapContainer.appendChild(box);
+    });
+  }
 
   // WhatsApp CTA
   const waMsg = encodeURIComponent('Hi LEAMSS Team, I am ' + (clientInfo.name || 'an applicant') + '. I just calculated my points score (' + scoreData.total + ' ' + scoreData.unit + ') for ' + cfg.name + ' and would like to proceed with my assessment.');
