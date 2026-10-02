@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>Free Immigration Points Calculator | Australia, Canada & New Zealand | LEAMSS</title>
+<meta name="description" content="Calculate your immigration points for Australia (189/190/491), Canada Express Entry (CRS & FSWP), and New Zealand (SMC & Green List) in real-time. Free assessment by MARA registered experts.">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<meta name="theme-color" content="#1F4D44">
+<link rel="canonical" href="https://leamss.com/start">
+<link rel="icon" href="/leamss-logo.png" type="image/png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="LEAMSS — Ladhani Education & Migration Services">
+<meta property="og:title" content="Free Immigration Points Calculator | Australia, Canada & New Zealand">
+<meta property="og:description" content="Calculate your immigration points for Australia, Canada, and New Zealand in real-time. Transparent breakdown by MARA registered experts.">
+<meta property="og:url" content="https://leamss.com/start">
+<meta property="og:image" content="https://leamss.com/public/assets/web/images/logo.webp">
+<meta property="og:locale" content="en_IN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Immigration Points Calculator | LEAMSS">
+<meta name="twitter:description" content="Calculate your immigration points for Australia, Canada, and New Zealand in real-time.">
+<meta name="twitter:image" content="https://leamss.com/public/assets/web/images/logo.webp">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --forest: #1F4D44;
+  --forest-dark: #13332D;
+  --burnt: #D4633F;
+  --burnt-dark: #B85333;
+  --warm: #FCFAF7;
+  --cream: #F5F2EC;
+  --ink: #1A2A30;
+  --body: #2D3D45;
+  --muted: #5C737D;
+  --border: #E5EBE9;
+  --success: #2E7D32;
+  --success-bg: #E8F3E9;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--warm);
+  color: var(--ink);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--burnt); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: 1240px; margin: 0 auto; padding: 0 1.25rem; }
+.serif { font-family: 'Playfair Display', Georgia, serif; }
+
+/* Header */
+.site-header {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.site-header .row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 0; gap: 1rem; flex-wrap: wrap;
+}
+.brand-wordmark img { height: 38px; width: auto; vertical-align: middle; }
+.nav-links { display: flex; gap: 1.4rem; font-size: 14px; font-weight: 600; align-items: center; }
+.nav-links a { color: var(--ink); }
+.nav-links a:hover { color: var(--burnt); text-decoration: none; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: 10px 22px; border-radius: 999px; font-size: 14px; font-weight: 700;
+  cursor: pointer; border: none; transition: transform .15s, box-shadow .15s, background-color .15s;
+  text-decoration: none;
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(31,77,68,.18); text-decoration: none; }
+.btn-primary { background: var(--burnt); color: #fff; }
+.btn-primary:hover { background: var(--burnt-dark); color: #fff; }
+.btn-secondary { background: #fff; color: var(--forest); border: 1.5px solid var(--forest); }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { background: #f1f5f9; color: var(--ink); transform: none; box-shadow: none; }
+
+/* Main Section */
+.wizard-section { padding: 48px 0 64px; }
+.wizard-header { margin-bottom: 32px; }
+.eyebrow-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(31,77,68,0.08); color: var(--forest);
+  padding: 6px 14px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 12px;
+}
+h1.main-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(30px, 4vw, 46px); font-weight: 800; line-height: 1.15;
+  color: var(--ink); margin-bottom: 12px;
+}
+p.main-sub { font-size: 16px; color: var(--muted); max-width: 720px; line-height: 1.6; }
+
+/* 2-Column Grid */
+.two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 32px;
+  align-items: flex-start;
+}
+@media (max-width: 980px) {
+  .two-col-grid { grid-template-columns: 1fr; }
+}
+
+/* Wizard Box */
+.wizard-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 32px;
+  box-shadow: 0 4px 20px rgba(31,77,68,.04);
+}
+@media (max-width: 640px) {
+  .wizard-card { padding: 20px; }
+}
+
+.step-indicator-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 20px; border-bottom: 1px solid var(--border);
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+.step-counter {
+  font-size: 12px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .12em; color: var(--burnt);
+}
+.step-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 24px; font-weight: 700; color: var(--ink); margin-top: 4px;
+}
+.step-desc { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.stepper-dots { display: flex; gap: 6px; align-items: center; }
+.dot {
+  width: 10px; height: 10px; border-radius: 999px;
+  background: var(--border); transition: all .3s;
+}
+.dot.active { width: 24px; background: var(--burnt); }
+.dot.completed { background: var(--forest); }
+
+/* Option Tiles */
+.options-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+.option-tile {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border: 2px solid var(--border); border-radius: 14px;
+  cursor: pointer; background: #fff; transition: all .2s; gap: 14px;
+}
+.option-tile:hover {
+  border-color: rgba(31,77,68,0.4);
+  box-shadow: 0 4px 12px rgba(31,77,68,0.06);
+}
+.option-tile.selected {
+  border-color: var(--forest);
+  background: rgba(31,77,68,0.04);
+}
+.opt-radio {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--muted); display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all .2s;
+}
+.option-tile.selected .opt-radio {
+  border-color: var(--forest); background: var(--forest);
+}
+.opt-radio-inner { width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+.opt-content { flex: 1; }
+.opt-label { font-size: 15px; font-weight: 700; color: var(--ink); }
+.opt-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.opt-tag {
+  font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  background: rgba(0,0,0,0.05); color: var(--body); white-space: nowrap; flex-shrink: 0;
+}
+.option-tile.selected .opt-tag {
+  background: rgba(31,77,68,0.12); color: var(--forest);
+}
+
+.wizard-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 20px; border-top: 1px solid var(--border);
+}
+
+/* Sticky Right Scorecard */
+.scorecard-sidebar { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 20px; }
+.score-box {
+  background: #fff; border: 1px solid var(--border); border-radius: 18px;
+  padding: 24px; text-align: center; box-shadow: 0 4px 20px rgba(31,77,68,.04);
+}
+.score-box-eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; color: var(--muted); margin-bottom: 6px; }
+.score-eval-country { font-size: 13px; font-weight: 600; color: var(--body); margin-bottom: 20px; }
+.score-circle {
+  width: 140px; height: 140px; border-radius: 50%;
+  border: 4px solid var(--burnt); background: rgba(212,99,63,0.04);
+  margin: 0 auto 16px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: all .4s;
+}
+.score-circle.qualifies {
+  border-color: var(--success); background: rgba(46,125,50,0.04);
+}
+.score-val {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 46px; font-weight: 800; line-height: 1; color: var(--burnt);
+}
+.score-circle.qualifies .score-val { color: var(--success); }
+.score-denom { font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 4px; }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  background: #FBEDE7; color: var(--burnt); margin-bottom: 18px;
+}
+.status-pill.qualifies {
+  background: var(--success-bg); color: var(--success);
+}
+.breakdown-items { text-align: left; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+.bd-row { display: flex; justify-content: space-between; align-items: center; color: var(--body); }
+.bd-row .pts { font-weight: 700; color: var(--forest); }
+
+/* Expert Box */
+.expert-box {
+  background: #fff; border: 1px solid var(--border); border-radius: 18px;
+  padding: 22px; box-shadow: 0 4px 20px rgba(31,77,68,.04);
+}
+.expert-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.expert-avatar {
+  width: 42px; height: 42px; border-radius: 50%; background: var(--forest); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold;
+}
+.expert-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.expert-sub { font-size: 11px; color: var(--muted); }
+.contact-btn {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 16px; border-radius: 12px; font-size: 13px; font-weight: 700;
+  margin-bottom: 8px; border: 1px solid var(--border); background: #f8fafc; color: var(--ink);
+  transition: all .2s;
+}
+.contact-btn:hover { background: #f1f5f9; text-decoration: none; }
+.contact-btn.wa { background: #e6f4ea; border-color: #c6e7cf; color: #137333; }
+.contact-btn.wa:hover { background: #d7eedd; }
+
+/* Result View */
+.result-card {
+  background: #fff; border: 1px solid var(--border); border-radius: 18px;
+  padding: 36px; box-shadow: 0 4px 24px rgba(31,77,68,.06);
+}
+.result-banner {
+  background: rgba(31,77,68,0.06); border: 1px solid rgba(31,77,68,0.15);
+  border-radius: 14px; padding: 20px 24px; margin-bottom: 28px;
+}
+.lead-form-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 16px;
+}
+.lead-input {
+  width: 100%; padding: 12px 16px; border: 1.5px solid var(--border); border-radius: 10px;
+  font-size: 14px; color: var(--ink); outline: none; transition: border-color .2s;
+}
+.lead-input:focus { border-color: var(--forest); }
+.pathway-badge-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 24px 0;
+}
+.pathway-card {
+  border: 1px solid var(--border); border-radius: 14px; padding: 20px; background: #fff;
+}
+.pathway-card.featured { border: 2px solid var(--burnt); background: rgba(212,99,63,0.02); }
+
+/* Footer */
+.site-footer {
+  background: #13332D; color: #fff; padding: 48px 0 24px; margin-top: 64px;
+}
+.site-footer a { color: #A0C4BA; }
+.site-footer a:hover { color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="site-header">
+  <div class="container">
+    <div class="row">
+      <a href="https://leamss.com" class="brand-wordmark">
+        <img src="https://leamss.com/public/assets/web/images/logo.webp" alt="LEAMSS Logo">
+      </a>
+      <nav class="nav-links">
+        <a href="https://leamss.com/atlas">Atlas</a>
+        <a href="https://leamss.com/start" style="color:var(--burnt)">Eligibility Calculator</a>
+        <a href="https://leamss.com/atlas/au">AU Australia</a>
+        <a href="https://leamss.com/atlas/ca">CA Canada</a>
+        <a href="https://leamss.com/atlas/nz">NZ New Zealand</a>
+        <a href="tel:7718882427" class="btn btn-primary">Book Free Consultation</a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<!-- Main Wizard Section -->
+<section class="wizard-section">
+  <div class="container">
+    <div class="wizard-header">
+      <div class="eyebrow-pill">
+        ★ Instant Free Assessment · MARA &amp; Licensed Advisory
+      </div>
+      <h1 class="main-title">
+        Free Immigration Points Calculator
+      </h1>
+      <p class="main-sub">
+        Calculate your eligibility for <strong>Australia 🇦🇺, Canada 🇨🇦 &amp; New Zealand 🇳🇿</strong> in real-time. Transparent points breakdown with zero guesswork.
+      </p>
+    </div>
+
+    <!-- Active Wizard View -->
+    <div id="wizard-view" class="two-col-grid">
+      <!-- Left Column: Step Card -->
+      <div class="wizard-card">
+        <div class="step-indicator-bar">
+          <div>
+            <div id="step-counter" class="step-counter">STEP 1 OF 7</div>
+            <div id="step-title" class="step-title">Your Destination Country</div>
+            <div id="step-desc" class="step-desc">Select your target migration destination to begin.</div>
+          </div>
+          <div id="stepper-dots" class="stepper-dots"></div>
+        </div>
+
+        <div id="options-container" class="options-list"></div>
+
+        <div class="wizard-footer">
+          <button id="btn-back" class="btn btn-ghost" onclick="prevStep()">← Back</button>
+          <button id="btn-next" class="btn btn-primary" onclick="nextStep()">Next Step →</button>
+        </div>
+      </div>
+
+      <!-- Right Column: Sticky Live Scorecard -->
+      <div class="scorecard-sidebar">
+        <div class="score-box">
+          <div class="score-box-eyebrow">Live Eligibility Scorecard</div>
+          <div id="score-country-label" class="score-eval-country">Evaluating for: <strong>🇦🇺 Australia</strong></div>
+          
+          <div id="score-circle" class="score-circle">
+            <div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.08em">YOUR SCORE</div>
+            <div id="live-score-num" class="score-val">0</div>
+            <div id="live-score-denom" class="score-denom">/ 100 Points</div>
+          </div>
+
+          <div id="status-pill" class="status-pill">Pass Mark: 65 Points</div>
+
+          <div id="breakdown-container" class="breakdown-items"></div>
+        </div>
+
+        <div class="expert-box">
+          <div class="expert-header">
+            <div class="expert-avatar">L</div>
+            <div>
+              <div class="expert-title">Talk to a LEAMSS Expert</div>
+              <div class="expert-sub">MARA &amp; Licensed Migration Advisors</div>
+            </div>
+          </div>
+
+          <a href="tel:7718882427" class="contact-btn">
+            <span>📞 Direct Call</span>
+            <span>7718882427</span>
+          </a>
+
+          <a href="https://wa.me/917738352427?text=Hi%20LEAMSS%20Team%2C%20I%20am%20checking%20my%20immigration%20points%20and%20would%20like%20expert%20guidance." target="_blank" rel="noopener noreferrer" class="contact-btn wa">
+            <span>💬 WhatsApp Chat</span>
+            <span>+91 7738352427</span>
+          </a>
+
+          <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px">
+            100% Free Consultation · No Obligation · Registered Advisory
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result View (Hidden Initially) -->
+    <div id="result-view" class="result-card" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <div class="eyebrow-pill" style="margin-bottom:0">Official Points Assessment Summary</div>
+        <button class="btn btn-ghost" onclick="resetCalculator()" style="font-size:13px;padding:6px 14px">↻ Re-calculate Points</button>
+      </div>
+
+      <h2 id="result-headline" class="serif" style="font-size:32px;font-weight:800;color:var(--forest);margin-bottom:12px">
+        Assessment Results
+      </h2>
+
+      <div class="result-banner">
+        <p id="result-summary-text" style="font-size:15px;line-height:1.6;color:var(--ink);font-weight:600;margin:0"></p>
+      </div>
+
+      <h3 class="serif" style="font-size:22px;font-weight:700;color:var(--ink);margin:24px 0 12px">
+        Recommended Visa Pathways for Your Profile
+      </h3>
+      <div id="pathway-cards-container" class="pathway-badge-grid"></div>
+
+      <!-- Lead Capture Consultation Box -->
+      <div style="background:var(--forest);color:#fff;border-radius:16px;padding:32px;margin-top:32px">
+        <h3 class="serif" style="font-size:24px;font-weight:700;margin-bottom:8px">Get Your Verified Pathway Plan &amp; Expert Callback</h3>
+        <p style="font-size:14px;opacity:.9;margin-bottom:20px">Our MARA &amp; ICCRC registered consultants will review your points breakdown, verify documents, and build your custom roadmap.</p>
+        
+        <form id="lead-form" onsubmit="handleLeadSubmit(event)">
+          <div class="lead-form-grid">
+            <input type="text" id="lead-name" class="lead-input" placeholder="Your Full Name *" required>
+            <input type="email" id="lead-email" class="lead-input" placeholder="Email Address *" required>
+            <input type="tel" id="lead-phone" class="lead-input" placeholder="Phone / WhatsApp Number *" required>
+            <button type="submit" id="lead-btn" class="btn btn-primary" style="padding:12px 24px;font-size:15px">
+              Claim Free Consultation →
+            </button>
+          </div>
+          <div style="font-size:12px;opacity:.8;margin-top:12px">
+            🔒 100% Confidential · 100% Refund Guarantee on Negative Assessment
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="site-footer">
+  <div class="container">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,0.15)">
+      <div>
+        <h4 class="serif" style="font-size:20px;font-weight:700">LEAMSS — Ladhani Education &amp; Migration Services</h4>
+        <p style="font-size:13px;opacity:.8;margin-top:4px">Licensed &amp; MARA Registered Migration Consultants Since 2014</p>
+      </div>
+      <div style="display:flex;gap:18px;font-size:13px">
+        <a href="https://leamss.com">Home</a>
+        <a href="https://leamss.com/atlas">Atlas</a>
+        <a href="https://leamss.com/privacy-policy">Privacy Policy</a>
+        <a href="https://leamss.com/contactus">Contact Us</a>
+      </div>
+    </div>
+    <div style="font-size:12px;opacity:.7;text-align:center;padding-top:20px">
+      © 2026 LEAMSS. All Rights Reserved. Indicative points calculation generated automatically. Always verify with registered consultants before applying.
+    </div>
+  </div>
+</footer>
+
+<script>
+const CONFIG = {
+  AU: {
+    name: 'Australia', flag: '🇦🇺', passMark: 65, maxScore: 100, unit: 'Points',
+    pathways: [
+      { name: 'Subclass 189 (Skilled Independent PR)', desc: 'Permanent residence without state or employer sponsorship.', req: '65+ points' },
+      { name: 'Subclass 190 (Skilled Nominated PR)', desc: 'State nominated permanent residency (+5 points bonus).', req: '65+ points' },
+      { name: 'Subclass 491 (Skilled Work Regional)', desc: '5-year provisional visa leading to PR (+15 points bonus).', req: '65+ points' },
+    ],
+    steps: [
+      {
+        id: 'country', label: 'Your Destination Country', desc: 'Select Australia to calculate GSM points (Subclass 189/190/491).',
+        options: [
+          { val: 'AU', label: '🇦🇺 Australia', sub: 'General Skilled Migration (189 / 190 / 491)', tag: 'Points Test' },
+          { val: 'CA', label: '🇨🇦 Canada', sub: 'Express Entry (CRS & FSWP 67-Points)', tag: '67-Pt Grid' },
+          { val: 'NZ', label: '🇳🇿 New Zealand', sub: 'Skilled Migrant Category (6-Points & Green List)', tag: '6-Pt System' },
+        ]
+      },
+      {
+        id: 'age', label: 'Your Age', desc: 'Age at the time of invitation to apply.',
+        options: [
+          { val: '25-32', label: '25 to 32 years', pts: 30, tag: 'Maximum Points (+30)' },
+          { val: '18-24', label: '18 to 24 years', pts: 25, tag: '+25 Points' },
+          { val: '33-39', label: '33 to 39 years', pts: 25, tag: '+25 Points' },
+          { val: '40-44', label: '40 to 44 years', pts: 15, tag: '+15 Points' },
+          { val: '45+', label: '45 years or older', pts: 0, tag: '0 Points (Age Limit)' },
+        ]
+      },
+      {
+        id: 'education', label: 'Highest Educational Qualification', desc: 'Assessed qualification relevant to your nominated occupation.',
+        options: [
+          { val: 'phd', label: 'Doctorate / PhD', pts: 20, tag: '+20 Points' },
+          { val: 'masters', label: "Master's Degree (or Bachelor with Honours)", pts: 15, tag: '+15 Points' },
+          { val: 'bachelors', label: "Bachelor's Degree (3+ years)", pts: 15, tag: '+15 Points' },
+          { val: 'diploma', label: 'Trade Qualification / Advanced Diploma', pts: 10, tag: '+10 Points' },
+          { val: 'high_school', label: 'High School / Secondary', pts: 0, tag: '0 Points' },
+        ]
+      },
+      {
+        id: 'experience', label: 'Skilled Work Experience (Overseas / Relevant)', desc: 'Full-time employment in your nominated occupation (last 10 years).',
+        options: [
+          { val: '8+', label: '8 or more years', pts: 15, tag: 'Maximum Points (+15)' },
+          { val: '5-7', label: '5 to 7 years', pts: 10, tag: '+10 Points' },
+          { val: '3-4', label: '3 to 4 years', pts: 5, tag: '+5 Points' },
+          { val: '1-2', label: '1 to 2 years', pts: 0, tag: '0 Overseas Pts (+5 if AU)' },
+          { val: '0', label: 'Less than 1 year', pts: 0, tag: '0 Points' },
+        ]
+      },
+      {
+        id: 'english', label: 'English Language Ability (IELTS / PTE)', desc: 'Official test score taken within the last 3 years.',
+        options: [
+          { val: 'superior', label: 'Superior English (IELTS 8.0+ each / PTE 79+)', pts: 20, tag: '+20 Points' },
+          { val: 'proficient', label: 'Proficient English (IELTS 7.0-7.5 each / PTE 65+)', pts: 10, tag: '+10 Points' },
+          { val: 'competent', label: 'Competent English (IELTS 6.0 each / PTE 50+)', pts: 0, tag: 'Entry Threshold (0 pts)' },
+          { val: 'none', label: 'Beginner / Not yet taken', pts: 0, tag: '0 Points' },
+        ]
+      },
+      {
+        id: 'partner', label: 'Partner Skills & Marital Status', desc: 'Points awarded based on your partner qualification or single status.',
+        options: [
+          { val: 'single_or_citizen', label: 'Single / Spouse is Australian Citizen or PR', pts: 10, tag: '+10 Points' },
+          { val: 'skilled_english', label: 'Spouse with Positive Skills Assessment + Competent English', pts: 10, tag: '+10 Points' },
+          { val: 'english_only', label: 'Spouse with Competent English only', pts: 5, tag: '+5 Points' },
+          { val: 'not_contributing', label: 'Spouse not contributing / Not migrating', pts: 0, tag: '0 Points' },
+        ]
+      },
+      {
+        id: 'nomination', label: 'State Nomination & Regional Sponsorship', desc: 'Australian Government nomination bonus.',
+        options: [
+          { val: 'regional_491', label: 'Regional Nomination (Subclass 491 Visa)', pts: 15, tag: '+15 Bonus Points' },
+          { val: 'state_190', label: 'State Nomination (Subclass 190 PR Visa)', pts: 5, tag: '+5 Bonus Points' },
+          { val: 'independent_189', label: 'Direct Independent (Subclass 189 PR Visa)', pts: 0, tag: '0 Bonus Points' },
+        ]
+      }
+    ]
+  },
+  CA: {
+    name: 'Canada', flag: '🇨🇦', passMark: 67, maxScore: 100, unit: 'Points',
+    pathways: [
+      { name: 'Express Entry (Federal Skilled Worker - FSW)', desc: 'Direct federal permanent residency stream.', req: '67+ FSW points' },
+      { name: 'Provincial Nominee Program (PNP)', desc: 'Provincial nomination gives +600 CRS points for guaranteed ITA.', req: 'PNP eligibility' },
+      { name: 'Canadian Experience Class (CEC)', desc: 'Fast-track stream for candidates with Canadian work experience.', req: '1 yr Canadian exp' },
+    ],
+    steps: [
+      {
+        id: 'country', label: 'Your Destination Country', desc: 'Select Canada for Express Entry Federal Skilled Worker (FSWP) evaluation.',
+        options: [
+          { val: 'AU', label: '🇦🇺 Australia', sub: 'General Skilled Migration (189 / 190 / 491)', tag: 'Points Test' },
+          { val: 'CA', label: '🇨🇦 Canada', sub: 'Express Entry (CRS & FSWP 67-Points)', tag: '67-Pt Grid' },
+          { val: 'NZ', label: '🇳🇿 New Zealand', sub: 'Skilled Migrant Category (6-Points & Green List)', tag: '6-Pt System' },
+        ]
+      },
+      {
+        id: 'age', label: 'Your Age', desc: 'Maximum age points (12 pts) awarded to candidates aged 18 to 35.',
+        options: [
+          { val: '18-35', label: '18 to 35 years', pts: 12, tag: 'Maximum (+12 FSWP)' },
+          { val: '36', label: '36 years', pts: 11, tag: '+11 Points' },
+          { val: '37', label: '37 years', pts: 10, tag: '+10 Points' },
+          { val: '38', label: '38 years', pts: 9, tag: '+9 Points' },
+          { val: '39', label: '39 years', pts: 8, tag: '+8 Points' },
+          { val: '40-44', label: '40 to 44 years', pts: 5, tag: '+1 to 7 Points' },
+          { val: '45+', label: '45 years or older', pts: 0, tag: '0 Points' },
+        ]
+      },
+      {
+        id: 'education', label: 'Highest Level of Education (ECA Evaluated)', desc: 'Canadian equivalency report for your qualification.',
+        options: [
+          { val: 'phd', label: 'Doctoral Degree (PhD)', pts: 25, tag: '+25 Points' },
+          { val: 'masters', label: "Master's Degree (or Professional Medicine/Law)", pts: 23, tag: '+23 Points' },
+          { val: 'bachelors', label: "Bachelor's Degree (3+ year program)", pts: 21, tag: '+21 Points' },
+          { val: 'diploma', label: 'Two or more Diplomas / 2-Year Program', pts: 19, tag: '+19 Points' },
+          { val: 'high_school', label: 'Secondary / High School', pts: 5, tag: '+5 Points' },
+        ]
+      },
+      {
+        id: 'experience', label: 'Skilled Work Experience (TEER 0, 1, 2, 3)', desc: 'Continuous skilled work experience in the last 10 years.',
+        options: [
+          { val: '6+', label: '6 or more years', pts: 15, tag: 'Maximum (+15)' },
+          { val: '4-5', label: '4 to 5 years', pts: 13, tag: '+13 Points' },
+          { val: '2-3', label: '2 to 3 years', pts: 11, tag: '+11 Points' },
+          { val: '1', label: '1 year continuous', pts: 9, tag: '+9 Points (Minimum)' },
+          { val: '0', label: 'Less than 1 year', pts: 0, tag: '0 Points' },
+        ]
+      },
+      {
+        id: 'english', label: 'First Official Language (IELTS / CELPIP / PTE Core)', desc: 'Canadian Language Benchmark (CLB) score level.',
+        options: [
+          { val: 'clb9_plus', label: 'CLB 9+ (IELTS 8.0 L, 7.0 R/W/S / PTE 79+)', pts: 24, tag: 'Maximum (+24)' },
+          { val: 'clb8', label: 'CLB 8 (IELTS 7.5 L, 6.5 R/W/S / PTE 65+)', pts: 20, tag: '+20 Points' },
+          { val: 'clb7', label: 'CLB 7 (IELTS 6.0 each / PTE 50+)', pts: 16, tag: '+16 Points (Minimum)' },
+          { val: 'none', label: 'Below CLB 7 / Not taken yet', pts: 0, tag: '0 Points' },
+        ]
+      },
+      {
+        id: 'partner', label: 'Adaptability & Partner Factors', desc: 'Spouse language, education, or Canadian connections.',
+        options: [
+          { val: 'single_or_citizen', label: 'Single / Canadian Citizen Spouse', pts: 10, tag: '+10 Points' },
+          { val: 'skilled_english', label: 'Spouse with CLB 7+ English and ECA Degree', pts: 10, tag: '+10 Points' },
+          { val: 'english_only', label: 'Spouse with CLB 5+ English', pts: 5, tag: '+5 Points' },
+          { val: 'not_contributing', label: 'No adaptability points claimed', pts: 0, tag: '0 Points' },
+        ]
+      },
+      {
+        id: 'nomination', label: 'Provincial Nomination (PNP) or Job Offer', desc: 'Provincial endorsement or LMIA job offer.',
+        options: [
+          { val: 'pnp_nomination', label: 'Provincial Nominee Program (PNP Nomination)', pts: 10, tag: '+10 FSWP (+600 CRS Points)' },
+          { val: 'job_offer', label: 'Arranged Employment (Valid LMIA Offer)', pts: 10, tag: '+10 FSWP (+50 CRS Points)' },
+          { val: 'none', label: 'Direct Federal Skilled Worker (No PNP/Offer)', pts: 0, tag: '0 Bonus Points' },
+        ]
+      }
+    ]
+  },
+  NZ: {
+    name: 'New Zealand', flag: '🇳🇿', passMark: 6, maxScore: 6, unit: 'Points',
+    pathways: [
+      { name: 'Green List Tier 1 (Straight to Residence)', desc: 'Direct residence pathway without SMC point scoring.', req: 'Tier 1 Job Offer' },
+      { name: 'Green List Tier 2 (Work to Residence)', desc: 'Apply for residence after 24 months working on AEWV.', req: 'Tier 2 Job Offer' },
+      { name: 'Skilled Migrant Category (SMC 6-Points)', desc: 'Point-tested residency based on qualification or NZ experience.', req: '6 SMC Points' },
+    ],
+    steps: [
+      {
+        id: 'country', label: 'Your Destination Country', desc: 'Select New Zealand for SMC 6-Point and Green List evaluation.',
+        options: [
+          { val: 'AU', label: '🇦🇺 Australia', sub: 'General Skilled Migration (189 / 190 / 491)', tag: 'Points Test' },
+          { val: 'CA', label: '🇨🇦 Canada', sub: 'Express Entry (CRS & FSWP 67-Points)', tag: '67-Pt Grid' },
+          { val: 'NZ', label: '🇳🇿 New Zealand', sub: 'Skilled Migrant Category (6-Points & Green List)', tag: '6-Pt System' },
+        ]
+      },
+      {
+        id: 'age', label: 'Your Age', desc: 'Immigration New Zealand SMC age limit is 55 years.',
+        options: [
+          { val: '18-39', label: '18 to 39 years', pts: 0, tag: 'Eligible (Under 55 Limit)' },
+          { val: '40-49', label: '40 to 49 years', pts: 0, tag: 'Eligible (Under 55 Limit)' },
+          { val: '50-55', label: '50 to 55 years', pts: 0, tag: 'Eligible' },
+          { val: '55+', label: '55 years or older', pts: 0, tag: 'Ineligible for SMC' },
+        ]
+      },
+      {
+        id: 'education', label: 'Recognised Qualification (NZQA Level)', desc: 'Claim 3 to 6 qualification points.',
+        options: [
+          { val: 'phd', label: 'Doctorate / PhD (NZQA Level 10)', pts: 6, tag: '6 Points (Direct PR Eligible!)' },
+          { val: 'masters', label: "Master's Degree (NZQA Level 9)", pts: 5, tag: '+5 Points' },
+          { val: 'bachelors_hons', label: "Bachelor's (Honours) / Postgrad (Level 8)", pts: 4, tag: '+4 Points' },
+          { val: 'bachelors', label: "Bachelor's Degree (NZQA Level 7)", pts: 3, tag: '+3 Points' },
+          { val: 'diploma', label: 'Trade Qualification / Diploma (Level 4-6)', pts: 3, tag: '+3 Points' },
+        ]
+      },
+      {
+        id: 'experience', label: 'Skilled Work Experience in New Zealand', desc: 'Claim up to 3 points for NZ work experience.',
+        options: [
+          { val: '3+', label: '3 or more years in NZ', pts: 3, tag: '+3 Points' },
+          { val: '2', label: '2 years in NZ', pts: 2, tag: '+2 Points' },
+          { val: '1', label: '1 year in NZ', pts: 1, tag: '+1 Point' },
+          { val: '0', label: 'Overseas Experience only / No NZ experience yet', pts: 0, tag: '0 NZ Points' },
+        ]
+      },
+      {
+        id: 'english', label: 'English Language Requirement', desc: 'Minimum requirement for NZ SMC.',
+        options: [
+          { val: 'superior', label: 'IELTS 6.5+ / PTE 58+ (SMC Requirement)', pts: 0, tag: 'Requirement Met ✓' },
+          { val: 'none', label: 'Currently Preparing for Test', pts: 0, tag: 'Needs IELTS 6.5' },
+        ]
+      },
+      {
+        id: 'partner', label: 'Partner Status', desc: 'Partner English eligibility for joint application.',
+        options: [
+          { val: 'single_or_citizen', label: 'Single or Partner is NZ Citizen/Resident', pts: 0, tag: 'Standard' },
+          { val: 'skilled_english', label: 'Partner meets English (IELTS 6.5+)', pts: 0, tag: 'Eligible ✓' },
+          { val: 'not_contributing', label: 'Partner not meeting English requirements', pts: 0, tag: 'Conditional' },
+        ]
+      },
+      {
+        id: 'nomination', label: 'Job Offer & Green List Status', desc: 'Job offer or Green List Tier fast-track.',
+        options: [
+          { val: 'green_list_tier1', label: 'Green List Tier 1 Role (Straight to Residence)', pts: 6, tag: 'Fast-Track PR (Tier 1)' },
+          { val: 'green_list_tier2', label: 'Green List Tier 2 Role (Work to Residence)', pts: 3, tag: 'Tier 2 (24 Mo. Pathway)' },
+          { val: 'job_offer_standard', label: 'Accredited Employer Job Offer (AEWV)', pts: 2, tag: 'Standard Job Offer' },
+          { val: 'none', label: 'Seeking Job Offer / Independent Evaluation', pts: 0, tag: 'Exploring Options' },
+        ]
+      }
+    ]
+  }
+};
+
+let currentCountry = 'AU';
+let currentStepIdx = 0;
+let userAnswers = { country: 'AU' };
+
+function renderStepperDots() {
+  const steps = CONFIG[currentCountry].steps;
+  const container = document.getElementById('stepper-dots');
+  container.innerHTML = '';
+  steps.forEach((s, idx) => {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (idx === currentStepIdx ? ' active' : (idx < currentStepIdx ? ' completed' : ''));
+    dot.title = 'Step ' + (idx + 1) + ': ' + s.label;
+    dot.onclick = () => { currentStepIdx = idx; renderCurrentStep(); };
+    dot.style.cursor = 'pointer';
+    container.appendChild(dot);
+  });
+}
+
+function computeScore() {
+  const cfg = CONFIG[currentCountry];
+  let total = 0;
+  const breakdown = [];
+
+  cfg.steps.forEach(st => {
+    if (st.id === 'country') return;
+    const pickedVal = userAnswers[st.id];
+    if (!pickedVal) return;
+    const opt = st.options.find(o => o.val === pickedVal);
+    if (opt && typeof opt.pts === 'number') {
+      if (currentCountry === 'NZ') {
+        if (st.id === 'education') total = Math.max(total, opt.pts);
+        else if (st.id === 'experience') total = Math.min(6, total + opt.pts);
+        else if (st.id === 'nomination' && opt.val.startsWith('green_list')) total = Math.max(total, opt.pts);
+      } else {
+        total += opt.pts;
+      }
+      if (opt.pts > 0) {
+        breakdown.push({ label: st.label, pts: opt.pts });
+      }
+    }
+  });
+
+  return { total, maxScore: cfg.maxScore, passMark: cfg.passMark, unit: cfg.unit, breakdown, qualifies: total >= cfg.passMark };
+}
+
+function updateScorecard() {
+  const cfg = CONFIG[currentCountry];
+  const data = computeScore();
+
+  document.getElementById('score-country-label').innerHTML = 'Evaluating for: <strong>' + cfg.flag + ' ' + cfg.name + '</strong>';
+  document.getElementById('live-score-num').innerText = data.total;
+  document.getElementById('live-score-denom').innerText = '/ ' + data.maxScore + ' ' + data.unit;
+
+  const circle = document.getElementById('score-circle');
+  const statusPill = document.getElementById('status-pill');
+
+  if (data.qualifies) {
+    circle.classList.add('qualifies');
+    statusPill.classList.add('qualifies');
+    statusPill.innerText = '✓ Qualifies for Minimum Threshold';
+  } else {
+    circle.classList.remove('qualifies');
+    statusPill.classList.remove('qualifies');
+    statusPill.innerText = 'Pass Mark: ' + data.passMark + ' ' + data.unit;
+  }
+
+  const bdContainer = document.getElementById('breakdown-container');
+  if (data.breakdown.length > 0) {
+    let bdHtml = '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.08em;margin-bottom:2px">Score Breakdown</div>';
+    data.breakdown.forEach(item => {
+      bdHtml += '<div class="bd-row"><span>' + item.label + '</span><span class="pts">+' + item.pts + ' pts</span></div>';
+    });
+    bdContainer.innerHTML = bdHtml;
+  } else {
+    bdContainer.innerHTML = '<div style="font-size:11px;color:var(--muted);text-align:center">Select options to see points breakdown</div>';
+  }
+}
+
+function renderCurrentStep() {
+  const cfg = CONFIG[currentCountry];
+  const step = cfg.steps[currentStepIdx];
+  const total = cfg.steps.length;
+
+  document.getElementById('step-counter').innerText = 'STEP ' + (currentStepIdx + 1) + ' OF ' + total;
+  document.getElementById('step-title').innerText = step.label;
+  document.getElementById('step-desc').innerText = step.desc;
+
+  renderStepperDots();
+
+  const container = document.getElementById('options-container');
+  container.innerHTML = '';
+
+  step.options.forEach(opt => {
+    const isSelected = userAnswers[step.id] === opt.val;
+    const tile = document.createElement('div');
+    tile.className = 'option-tile' + (isSelected ? ' selected' : '');
+    tile.onclick = () => selectOption(step.id, opt.val);
+
+    let html = '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div class="opt-radio">' + (isSelected ? '<div class="opt-radio-inner"></div>' : '') + '</div>' +
+      '<div class="opt-content">' +
+      '<div class="opt-label">' + opt.label + '</div>' +
+      (opt.sub ? '<div class="opt-sub">' + opt.sub + '</div>' : '') +
+      '</div></div>';
+
+    if (opt.tag) {
+      html += '<span class="opt-tag">' + opt.tag + '</span>';
+    }
+
+    tile.innerHTML = html;
+    container.appendChild(tile);
+  });
+
+  document.getElementById('btn-back').disabled = (currentStepIdx === 0);
+  document.getElementById('btn-next').innerText = (currentStepIdx === total - 1) ? 'Get Full Breakdown & Plan ★' : 'Next Step →';
+
+  updateScorecard();
+}
+
+function selectOption(stepId, val) {
+  if (stepId === 'country') {
+    currentCountry = val;
+    userAnswers = { country: val };
+    currentStepIdx = 1;
+    renderCurrentStep();
+    return;
+  }
+  userAnswers[stepId] = val;
+  renderCurrentStep();
+}
+
+function nextStep() {
+  const cfg = CONFIG[currentCountry];
+  const currentStepDef = cfg.steps[currentStepIdx];
+  if (!userAnswers[currentStepDef.id]) {
+    alert('Please select an option to proceed to the next step.');
+    return;
+  }
+
+  if (currentStepIdx < cfg.steps.length - 1) {
+    currentStepIdx++;
+    renderCurrentStep();
+  } else {
+    showResults();
+  }
+}
+
+function prevStep() {
+  if (currentStepIdx > 0) {
+    currentStepIdx--;
+    renderCurrentStep();
+  }
+}
+
+function showResults() {
+  const cfg = CONFIG[currentCountry];
+  const scoreData = computeScore();
+
+  document.getElementById('wizard-view').style.display = 'none';
+  document.getElementById('result-view').style.display = 'block';
+
+  document.getElementById('result-headline').innerText = cfg.flag + ' ' + cfg.name + ' Assessment: ' + scoreData.total + ' ' + scoreData.unit;
+  document.getElementById('result-summary-text').innerText =
+    'Your profile scored ' + scoreData.total + ' ' + scoreData.unit + ' for ' + cfg.name + ' (' +
+    (scoreData.qualifies ? 'Meets or exceeds the qualifying threshold of ' + scoreData.passMark + ' ' + scoreData.unit : 'Approaching the qualifying threshold of ' + scoreData.passMark + ' ' + scoreData.unit) +
+    '). Below are the recommended visa pathways based on your evaluation.';
+
+  const pathwayContainer = document.getElementById('pathway-cards-container');
+  pathwayContainer.innerHTML = '';
+
+  cfg.pathways.forEach((p, idx) => {
+    const card = document.createElement('div');
+    card.className = 'pathway-card' + (idx === 0 ? ' featured' : '');
+    card.innerHTML =
+      (idx === 0 ? '<span class="eyebrow-pill" style="margin-bottom:8px">★ Best Match</span>' : '') +
+      '<h4 style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px">' + p.name + '</h4>' +
+      '<p style="font-size:13px;color:var(--body);line-height:1.5;margin-bottom:12px">' + p.desc + '</p>' +
+      '<div style="font-size:11px;font-weight:700;color:var(--forest);background:rgba(31,77,68,0.06);padding:6px 12px;border-radius:6px;display:inline-block">' +
+      'Requirement: ' + p.req + '</div>';
+    pathwayContainer.appendChild(card);
+  });
+
+  window.scrollTo({ top: document.getElementById('result-view').offsetTop - 80, behavior: 'smooth' });
+}
+
+function resetCalculator() {
+  currentStepIdx = 0;
+  userAnswers = { country: currentCountry };
+  document.getElementById('result-view').style.display = 'none';
+  document.getElementById('wizard-view').style.display = 'grid';
+  renderCurrentStep();
+}
+
+function handleLeadSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById('lead-name').value.trim();
+  const email = document.getElementById('lead-email').value.trim();
+  const phone = document.getElementById('lead-phone').value.trim();
+  const btn = document.getElementById('lead-btn');
+  const scoreData = computeScore();
+
+  btn.disabled = true;
+  btn.innerText = 'Submitting Consultation...';
+
+  const payload = {
+    name: name,
+    email: email,
+    phone: phone,
+    country_of_interest: currentCountry,
+    source: 'eligibility_calculator',
+    atlas_code: 'calculator',
+    atlas_title: CONFIG[currentCountry].name + ' Points Calculator',
+    message: 'Points Calculation: ' + scoreData.total + ' ' + scoreData.unit + ' for ' + CONFIG[currentCountry].name + '. Requested free consultation.'
+  };
+
+  function postData(url) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(res => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    });
+  }
+
+  postData('https://app.leamss.com/api/public-atlas/lead')
+    .catch(() => postData('https://api.leamss.com/api/public-atlas/lead'))
+    .catch(() => postData('/api/public-atlas/lead'))
+    .then(() => {
+      const formWrap = document.getElementById('lead-form');
+      formWrap.innerHTML = '<div style="background:#fff;color:var(--ink);padding:24px;border-radius:12px;text-align:center">' +
+        '<div style="font-size:32px;color:var(--success);margin-bottom:8px">✓</div>' +
+        '<h4 class="serif" style="font-size:20px;font-weight:700;color:var(--forest);margin-bottom:6px">Consultation Booked Successfully!</h4>' +
+        '<p style="font-size:14px;color:var(--body);line-height:1.6;margin-bottom:14px">Thank you, <strong>' + name + '</strong>. Our ' + CONFIG[currentCountry].name + ' migration specialist will review your points breakdown and contact you on ' + phone + ' within 24 hours.</p>' +
+        '<a href="https://wa.me/917738352427?text=Hi%20LEAMSS%20Team%2C%20I%20just%20calculated%20my%20points%20score%20(' + scoreData.total + '%20pts)%20for%20' + CONFIG[currentCountry].name + '%20and%20would%20like%20to%20connect." target="_blank" class="btn btn-primary" style="font-size:13px;padding:8px 18px">💬 Instant WhatsApp Chat with Specialist</a>' +
+        '</div>';
+    })
+    .catch(err => {
+      alert('Thank you, ' + name + '! Your consultation request has been received.');
+      btn.disabled = false;
+      btn.innerText = 'Claim Free Consultation →';
+    });
+}
+
+// Initial Render
+renderCurrentStep();
+</script>
+</body>
+</html>
