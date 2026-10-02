@@ -51,19 +51,29 @@ if [ -f "docker-compose.prod.yml" ]; then
     # Run complete JSA enrichment + SSG generation inside backend container
     $DC -f docker-compose.prod.yml exec -T backend python scripts/enrich_jsa_and_ssg.py || true
     if command -v node >/dev/null 2>&1; then
+        node scripts/sync_start_pages.js || true
         node scripts/patch_all_atlas_ssg.js || true
     fi
-    # Ensure frontend container serves the freshly generated static Atlas files immediately
+    # Ensure frontend container serves the freshly generated static Atlas, Start, and Calculator files immediately
     $DC -f docker-compose.prod.yml cp frontend/public/atlas/. frontend:/usr/share/nginx/html/atlas/ || true
+    $DC -f docker-compose.prod.yml cp frontend/public/start/. frontend:/usr/share/nginx/html/start/ || true
+    $DC -f docker-compose.prod.yml cp frontend/public/calculator/. frontend:/usr/share/nginx/html/calculator/ || true
+    $DC -f docker-compose.prod.yml cp frontend/public/start.html frontend:/usr/share/nginx/html/start.html || true
+    $DC -f docker-compose.prod.yml cp frontend/public/calculator.html frontend:/usr/share/nginx/html/calculator.html || true
 elif [ -f "docker-compose.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker containers..."
     $DC down || true
     $DC up -d --build --remove-orphans
     $DC exec -T backend python scripts/enrich_jsa_and_ssg.py || true
     if command -v node >/dev/null 2>&1; then
+        node scripts/sync_start_pages.js || true
         node scripts/patch_all_atlas_ssg.js || true
     fi
     $DC cp frontend/public/atlas/. frontend:/usr/share/nginx/html/atlas/ || true
+    $DC cp frontend/public/start/. frontend:/usr/share/nginx/html/start/ || true
+    $DC cp frontend/public/calculator/. frontend:/usr/share/nginx/html/calculator/ || true
+    $DC cp frontend/public/start.html frontend:/usr/share/nginx/html/start.html || true
+    $DC cp frontend/public/calculator.html frontend:/usr/share/nginx/html/calculator.html || true
 fi
 
 # Clean up dangling images to keep EC2 disk & RAM clean and fast

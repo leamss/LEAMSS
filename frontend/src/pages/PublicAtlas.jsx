@@ -85,6 +85,9 @@ function PublicShell({ children }) {
             <Link reloadDocument to="/atlas/au" className="hover:underline" style={{ color: C.body }} data-testid="header-link-au">🇦🇺 Australia</Link>
             <Link reloadDocument to="/atlas/ca" className="hover:underline" style={{ color: C.body }} data-testid="header-link-ca">🇨🇦 Canada</Link>
             <Link reloadDocument to="/atlas/nz" className="hover:underline" style={{ color: C.body }} data-testid="header-link-nz">🇳🇿 New Zealand</Link>
+            <a href="https://leamss.com/start" className="px-3.5 py-1.5 rounded-full text-xs font-bold text-white shadow-sm hover:opacity-95" style={{ background: '#D4633F' }} data-testid="header-cta-start">
+              Free Eligibility Check
+            </a>
             <Link to="/" className="px-3 py-1.5 rounded text-xs font-bold" style={{ background: C.gold, color: '#fff' }} data-testid="header-cta-login">
               Agent Login
             </Link>
