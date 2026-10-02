@@ -177,6 +177,10 @@ function App() {
           <Route path="/cockpit/resume/*" element={<ResumeDirectViewer />} />
           {/* ─── Phase 14: LEAMSS Public Brand Experience (no auth) ─── */}
           <Route path="/start" element={<MegaLanding />} />
+          <Route path="/eligibility" element={<MegaLanding />} />
+          <Route path="/calculator" element={<MegaLanding />} />
+          <Route path="/points-calculator" element={<MegaLanding />} />
+          <Route path="/free-assessment" element={<MegaLanding />} />
           {/* Phase 19: /atlas/* paths are served by setupProxy.js as static SSR HTML files.
               We intentionally do NOT mount React routes for them so that ANY navigation
               (direct, refresh, or click from inside the SPA) triggers a full page reload

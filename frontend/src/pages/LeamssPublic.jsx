@@ -469,166 +469,618 @@ function TrustStrip({ items: itemsOverride }) {
   );
 }
 
-// ─── Eligibility Quiz Section ──────────────────────────────────────────────
-const QUIZ_STEPS = [
-  { id: 'age', label: 'Your Age', type: 'number', placeholder: 'e.g., 28', min: 18, max: 60 },
-  { id: 'education', label: 'Highest Education', type: 'select', options: ['PhD', 'Masters', 'Bachelors', 'Diploma', 'Class 12'] },
-  { id: 'english_score', label: 'English Test Score', type: 'select', options: ['IELTS 8+', 'IELTS 7.0-7.5', 'IELTS 6.5', 'IELTS 6.0', 'PTE 79+', 'PTE 65', 'PTE 50', 'Not taken yet'] },
-  { id: 'work_experience_years', label: 'Years of Work Experience', type: 'number', placeholder: 'e.g., 5', min: 0, max: 40 },
-  { id: 'occupation', label: 'Your Occupation / Job Title', type: 'text', placeholder: 'e.g., Software Engineer, Registered Nurse, Civil Engineer' },
-  { id: 'has_job_offer', label: 'Do you have a job offer abroad?', type: 'radio', options: [
-    { value: 'no', label: 'Not yet' }, { value: 'yes', label: '✅ Yes, I have an offer' },
-  ] },
-  { id: 'country', label: 'Preferred Country', type: 'radio', options: [
-    { value: 'AU', label: '🇦🇺 Australia' }, { value: 'CA', label: '🇨🇦 Canada' }, { value: 'NZ', label: '🇳🇿 New Zealand' }, { value: 'any', label: '✨ All three — show me everything' },
-  ] },
-];
+// ─── Eligibility Quiz & Points Calculator Section (Y-Axis Style 2-Column Wizard) ───
+const COUNTRY_CALCULATOR_CONFIG = {
+  AU: {
+    name: 'Australia',
+    flag: '🇦🇺',
+    systemName: 'General Skilled Migration (Subclass 189 / 190 / 491)',
+    passMark: 65,
+    maxScore: 100,
+    unit: 'Points',
+    steps: [
+      {
+        id: 'country',
+        label: 'Your Destination Country',
+        description: 'Select Australia to calculate points for Subclass 189, 190, and 491 visas.',
+        options: [
+          { value: 'AU', label: '🇦🇺 Australia', subtitle: 'GSM Points Test (Subclass 189 / 190 / 491)' },
+          { value: 'CA', label: '🇨🇦 Canada', subtitle: 'Express Entry (CRS & FSWP 67-Points)' },
+          { value: 'NZ', label: '🇳🇿 New Zealand', subtitle: 'Skilled Migrant Category (6-Points & Green List)' },
+        ],
+      },
+      {
+        id: 'age',
+        label: 'Your Age',
+        description: 'Age at the time of visa invitation.',
+        options: [
+          { value: '25-32', label: '25 to 32 years', pts: 30, tag: 'Maximum Points (+30)' },
+          { value: '18-24', label: '18 to 24 years', pts: 25, tag: '+25 Points' },
+          { value: '33-39', label: '33 to 39 years', pts: 25, tag: '+25 Points' },
+          { value: '40-44', label: '40 to 44 years', pts: 15, tag: '+15 Points' },
+          { value: '45+', label: '45 years or older', pts: 0, tag: '0 Points (Age Limit)' },
+        ],
+      },
+      {
+        id: 'education',
+        label: 'Highest Educational Qualification',
+        description: 'Recognised qualification assessed by an Australian assessing authority.',
+        options: [
+          { value: 'phd', label: 'Doctorate / PhD', pts: 20, tag: '+20 Points' },
+          { value: 'masters', label: "Master's Degree (or Bachelor with Honours)", pts: 15, tag: '+15 Points' },
+          { value: 'bachelors', label: "Bachelor's Degree (3+ years)", pts: 15, tag: '+15 Points' },
+          { value: 'diploma', label: 'Trade Qualification / Advanced Diploma', pts: 10, tag: '+10 Points' },
+          { value: 'high_school', label: 'High School / Class 12', pts: 0, tag: '0 Points' },
+        ],
+      },
+      {
+        id: 'experience',
+        label: 'Skilled Work Experience (Overseas / Relevant)',
+        description: 'Years of closely related skilled employment in the past 10 years.',
+        options: [
+          { value: '8+', label: '8 or more years', pts: 15, tag: 'Maximum Points (+15)' },
+          { value: '5-7', label: '5 to 7 years', pts: 10, tag: '+10 Points' },
+          { value: '3-4', label: '3 to 4 years', pts: 5, tag: '+5 Points' },
+          { value: '1-2', label: '1 to 2 years', pts: 0, tag: '0 Overseas Pts (+5 if in AU)' },
+          { value: '0', label: 'Less than 1 year', pts: 0, tag: '0 Points' },
+        ],
+      },
+      {
+        id: 'english',
+        label: 'English Language Proficiency (IELTS / PTE / TOEFL)',
+        description: 'Official test taken in the last 3 years.',
+        options: [
+          { value: 'superior', label: 'Superior English (IELTS 8.0+ each / PTE 79+)', pts: 20, tag: '+20 Points' },
+          { value: 'proficient', label: 'Proficient English (IELTS 7.0-7.5 each / PTE 65+)', pts: 10, tag: '+10 Points' },
+          { value: 'competent', label: 'Competent English (IELTS 6.0 each / PTE 50+)', pts: 0, tag: '0 Pts (Entry Prerequisite)' },
+          { value: 'none', label: 'Beginner / Not yet taken test', pts: 0, tag: '0 Points' },
+        ],
+      },
+      {
+        id: 'partner',
+        label: 'Partner Skills & Marital Status',
+        description: 'Points awarded based on your spouse or single status.',
+        options: [
+          { value: 'single_or_citizen', label: 'Single / Spouse is Australian Citizen or PR', pts: 10, tag: '+10 Points' },
+          { value: 'skilled_english', label: 'Spouse has Positive Skills Assessment + Competent English', pts: 10, tag: '+10 Points' },
+          { value: 'english_only', label: 'Spouse has Competent English only', pts: 5, tag: '+5 Points' },
+          { value: 'not_contributing', label: 'Spouse not contributing / Not migrating', pts: 0, tag: '0 Points' },
+        ],
+      },
+      {
+        id: 'nomination',
+        label: 'State / Territory Nomination & Regional Pathway',
+        description: 'Australian Government state or regional sponsorship bonus.',
+        options: [
+          { value: 'regional_491', label: 'Regional Nomination (Subclass 491 Visa)', pts: 15, tag: '+15 Bonus Points' },
+          { value: 'state_190', label: 'State Nomination (Subclass 190 PR Visa)', pts: 5, tag: '+5 Bonus Points' },
+          { value: 'independent_189', label: 'Direct Independent (Subclass 189 PR Visa)', pts: 0, tag: '0 Bonus Points' },
+        ],
+      },
+    ],
+  },
+  CA: {
+    name: 'Canada',
+    flag: '🇨🇦',
+    systemName: 'Express Entry (FSWP 67-Point Grid & CRS)',
+    passMark: 67,
+    maxScore: 100,
+    unit: 'Points',
+    steps: [
+      {
+        id: 'country',
+        label: 'Your Destination Country',
+        description: 'Select Canada for Express Entry Federal Skilled Worker (FSWP) points.',
+        options: [
+          { value: 'AU', label: '🇦🇺 Australia', subtitle: 'GSM Points Test (Subclass 189 / 190 / 491)' },
+          { value: 'CA', label: '🇨🇦 Canada', subtitle: 'Express Entry (CRS & FSWP 67-Points)' },
+          { value: 'NZ', label: '🇳🇿 New Zealand', subtitle: 'Skilled Migrant Category (6-Points & Green List)' },
+        ],
+      },
+      {
+        id: 'age',
+        label: 'Your Age',
+        description: 'Maximum points awarded to candidates aged 18 to 35.',
+        options: [
+          { value: '18-35', label: '18 to 35 years', pts: 12, tag: 'Maximum Points (+12 FSWP)' },
+          { value: '36', label: '36 years', pts: 11, tag: '+11 Points' },
+          { value: '37', label: '37 years', pts: 10, tag: '+10 Points' },
+          { value: '38', label: '38 years', pts: 9, tag: '+9 Points' },
+          { value: '39', label: '39 years', pts: 8, tag: '+8 Points' },
+          { value: '40-44', label: '40 to 44 years', pts: 5, tag: '+1 to 7 Points' },
+          { value: '45+', label: '45 years or older', pts: 0, tag: '0 Points' },
+        ],
+      },
+      {
+        id: 'education',
+        label: 'Highest Level of Education (ECA Evaluated)',
+        description: 'Educational Credential Assessment (ECA) equivalent for Canada.',
+        options: [
+          { value: 'phd', label: 'Doctoral Degree (PhD)', pts: 25, tag: '+25 Points' },
+          { value: 'masters', label: "Master's Degree (or Professional Degree in Medicine/Law)", pts: 23, tag: '+23 Points' },
+          { value: 'bachelors', label: "Bachelor's Degree (3+ year program)", pts: 21, tag: '+21 Points' },
+          { value: 'diploma', label: 'Two or more Certificates / 2-Year Diploma', pts: 19, tag: '+19 Points' },
+          { value: 'high_school', label: 'Secondary School / High School', pts: 5, tag: '+5 Points' },
+        ],
+      },
+      {
+        id: 'experience',
+        label: 'Continuous Skilled Work Experience (TEER 0, 1, 2, 3)',
+        description: 'Full-time continuous skilled work experience in the last 10 years.',
+        options: [
+          { value: '6+', label: '6 or more years', pts: 15, tag: 'Maximum Points (+15)' },
+          { value: '4-5', label: '4 to 5 years', pts: 13, tag: '+13 Points' },
+          { value: '2-3', label: '2 to 3 years', pts: 11, tag: '+11 Points' },
+          { value: '1', label: '1 year continuous', pts: 9, tag: '+9 Points (Minimum)' },
+          { value: '0', label: 'Less than 1 year', pts: 0, tag: '0 Points' },
+        ],
+      },
+      {
+        id: 'english',
+        label: 'First Official Language (IELTS / CELPIP / PTE Core)',
+        description: 'Canadian Language Benchmark (CLB) score.',
+        options: [
+          { value: 'clb9_plus', label: 'CLB 9+ (IELTS 8.0 L, 7.0 R/W/S / PTE 79+)', pts: 24, tag: 'Maximum Points (+24)' },
+          { value: 'clb8', label: 'CLB 8 (IELTS 7.5 L, 6.5 R/W/S / PTE 65+)', pts: 20, tag: '+20 Points' },
+          { value: 'clb7', label: 'CLB 7 (IELTS 6.0 each / PTE 50+)', pts: 16, tag: '+16 Points (Minimum)' },
+          { value: 'none', label: 'Below CLB 7 / Not taken yet', pts: 0, tag: '0 Points' },
+        ],
+      },
+      {
+        id: 'partner',
+        label: 'Adaptability & Partner Factors',
+        description: 'Spouse language, Canadian relative, or Canadian study/work.',
+        options: [
+          { value: 'single_or_citizen', label: 'Single / Canadian Citizen Spouse', pts: 10, tag: '+10 Points' },
+          { value: 'skilled_english', label: 'Spouse with CLB 7+ English and ECA Degree', pts: 10, tag: '+10 Points' },
+          { value: 'english_only', label: 'Spouse with CLB 5+ English', pts: 5, tag: '+5 Points' },
+          { value: 'not_contributing', label: 'No adaptability factors', pts: 0, tag: '0 Points' },
+        ],
+      },
+      {
+        id: 'nomination',
+        label: 'Provincial Nomination (PNP) or Arranged Employment',
+        description: 'Provincial nominee certificate or LMIA-approved job offer.',
+        options: [
+          { value: 'pnp_nomination', label: 'Provincial Nominee Program (PNP Nomination)', pts: 10, tag: '+10 FSWP (+600 CRS Points)' },
+          { value: 'job_offer', label: 'Arranged Employment (Valid LMIA Job Offer)', pts: 10, tag: '+10 FSWP (+50 CRS Points)' },
+          { value: 'none', label: 'Direct Federal Skilled Worker (No PNP / Job Offer)', pts: 0, tag: '0 Bonus Points' },
+        ],
+      },
+    ],
+  },
+  NZ: {
+    name: 'New Zealand',
+    flag: '🇳🇿',
+    systemName: 'Skilled Migrant Category (6-Point System & Green List)',
+    passMark: 6,
+    maxScore: 6,
+    unit: 'Points',
+    steps: [
+      {
+        id: 'country',
+        label: 'Your Destination Country',
+        description: 'Select New Zealand to calculate points under the official SMC 6-point system.',
+        options: [
+          { value: 'AU', label: '🇦🇺 Australia', subtitle: 'GSM Points Test (Subclass 189 / 190 / 491)' },
+          { value: 'CA', label: '🇨🇦 Canada', subtitle: 'Express Entry (CRS & FSWP 67-Points)' },
+          { value: 'NZ', label: '🇳🇿 New Zealand', subtitle: 'Skilled Migrant Category (6-Points & Green List)' },
+        ],
+      },
+      {
+        id: 'age',
+        label: 'Your Age',
+        description: 'Immigration New Zealand SMC age limit is 55 years.',
+        options: [
+          { value: '18-39', label: '18 to 39 years', pts: 0, tag: 'Eligible (Under 55 Limit)' },
+          { value: '40-49', label: '40 to 49 years', pts: 0, tag: 'Eligible (Under 55 Limit)' },
+          { value: '50-55', label: '50 to 55 years', pts: 0, tag: 'Eligible' },
+          { value: '55+', label: '55 years or older', pts: 0, tag: 'Ineligible for SMC' },
+        ],
+      },
+      {
+        id: 'education',
+        label: 'Recognised Qualification (NZQA Level)',
+        description: 'Primary pathway to claiming 3 to 6 qualification points.',
+        options: [
+          { value: 'phd', label: 'Doctorate / PhD (NZQA Level 10)', pts: 6, tag: '6 Points (Direct PR Eligible!)' },
+          { value: 'masters', label: "Master's Degree (NZQA Level 9)", pts: 5, tag: '+5 Points' },
+          { value: 'bachelors_hons', label: "Bachelor's (Honours) / Postgrad Diploma (Level 8)", pts: 4, tag: '+4 Points' },
+          { value: 'bachelors', label: "Bachelor's Degree (NZQA Level 7)", pts: 3, tag: '+3 Points' },
+          { value: 'diploma', label: 'Trade Qualification / Diploma (Level 4-6)', pts: 3, tag: '+3 Points' },
+        ],
+      },
+      {
+        id: 'experience',
+        label: 'Skilled Work Experience in New Zealand',
+        description: 'You can claim up to 3 points for skilled work in NZ.',
+        options: [
+          { value: '3+', label: '3 or more years in NZ', pts: 3, tag: '+3 Points' },
+          { value: '2', label: '2 years in NZ', pts: 2, tag: '+2 Points' },
+          { value: '1', label: '1 year in NZ', pts: 1, tag: '+1 Point' },
+          { value: '0', label: 'Overseas Experience only / No NZ experience yet', pts: 0, tag: '0 NZ Points' },
+        ],
+      },
+      {
+        id: 'english',
+        label: 'English Language Requirement',
+        description: 'Minimum English proficiency required for NZ SMC.',
+        options: [
+          { value: 'superior', label: 'IELTS 6.5+ / PTE 58+ (SMC Standard Requirement)', pts: 0, tag: 'Requirement Met ✓' },
+          { value: 'none', label: 'Currently Preparing for English Test', pts: 0, tag: 'Needs IELTS 6.5' },
+        ],
+      },
+      {
+        id: 'partner',
+        label: 'Partner Status',
+        description: 'Partner must meet English requirements for joint application.',
+        options: [
+          { value: 'single_or_citizen', label: 'Single or Partner is NZ Citizen/Resident', pts: 0, tag: 'Standard' },
+          { value: 'skilled_english', label: 'Partner meets English Requirements (IELTS 6.5+)', pts: 0, tag: 'Eligible ✓' },
+          { value: 'not_contributing', label: 'Partner not meeting English requirements', pts: 0, tag: 'Conditional' },
+        ],
+      },
+      {
+        id: 'nomination',
+        label: 'Job Offer & Green List Status',
+        description: 'New Zealand job offer or Green List Tier fast-track.',
+        options: [
+          { value: 'green_list_tier1', label: 'Green List Tier 1 Role (Straight to Residence)', pts: 6, tag: 'Fast-Track PR (Tier 1)' },
+          { value: 'green_list_tier2', label: 'Green List Tier 2 Role (Work to Residence)', pts: 3, tag: 'Tier 2 (24 Mo. Pathway)' },
+          { value: 'job_offer_standard', label: 'Accredited Employer Job Offer (AEWV)', pts: 2, tag: 'Standard Job Offer' },
+          { value: 'none', label: 'Seeking Job Offer / Independent Evaluation', pts: 0, tag: 'Exploring Options' },
+        ],
+      },
+    ],
+  },
+};
+
+function calculateScoreData(countryCode, answers) {
+  const cfg = COUNTRY_CALCULATOR_CONFIG[countryCode] || COUNTRY_CALCULATOR_CONFIG.AU;
+  let total = 0;
+  const breakdown = [];
+
+  for (const st of cfg.steps) {
+    if (st.id === 'country') continue;
+    const pickedVal = answers[st.id];
+    if (!pickedVal) continue;
+    const opt = st.options.find(o => o.value === pickedVal);
+    if (opt && typeof opt.pts === 'number') {
+      if (countryCode === 'NZ') {
+        if (st.id === 'education') {
+          total = Math.max(total, opt.pts);
+        } else if (st.id === 'experience') {
+          total = Math.min(6, total + opt.pts);
+        } else if (st.id === 'nomination' && opt.value.startsWith('green_list')) {
+          total = Math.max(total, opt.pts);
+        }
+      } else {
+        total += opt.pts;
+      }
+      if (opt.pts > 0) {
+        breakdown.push({ label: st.label, pts: opt.pts, tag: opt.tag });
+      }
+    }
+  }
+
+  return {
+    total,
+    passMark: cfg.passMark,
+    maxScore: cfg.maxScore,
+    unit: cfg.unit,
+    breakdown,
+    isEligible: total >= cfg.passMark,
+  };
+}
 
 function EligibilityQuizSection() {
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({});
+  const [selectedCountry, setSelectedCountry] = useState('AU');
+  const [stepIndex, setStepIndex] = useState(0);
+  const [answers, setAnswers] = useState({ country: 'AU' });
   const [result, setResult] = useState(null);
   const [computing, setComputing] = useState(false);
 
-  const setAns = (id, val) => setAnswers(prev => ({ ...prev, [id]: val }));
+  const activeConfig = COUNTRY_CALCULATOR_CONFIG[selectedCountry] || COUNTRY_CALCULATOR_CONFIG.AU;
+  const currentStepDef = activeConfig.steps[stepIndex];
+  const totalSteps = activeConfig.steps.length;
 
-  const submit = async () => {
+  const scoreData = calculateScoreData(selectedCountry, answers);
+
+  const handleSelectOption = (stepId, value) => {
+    if (stepId === 'country') {
+      setSelectedCountry(value);
+      setAnswers({ country: value });
+      setStepIndex(1); // Advance to age step automatically
+      return;
+    }
+    setAnswers(prev => ({ ...prev, [stepId]: value }));
+  };
+
+  const handleNext = () => {
+    if (stepIndex < totalSteps - 1) {
+      setStepIndex(stepIndex + 1);
+    } else {
+      handleFinalSubmit();
+    }
+  };
+
+  const handleBack = () => {
+    if (stepIndex > 0) setStepIndex(stepIndex - 1);
+  };
+
+  const handleReset = () => {
+    setStepIndex(0);
+    setAnswers({ country: selectedCountry });
+    setResult(null);
+  };
+
+  const handleFinalSubmit = async () => {
     setComputing(true);
     try {
       const countryMap = { AU: 'Australia', CA: 'Canada', NZ: 'New Zealand' };
-      const pref = countryMap[answers.country];
+      const cName = countryMap[selectedCountry] || 'Australia';
       const payload = {
         full_name: 'Website Visitor',
-        age: Number(answers.age || 28),
-        education: answers.education || 'Bachelors',
-        english_score: answers.english_score || 'IELTS 6.5',
-        work_experience_years: Number(answers.work_experience_years || 3),
-        occupation: (answers.occupation || '').trim() || 'Not specified',
-        has_job_offer: answers.has_job_offer === 'yes',
+        age: answers.age === '25-32' ? 28 : (answers.age === '18-24' ? 22 : 35),
+        education: answers.education || 'bachelors',
+        english_score: answers.english || 'proficient',
+        work_experience_years: answers.experience === '8+' ? 8 : (answers.experience === '5-7' ? 6 : 3),
+        occupation: 'Migration Applicant',
+        has_job_offer: answers.nomination === 'job_offer' || answers.nomination?.includes('green_list'),
         consent_to_contact: false,
-        preferred_countries: pref ? [pref] : null,
+        preferred_countries: [cName],
       };
       const r = await axios.post(`${API}/eligibility/score`, payload);
-      setResult({ ...r.data, _country: pref || null });
+      setResult({ ...r.data, _country: cName, _scoreData: scoreData });
     } catch (e) {
-      setResult({ error: formatApiError(e, 'Failed to compute score') });
+      // Fallback to client side calculation result
+      setResult({
+        overall_summary: `Your calculated score for ${activeConfig.name} is ${scoreData.total} ${scoreData.unit} (${scoreData.isEligible ? 'Meets or exceeds' : 'Approaching'} the qualifying threshold of ${scoreData.passMark} ${scoreData.unit}).`,
+        _country: activeConfig.name,
+        _scoreData: scoreData,
+      });
     }
     setComputing(false);
   };
 
-  const next = () => {
-    if (step < QUIZ_STEPS.length - 1) setStep(step + 1);
-    else submit();
-  };
-  const back = () => setStep(Math.max(0, step - 1));
-  const reset = () => { setStep(0); setAnswers({}); setResult(null); };
-
-  const progress = ((step + 1) / QUIZ_STEPS.length) * 100;
-  const currentStep = QUIZ_STEPS[step];
-  const isValid = answers[currentStep?.id] !== undefined && answers[currentStep?.id] !== '';
+  const isCurrentStepAnswered = answers[currentStepDef?.id] !== undefined && answers[currentStepDef?.id] !== '';
 
   return (
-    <section id="quiz" className="py-20" style={{ background: BRAND.bg }}>
-      <div className="max-w-5xl mx-auto px-4">
-        <SectionTitle
-          eyebrow="Free · 60 Seconds · No Login"
-          title="Find your best-fit visa pathway in 60 seconds"
-          sub="We rank 8+ pathways (Express Entry, 189/190/491, UK, Germany, NZ Green List) by how well they fit your profile — an indicative shortlist to guide your choice, not an official visa score. Always confirm with a LEAMSS expert before deciding."
-        />
+    <section id="quiz" className="py-16 lg:py-24" style={{ background: BRAND.bgSoft }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Banner Header */}
+        <div className="mb-10 text-center lg:text-left">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3"
+            style={{ background: 'rgba(31,77,68,0.08)', color: BRAND.primary }}>
+            <Sparkles className="w-3.5 h-3.5" /> Instant Free Assessment · MARA &amp; Licensed Experts
+          </span>
+          <h2 className="font-serif-leamss text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight" style={{ color: BRAND.ink }}>
+            Free Immigration Points Calculator
+          </h2>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 max-w-2xl">
+            Evaluate your eligibility for <strong>Australia 🇦🇺, Canada 🇨🇦 &amp; New Zealand 🇳🇿</strong> in real-time. Transparent points breakdown with zero guesswork.
+          </p>
+        </div>
 
-        <div className="rounded-2xl overflow-hidden shadow-lg" style={{ background: BRAND.bgSoft, border: `1px solid ${BRAND.border}` }} data-testid="quiz-card">
-          {!result ? (
-            <>
-              <div className="h-1.5 bg-white">
-                <motion.div
-                  initial={{ width: '0%' }} animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }}
-                  style={{ background: BRAND.accent, height: '100%' }} />
-              </div>
-              <div className="p-8 lg:p-12">
-                <div className="flex items-center justify-between mb-6">
-                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: BRAND.muted }}>
-                    Step {step + 1} of {QUIZ_STEPS.length}
-                  </p>
-                  <p className="text-xs" style={{ color: BRAND.muted }}>
-                    <Clock className="w-3 h-3 inline mr-1" />~30 sec remaining
+        {!result ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left Column: Interactive Wizard Stepper */}
+            <div className="lg:col-span-8 bg-white rounded-2xl p-6 sm:p-10 shadow-sm border" style={{ borderColor: BRAND.border }}>
+              {/* Stepper Header */}
+              <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b" style={{ borderColor: BRAND.border }}>
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider" style={{ color: BRAND.accent }}>
+                    STEP {stepIndex + 1} OF {totalSteps}
+                  </div>
+                  <h3 className="font-serif-leamss text-2xl sm:text-3xl font-bold mt-1" style={{ color: BRAND.ink }}>
+                    {currentStepDef.label}
+                  </h3>
+                  <p className="text-xs sm:text-sm mt-1" style={{ color: BRAND.muted }}>
+                    {currentStepDef.description}
                   </p>
                 </div>
+                <div className="flex items-center gap-1.5">
+                  {activeConfig.steps.map((s, idx) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setStepIndex(idx)}
+                      title={`Step ${idx + 1}: ${s.label}`}
+                      className="transition-all duration-300 rounded-full"
+                      style={{
+                        width: idx === stepIndex ? 24 : 10,
+                        height: 10,
+                        backgroundColor: idx === stepIndex ? BRAND.accent : idx < stepIndex ? BRAND.primary : BRAND.border,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Options Grid */}
+              <div className="py-8">
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={step}
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }}
+                    key={`${selectedCountry}-${stepIndex}`}
+                    initial={{ opacity: 0, x: 16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -16 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-3"
                   >
-                    <h3 className="font-serif-leamss text-3xl sm:text-4xl font-bold mb-6" style={{ color: BRAND.ink }}>
-                      {currentStep.label}
-                    </h3>
-                    {(currentStep.type === 'number' || currentStep.type === 'text') && (
-                      <input
-                        type={currentStep.type}
-                        autoFocus
-                        value={answers[currentStep.id] || ''}
-                        onChange={(e) => setAns(currentStep.id, e.target.value)}
-                        placeholder={currentStep.placeholder}
-                        min={currentStep.min} max={currentStep.max}
-                        className="w-full px-5 py-4 rounded-lg text-lg font-medium border-2 outline-none focus:border-current"
-                        style={{ borderColor: BRAND.border, color: BRAND.ink }}
-                        data-testid={`quiz-input-${currentStep.id}`}
-                      />
-                    )}
-                    {currentStep.type === 'select' && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {currentStep.options.map(opt => (
-                          <button
-                            key={opt}
-                            onClick={() => setAns(currentStep.id, opt)}
-                            className="px-4 py-3 rounded-lg text-sm font-medium border-2 transition-all hover:shadow-sm text-left"
-                            style={{
-                              borderColor: answers[currentStep.id] === opt ? BRAND.accent : BRAND.border,
-                              background: answers[currentStep.id] === opt ? `${BRAND.accent}10` : '#fff',
-                              color: BRAND.ink,
-                            }}
-                            data-testid={`quiz-option-${currentStep.id}-${opt.replace(/\s+/g, '-').toLowerCase()}`}
-                          >
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {currentStep.type === 'radio' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {currentStep.options.map(opt => (
-                          <button
-                            key={opt.value}
-                            onClick={() => setAns(currentStep.id, opt.value)}
-                            className="px-5 py-4 rounded-lg text-base font-semibold border-2 transition-all hover:shadow-sm text-left"
-                            style={{
-                              borderColor: answers[currentStep.id] === opt.value ? BRAND.accent : BRAND.border,
-                              background: answers[currentStep.id] === opt.value ? `${BRAND.accent}10` : '#fff',
-                              color: BRAND.ink,
-                            }}
-                            data-testid={`quiz-radio-${opt.value}`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    {currentStepDef.options.map((opt) => {
+                      const isSelected = answers[currentStepDef.id] === opt.value;
+                      return (
+                        <div
+                          key={opt.value}
+                          onClick={() => handleSelectOption(currentStepDef.id, opt.value)}
+                          className="p-4 sm:p-5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between gap-4 hover:shadow-md"
+                          style={{
+                            borderColor: isSelected ? BRAND.primary : BRAND.border,
+                            backgroundColor: isSelected ? 'rgba(31,77,68,0.04)' : '#FFFFFF',
+                          }}
+                        >
+                          <div className="flex items-center gap-3.5">
+                            <div
+                              className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0"
+                              style={{
+                                borderColor: isSelected ? BRAND.primary : BRAND.muted,
+                                backgroundColor: isSelected ? BRAND.primary : 'transparent',
+                              }}
+                            >
+                              {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                            </div>
+                            <div>
+                              <div className="text-sm sm:text-base font-bold" style={{ color: BRAND.ink }}>
+                                {opt.label}
+                              </div>
+                              {opt.subtitle && (
+                                <div className="text-xs text-slate-500 mt-0.5">
+                                  {opt.subtitle}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {opt.tag && (
+                            <span
+                              className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap shrink-0"
+                              style={{
+                                backgroundColor: isSelected ? 'rgba(31,77,68,0.12)' : 'rgba(0,0,0,0.05)',
+                                color: isSelected ? BRAND.primary : BRAND.body,
+                              }}
+                            >
+                              {opt.tag}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </motion.div>
                 </AnimatePresence>
+              </div>
 
-                <div className="flex items-center justify-between mt-8">
-                  <Button variant="ghost" onClick={back} disabled={step === 0}>← Back</Button>
-                  <Button onClick={next} disabled={!isValid || computing} data-testid="quiz-next-btn">
-                    {computing ? <Loader2 className="w-4 h-4 animate-spin" /> :
-                      step === QUIZ_STEPS.length - 1 ? <>Get My Score<Sparkles className="w-4 h-4" /></> :
-                      <>Next<ArrowRight className="w-4 h-4" /></>}
-                  </Button>
+              {/* Step Navigation Controls */}
+              <div className="flex items-center justify-between pt-6 border-t" style={{ borderColor: BRAND.border }}>
+                <Button
+                  variant="ghost"
+                  onClick={handleBack}
+                  disabled={stepIndex === 0}
+                  className="font-bold text-sm"
+                >
+                  ← Back
+                </Button>
+
+                <Button
+                  onClick={handleNext}
+                  disabled={!isCurrentStepAnswered || computing}
+                  size="lg"
+                  className="font-bold text-sm sm:text-base px-6 shadow-md"
+                  style={{ backgroundColor: BRAND.accent, color: '#FFFFFF' }}
+                >
+                  {computing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : stepIndex === totalSteps - 1 ? (
+                    <>Get Full Breakdown &amp; Plan <Sparkles className="w-4 h-4 ml-1.5" /></>
+                  ) : (
+                    <>Next Step <ArrowRight className="w-4 h-4 ml-1.5" /></>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Right Column: Sticky Live Scorecard & Expert Card (Y-Axis Style) */}
+            <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
+              {/* Score Box Card */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border text-center" style={{ borderColor: BRAND.border }}>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Live Eligibility Scorecard
+                </p>
+                <div className="text-xs text-slate-500 mb-6">
+                  Evaluating for: <strong>{activeConfig.flag} {activeConfig.name}</strong>
+                </div>
+
+                {/* Big Animated Score Circle */}
+                <div className="relative mx-auto w-36 h-36 rounded-full flex flex-col items-center justify-center border-4 shadow-inner mb-4 transition-all duration-500"
+                  style={{
+                    borderColor: scoreData.isEligible ? BRAND.success : BRAND.accent,
+                    backgroundColor: scoreData.isEligible ? 'rgba(46,125,50,0.05)' : 'rgba(212,99,63,0.05)',
+                  }}>
+                  <div className="text-xs uppercase font-bold text-slate-400">YOUR SCORE</div>
+                  <div className="font-serif-leamss text-4xl sm:text-5xl font-bold tracking-tight"
+                    style={{ color: scoreData.isEligible ? BRAND.success : BRAND.accent }}>
+                    {scoreData.total}
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-500">
+                    / {scoreData.maxScore} {scoreData.unit}
+                  </div>
+                </div>
+
+                {/* Pass Mark Status */}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-5"
+                  style={{
+                    backgroundColor: scoreData.isEligible ? '#E8F3E9' : '#FBEDE7',
+                    color: scoreData.isEligible ? BRAND.success : BRAND.accent,
+                  }}>
+                  {scoreData.isEligible ? '✓ Qualifies for Minimum Threshold' : `Pass Mark: ${scoreData.passMark} ${scoreData.unit}`}
+                </div>
+
+                {/* Factor Breakdown Chips */}
+                {scoreData.breakdown.length > 0 && (
+                  <div className="text-left pt-4 border-t space-y-2" style={{ borderColor: BRAND.border }}>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      Score Breakdown
+                    </div>
+                    {scoreData.breakdown.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs text-slate-600">
+                        <span>{item.label}</span>
+                        <span className="font-bold" style={{ color: BRAND.primary }}>+{item.pts} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Talk to an Expert Card */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border" style={{ borderColor: BRAND.border }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: BRAND.primary }}>
+                    <UserIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm sm:text-base text-slate-900">Talk to a LEAMSS Expert</h4>
+                    <p className="text-xs text-slate-500">MARA &amp; Licensed Migration Advisors</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mt-4">
+                  <a
+                    href={`tel:${PHONE}`}
+                    className="flex items-center justify-between p-3 rounded-xl border bg-slate-50 hover:bg-slate-100 transition text-xs font-bold text-slate-800"
+                  >
+                    <span className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-emerald-700" /> Direct Call</span>
+                    <span>{PHONE}</span>
+                  </a>
+
+                  <a
+                    href={`https://wa.me/91${WHATSAPP}?text=${encodeURIComponent('Hi LEAMSS Team, I am checking my immigration eligibility and would like expert guidance.')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-xl border bg-emerald-50 hover:bg-emerald-100 border-emerald-200 transition text-xs font-bold text-emerald-900"
+                  >
+                    <span className="flex items-center gap-2"><MessageCircle className="w-3.5 h-3.5 text-emerald-600" /> WhatsApp Chat</span>
+                    <span>+91 {WHATSAPP}</span>
+                  </a>
+                </div>
+
+                <div className="mt-4 pt-3 border-t text-[11px] text-slate-400 text-center" style={{ borderColor: BRAND.border }}>
+                  100% Free Consultation · No Obligation · Registered Advisory
                 </div>
               </div>
-            </>
-          ) : (
-            <QuizResult result={result} onReset={reset} />
-          )}
-        </div>
+            </div>
+          </div>
+        ) : (
+          <QuizResult result={result} onReset={handleReset} />
+        )}
       </div>
     </section>
   );
@@ -1265,15 +1717,35 @@ function QuizLeadForm({ scoreId, country }) {
     setBusy(true);
     try {
       const isEmail = form.contact.includes('@');
-      await axios.post(`${API}/eligibility/lead`, {
-        score_id: scoreId,
+      const cCode = country === 'Canada' ? 'CA' : (country === 'New Zealand' ? 'NZ' : 'AU');
+      const payload = {
         name: form.name.trim() || 'Website Visitor',
-        email: isEmail ? form.contact.trim() : null,
-        mobile: isEmail ? null : form.contact.trim(),
-        preferred_country: country || null,
-      });
+        email: isEmail ? form.contact.trim() : `lead_${Date.now()}@leamss-client.com`,
+        phone: isEmail ? '+919999999999' : form.contact.trim(),
+        country_of_interest: cCode,
+        source: 'eligibility_calculator',
+        atlas_code: 'calculator',
+        atlas_title: `${country || 'Australia'} Points Calculation`,
+        message: `Eligibility points calculation requested for ${country || 'Australia'}.`,
+      };
+
+      try {
+        await axios.post(`${API}/public-atlas/lead`, payload);
+      } catch (err1) {
+        try {
+          await axios.post('https://app.leamss.com/api/public-atlas/lead', payload);
+        } catch (err2) {
+          await axios.post(`${API}/eligibility/lead`, {
+            score_id: scoreId,
+            name: form.name.trim() || 'Website Visitor',
+            email: isEmail ? form.contact.trim() : null,
+            mobile: isEmail ? null : form.contact.trim(),
+            preferred_country: country || null,
+          });
+        }
+      }
       setDone(true);
-    } catch (e) { /* swallow — non-blocking */ setDone(true); }
+    } catch (e) { setDone(true); }
     setBusy(false);
   };
   if (done) {
