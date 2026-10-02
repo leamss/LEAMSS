@@ -186,11 +186,13 @@ async def list_public_urls(
                     {"created_at": {"$gte": cutoff_dt}},
                     {"created_at": {"$gte": cutoff_str}},
                     {"created_at": {"$gte": cutoff_str[:10]}},
+                    {"created_at": {"$exists": False}},
+                    {"created_at": None},
                 ]
             },
             {
                 "$or": [
-                    {"source": {"$regex": "atlas|public|landing", "$options": "i"}},
+                    {"source": {"$regex": "atlas|public|landing|state", "$options": "i"}},
                     {"atlas_code": {"$exists": True, "$ne": None, "$ne": ""}},
                     {"tags": {"$in": ["public_atlas", "atlas_au", "atlas_ca", "atlas_nz"]}},
                 ]
@@ -404,11 +406,13 @@ async def get_analytics(
                     {"created_at": {"$gte": cutoff_dt}},
                     {"created_at": {"$gte": cutoff_str}},
                     {"created_at": {"$gte": cutoff_str[:10]}},
+                    {"created_at": {"$exists": False}},
+                    {"created_at": None},
                 ]
             },
             {
                 "$or": [
-                    {"source": {"$regex": "atlas|public|landing", "$options": "i"}},
+                    {"source": {"$regex": "atlas|public|landing|state", "$options": "i"}},
                     {"atlas_code": {"$exists": True, "$ne": None, "$ne": ""}},
                     {"tags": {"$in": ["public_atlas", "atlas_au", "atlas_ca", "atlas_nz"]}},
                 ]
@@ -501,11 +505,13 @@ async def get_top_pages(
                     {"created_at": {"$gte": cutoff_dt}},
                     {"created_at": {"$gte": cutoff_str}},
                     {"created_at": {"$gte": cutoff_str[:10]}},
+                    {"created_at": {"$exists": False}},
+                    {"created_at": None},
                 ]
             },
             {
                 "$or": [
-                    {"source": {"$regex": "atlas|public|landing", "$options": "i"}},
+                    {"source": {"$regex": "atlas|public|landing|state", "$options": "i"}},
                     {"atlas_code": {"$exists": True, "$ne": None, "$ne": ""}},
                     {"tags": {"$in": ["public_atlas", "atlas_au", "atlas_ca", "atlas_nz"]}},
                 ]

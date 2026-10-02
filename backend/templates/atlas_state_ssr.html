@@ -272,13 +272,27 @@ body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,sans-
           var btn = f.querySelector('button[type="submit"]');
           var orig = btn.textContent;
           btn.disabled = true; btn.textContent = 'Submitting…';
-          try {
-            var r = await fetch('/api/public-atlas/lead', {
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
+          
+          async function sendPayload(url) {
+            var res = await fetch(url, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(data)
             });
-            if (r.ok) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+          }
+
+          try {
+            var ok = false;
+            try {
+              await sendPayload('/api/public-atlas/lead');
+              ok = true;
+            } catch(e) {
+              await sendPayload('https://api.leamss.com/api/public-atlas/lead');
+              ok = true;
+            }
+            if (ok) {
               document.getElementById('lead-success-state').style.display='block';
               document.getElementById('lead-error-state').style.display='none';
               f.querySelectorAll('input[type=text],input[type=email],input[type=tel],textarea').forEach(function(el){el.value='';});
