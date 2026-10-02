@@ -662,7 +662,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 
     {# Right rail: sticky lead form #}
     <aside class="lead-form-wrap">
-      <form class="lead-form" method="post" action="/api/public-atlas/lead" data-atlas-code="{{ occ.code }}" data-country="{{ country_code }}">
+      <form class="lead-form" method="post" action="https://app.leamss.com/api/public-atlas/lead" data-atlas-code="{{ occ.code }}" data-country="{{ country_code }}">
         <span class="eyebrow">Free consultation</span>
         <h3>Talk to a {{ country.name }} specialist about {{ occ.title }}</h3>
         <p class="sub">Get a personalised pathway plan for {{ country.classification }} {{ occ.code }}. No login. No spam.</p>
@@ -757,9 +757,12 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    sendPayload('/api/public-atlas/lead')
+    sendPayload('https://app.leamss.com/api/public-atlas/lead')
       .catch(function() {
         return sendPayload('https://api.leamss.com/api/public-atlas/lead');
+      })
+      .catch(function() {
+        return sendPayload('/api/public-atlas/lead');
       })
       .then(function(resp) {
         var name = data.name || 'there';

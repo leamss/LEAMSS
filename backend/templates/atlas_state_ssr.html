@@ -235,7 +235,7 @@ body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,sans-
               <li style="padding:4px 0">✓ Top-3 occupation match against your CV</li>
             </ul>
           </div>
-          <form id="lead-form-state" action="/api/public-atlas/lead" method="post" data-state="{{ state.state_code }}" data-testid="lead-form-state">
+          <form id="lead-form-state" action="https://app.leamss.com/api/public-atlas/lead" method="post" data-state="{{ state.state_code }}" data-testid="lead-form-state">
             <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;letter-spacing:.04em">Full name *</label>
             <input name="name" type="text" required autocomplete="name" placeholder="Rahul Sharma" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--ink);margin-bottom:10px;background:#fffdf8" data-testid="lead-state-name">
             <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;letter-spacing:.04em">Email *</label>
@@ -286,11 +286,16 @@ body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,sans-
           try {
             var ok = false;
             try {
-              await sendPayload('/api/public-atlas/lead');
+              await sendPayload('https://app.leamss.com/api/public-atlas/lead');
               ok = true;
-            } catch(e) {
-              await sendPayload('https://api.leamss.com/api/public-atlas/lead');
-              ok = true;
+            } catch(e1) {
+              try {
+                await sendPayload('https://api.leamss.com/api/public-atlas/lead');
+                ok = true;
+              } catch(e2) {
+                await sendPayload('/api/public-atlas/lead');
+                ok = true;
+              }
             }
             if (ok) {
               document.getElementById('lead-success-state').style.display='block';

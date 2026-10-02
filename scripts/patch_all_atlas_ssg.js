@@ -705,6 +705,9 @@ function enrichOccupationHtml(html, code, jsaInfo, indSlugMap, indTopOccsMap, ha
     html = html.replace('<div class="bottom-cta">', bottomCards + '\n      <div class="bottom-cta">');
   }
 
+  // Update form action to live endpoint for maximum reliability across domains
+  html = html.replace(/action="\/api\/public-atlas\/lead"/g, 'action="https://app.leamss.com/api/public-atlas/lead"');
+
   // Inject AJAX interactive lead form submission script before </body>
   const leadScript = `
 <script>
@@ -738,9 +741,12 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    sendPayload('/api/public-atlas/lead')
+    sendPayload('https://app.leamss.com/api/public-atlas/lead')
       .catch(function() {
         return sendPayload('https://api.leamss.com/api/public-atlas/lead');
+      })
+      .catch(function() {
+        return sendPayload('/api/public-atlas/lead');
       })
       .then(function(resp) {
         var name = data.name || 'there';

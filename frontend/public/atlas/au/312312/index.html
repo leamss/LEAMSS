@@ -323,6 +323,8 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
         
         
         
+        
+        
       </article>
 
       <article class="card">
@@ -651,6 +653,21 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 
       
 
+      
+
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
 
       
 
@@ -781,6 +798,13 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
       
 
       
+      
+
+      
+
+      
+      
+
       
 
       
@@ -981,7 +1005,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     </div>
 
     <aside class="lead-form-wrap">
-      <form class="lead-form" method="post" action="/api/public-atlas/lead" data-atlas-code="312312" data-country="AU">
+      <form class="lead-form" method="post" action="https://app.leamss.com/api/public-atlas/lead" data-atlas-code="312312" data-country="AU">
         <span class="eyebrow">Free consultation</span>
         <h3>Talk to a Australia specialist about Electrical Engineering Technician</h3>
         <p class="sub">Get a personalised pathway plan for ANZSCO 312312. No login. No spam.</p>
@@ -1049,6 +1073,12 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 
 
 
+
+
+
+
+
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   var form = document.querySelector('form.lead-form');
@@ -1080,9 +1110,12 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    sendPayload('/api/public-atlas/lead')
+    sendPayload('https://app.leamss.com/api/public-atlas/lead')
       .catch(function() {
         return sendPayload('https://api.leamss.com/api/public-atlas/lead');
+      })
+      .catch(function() {
+        return sendPayload('/api/public-atlas/lead');
       })
       .then(function(resp) {
         var name = data.name || 'there';
@@ -1092,8 +1125,8 @@ document.addEventListener('DOMContentLoaded', function() {
         wrap.innerHTML = '<div class="lead-form" style="text-align:center;padding:32px 20px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 24px rgba(31,77,68,.06);">' +
           '<div style="width:52px;height:52px;background:#e6f4ea;color:#137333;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:26px;font-weight:bold;margin-bottom:14px">✓</div>' +
           '<h3 style="font-family:\'Playfair Display\',Georgia,serif;font-size:22px;font-weight:700;color:var(--forest);margin-bottom:8px">Pathway plan requested!</h3>' +
-          '<p style="font-size:14px;color:var(--body);line-height:1.6;margin-bottom:18px">Thank you, <strong>' + name + '</strong>. Our Australian migration specialist for ANZSCO ' + code + ' will review your profile and contact you on ' + contact + ' within 24 hours.</p>' +
-          '<div style="font-size:12px;color:var(--muted);background:var(--cream);padding:10px 14px;border-radius:8px;border:1px solid var(--border)">Free consultation · 100% confidential · MARA registered network</div>' +
+          '<p style="font-size:14px;color:var(--body);line-height:1.6;margin-bottom:18px">Thank you, <strong>' + name + '</strong>. Our migration specialist for ANZSCO ' + code + ' will review your profile and contact you on ' + contact + ' within 24 hours.</p>' +
+          '<div style="font-size:12px;color:var(--muted);background:var(--cream);padding:10px 14px;border-radius:8px;border:1px solid var(--border)">Free consultation · 100% confidential · Registered migration network</div>' +
           '</div>';
       })
       .catch(function(err) {
