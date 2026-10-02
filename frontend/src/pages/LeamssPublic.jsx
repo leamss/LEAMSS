@@ -779,6 +779,8 @@ function EligibilityQuizSection() {
   const [answers, setAnswers] = useState({ country: 'AU' });
   const [result, setResult] = useState(null);
   const [computing, setComputing] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [clientInfo, setClientInfo] = useState({ name: '', phone: '', email: '', message: '' });
 
   const activeConfig = COUNTRY_CALCULATOR_CONFIG[selectedCountry] || COUNTRY_CALCULATOR_CONFIG.AU;
   const currentStepDef = activeConfig.steps[stepIndex];
@@ -800,7 +802,7 @@ function EligibilityQuizSection() {
     if (stepIndex < totalSteps - 1) {
       setStepIndex(stepIndex + 1);
     } else {
-      handleFinalSubmit();
+      setShowModal(true);
     }
   };
 
@@ -812,34 +814,43 @@ function EligibilityQuizSection() {
     setStepIndex(0);
     setAnswers({ country: selectedCountry });
     setResult(null);
+    setShowModal(false);
   };
 
-  const handleFinalSubmit = async () => {
+  const handleModalSubmit = async (e) => {
+    e.preventDefault();
     setComputing(true);
+    const countryMap = { AU: 'Australia', CA: 'Canada', NZ: 'New Zealand' };
+    const cName = countryMap[selectedCountry] || 'Australia';
+    const payload = {
+      name: clientInfo.name,
+      email: clientInfo.email,
+      phone: clientInfo.phone,
+      country_of_interest: selectedCountry,
+      source: 'eligibility_calculator',
+      atlas_code: 'points_calculator',
+      atlas_title: `${cName} Points Assessment`,
+      message: `Score: ${scoreData.total} ${scoreData.unit} for ${cName}. ${clientInfo.message ? 'Client Note: ' + clientInfo.message : 'Requested full breakdown & report.'}`
+    };
+
     try {
-      const countryMap = { AU: 'Australia', CA: 'Canada', NZ: 'New Zealand' };
-      const cName = countryMap[selectedCountry] || 'Australia';
-      const payload = {
-        full_name: 'Website Visitor',
-        age: answers.age === '25-32' ? 28 : (answers.age === '18-24' ? 22 : 35),
-        education: answers.education || 'bachelors',
-        english_score: answers.english || 'proficient',
-        work_experience_years: answers.experience === '8+' ? 8 : (answers.experience === '5-7' ? 6 : 3),
-        occupation: 'Migration Applicant',
-        has_job_offer: answers.nomination === 'job_offer' || answers.nomination?.includes('green_list'),
-        consent_to_contact: false,
-        preferred_countries: [cName],
-      };
-      const r = await axios.post(`${API}/eligibility/score`, payload);
-      setResult({ ...r.data, _country: cName, _scoreData: scoreData });
-    } catch (e) {
-      // Fallback to client side calculation result
-      setResult({
-        overall_summary: `Your calculated score for ${activeConfig.name} is ${scoreData.total} ${scoreData.unit} (${scoreData.isEligible ? 'Meets or exceeds' : 'Approaching'} the qualifying threshold of ${scoreData.passMark} ${scoreData.unit}).`,
-        _country: activeConfig.name,
-        _scoreData: scoreData,
-      });
+      await axios.post(`${API}/public-atlas/lead`, payload);
+    } catch (err) {
+      try {
+        await axios.post('https://app.leamss.com/api/public-atlas/lead', payload);
+      } catch (err2) {}
     }
+
+    setShowModal(false);
+    setResult({
+      client_name: clientInfo.name,
+      client_phone: clientInfo.phone,
+      client_email: clientInfo.email,
+      overall_summary: `Your calculated score for ${cName} is ${scoreData.total} ${scoreData.unit} (${scoreData.isEligible ? 'Meets or exceeds' : 'Approaching'} the qualifying threshold of ${scoreData.passMark} ${scoreData.unit}).`,
+      _country: cName,
+      _country_code: selectedCountry,
+      _scoreData: scoreData,
+    });
     setComputing(false);
   };
 
@@ -1080,6 +1091,92 @@ function EligibilityQuizSection() {
           </div>
         ) : (
           <QuizResult result={result} onReset={handleReset} />
+        )}
+
+        {/* Lead Information Modal Dialog */}
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+              <button
+                onClick={() => setShowModal(false)}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 text-sm font-bold"
+              >
+                ✕
+              </button>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2"
+                style={{ background: 'rgba(31,77,68,0.08)', color: BRAND.primary }}>
+                <Sparkles className="w-3.5 h-3.5" /> Free Assessment Report
+              </div>
+              <h3 className="font-serif-leamss text-2xl font-bold text-slate-900 mb-1">
+                Get Your Full Breakdown &amp; Assessment Report
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 mb-6">
+                Please enter your contact details below to unlock your complete personalized points report, visa pathways, and country intelligence guide.
+              </p>
+
+              <form onSubmit={handleModalSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={clientInfo.name}
+                    onChange={(e) => setClientInfo(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Rahul Sharma"
+                    className="w-full px-4 py-2.5 rounded-xl border text-sm text-slate-900 focus:outline-none focus:border-emerald-700"
+                    style={{ borderColor: BRAND.border }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">WhatsApp Number / Phone *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={clientInfo.phone}
+                    onChange={(e) => setClientInfo(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="e.g. +91 9876543210"
+                    className="w-full px-4 py-2.5 rounded-xl border text-sm text-slate-900 focus:outline-none focus:border-emerald-700"
+                    style={{ borderColor: BRAND.border }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Email ID *</label>
+                  <input
+                    type="email"
+                    required
+                    value={clientInfo.email}
+                    onChange={(e) => setClientInfo(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="e.g. rahul@example.com"
+                    className="w-full px-4 py-2.5 rounded-xl border text-sm text-slate-900 focus:outline-none focus:border-emerald-700"
+                    style={{ borderColor: BRAND.border }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Message / Target Occupation (Optional)</label>
+                  <textarea
+                    rows={2}
+                    value={clientInfo.message}
+                    onChange={(e) => setClientInfo(prev => ({ ...prev, message: e.target.value }))}
+                    placeholder="Tell us your target occupation, current city, or any specific questions..."
+                    className="w-full px-4 py-2 rounded-xl border text-sm text-slate-900 focus:outline-none focus:border-emerald-700 resize-none"
+                    style={{ borderColor: BRAND.border }}
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={computing || !clientInfo.name || !clientInfo.phone || !clientInfo.email}
+                  className="w-full justify-center py-3 text-sm font-bold shadow-md"
+                  style={{ backgroundColor: BRAND.accent, color: '#FFFFFF' }}
+                >
+                  {computing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Generate & Download Full Report →'}
+                </Button>
+                <p className="text-[11px] text-center text-slate-400">
+                  🔒 100% Confidential · No Spam · MARA Registered Consultation
+                </p>
+              </form>
+            </div>
+          </div>
         )}
       </div>
     </section>
@@ -1871,67 +1968,290 @@ function QuizResult({ result, onReset }) {
       </div>
     );
   }
+
+  const scoreData = result._scoreData;
+  const cName = result._country || 'Australia';
+  const isAU = cName.includes('Australia') || result._country_code === 'AU';
+  const isCA = cName.includes('Canada') || result._country_code === 'CA';
+  const isNZ = cName.includes('New Zealand') || result._country_code === 'NZ';
+
   const pathways = Object.entries(result.pathways || {})
     .map(([slug, p]) => ({ slug, ...p }))
-    // Compare pathways by percentage, not raw points. Canada CRS is /1200
-    // while the other pathway-fit scores are /100.
     .sort((a, b) => getPathwayScorePercent(b) - getPathwayScorePercent(a));
   const top = result.top_recommendation;
+
+  const todayStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
   return (
-    <div className="p-8 lg:p-12" data-testid="quiz-result">
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: BRAND.accent }}>Your Pathway Fit Ranking</p>
-        <Button variant="ghost" size="sm" onClick={onReset}>↻ Re-take</Button>
-      </div>
-      <h3 className="font-serif-leamss text-3xl sm:text-4xl font-bold mb-3" style={{ color: BRAND.ink }}>
-        {pathways[0] ? `Best Fit: ${pathways[0].name}` : 'Your eligibility breakdown'}
-      </h3>
-
-      {/* Prominent honesty disclaimer */}
-      <div className="rounded-xl p-4 mb-5 flex gap-3" style={{ background: BRAND.bgWarm, border: `1.5px solid ${BRAND.accent}` }} data-testid="score-disclaimer">
-        <Info className="w-5 h-5 shrink-0 mt-0.5" style={{ color: BRAND.accent }} />
+    <div className="p-6 sm:p-10 lg:p-12 bg-white rounded-2xl border shadow-sm space-y-8" style={{ borderColor: BRAND.border }} data-testid="quiz-result">
+      {/* Top Header Banner */}
+      <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b" style={{ borderColor: BRAND.border }}>
         <div>
-          <p className="text-sm font-bold" style={{ color: BRAND.ink }}>
-            This is a “best-fit” ranking — not an official visa eligibility score
+          <span className="inline-block px-3 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-wider text-white mb-2"
+            style={{ backgroundColor: BRAND.primary }}>
+            OFFICIAL CLIENT ASSESSMENT REPORT
+          </span>
+          <h3 className="font-serif-leamss text-2xl sm:text-3xl font-bold" style={{ color: BRAND.ink }}>
+            {cName} Immigration Points &amp; Pathway Assessment
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Prepared for: <strong className="text-slate-900">{result.client_name || 'Valued Client'}</strong> · Date: <strong>{todayStr}</strong> · Target: <strong>{isAU ? '🇦🇺 Australia' : isCA ? '🇨🇦 Canada' : '🇳🇿 New Zealand'}</strong>
           </p>
-          <p className="text-xs mt-1 leading-relaxed" style={{ color: BRAND.body }}>
-            These numbers rank <b>which pathways suit your profile best</b> (based on your details and how selective each route is) so you can shortlist the right option. They are <b>not</b> the official points / CRS scores used by immigration authorities. Your real eligibility depends on document verification, skills assessment and current policy — so <b>please speak to a LEAMSS expert before making any decision</b>, to avoid any confusion.
-          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            onClick={() => window.print()}
+            className="shadow-sm font-bold text-xs sm:text-sm"
+            style={{ backgroundColor: BRAND.accent, color: '#FFFFFF' }}
+          >
+            <Download className="w-4 h-4 mr-1.5" /> Download Report (PDF)
+          </Button>
+          <a
+            href={`https://wa.me/91${WHATSAPP}?text=${encodeURIComponent(`Hi LEAMSS Team, I am ${result.client_name || 'an applicant'}. I just calculated my points score (${scoreData?.total || ''} pts) for ${cName} and would like expert guidance.`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs sm:text-sm font-bold border border-emerald-600 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition"
+          >
+            <MessageCircle className="w-4 h-4 mr-1.5 text-emerald-600" /> WhatsApp Chat
+          </a>
+          <Button variant="ghost" size="sm" onClick={onReset} className="text-xs">
+            ↻ Re-calculate
+          </Button>
         </div>
       </div>
 
-      {result.overall_summary && (
-        <p className="text-sm sm:text-base mb-5 max-w-3xl" style={{ color: BRAND.body }}>{result.overall_summary}</p>
-      )}
-      <div className="rounded-lg px-4 py-2.5 mb-6 inline-flex items-center gap-2 text-xs" style={{ background: BRAND.bgSoft, color: BRAND.muted, border: `1px solid ${BRAND.border}` }}>
-        <Shield className="w-3.5 h-3.5" style={{ color: BRAND.primary }} />
-        How we rank: your <b style={{ color: BRAND.ink }}>&nbsp;age, education, experience, English, occupation</b>&nbsp;& job offer — tap "How is this calculated?" on any card.
-      </div>
+      {/* Section 1: Points Scorecard & Factor Breakdown */}
+      {scoreData && (
+        <div className="rounded-2xl p-6 sm:p-8 border" style={{ backgroundColor: BRAND.bgWarm, borderColor: '#E6DED3' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">📊</span>
+            <h4 className="font-serif-leamss text-xl font-bold" style={{ color: BRAND.primary }}>
+              Points Eligibility Scorecard
+            </h4>
+          </div>
 
-      {result.score_id && (
-        <ScorecardActions
-          scoreId={result.score_id}
-          topName={pathways[0]?.name}
-          topScore={pathways[0] ? getPathwayScore(pathways[0]) : undefined}
-          country={result._country || (pathways[0] && isCanadaPathway(pathways[0]) ? 'Canada' : null)}
-        />
-      )}
+          <div className="flex flex-wrap items-center gap-6 mb-4">
+            <div className="flex items-baseline gap-2">
+              <span className="font-serif-leamss text-4xl sm:text-5xl font-extrabold" style={{ color: BRAND.primary }}>
+                {scoreData.total}
+              </span>
+              <span className="text-sm font-bold text-slate-500">
+                / {scoreData.maxScore} {scoreData.unit}
+              </span>
+            </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {pathways.map((p) => (
-          <PathwayResultCard key={p.slug} p={p} isBest={p.slug === top} />
-        ))}
-      </div>
-      <div className="mt-8 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4" style={{ background: BRAND.primary, color: '#fff' }}>
-        <div>
-          <p className="font-serif-leamss text-xl font-bold">Get your personalised detailed report</p>
-          <p className="text-sm opacity-90">Talk to a MARA-registered LEAMSS expert. 100% refund if assessment fails.</p>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
+              style={{
+                backgroundColor: scoreData.isEligible ? '#E8F3E9' : '#FBEDE7',
+                color: scoreData.isEligible ? BRAND.success : BRAND.accent,
+              }}>
+              {scoreData.isEligible ? `✓ Qualifies for Minimum Threshold (Pass Mark: ${scoreData.passMark} ${scoreData.unit})` : `⚠️ Pass mark is ${scoreData.passMark} ${scoreData.unit}`}
+            </span>
+          </div>
+
+          <p className="text-xs sm:text-sm text-slate-700 leading-relaxed mb-6">
+            Dear <strong>{result.client_name || 'Applicant'}</strong>, your profile was evaluated for <strong>{cName}</strong> skilled migration.
+            Your total score is <strong>{scoreData.total} {scoreData.unit}</strong>. {scoreData.isEligible ? 'You meet the minimum statutory criteria for invitation rounds.' : 'You can bridge the points gap through State/Regional nominations or partner skill claims.'}
+          </p>
+
+          {scoreData.breakdown && scoreData.breakdown.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border bg-white" style={{ borderColor: BRAND.border }}>
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b" style={{ backgroundColor: BRAND.bgSoft, borderColor: BRAND.border }}>
+                    <th className="p-3 font-bold text-slate-700">Evaluation Parameter</th>
+                    <th className="p-3 font-bold text-slate-700 text-right">Points Awarded</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scoreData.breakdown.map((item, idx) => (
+                    <tr key={idx} className="border-b last:border-0" style={{ borderColor: BRAND.border }}>
+                      <td className="p-3 text-slate-800">{item.label}</td>
+                      <td className="p-3 font-bold text-right text-emerald-800">+{item.pts} pts</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-        <QuizLeadForm scoreId={result.score_id} country={result._country} />
+      )}
+
+      {/* Section 2: Country Intelligence Guide ("Why Australia / Canada / New Zealand") */}
+      <div className="rounded-2xl p-6 sm:p-8 border bg-slate-50" style={{ borderColor: BRAND.border }}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">{isAU ? '🇦🇺' : isCA ? '🇨🇦' : '🇳🇿'}</span>
+          <h4 className="font-serif-leamss text-xl font-bold" style={{ color: BRAND.ink }}>
+            {isAU ? 'Why Migrate to Australia?' : isCA ? 'Why Migrate to Canada?' : 'Why Migrate to New Zealand?'}
+          </h4>
+        </div>
+        <p className="text-xs sm:text-sm text-slate-600 mb-6">
+          {isAU
+            ? 'Australia offers one of the world’s most transparent, merit-based immigration systems. Permanent residents enjoy high living standards, universal Medicare healthcare, free schooling, high wages, and a direct 4-year citizenship pathway.'
+            : isCA
+            ? 'Canada is globally celebrated for its welcoming multicultural environment, universal healthcare, free K-12 education, thriving tech & healthcare sectors, and direct Express Entry permanent residency pathways.'
+            : 'New Zealand is internationally famous for its pristine natural beauty, unbeatable work-life balance, high safety, excellent public services, and progressive Skilled Migrant Category (SMC 6-Points) residence visa.'}
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm text-slate-900 mb-1">🏥 Universal Healthcare</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Free medical treatment in public hospitals and subsidized prescription medicines from day one of Permanent Residency.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm text-slate-900 mb-1">💰 High Earning Potential</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Top global minimum wages with median professional salaries exceeding ₹50–₹75 Lakhs/year in high-demand occupations.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm text-slate-900 mb-1">🎓 Free Quality Education</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Free government primary and secondary schooling for children of Permanent Residents with domestic university fee benefits.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm text-slate-900 mb-1">🌟 Direct PR &amp; Citizenship</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Unrestricted work &amp; settlement rights across the country with fast-track eligibility for citizenship and powerful global passports.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm text-slate-900 mb-1">🏖️ World-Class Safety &amp; Living</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Consistently ranked among the top 10 most liveable, peaceful, and clean nations on Earth with exceptional family security.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm text-slate-900 mb-1">👵 Superannuation &amp; Social Security</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Mandatory employer retirement contributions (Superannuation / CPP) ensuring robust long-term financial freedom.</div>
+          </div>
+        </div>
       </div>
-      <p className="text-[11px] mt-4 text-center" style={{ color: BRAND.muted }}>
-        Indicative assessment only. Final eligibility depends on document verification, skills assessment & current policy.
-      </p>
+
+      {/* Section 3: Recommended Visa Pathways */}
+      <div>
+        <h4 className="font-serif-leamss text-xl font-bold mb-4" style={{ color: BRAND.ink }}>
+          Recommended Visa Pathways for Your Profile
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {pathways.length > 0 ? (
+            pathways.map((p) => (
+              <PathwayResultCard key={p.slug} p={p} isBest={p.slug === top} />
+            ))
+          ) : (
+            <>
+              <div className="p-5 rounded-xl border bg-white" style={{ borderColor: BRAND.border }}>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white mb-2" style={{ backgroundColor: BRAND.primary }}>Direct PR</span>
+                <h5 className="font-bold text-base text-slate-900">Subclass 189 Skilled Independent</h5>
+                <p className="text-xs text-slate-600 mt-1">Direct Permanent Residency without employer or state nomination. Live and work anywhere in Australia.</p>
+              </div>
+              <div className="p-5 rounded-xl border bg-white" style={{ borderColor: BRAND.border }}>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white mb-2" style={{ backgroundColor: BRAND.accent }}>+5 State Points</span>
+                <h5 className="font-bold text-base text-slate-900">Subclass 190 Skilled Nominated PR</h5>
+                <p className="text-xs text-slate-600 mt-1">State government nomination grants 5 bonus points toward permanent residency with state support.</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Section 4: Why Choose LEAMSS (Protection Policy & Expertise) */}
+      <div className="rounded-2xl p-6 sm:p-8 border" style={{ backgroundColor: 'rgba(31,77,68,0.04)', borderColor: 'rgba(31,77,68,0.2)' }}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">🛡️</span>
+          <h4 className="font-serif-leamss text-xl font-bold" style={{ color: BRAND.primary }}>
+            The LEAMSS Advantage &amp; 100% Refund Protection Policy
+          </h4>
+        </div>
+        <p className="text-xs sm:text-sm text-slate-700 mb-6">
+          LEAMSS (Ladhani Education &amp; Migration Services) is India’s premier immigration consultancy operating since 2014. We safeguard your migration investment with total legal accountability.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm mb-1" style={{ color: BRAND.accent }}>🛡️ 100% Refund Guarantee</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Full refund on professional fees if your skills assessment outcome is negative based on factors we verified upfront.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm mb-1" style={{ color: BRAND.primary }}>📜 MARA &amp; Licensed Experts</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Case representation guided by certified MARA agents adhering strictly to statutory migration regulations.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm text-slate-900 mb-1">⭐ 10+ Years &amp; 4.9★ Reviews</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Over 10,000 successful visa approvals with proven mastery across 1,000+ ANZSCO and NOC occupation codes.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm text-slate-900 mb-1">💎 Transparent Milestone Fees</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Stage-wise milestone payments aligned with tangible deliverables. No hidden charges or unexpected surprises.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm mb-1" style={{ color: BRAND.accent }}>🎯 Dedicated Case Officer</div>
+            <div className="text-xs text-slate-600 leading-relaxed">1-on-1 personalized document curation, reference letter drafting, and direct state nomination coordination.</div>
+          </div>
+          <div className="p-4 bg-white rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="font-bold text-sm mb-1" style={{ color: BRAND.primary }}>🤝 Landing &amp; Settlement Support</div>
+            <div className="text-xs text-slate-600 leading-relaxed">Comprehensive post-landing guidance including tax registrations (TFN/SIN), banking setup, and job search readiness.</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 5: 5-Stage Migration Roadmap */}
+      <div className="rounded-2xl p-6 sm:p-8 border bg-white" style={{ borderColor: BRAND.border }}>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-lg">🗺️</span>
+          <h4 className="font-serif-leamss text-xl font-bold" style={{ color: BRAND.ink }}>
+            Your 5-Stage Migration Roadmap
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 1</div>
+            <div className="font-bold text-xs text-slate-900 mt-1">Profile Audit</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Document review &amp; ANZSCO code alignment.</div>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 2</div>
+            <div className="font-bold text-xs text-slate-900 mt-1">Skills Assessment</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Lodgement with assessing authority (ACS/EA/VETASSESS).</div>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 3</div>
+            <div className="font-bold text-xs text-slate-900 mt-1">EOI &amp; Nomination</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Expression of Interest &amp; State Nomination filing.</div>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 4</div>
+            <div className="font-bold text-xs text-slate-900 mt-1">Visa Application</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Formal PR visa filing after receiving ITA.</div>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border" style={{ borderColor: BRAND.border }}>
+            <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: BRAND.accent }}>Stage 5</div>
+            <div className="font-bold text-xs text-slate-900 mt-1">Visa Grant &amp; Fly</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">PR grant &amp; pre-departure settlement.</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Consultation CTA */}
+      <div className="rounded-2xl p-6 sm:p-8 flex flex-wrap items-center justify-between gap-6"
+        style={{ backgroundColor: BRAND.primary, color: '#FFFFFF' }}>
+        <div>
+          <h4 className="font-serif-leamss text-xl sm:text-2xl font-bold">Ready to claim your Permanent Residency?</h4>
+          <p className="text-xs sm:text-sm text-emerald-100 mt-1">Speak with our certified migration advisors today for 1-on-1 strategy.</p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <a
+            href={`tel:${PHONE}`}
+            className="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-white text-emerald-900 hover:bg-slate-100 transition shadow-sm"
+          >
+            📞 Call: {PHONE}
+          </a>
+          <a
+            href={`https://wa.me/91${WHATSAPP}?text=${encodeURIComponent(`Hi LEAMSS Team, I am ${result.client_name || 'an applicant'}. I just completed my eligibility calculation for ${cName} and would like to start.`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white transition shadow-sm"
+            style={{ backgroundColor: BRAND.accent }}
+          >
+            💬 Instant WhatsApp
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
