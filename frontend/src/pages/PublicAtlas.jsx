@@ -211,11 +211,12 @@ export function PublicAtlasCountry() {
   const country = (rawCountry || '').toUpperCase();
   const [data, setData] = useState(null);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const fetchList = async (q = '') => {
+  const fetchList = async (targetPage = 1, q = '') => {
     setShowSuggestions(false);
     if (!['AU', 'CA', 'NZ'].includes(country)) {
       setData({ error: 'Country not found' });
@@ -225,7 +226,7 @@ export function PublicAtlasCountry() {
     setLoading(true);
     try {
       const r = await axios.get(`${API}/public-atlas/${country}/list`, {
-        params: { limit: 60, search: q.trim() || undefined },
+        params: { limit: 50, offset: (targetPage - 1) * 50, search: q.trim() || undefined },
       });
       setData(r.data);
       applySEO(r.data.seo);
@@ -236,22 +237,9 @@ export function PublicAtlasCountry() {
   };
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!['AU', 'CA', 'NZ'].includes(country)) {
-        if (active) { setData({ error: 'Country not found' }); setLoading(false); }
-        return;
-      }
-      setLoading(true);
-      try {
-        const r = await axios.get(`${API}/public-atlas/${country}/list`, { params: { limit: 60 } });
-        if (active) { setData(r.data); applySEO(r.data.seo); }
-      } catch (e) {
-        if (active) setData({ error: e.response?.data?.detail || 'Country not found' });
-      }
-      if (active) setLoading(false);
-    })();
-    return () => { active = false; };
+    setPage(1);
+    setSearch('');
+    fetchList(1, '');
   }, [country]);
 
   // Typeahead suggestions
@@ -269,6 +257,24 @@ export function PublicAtlasCountry() {
   }, [search, country, showSuggestions]);
 
   const cm = data?.country_meta || {};
+  const total = data?.total || 0;
+  const pageSize = 50;
+  const totalPages = Math.ceil(total / pageSize);
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = [1];
+    let start = Math.max(2, page - 1);
+    let end = Math.min(totalPages - 1, page + 1);
+    if (page <= 3) end = 4;
+    else if (page >= totalPages - 2) start = totalPages - 3;
+    if (start > 2) pages.push('...');
+    for (let p = start; p <= end; p++) pages.push(p);
+    if (end < totalPages - 1) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+  };
+
   return (
     <PublicShell>
       <section className="max-w-6xl mx-auto px-6 pt-12 pb-6" data-testid="atlas-country-root">
@@ -277,7 +283,7 @@ export function PublicAtlasCountry() {
           {cm.flag} {cm.name || country} <span style={{ color: C.tealDeep }}>Occupation Atlas</span>
         </h1>
         <p className="text-sm" style={{ color: C.body }}>
-          {data?.total ?? 0} verified occupations · {cm.classification || '—'}
+          {total} verified occupations · {cm.classification || '—'}
         </p>
 
         {/* Search */}
@@ -291,7 +297,8 @@ export function PublicAtlasCountry() {
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  fetchList(search);
+                  setPage(1);
+                  fetchList(1, search);
                 } else if (e.key === 'Escape') {
                   setShowSuggestions(false);
                 }
@@ -304,7 +311,7 @@ export function PublicAtlasCountry() {
             {search && (
               <button
                 type="button"
-                onClick={() => { setSearch(''); fetchList(''); }}
+                onClick={() => { setSearch(''); setPage(1); fetchList(1, ''); }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                 aria-label="Clear search"
               >
@@ -350,14 +357,62 @@ export function PublicAtlasCountry() {
       </section>
 
       <section className="max-w-6xl mx-auto px-6 pb-16">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h2 className="text-lg font-bold" style={{ color: C.ink }}>Browse occupations</h2>
+          <span className="text-xs" style={{ color: C.muted }}>
+            Showing {total > 0 ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, total)} of {total} verified · sorted by code
+          </span>
+        </div>
+
         {loading ? (
           <div className="py-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" style={{ color: C.teal }} /></div>
         ) : data?.error ? (
           <p className="text-sm py-8" style={{ color: C.red }} data-testid="atlas-country-error">{data.error}</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="atlas-country-grid">
-            {(data?.items || []).map(it => <OccupationCard key={`${it.country_code}-${it.code}`} item={it} />)}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="atlas-country-grid">
+              {(data?.items || []).map(it => <OccupationCard key={`${it.country_code}-${it.code}`} item={it} />)}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-1.5 mt-10 flex-wrap" data-testid="atlas-pagination">
+                <button
+                  onClick={() => { const prev = Math.max(1, page - 1); setPage(prev); fetchList(prev, search); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 rounded border text-xs font-bold bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  style={{ borderColor: C.border }}
+                >
+                  ← Prev
+                </button>
+                {getPageNumbers().map((num, idx) => (
+                  num === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="w-8 text-center text-xs font-bold text-slate-400">…</span>
+                  ) : (
+                    <button
+                      key={num}
+                      onClick={() => { setPage(num); fetchList(num, search); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+                      className="min-w-[36px] h-9 px-2 rounded text-xs font-bold transition flex items-center justify-center"
+                      style={{
+                        background: page === num ? C.tealDeep : '#fff',
+                        color: page === num ? '#fff' : C.ink,
+                        border: `1.5px solid ${page === num ? C.tealDeep : C.border}`,
+                      }}
+                    >
+                      {num}
+                    </button>
+                  )
+                ))}
+                <button
+                  onClick={() => { const next = Math.min(totalPages, page + 1); setPage(next); fetchList(next, search); window.scrollTo({ top: 300, behavior: 'smooth' }); }}
+                  disabled={page === totalPages}
+                  className="px-3 py-1.5 rounded border text-xs font-bold bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  style={{ borderColor: C.border }}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
     </PublicShell>

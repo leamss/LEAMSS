@@ -96,6 +96,13 @@ h1.country-h1 .flag{margin-right:10px;font-size:.9em;vertical-align:baseline}
 .typeahead-title{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .typeahead-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .typeahead-score{font-size:11px;font-weight:700;background:#0f172a;color:#fff;padding:2px 8px;border-radius:999px;flex-shrink:0}
+/* Pagination */
+.pagination-wrap{display:flex;align-items:center;justify-content:center;gap:6px;margin:40px 0 20px;flex-wrap:wrap;}
+.pagination-btn{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:38px;padding:0 12px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--ink);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;text-decoration:none;user-select:none;}
+.pagination-btn:hover:not(:disabled):not(.active){border-color:var(--forest);background:var(--cream);color:var(--forest-dark);text-decoration:none;}
+.pagination-btn.active{background:var(--forest);border-color:var(--forest);color:#fff;cursor:default;}
+.pagination-btn:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+.pagination-ellipsis{display:inline-flex;align-items:center;justify-content:center;width:28px;height:38px;color:var(--muted);font-weight:700;font-size:14px;}
 /* Section */
 section.section{padding:48px 0}
 .section-title-row{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:24px}
@@ -843,7 +850,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
       </a>
     </div>
 
-      <p style="text-align:center;margin-top:30px;color:var(--muted);font-size:14px;">Showing top 50 of 243 verified occupations. <a href="/start" style="color:var(--burnt);font-weight:600;">Talk to an expert →</a></p>
+      <div class="pagination-wrap" data-testid="atlas-pagination"></div>
 
     <div class="mid-cta">
       <div class="mid-cta-inner">
@@ -908,19 +915,27 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
   var dropdown = document.querySelector('.typeahead-dropdown');
   var grid = document.querySelector('.occ-grid');
   var meta = document.querySelector('.section-title-meta');
+  var paginationWrap = document.querySelector('.pagination-wrap');
+  var sectionTitleRow = document.querySelector('.section-title-row');
   var pathParts = window.location.pathname.replace(/^\/atlas\//, '').split('/').filter(Boolean);
   var countryLower = pathParts[0] || 'au';
   var countryCode = countryLower.toUpperCase();
   var classification = countryCode === 'CA' ? 'NOC' : 'ANZSCO';
   
   if (!form || !input) return;
-  
+
+  var PAGE_SIZE = 50;
   var initialGridHtml = grid ? grid.innerHTML : '';
   var initialMetaText = meta ? meta.textContent : '';
+  var initialTotalMatch = (meta ? meta.textContent : '').match(/of\s+([0-9,]+)/);
+  var totalItems = initialTotalMatch ? parseInt(initialTotalMatch[1].replace(/,/g, ''), 10) : (countryCode === 'CA' ? 516 : 1236);
+  var currentPage = 1;
+  var currentQuery = '';
+
   var typeaheadTimer = null;
   var typeaheadController = null;
   var searchController = null;
-  
+
   function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/[&<>"']/g, function(m) {
@@ -943,6 +958,183 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
   function getApiBase() {
     var host = window.location.hostname;
     return (host === 'localhost' || host === '127.0.0.1') ? '/api' : 'https://api.leamss.com/api';
+  }
+
+  function renderCards(items) {
+    var html = '';
+    for (var i = 0; i < items.length; i++) {
+      var o = items[i];
+      var code = escapeHtml(o.code);
+      var title = escapeHtml(o.title || '—');
+      var authName = escapeHtml(o.assessing_authority_name || (countryCode === 'AU' ? 'LEAMSS verified' : 'Verified'));
+      
+      var pillHtml = '';
+      if (o.recommended_visa) {
+        pillHtml += '<span class="pill-sm pill-sm-amber">⭐ Recommended visa · ' + escapeHtml(o.recommended_visa) + '</span>';
+      }
+      if (o.skill_level !== undefined && o.skill_level !== null && o.skill_level !== '') {
+        pillHtml += '<span class="pill-sm pill-sm-slate">Skill Level ' + escapeHtml(o.skill_level) + '</span>';
+      } else if (o.teer_category !== undefined && o.teer_category !== null && o.teer_category !== '') {
+        pillHtml += '<span class="pill-sm pill-sm-slate">TEER ' + escapeHtml(o.teer_category) + '</span>';
+      }
+      if (o.salary_chip) {
+        pillHtml += '<span class="pill-sm pill-sm-emerald" title="Median full-time annual earnings (ABS via JSA)">💼 ' + escapeHtml(o.salary_chip) + '</span>';
+      }
+      if (o.growth_chip) {
+        var isStrong = (o.growth_chip || '').indexOf('Strong') !== -1;
+        var growthClass = isStrong ? 'pill-sm-emerald' : 'pill-sm-slate';
+        pillHtml += '<span class="pill-sm ' + growthClass + '" title="10-year employment outlook (JSA Projections)">📈 ' + escapeHtml(o.growth_chip) + '</span>';
+      }
+      pillHtml += '<span class="pill-sm pill-sm-emerald">✓ Verified</span>';
+      
+      html += '<a class="occ-card" href="/atlas/' + countryLower + '/' + code + '/" data-testid="occ-card-' + code + '">' +
+        '<div class="code-chip">' + classification + ' ' + code + '</div>' +
+        '<div class="title">' + title + '</div>' +
+        '<div class="pill-row">' + pillHtml + '</div>' +
+        '<div class="meta">' +
+          '<span>' + authName + '</span>' +
+          '<span class="arrow" aria-hidden="true">↗</span>' +
+        '</div>' +
+      '</a>';
+    }
+    return html;
+  }
+
+  function renderPagination(total, page, pageSize) {
+    if (!paginationWrap) return;
+    var totalPages = Math.ceil(total / pageSize);
+    if (totalPages <= 1) {
+      paginationWrap.innerHTML = '';
+      paginationWrap.style.display = 'none';
+      return;
+    }
+    paginationWrap.style.display = 'flex';
+
+    var html = '';
+    html += '<button type="button" class="pagination-btn pagination-prev" data-page="' + (page - 1) + '"' + (page === 1 ? ' disabled' : '') + ' aria-label="Previous page">← Prev</button>';
+
+    var pages = [];
+    if (totalPages <= 7) {
+      for (var i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      var start = Math.max(2, page - 1);
+      var end = Math.min(totalPages - 1, page + 1);
+
+      if (page <= 3) {
+        end = 4;
+      } else if (page >= totalPages - 2) {
+        start = totalPages - 3;
+      }
+
+      if (start > 2) pages.push('...');
+      for (var p = start; p <= end; p++) pages.push(p);
+      if (end < totalPages - 1) pages.push('...');
+      pages.push(totalPages);
+    }
+
+    for (var j = 0; j < pages.length; j++) {
+      var item = pages[j];
+      if (item === '...') {
+        html += '<span class="pagination-ellipsis">…</span>';
+      } else {
+        var isCurrent = item === page;
+        html += '<button type="button" class="pagination-btn' + (isCurrent ? ' active' : '') + '" data-page="' + item + '"' + (isCurrent ? ' aria-current="page"' : '') + '>' + item + '</button>';
+      }
+    }
+
+    html += '<button type="button" class="pagination-btn pagination-next" data-page="' + (page + 1) + '"' + (page === totalPages ? ' disabled' : '') + ' aria-label="Next page">Next →</button>';
+
+    paginationWrap.innerHTML = html;
+  }
+
+  async function fetchPage(page, q, scrollToTop) {
+    q = (q || '').trim();
+    currentQuery = q;
+    currentPage = page || 1;
+    hideDropdown();
+
+    if (searchController) {
+      searchController.abort();
+    }
+    searchController = new AbortController();
+
+    if (!q && currentPage === 1 && initialGridHtml) {
+      grid.innerHTML = initialGridHtml;
+      if (meta) meta.textContent = initialMetaText;
+      renderPagination(totalItems, 1, PAGE_SIZE);
+      if (window.history.replaceState) {
+        var url = new URL(window.location);
+        url.searchParams.delete('q');
+        url.searchParams.delete('page');
+        window.history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+      }
+      if (scrollToTop && sectionTitleRow) {
+        sectionTitleRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
+
+    if (window.history.replaceState) {
+      var url = new URL(window.location);
+      if (q) url.searchParams.set('q', q);
+      else url.searchParams.delete('q');
+      if (currentPage > 1) url.searchParams.set('page', currentPage);
+      else url.searchParams.delete('page');
+      window.history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
+    }
+
+    if (meta) meta.textContent = q ? ('Searching ' + escapeHtml(q) + '...') : 'Loading page ' + currentPage + '...';
+
+    var offset = (currentPage - 1) * PAGE_SIZE;
+    var apiUrl = getApiBase() + '/public-atlas/' + countryCode + '/list?limit=' + PAGE_SIZE + '&offset=' + offset;
+    if (q) apiUrl += '&search=' + encodeURIComponent(q);
+
+    try {
+      var resp = await fetch(apiUrl, { signal: searchController.signal });
+      if (!resp.ok) throw new Error('Request failed (' + resp.status + ')');
+      var data = await resp.json();
+      var items = data.items || [];
+      var total = data.total || 0;
+
+      var start = offset + 1;
+      var end = Math.min(offset + items.length, total);
+
+      if (meta) {
+        if (q) {
+          meta.textContent = total > 0
+            ? ('Showing ' + start + '–' + end + ' of ' + total + ' matching occupations for "' + q + '"')
+            : ('Found 0 matching occupations for "' + q + '"');
+        } else {
+          meta.textContent = 'Showing ' + start + '–' + end + ' of ' + total + ' verified · sorted by code';
+        }
+      }
+
+      if (items.length === 0) {
+        var exampleCode = countryCode === 'CA' ? '21231' : '261313';
+        grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 48px 20px; text-align: center; background: #fff; border-radius: 16px; border: 1px dashed var(--border);">' +
+          '<div style="font-size: 32px; margin-bottom: 10px;">🔍</div>' +
+          '<h3 style="font-size: 19px; font-weight: 700; margin-bottom: 8px; color: var(--ink);">No occupations found matching "' + escapeHtml(q) + '"</h3>' +
+          '<p style="font-size: 14px; color: var(--muted); margin-bottom: 20px;">Try searching by ' + classification + ' code (e.g. ' + exampleCode + ') or general title (e.g. Engineer, Chef, Nurse).</p>' +
+          '<a class="btn btn-primary" href="/start">Free Eligibility Check →</a>' +
+        '</div>';
+        if (paginationWrap) {
+          paginationWrap.innerHTML = '';
+          paginationWrap.style.display = 'none';
+        }
+        return;
+      }
+
+      grid.innerHTML = renderCards(items);
+      renderPagination(total, currentPage, PAGE_SIZE);
+
+      if (scrollToTop && sectionTitleRow) {
+        sectionTitleRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      if (meta) meta.textContent = 'Error loading page. Please try again.';
+    }
   }
 
   async function fetchTypeahead(q) {
@@ -1003,103 +1195,10 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     }
   }
 
-  async function performSearch(q) {
-    hideDropdown();
-    q = (q || '').trim();
-    if (!grid) return;
-    
-    if (!q) {
-      grid.innerHTML = initialGridHtml;
-      if (meta) meta.textContent = initialMetaText;
-      if (window.history.replaceState) {
-        var url = new URL(window.location);
-        url.searchParams.delete('q');
-        window.history.replaceState(null, '', url.pathname + (url.search ? url.search : ''));
-      }
-      return;
-    }
-    
-    if (window.history.replaceState) {
-      var url = new URL(window.location);
-      url.searchParams.set('q', q);
-      window.history.replaceState(null, '', url.pathname + url.search);
-    }
-    
-    if (meta) meta.textContent = 'Searching ' + escapeHtml(q) + '...';
-    
-    if (searchController) {
-      searchController.abort();
-    }
-    searchController = new AbortController();
-    
-    try {
-      var apiUrl = getApiBase() + '/public-atlas/' + countryCode + '/list?search=' + encodeURIComponent(q) + '&limit=100';
-      var resp = await fetch(apiUrl, { signal: searchController.signal });
-      if (!resp.ok) throw new Error('Search request failed (' + resp.status + ')');
-      var data = await resp.json();
-      var items = data.items || [];
-      
-      if (meta) {
-        meta.textContent = 'Found ' + items.length + ' matching occupation' + (items.length === 1 ? '' : 's') + ' for "' + q + '"';
-      }
-      
-      if (items.length === 0) {
-        var exampleCode = countryCode === 'CA' ? '21231' : '261313';
-        grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 48px 20px; text-align: center; background: #fff; border-radius: 16px; border: 1px dashed var(--border);">' +
-          '<div style="font-size: 32px; margin-bottom: 10px;">🔍</div>' +
-          '<h3 style="font-size: 19px; font-weight: 700; margin-bottom: 8px; color: var(--ink);">No occupations found matching "' + escapeHtml(q) + '"</h3>' +
-          '<p style="font-size: 14px; color: var(--muted); margin-bottom: 20px;">Try searching by ' + classification + ' code (e.g. ' + exampleCode + ') or general title (e.g. Engineer, Chef, Nurse).</p>' +
-          '<a class="btn btn-primary" href="/start">Free Eligibility Check →</a>' +
-        '</div>';
-        return;
-      }
-      
-      var html = '';
-      for (var i = 0; i < items.length; i++) {
-        var o = items[i];
-        var code = escapeHtml(o.code);
-        var title = escapeHtml(o.title || '—');
-        var authName = escapeHtml(o.assessing_authority_name || (countryCode === 'AU' ? 'LEAMSS verified' : 'Verified'));
-        
-        var pillHtml = '';
-        if (o.recommended_visa) {
-          pillHtml += '<span class="pill-sm pill-sm-amber">⭐ Recommended visa · ' + escapeHtml(o.recommended_visa) + '</span>';
-        }
-        if (o.skill_level !== undefined && o.skill_level !== null && o.skill_level !== '') {
-          pillHtml += '<span class="pill-sm pill-sm-slate">Skill Level ' + escapeHtml(o.skill_level) + '</span>';
-        } else if (o.teer_category !== undefined && o.teer_category !== null && o.teer_category !== '') {
-          pillHtml += '<span class="pill-sm pill-sm-slate">TEER ' + escapeHtml(o.teer_category) + '</span>';
-        }
-        if (o.salary_chip) {
-          pillHtml += '<span class="pill-sm pill-sm-emerald" title="Median full-time annual earnings (ABS via JSA)">💼 ' + escapeHtml(o.salary_chip) + '</span>';
-        }
-        if (o.growth_chip) {
-          var isStrong = (o.growth_chip || '').indexOf('Strong') !== -1;
-          var growthClass = isStrong ? 'pill-sm-emerald' : 'pill-sm-slate';
-          pillHtml += '<span class="pill-sm ' + growthClass + '" title="10-year employment outlook (JSA Projections)">📈 ' + escapeHtml(o.growth_chip) + '</span>';
-        }
-        pillHtml += '<span class="pill-sm pill-sm-emerald">✓ Verified</span>';
-        
-        html += '<a class="occ-card" href="/atlas/' + countryLower + '/' + code + '/" data-testid="occ-card-' + code + '">' +
-          '<div class="code-chip">' + classification + ' ' + code + '</div>' +
-          '<div class="title">' + title + '</div>' +
-          '<div class="pill-row">' + pillHtml + '</div>' +
-          '<div class="meta">' +
-            '<span>' + authName + '</span>' +
-            '<span class="arrow" aria-hidden="true">↗</span>' +
-          '</div>' +
-        '</a>';
-      }
-      grid.innerHTML = html;
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-      if (meta) meta.textContent = 'Search error. Please try again.';
-    }
-  }
-
+  // Event handlers
   form.addEventListener('submit', function(e) {
     e.preventDefault();
-    performSearch(input.value);
+    fetchPage(1, input.value, true);
   });
 
   input.addEventListener('input', function() {
@@ -1108,7 +1207,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     var val = input.value;
     if (!val.trim()) {
       hideDropdown();
-      performSearch('');
+      fetchPage(1, '', false);
       return;
     }
     typeaheadTimer = setTimeout(function() {
@@ -1128,8 +1227,19 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
       input.value = '';
       updateClearBtn();
       hideDropdown();
-      performSearch('');
+      fetchPage(1, '', false);
       input.focus();
+    });
+  }
+
+  if (paginationWrap) {
+    paginationWrap.addEventListener('click', function(e) {
+      var btn = e.target.closest('.pagination-btn');
+      if (!btn || btn.disabled || btn.classList.contains('active')) return;
+      var targetPage = parseInt(btn.getAttribute('data-page'), 10);
+      if (targetPage && !isNaN(targetPage)) {
+        fetchPage(targetPage, input.value.trim(), true);
+      }
     });
   }
 
@@ -1146,16 +1256,23 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     }
   });
 
-  // Pre-fill and search if URL has ?q= parameter on page load
+  // Check URL parameters on page load
   try {
     var initialParams = new URLSearchParams(window.location.search);
     var initialQ = initialParams.get('q');
-    if (initialQ) {
-      input.value = initialQ;
-      updateClearBtn();
-      performSearch(initialQ);
+    var initialP = parseInt(initialParams.get('page'), 10);
+    if (initialQ || (initialP && initialP > 1)) {
+      if (initialQ) {
+        input.value = initialQ;
+        updateClearBtn();
+      }
+      fetchPage(initialP || 1, initialQ || '', false);
+    } else {
+      renderPagination(totalItems, 1, PAGE_SIZE);
     }
-  } catch (e) {}
+  } catch (e) {
+    renderPagination(totalItems, 1, PAGE_SIZE);
+  }
 })();
 </script>
 </body>

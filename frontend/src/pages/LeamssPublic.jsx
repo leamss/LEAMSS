@@ -3031,27 +3031,39 @@ export function AtlasCountryV2() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchInputRef = useRef(null);
 
+  const fetchList = async (targetPage = 1, query = '') => {
+    setShowSuggestions(false);
+    if (!['AU', 'CA', 'NZ'].includes(country)) {
+      setData({ error: 'Country not found' });
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const r = await axios.get(`${API}/public-atlas/${country}/list`, {
+        params: {
+          limit: 50,
+          offset: (targetPage - 1) * 50,
+          search: query.trim() || undefined,
+        },
+      });
+      setData(r.data);
+      applySEO(r.data.seo);
+    } catch (e) {
+      setData({ error: 'Failed to load occupations' });
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!['AU', 'CA', 'NZ'].includes(country)) {
-        if (active) { setData({ error: 'Country not found' }); setLoading(false); }
-        return;
-      }
-      setLoading(true);
-      try {
-        const r = await axios.get(`${API}/public-atlas/${country}/list`, { params: { limit: 120 } });
-        if (active) { setData(r.data); applySEO(r.data.seo); }
-      } catch (e) {
-        if (active) setData({ error: 'Failed to load' });
-      }
-      if (active) setLoading(false);
-    })();
-    return () => { active = false; };
+    setPage(1);
+    setSearch('');
+    fetchList(1, '');
   }, [country]);
 
   // Typeahead suggestions
@@ -3068,17 +3080,29 @@ export function AtlasCountryV2() {
     return () => clearTimeout(t);
   }, [search, country, showSuggestions]);
 
-  const runSearch = async () => {
-    setShowSuggestions(false);
-    setLoading(true);
-    try {
-      const r = await axios.get(`${API}/public-atlas/${country}/list`, { params: { limit: 120, search: search.trim() || undefined } });
-      setData(r.data);
-    } catch (e) { setData({ error: 'Failed to search' }); }
-    setLoading(false);
+  const runSearch = () => {
+    setPage(1);
+    fetchList(1, search);
   };
 
   const cm = data?.country_meta || {};
+  const total = data?.total || 0;
+  const pageSize = 50;
+  const totalPages = Math.ceil(total / pageSize);
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = [1];
+    let start = Math.max(2, page - 1);
+    let end = Math.min(totalPages - 1, page + 1);
+    if (page <= 3) end = 4;
+    else if (page >= totalPages - 2) start = totalPages - 3;
+    if (start > 2) pages.push('...');
+    for (let p = start; p <= end; p++) pages.push(p);
+    if (end < totalPages - 1) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+  };
 
   return (
     <LeamssShell>
@@ -3092,7 +3116,7 @@ export function AtlasCountryV2() {
             {cm.flag} Migrate to {cm.name || country}
           </h1>
           <p className="text-sm sm:text-base opacity-90 mt-2">
-            {data?.total ?? '—'} verified occupations · {cm.classification || '—'}
+            {total} verified occupations · {cm.classification || '—'}
           </p>
         </div>
       </section>
@@ -3123,7 +3147,7 @@ export function AtlasCountryV2() {
               {search && (
                 <button
                   type="button"
-                  onClick={() => { setSearch(''); runSearch(); }}
+                  onClick={() => { setSearch(''); setPage(1); fetchList(1, ''); }}
                   className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100"
                   aria-label="Clear search"
                 >
@@ -3168,14 +3192,62 @@ export function AtlasCountryV2() {
             )}
           </div>
 
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h2 className="text-lg font-bold" style={{ color: BRAND.ink }}>Browse occupations</h2>
+            <span className="text-xs" style={{ color: BRAND.muted }}>
+              Showing {total > 0 ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, total)} of {total} verified · sorted by code
+            </span>
+          </div>
+
           {loading ? (
             <div className="py-16 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" style={{ color: BRAND.primary }} /></div>
           ) : data?.error ? (
             <p className="text-center py-16" style={{ color: BRAND.body }} data-testid="atlas-country-error">{data.error}</p>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="atlas-country-grid">
-              {(data?.items || []).map(it => <OccupationCard key={`${it.country_code}-${it.code}`} item={it} />)}
-            </div>
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="atlas-country-grid">
+                {(data?.items || []).map(it => <OccupationCard key={`${it.country_code}-${it.code}`} item={it} />)}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mt-10 flex-wrap" data-testid="atlas-pagination">
+                  <button
+                    onClick={() => { const prev = Math.max(1, page - 1); setPage(prev); fetchList(prev, search); window.scrollTo({ top: 400, behavior: 'smooth' }); }}
+                    disabled={page === 1}
+                    className="px-3 py-1.5 rounded-lg border text-xs font-bold bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    style={{ borderColor: BRAND.border }}
+                  >
+                    ← Prev
+                  </button>
+                  {getPageNumbers().map((num, idx) => (
+                    num === '...' ? (
+                      <span key={`ellipsis-${idx}`} className="w-8 text-center text-xs font-bold text-slate-400">…</span>
+                    ) : (
+                      <button
+                        key={num}
+                        onClick={() => { setPage(num); fetchList(num, search); window.scrollTo({ top: 400, behavior: 'smooth' }); }}
+                        className="min-w-[36px] h-9 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center"
+                        style={{
+                          background: page === num ? BRAND.primary : '#fff',
+                          color: page === num ? '#fff' : BRAND.ink,
+                          border: `1.5px solid ${page === num ? BRAND.primary : BRAND.border}`,
+                        }}
+                      >
+                        {num}
+                      </button>
+                    )
+                  ))}
+                  <button
+                    onClick={() => { const next = Math.min(totalPages, page + 1); setPage(next); fetchList(next, search); window.scrollTo({ top: 400, behavior: 'smooth' }); }}
+                    disabled={page === totalPages}
+                    className="px-3 py-1.5 rounded-lg border text-xs font-bold bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    style={{ borderColor: BRAND.border }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>
