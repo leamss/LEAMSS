@@ -78,11 +78,24 @@ h1.country-h1 .flag{margin-right:10px;font-size:.9em;vertical-align:baseline}
 .country-meta{font-size:15px;color:rgba(255,255,255,.92);margin-bottom:14px;line-height:1.5}
 .level-pills-light{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
 .level-pills-light .lp{display:inline-block;background:rgba(255,255,255,.16);color:#fff;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.12)}
-/* Search */
-.search-bar{margin:24px 0 20px;background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:6px 6px 6px 18px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 18px rgba(31,77,68,.05);max-width:680px}
-.search-bar input{flex:1;outline:none;border:none;padding:12px 6px;font-size:15px;color:var(--ink);background:transparent;font-family:inherit}
+/* Search & Typeahead */
+.search-wrapper{position:relative;max-width:760px;margin:24px 0 20px;}
+.search-bar{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:6px 6px 6px 18px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 18px rgba(31,77,68,.05);width:100%;transition:border-color .15s,box-shadow .15s}
+.search-bar:focus-within{border-color:var(--forest);box-shadow:0 6px 22px rgba(31,77,68,.12)}
+.search-bar input{flex:1;outline:none;border:none;padding:12px 6px;font-size:14px;color:var(--ink);background:transparent;font-family:inherit;min-width:0}
 .search-bar input::placeholder{color:var(--muted)}
 .search-bar .ic{color:var(--muted);font-size:18px;flex-shrink:0}
+.search-clear-btn{display:none;background:none;border:none;cursor:pointer;color:var(--muted);padding:4px 8px;font-size:16px;border-radius:50%;line-height:1}
+.search-clear-btn:hover{color:var(--ink);background:var(--cream)}
+.typeahead-dropdown{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1.5px solid var(--border);border-radius:14px;box-shadow:0 12px 32px rgba(19,51,45,.15);max-height:360px;overflow-y:auto;z-index:100}
+.typeahead-item{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;transition:background .15s;cursor:pointer}
+.typeahead-item:last-child{border-bottom:none}
+.typeahead-item:hover, .typeahead-item.active{background:rgba(31,77,68,.06);text-decoration:none}
+.typeahead-flag{font-size:12px;font-weight:700;color:var(--forest);background:rgba(31,77,68,.08);padding:3px 8px;border-radius:6px;flex-shrink:0;letter-spacing:.02em}
+.typeahead-info{flex:1;min-width:0}
+.typeahead-title{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.typeahead-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.typeahead-score{font-size:11px;font-weight:700;background:#0f172a;color:#fff;padding:2px 8px;border-radius:999px;flex-shrink:0}
 /* Section */
 section.section{padding:48px 0}
 .section-title-row{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:24px}
@@ -162,11 +175,15 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 
 <section class="section">
   <div class="container">
-    <form role="search" class="search-bar" action="/atlas/au/" method="get" aria-label="Search occupations">
-      <span class="ic" aria-hidden="true">🔍</span>
-      <input type="search" name="q" placeholder="Search Australia occupations — e.g., 261313 or Software Engineer" autocomplete="off" data-testid="atlas-country-search">
-      <button class="btn btn-primary" type="submit" aria-label="Search">Search</button>
-    </form>
+    <div class="search-wrapper">
+      <form role="search" class="search-bar" action="/atlas/au/" method="get" aria-label="Search occupations">
+        <span class="ic" aria-hidden="true">🔍</span>
+        <input type="search" name="q" placeholder="Search by code, title, alternative title, or industry — e.g., 'marketing', 'software engineer', '225113', 'operations head'…" autocomplete="off" data-testid="atlas-country-search">
+        <button type="button" class="search-clear-btn" aria-label="Clear search">✕</button>
+        <button class="btn btn-primary" type="submit" aria-label="Search">Search</button>
+      </form>
+      <div class="typeahead-dropdown" data-testid="typeahead-dropdown"></div>
+    </div>
 
     <div class="section-title-row">
       <h2 class="section-title">Browse occupations</h2>
@@ -1156,18 +1173,22 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 (function() {
   var form = document.querySelector('form.search-bar');
   var input = form ? form.querySelector('input[name="q"]') : null;
+  var clearBtn = form ? form.querySelector('.search-clear-btn') : null;
+  var dropdown = document.querySelector('.typeahead-dropdown');
   var grid = document.querySelector('.occ-grid');
   var meta = document.querySelector('.section-title-meta');
-  var countryCode = "AU";
-  var countryLower = "au";
-  var classification = "ANZSCO";
+  var pathParts = window.location.pathname.replace(/^\/atlas\//, '').split('/').filter(Boolean);
+  var countryLower = pathParts[0] || 'au';
+  var countryCode = countryLower.toUpperCase();
+  var classification = countryCode === 'CA' ? 'NOC' : 'ANZSCO';
   
-  if (!form || !input || !grid) return;
+  if (!form || !input) return;
   
-  var initialGridHtml = grid.innerHTML;
+  var initialGridHtml = grid ? grid.innerHTML : '';
   var initialMetaText = meta ? meta.textContent : '';
-  var debounceTimer = null;
-  var currentController = null;
+  var typeaheadTimer = null;
+  var typeaheadController = null;
+  var searchController = null;
   
   function escapeHtml(str) {
     if (!str) return '';
@@ -1176,14 +1197,86 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     });
   }
 
-  function getApiEndpoint(q) {
+  function updateClearBtn() {
+    if (!clearBtn) return;
+    clearBtn.style.display = input.value.trim() ? 'block' : 'none';
+  }
+
+  function hideDropdown() {
+    if (dropdown) {
+      dropdown.style.display = 'none';
+      dropdown.innerHTML = '';
+    }
+  }
+
+  function getApiBase() {
     var host = window.location.hostname;
-    var base = (host === 'localhost' || host === '127.0.0.1') ? '/api' : 'https://api.leamss.com/api';
-    return base + '/public-atlas/' + countryCode + '/list?search=' + encodeURIComponent(q) + '&limit=100';
+    return (host === 'localhost' || host === '127.0.0.1') ? '/api' : 'https://api.leamss.com/api';
+  }
+
+  async function fetchTypeahead(q) {
+    q = (q || '').trim();
+    if (q.length < 2) {
+      hideDropdown();
+      return;
+    }
+    
+    if (typeaheadController) {
+      typeaheadController.abort();
+    }
+    typeaheadController = new AbortController();
+    
+    try {
+      var url = getApiBase() + '/public-atlas/' + countryCode + '/typeahead?q=' + encodeURIComponent(q) + '&limit=6';
+      var resp = await fetch(url, { signal: typeaheadController.signal });
+      if (!resp.ok) return;
+      var data = await resp.json();
+      var items = data.items || [];
+      
+      if (items.length === 0 || document.activeElement !== input) {
+        hideDropdown();
+        return;
+      }
+      
+      var html = '';
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        var cCode = escapeHtml(it.country_code || countryCode);
+        var code = escapeHtml(it.code);
+        var title = escapeHtml(it.title || '—');
+        var body = escapeHtml(it.assessing_body || '');
+        var pw = escapeHtml(it.pathway || '');
+        var subParts = [];
+        if (body) subParts.push(body);
+        if (pw) subParts.push(pw);
+        var subText = subParts.join(' · ') || (classification + ' ' + code);
+        var score = it.score || 90;
+        
+        var occUrl = '/atlas/' + (it.country_code || countryCode).toLowerCase() + '/' + code + '/';
+        
+        html += '<a class="typeahead-item" href="' + occUrl + '" data-code="' + code + '">' +
+          '<span class="typeahead-flag">' + cCode + '</span>' +
+          '<div class="typeahead-info">' +
+            '<div class="typeahead-title">' + code + ' · ' + title + '</div>' +
+            '<div class="typeahead-sub">' + subText + '</div>' +
+          '</div>' +
+          '<span class="typeahead-score">' + score + '%</span>' +
+        '</a>';
+      }
+      
+      dropdown.innerHTML = html;
+      dropdown.style.display = 'block';
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      hideDropdown();
+    }
   }
 
   async function performSearch(q) {
+    hideDropdown();
     q = (q || '').trim();
+    if (!grid) return;
+    
     if (!q) {
       grid.innerHTML = initialGridHtml;
       if (meta) meta.textContent = initialMetaText;
@@ -1203,16 +1296,14 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     
     if (meta) meta.textContent = 'Searching ' + escapeHtml(q) + '...';
     
-    if (currentController) {
-      currentController.abort();
+    if (searchController) {
+      searchController.abort();
     }
-    currentController = new AbortController();
+    searchController = new AbortController();
     
     try {
-      var apiUrl = getApiEndpoint(q);
-      var resp = await fetch(apiUrl, {
-        signal: currentController.signal
-      });
+      var apiUrl = getApiBase() + '/public-atlas/' + countryCode + '/list?search=' + encodeURIComponent(q) + '&limit=100';
+      var resp = await fetch(apiUrl, { signal: searchController.signal });
       if (!resp.ok) throw new Error('Search request failed (' + resp.status + ')');
       var data = await resp.json();
       var items = data.items || [];
@@ -1281,10 +1372,47 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
   });
 
   input.addEventListener('input', function() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(function() {
-      performSearch(input.value);
-    }, 250);
+    updateClearBtn();
+    clearTimeout(typeaheadTimer);
+    var val = input.value;
+    if (!val.trim()) {
+      hideDropdown();
+      performSearch('');
+      return;
+    }
+    typeaheadTimer = setTimeout(function() {
+      fetchTypeahead(val);
+    }, 180);
+  });
+
+  input.addEventListener('focus', function() {
+    updateClearBtn();
+    if (input.value.trim().length >= 2) {
+      fetchTypeahead(input.value);
+    }
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      input.value = '';
+      updateClearBtn();
+      hideDropdown();
+      performSearch('');
+      input.focus();
+    });
+  }
+
+  // Close dropdown on outside click or Esc
+  document.addEventListener('click', function(e) {
+    if (!form.contains(e.target) && !dropdown.contains(e.target)) {
+      hideDropdown();
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      hideDropdown();
+    }
   });
 
   // Pre-fill and search if URL has ?q= parameter on page load
@@ -1293,6 +1421,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     var initialQ = initialParams.get('q');
     if (initialQ) {
       input.value = initialQ;
+      updateClearBtn();
       performSearch(initialQ);
     }
   } catch (e) {}

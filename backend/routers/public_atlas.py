@@ -791,6 +791,163 @@ async def get_au_state(state_code_or_slug: str):
     return {"country": "AU", "state": state}
 
 
+# ─── Public Typeahead (Autocomplete) ─────────────────────────────────────────
+def _score_occupation(query_l: str, code: str, title: str, alt_titles: List[str], group: str, body: str, pathway: str, industries: List[str]) -> float:
+    # Exact code match
+    if query_l == code:
+        return 100.0
+    if code.startswith(query_l):
+        return 95.0 + min(4.0, (len(query_l) / max(len(code), 1)) * 4.0)
+    if query_l in code:
+        return 90.0
+
+    title_l = (title or "").lower()
+    if query_l == title_l:
+        return 100.0
+    if title_l.startswith(query_l):
+        return 92.0 + min(4.0, (len(query_l) / max(len(title_l), 1)) * 4.0)
+    if f" {query_l}" in title_l or query_l in title_l:
+        return 88.0
+
+    # Alt titles
+    for alt in alt_titles:
+        alt_l = (alt or "").lower()
+        if query_l == alt_l:
+            return 95.0
+        if alt_l.startswith(query_l):
+            return 90.0
+        if query_l in alt_l:
+            return 86.0
+
+    # Assessing body / Pathway
+    if body and query_l == body.lower():
+        return 90.0
+    if pathway and query_l in pathway.lower():
+        return 88.0
+
+    # Unit group / industry
+    if group and query_l in group.lower():
+        return 85.0
+    for ind in industries:
+        if ind and query_l in str(ind).lower():
+            return 82.0
+
+    # Rapidfuzz fallback
+    try:
+        from rapidfuzz import fuzz
+        blob = f"{code} {title} {' '.join(alt_titles)} {group} {body} {pathway} {' '.join(industries)}".lower()
+        return float(fuzz.WRatio(query_l, blob))
+    except Exception:
+        return 50.0
+
+
+@router.get("/typeahead")
+@router.get("/{country}/typeahead")
+async def public_atlas_typeahead(
+    q: str = Query(..., min_length=1),
+    country: Optional[str] = None,
+    limit: int = Query(8, ge=1, le=20),
+):
+    """Fast public typeahead search across code, title, alternative titles, industry & pathways."""
+    q_clean = q.strip()
+    if not q_clean:
+        return {"items": []}
+
+    query_l = q_clean.lower()
+    s = re.escape(q_clean)
+
+    match: Dict[str, Any] = {"status": {"$ne": "superseded"}}
+    if country:
+        c_upper = country.upper()
+        if c_upper in {"AU", "CA", "NZ"}:
+            match["country_code"] = c_upper
+
+    match["$or"] = [
+        {"code": {"$regex": s, "$options": "i"}},
+        {"title": {"$regex": s, "$options": "i"}},
+        {"alternative_titles": {"$regex": s, "$options": "i"}},
+        {"specialisations": {"$regex": s, "$options": "i"}},
+        {"hierarchy.unit_group_name": {"$regex": s, "$options": "i"}},
+        {"hierarchy.unit_group": {"$regex": s, "$options": "i"}},
+        {"industries_ranked": {"$regex": s, "$options": "i"}},
+        {"assessing_authority.name": {"$regex": s, "$options": "i"}},
+        {"assessing_authority.short_name": {"$regex": s, "$options": "i"}},
+        {"assessing_authority.code": {"$regex": s, "$options": "i"}},
+        {"assessing_body": {"$regex": s, "$options": "i"}},
+        {"skill_body": {"$regex": s, "$options": "i"}},
+        {"pathway_list": {"$regex": s, "$options": "i"}},
+        {"visa_pathways.pathway_lists": {"$regex": s, "$options": "i"}},
+        {"visa_pathways.visa_eligibility.visa_subclass": {"$regex": s, "$options": "i"}},
+    ]
+
+    proj = {
+        "_id": 0, "code": 1, "title": 1, "country_code": 1,
+        "alternative_titles": 1, "specialisations": 1,
+        "hierarchy": 1, "assessing_authority": 1, "assessing_body": 1,
+        "skill_body": 1, "visa_pathways": 1, "pathway_list": 1,
+        "skill_level": 1, "teer_category": 1, "nz_green_list_tier": 1,
+        "industries_ranked": 1,
+    }
+
+    candidates = []
+    async for doc in db["occupation_master"].find(match, proj).limit(60):
+        code = str(doc.get("code") or "")
+        title = str(doc.get("title") or "")
+        c_code = str(doc.get("country_code") or "").upper()
+        alt_titles = doc.get("alternative_titles") or []
+        if isinstance(alt_titles, str):
+            alt_titles = [alt_titles]
+        group = (doc.get("hierarchy") or {}).get("unit_group_name") or ""
+
+        aa = doc.get("assessing_authority") or {}
+        resolved_body = None
+        if isinstance(aa, dict):
+            resolved_body = aa.get("short_name") or aa.get("code") or aa.get("name")
+        elif isinstance(aa, str):
+            resolved_body = aa
+        if not resolved_body:
+            resolved_body = doc.get("assessing_body") or doc.get("skill_body")
+        if not resolved_body:
+            if c_code == "AU": resolved_body = "VETASSESS"
+            elif c_code == "CA": resolved_body = "WES"
+            elif c_code == "NZ": resolved_body = "NZQA"
+
+        pw = doc.get("visa_pathways") or {}
+        pathway_lists = pw.get("pathway_lists") or []
+        pathway_str = None
+        if pathway_lists:
+            pathway_str = pathway_lists[0]
+        elif doc.get("pathway_list"):
+            pathway_str = str(doc.get("pathway_list"))
+        elif pw.get("recommended_visa"):
+            pathway_str = f"Visa {pw.get('recommended_visa')}"
+        elif doc.get("nz_green_list_tier"):
+            pathway_str = f"Green List T{doc.get('nz_green_list_tier')}"
+        elif doc.get("teer_category") is not None:
+            pathway_str = f"TEER {doc.get('teer_category')}"
+
+        industries = doc.get("industries_ranked") or []
+        if not isinstance(industries, list):
+            industries = [str(industries)]
+
+        score = _score_occupation(query_l, code, title, alt_titles, group, resolved_body or "", pathway_str or "", industries)
+
+        candidates.append({
+            "country_code": c_code,
+            "code": code,
+            "title": title,
+            "assessing_body": resolved_body,
+            "pathway": pathway_str,
+            "skill_level": doc.get("skill_level"),
+            "teer_category": doc.get("teer_category"),
+            "nz_green_list_tier": doc.get("nz_green_list_tier"),
+            "score": round(score),
+        })
+
+    candidates.sort(key=lambda x: -x["score"])
+    return {"items": candidates[:limit]}
+
+
 # ─── Country list ───────────────────────────────────────────────────────────
 @router.get("/{country}/list")
 async def list_country(
@@ -813,6 +970,19 @@ async def list_country(
         match["$or"] = [
             {"code": {"$regex": s, "$options": "i"}},
             {"title": {"$regex": s, "$options": "i"}},
+            {"alternative_titles": {"$regex": s, "$options": "i"}},
+            {"specialisations": {"$regex": s, "$options": "i"}},
+            {"hierarchy.unit_group_name": {"$regex": s, "$options": "i"}},
+            {"hierarchy.unit_group": {"$regex": s, "$options": "i"}},
+            {"industries_ranked": {"$regex": s, "$options": "i"}},
+            {"assessing_authority.name": {"$regex": s, "$options": "i"}},
+            {"assessing_authority.short_name": {"$regex": s, "$options": "i"}},
+            {"assessing_authority.code": {"$regex": s, "$options": "i"}},
+            {"assessing_body": {"$regex": s, "$options": "i"}},
+            {"skill_body": {"$regex": s, "$options": "i"}},
+            {"pathway_list": {"$regex": s, "$options": "i"}},
+            {"visa_pathways.pathway_lists": {"$regex": s, "$options": "i"}},
+            {"visa_pathways.visa_eligibility.visa_subclass": {"$regex": s, "$options": "i"}},
         ]
 
     if country == "AU" and not search:

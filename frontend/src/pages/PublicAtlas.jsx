@@ -16,7 +16,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
   ArrowRight, Briefcase, Globe2, Award, Loader2, Search, MapPin,
-  CheckCircle2, ChevronRight, Sparkles, Mail, Phone, User as UserIcon, Send,
+  CheckCircle2, ChevronRight, Sparkles, Mail, Phone, User as UserIcon, Send, X,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -212,8 +212,11 @@ export function PublicAtlasCountry() {
   const [data, setData] = useState(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const fetchList = async (q = '') => {
+    setShowSuggestions(false);
     if (!['AU', 'CA', 'NZ'].includes(country)) {
       setData({ error: 'Country not found' });
       setLoading(false);
@@ -222,7 +225,7 @@ export function PublicAtlasCountry() {
     setLoading(true);
     try {
       const r = await axios.get(`${API}/public-atlas/${country}/list`, {
-        params: { limit: 60, search: q || undefined },
+        params: { limit: 60, search: q.trim() || undefined },
       });
       setData(r.data);
       applySEO(r.data.seo);
@@ -251,6 +254,20 @@ export function PublicAtlasCountry() {
     return () => { active = false; };
   }, [country]);
 
+  // Typeahead suggestions
+  useEffect(() => {
+    if (search.trim().length < 2 || !showSuggestions) {
+      setSuggestions([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      axios.get(`${API}/public-atlas/${country}/typeahead`, { params: { q: search.trim(), limit: 6 } })
+        .then(r => setSuggestions(r.data.items || []))
+        .catch(() => setSuggestions([]));
+    }, 180);
+    return () => clearTimeout(t);
+  }, [search, country, showSuggestions]);
+
   const cm = data?.country_meta || {};
   return (
     <PublicShell>
@@ -265,16 +282,70 @@ export function PublicAtlasCountry() {
 
         {/* Search */}
         <div className="mt-6 max-w-xl relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && fetchList(search)}
-            placeholder="Search by code or title — e.g., 261313 or Software Engineer"
-            className="w-full pl-10 pr-3 py-3 rounded border text-sm"
-            style={{ borderColor: C.border, background: C.card }}
-            data-testid="atlas-country-search"
-          />
+          <div className="relative flex items-center">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  fetchList(search);
+                } else if (e.key === 'Escape') {
+                  setShowSuggestions(false);
+                }
+              }}
+              placeholder="Search by code, title, alternative title, or industry — e.g., 'marketing', 'software engineer', '225113', 'operations head'…"
+              className="w-full pl-10 pr-10 py-3 rounded border text-sm"
+              style={{ borderColor: C.border, background: C.card }}
+              data-testid="atlas-country-search"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); fetchList(''); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Typeahead dropdown */}
+          {showSuggestions && suggestions.length > 0 && search.trim().length >= 2 && (
+            <div
+              className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white border rounded-xl shadow-xl max-h-80 overflow-y-auto"
+              style={{ borderColor: C.border }}
+              data-testid="typeahead-dropdown"
+            >
+              {suggestions.map((s) => (
+                <Link
+                  key={`${s.country_code}-${s.code}`}
+                  reloadDocument
+                  to={`/atlas/${(s.country_code || country).toLowerCase()}/${s.code}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b last:border-b-0 flex items-center gap-3 transition-colors block"
+                >
+                  <span className="text-xs font-bold px-2 py-1 rounded shrink-0 font-mono" style={{ background: C.tealWash, color: C.tealDeep }}>
+                    {s.country_code || country}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate text-slate-800">
+                      {s.code} · {s.title}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                      {[s.assessing_body, s.pathway].filter(Boolean).join(' · ') || `${cm.classification || ''} ${s.code}`}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 bg-slate-900 text-white">
+                    {s.score || 90}%
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

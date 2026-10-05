@@ -21,7 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, Sparkles, CheckCircle2, Globe2, ChevronDown, ChevronRight,
   Search, Star, Award, Briefcase, Loader2, Send, Mail, Phone, User as UserIcon,
-  MessageCircle, Calculator, Plane, Shield, Clock, ArrowUpRight, MapPin, Info, Download,
+  MessageCircle, Calculator, Plane, Shield, Clock, ArrowUpRight, MapPin, Info, Download, X,
 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { formatApiError } from '@/lib/apiErrors';
@@ -3031,6 +3031,9 @@ export function AtlasCountryV2() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -3051,10 +3054,25 @@ export function AtlasCountryV2() {
     return () => { active = false; };
   }, [country]);
 
+  // Typeahead suggestions
+  useEffect(() => {
+    if (search.trim().length < 2 || !showSuggestions) {
+      setSuggestions([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      axios.get(`${API}/public-atlas/${country}/typeahead`, { params: { q: search.trim(), limit: 6 } })
+        .then(r => setSuggestions(r.data.items || []))
+        .catch(() => setSuggestions([]));
+    }, 180);
+    return () => clearTimeout(t);
+  }, [search, country, showSuggestions]);
+
   const runSearch = async () => {
+    setShowSuggestions(false);
     setLoading(true);
     try {
-      const r = await axios.get(`${API}/public-atlas/${country}/list`, { params: { limit: 120, search: search || undefined } });
+      const r = await axios.get(`${API}/public-atlas/${country}/list`, { params: { limit: 120, search: search.trim() || undefined } });
       setData(r.data);
     } catch (e) { setData({ error: 'Failed to search' }); }
     setLoading(false);
@@ -3082,17 +3100,72 @@ export function AtlasCountryV2() {
       {/* Search + grid */}
       <section className="py-12">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="rounded-xl p-3 bg-white flex items-center gap-2 mb-8 shadow-sm" style={{ border: `1px solid ${BRAND.border}` }}>
-            <Search className="w-4 h-4 ml-2" style={{ color: BRAND.muted }} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-              placeholder={`Search ${cm.name || country} occupations — e.g., ${country === 'CA' ? '21231' : '261313'} or Software Engineer`}
-              className="flex-1 outline-none px-2 py-2 text-sm"
-              data-testid="atlas-country-search"
-            />
-            <Button onClick={runSearch}>Search</Button>
+          <div className="relative max-w-4xl mx-auto mb-8">
+            <div className="rounded-xl p-2.5 bg-white flex items-center gap-2 shadow-sm" style={{ border: `1.5px solid ${BRAND.border}` }}>
+              <Search className="w-4 h-4 ml-2 shrink-0" style={{ color: BRAND.muted }} />
+              <input
+                ref={searchInputRef}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    runSearch();
+                  } else if (e.key === 'Escape') {
+                    setShowSuggestions(false);
+                  }
+                }}
+                placeholder="Search by code, title, alternative title, or industry — e.g., 'marketing', 'software engineer', '225113', 'operations head'…"
+                className="flex-1 outline-none px-2 py-1.5 text-sm bg-transparent min-w-0"
+                data-testid="atlas-country-search"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); runSearch(); }}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              <Button onClick={runSearch}>Search</Button>
+            </div>
+
+            {/* Typeahead dropdown */}
+            {showSuggestions && suggestions.length > 0 && search.trim().length >= 2 && (
+              <div
+                className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white border rounded-xl shadow-xl max-h-80 overflow-y-auto"
+                style={{ borderColor: BRAND.border }}
+                data-testid="typeahead-dropdown"
+              >
+                {suggestions.map((s) => (
+                  <Link
+                    key={`${s.country_code}-${s.code}`}
+                    reloadDocument
+                    to={`/atlas/${(s.country_code || country).toLowerCase()}/${s.code}`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b last:border-b-0 flex items-center gap-3 transition-colors block"
+                  >
+                    <span className="text-xs font-bold px-2 py-1 rounded shrink-0" style={{ background: `${BRAND.primary}12`, color: BRAND.primary }}>
+                      {s.country_code || country}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate text-slate-800">
+                        {s.code} · {s.title}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                        {[s.assessing_body, s.pathway].filter(Boolean).join(' · ') || `${cm.classification || ''} ${s.code}`}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 bg-slate-900 text-white">
+                      {s.score || 90}%
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
           {loading ? (
