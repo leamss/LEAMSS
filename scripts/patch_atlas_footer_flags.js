@@ -4,6 +4,8 @@
  * 2. Update email support@leamss.com -> info@leamss.com in Atlas footers & scripts
  * 3. Remove MARA-registered network from Atlas Trust lists & cards
  * 4. Replace footer country links with flag images (Australia, Canada, New Zealand)
+ * 5. Update lead form privacy policy link to https://leamss.com/privacy-policy
+ * 6. Replace country card flags in atlas/index.html with flag images
  */
 const fs = require('fs');
 const path = require('path');
@@ -19,6 +21,8 @@ const nzFlagHeader = '<a href="/atlas/nz/"><img src="https://flagcdn.com/w20/nz.
 const auFlagFooter = '<li><a href="/atlas/au/"><img src="https://flagcdn.com/w20/au.png" srcset="https://flagcdn.com/w40/au.png 2x" width="20" height="15" alt="Australia" style="vertical-align:-2px;border-radius:2px;margin-right:6px;display:inline-block">Australia</a></li>';
 const caFlagFooter = '<li><a href="/atlas/ca/"><img src="https://flagcdn.com/w20/ca.png" srcset="https://flagcdn.com/w40/ca.png 2x" width="20" height="15" alt="Canada" style="vertical-align:-2px;border-radius:2px;margin-right:6px;display:inline-block">Canada</a></li>';
 const nzFlagFooter = '<li><a href="/atlas/nz/"><img src="https://flagcdn.com/w20/nz.png" srcset="https://flagcdn.com/w40/nz.png 2x" width="20" height="15" alt="New Zealand" style="vertical-align:-2px;border-radius:2px;margin-right:6px;display:inline-block">New Zealand</a></li>';
+
+const privacyPolicyReplacement = '<a href="https://leamss.com/privacy-policy" target="_blank" rel="noopener noreferrer">privacy policy</a>';
 
 function walk(dir, results = []) {
   if (!fs.existsSync(dir)) return results;
@@ -63,6 +67,29 @@ function patchHtml(html) {
   content = content.replace(/\s*·\s*MARA-registered network/gi, '');
   content = content.replace(/\s*&middot;\s*MARA-registered network/gi, '');
   content = content.replace(/\s*&middot;\s*MARA registered network/gi, '');
+
+  // 5. Privacy Policy Link in lead form and footer
+  content = content.replace(/<a href="\/privacy">\s*privacy policy\s*<\/a>/gi, privacyPolicyReplacement);
+  content = content.replace(/<a href="\/privacy-policy">\s*privacy policy\s*<\/a>/gi, privacyPolicyReplacement);
+
+  // 6. Hub Country Destination Cards Flags
+  content = content.replace(/<div class="country-name"><span class="country-flag">[^<]*<\/span>Australia<\/div>/g, '<div class="country-name"><img class="country-flag-img" src="https://flagcdn.com/w80/au.png" width="34" height="24" alt="Australia flag">Australia</div>');
+  content = content.replace(/<div class="country-name"><span class="country-flag">[^<]*<\/span>Canada<\/div>/g, '<div class="country-name"><img class="country-flag-img" src="https://flagcdn.com/w80/ca.png" width="34" height="24" alt="Canada flag">Canada</div>');
+  content = content.replace(/<div class="country-name"><span class="country-flag">[^<]*<\/span>New Zealand<\/div>/g, '<div class="country-name"><img class="country-flag-img" src="https://flagcdn.com/w80/nz.png" width="34" height="24" alt="New Zealand flag">New Zealand</div>');
+
+  // Country card CSS styling if present
+  if (content.includes('.country-card .country-flag{') && !content.includes('.country-card .country-flag-img{')) {
+    content = content.replace(
+      '.country-card .country-flag{margin-right:8px;font-size:32px;vertical-align:middle}',
+      '.country-card .country-flag-img{margin-right:10px;width:34px;height:24px;border-radius:4px;display:inline-block;vertical-align:middle;box-shadow:0 2px 8px rgba(0,0,0,0.35)}'
+    );
+  }
+  if (content.includes('.country-card .country-name{font-family:\'Playfair Display\',Georgia,serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:10px;line-height:1.05}') && !content.includes('display:flex;align-items:center')) {
+    content = content.replace(
+      '.country-card .country-name{font-family:\'Playfair Display\',Georgia,serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:10px;line-height:1.05}',
+      '.country-card .country-name{font-family:\'Playfair Display\',Georgia,serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:10px;line-height:1.05;display:flex;align-items:center}'
+    );
+  }
 
   return content;
 }

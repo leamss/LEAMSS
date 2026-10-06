@@ -87,9 +87,8 @@ h2.section-title{font-family:'Playfair Display',Georgia,serif;font-size:clamp(28
 .country-card:hover .bg{transform:scale(1.06)}
 .country-card .overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 30%,rgba(19,51,45,.65) 60%,rgba(10,32,28,.95) 100%)}
 .country-card .content{position:absolute;bottom:0;left:0;right:0;padding:26px 26px 22px;z-index:2}
-.country-card .classification-mini{font-size:11px;text-transform:uppercase;letter-spacing:.2em;color:rgba(255,255,255,.85);font-weight:600;margin-bottom:6px}
-.country-card .country-name{font-family:'Playfair Display',Georgia,serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:10px;line-height:1.05}
-.country-card .country-flag{margin-right:8px;font-size:32px;vertical-align:middle}
+.country-card .country-name{font-family:'Playfair Display',Georgia,serif;font-size:34px;font-weight:800;letter-spacing:-.01em;margin-bottom:10px;line-height:1.05;display:flex;align-items:center}
+.country-card .country-flag-img{margin-right:10px;width:34px;height:24px;border-radius:4px;display:inline-block;vertical-align:middle;box-shadow:0 2px 8px rgba(0,0,0,0.35)}
 .country-card .level-pills{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 14px}
 .country-card .level-pills .lp{display:inline-block;background:rgba(255,255,255,.16);color:#fff;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.12)}
 .country-card .stats-row{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem}
@@ -167,7 +166,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
         <div class="overlay"></div>
         <div class="content">
           <div class="classification-mini">{{ c.classification }} Classification</div>
-          <div class="country-name"><span class="country-flag">{{ c.flag }}</span>{{ c.name }}</div>
+          <div class="country-name"><img class="country-flag-img" src="https://flagcdn.com/w80/{{ c.code_lower }}.png" width="34" height="24" alt="{{ c.name }} flag">{{ c.name }}</div>
           <div class="level-pills">
             {% for sl in c.skill_level_breakdown %}
             <span class="lp">Level {{ sl.level }}: {{ sl.count }}</span>
