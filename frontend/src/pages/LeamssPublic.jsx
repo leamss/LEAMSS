@@ -44,7 +44,7 @@ const BRAND = {
   success:    '#2E7D32',
 };
 
-const LOGO_URL = 'https://leamss.com/public/assets/web/images/logo.webp';
+const LOGO_URL = '/leamss-logo.png';
 const WHATSAPP = '7738352427';
 const PHONE = '7718882427';
 const TOLL_FREE = '1800-210-2427';
@@ -152,7 +152,7 @@ function LeamssShell({ children, transparentHeader = false }) {
               style={{ background: BRAND.accent }}
               data-testid="header-whatsapp-cta"
             >
-              Book Free Consultation
+              Book a Consultation
             </a>
           </nav>
         </div>
@@ -164,7 +164,7 @@ function LeamssShell({ children, transparentHeader = false }) {
       <footer style={{ background: BRAND.primaryDk, color: '#FFFFFF' }}>
         <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-4 gap-8 text-sm">
           <div>
-            <img src={LOGO_URL} alt="LEAMSS" className="h-12 w-auto mb-3 brightness-0 invert" />
+            <img src={LOGO_URL} alt="LEAMSS" className="h-12 w-auto mb-3 bg-white p-1 rounded" />
             <p className="text-white/80 leading-relaxed">
               <strong>Ladhani Education & Migration Services (OPC) Pvt. Ltd</strong><br />
               India&apos;s trusted immigration experts. We value emotions.
@@ -264,7 +264,7 @@ export function MegaLanding() {
     axios.get(`${API}/public-pages/content`).then(r => setContent(r.data)).catch(() => setContent({}));
     applySEO({
       page_title: 'Find Your Migration Pathway in 60 Seconds — Australia, Canada, New Zealand PR | LEAMSS',
-      meta_description: 'Free AI eligibility check + verified ANZSCO/NOC atlas + visa comparison for AU, CA, NZ. 100% refund guarantee on negative skill assessment. India\'s most trusted migration consultancy since 2014.',
+      meta_description: 'Free AI eligibility check + verified ANZSCO/NOC atlas + visa comparison for AU, CA, NZ. 100% refund guarantee on negative skill assessment. India\'s most trusted migration consultancy since 2024.',
       keywords: 'immigration consultant India, Australia PR visa, Canada Express Entry, New Zealand migration, skilled migration, ANZSCO occupation code, NOC code Canada, CRS points calculator, visa eligibility check, skill assessment, subclass 189 190 491, Express Entry FSWP, NZ Green List, MARA registered agent, PR consultant Mumbai Thane, free eligibility check, LEAMSS',
       canonical_url: `${window.location.origin}/start`,
       og_url: `${window.location.origin}/start`,
@@ -279,8 +279,8 @@ export function MegaLanding() {
             "alternateName": "LEAMSS",
             "url": "https://www.leamss.com",
             "logo": LOGO_URL,
-            "description": "MARA-registered immigration consultancy for Australia, Canada & New Zealand PR. Trusted since 2014 with a 100% refund guarantee on negative skill assessment.",
-            "foundingDate": "2014",
+            "description": "MARA-registered immigration consultancy for Australia, Canada & New Zealand PR. Trusted since 2024 with a 100% refund guarantee on negative skill assessment.",
+            "foundingDate": "2024",
             "address": { "@type": "PostalAddress", "addressLocality": "Thane", "addressRegion": "Maharashtra", "addressCountry": "IN" },
             "contactPoint": { "@type": "ContactPoint", "telephone": "+91-77188-82427", "contactType": "customer service", "areaServed": "IN", "availableLanguage": ["en", "hi"] },
             "sameAs": ["https://www.leamss.com"],
@@ -2247,10 +2247,10 @@ function QuizResult({ result, onReset }) {
         </div>
         <p className="text-xs sm:text-sm text-slate-700 mb-6">
           {isAU
-            ? 'LEAMSS (Ladhani Education & Migration Services) is India’s premier Australian migration consultancy operating since 2014. We provide statutory migration advisory with total legal transparency.'
+            ? 'LEAMSS (Ladhani Education & Migration Services) is India’s premier Australian migration consultancy operating since 2024. We provide statutory migration advisory with total legal transparency.'
             : isCA
-            ? 'LEAMSS (Ladhani Education & Migration Services) provides premier Canadian immigration consulting since 2014. We guide you through ECA, Express Entry, and Provincial Nominations with full legal compliance.'
-            : 'LEAMSS (Ladhani Education & Migration Services) provides expert New Zealand migration advice since 2014. We guide you through NZQA comparability, Green List mapping, and SMC residency.'}
+            ? 'LEAMSS (Ladhani Education & Migration Services) provides premier Canadian immigration consulting since 2024. We guide you through ECA, Express Entry, and Provincial Nominations with full legal compliance.'
+            : 'LEAMSS (Ladhani Education & Migration Services) provides expert New Zealand migration advice since 2024. We guide you through NZQA comparability, Green List mapping, and SMC residency.'}
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

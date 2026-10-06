@@ -1,18 +1,21 @@
 /**
- * Script to update all static Atlas HTML files in frontend/public/atlas and frontend/build/atlas:
+ * Script to update all static HTML files in frontend/public and frontend/build:
  * 1. Replace emoji/letter country codes in header with crisp flag images (AU, CA, NZ)
  * 2. Update email support@leamss.com -> info@leamss.com in Atlas footers & scripts
  * 3. Remove MARA-registered network from Atlas Trust lists & cards
  * 4. Replace footer country links with flag images (Australia, Canada, New Zealand)
  * 5. Update lead form privacy policy link to https://leamss.com/privacy-policy
  * 6. Replace country card flags in atlas/index.html with flag images
+ * 7. Change "Book Free Consultation" -> "Book a Consultation"
+ * 8. Change "since 2014" -> "since 2024"
+ * 9. Replace text wordmark in header and footer with leamss-logo.png
  */
 const fs = require('fs');
 const path = require('path');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const PUBLIC_ATLAS_DIR = path.join(PROJECT_ROOT, 'frontend', 'public', 'atlas');
-const BUILD_ATLAS_DIR = path.join(PROJECT_ROOT, 'frontend', 'build', 'atlas');
+const PUBLIC_DIR = path.join(PROJECT_ROOT, 'frontend', 'public');
+const BUILD_DIR = path.join(PROJECT_ROOT, 'frontend', 'build');
 
 const auFlagHeader = '<a href="/atlas/au/"><img src="https://flagcdn.com/w20/au.png" srcset="https://flagcdn.com/w40/au.png 2x" width="20" height="15" alt="AU" style="vertical-align:-2px;border-radius:2px;margin-right:5px;display:inline-block">AU</a>';
 const caFlagHeader = '<a href="/atlas/ca/"><img src="https://flagcdn.com/w20/ca.png" srcset="https://flagcdn.com/w40/ca.png 2x" width="20" height="15" alt="CA" style="vertical-align:-2px;border-radius:2px;margin-right:5px;display:inline-block">CA</a>';
@@ -91,6 +94,31 @@ function patchHtml(html) {
     );
   }
 
+  // 7. Button CTA name: "Book Free Consultation" -> "Book a Consultation"
+  content = content.replace(/Book Free Consultation/g, 'Book a Consultation');
+  content = content.replace(/Book a free consultation/g, 'Book a consultation');
+
+  // 8. Change "since 2014" -> "since 2024"
+  content = content.replace(/since 2014/g, 'since 2024');
+  content = content.replace(/Trusted since 2014/g, 'Trusted since 2024');
+  content = content.replace(/"foundingDate":\s*"2014"/g, '"foundingDate": "2024"');
+
+  // 9. Header logo replacement (replace text wordmark or old logo.webp with leamss-logo.png)
+  content = content.replace(/<a href="(?:\/|https:\/\/leamss\.com)" class="brand-wordmark" aria-label="LEAMSS">\s*<span style="color:#2a777a">LE<\/span><span style="color:#f7620b">AM<\/span><span style="color:#d81f26">SS<\/span><span style="color:#1F4D44">\.<\/span>(?:\s*<span class="brand-tagline-pill">.*?<\/span>)?\s*<\/a>/g,
+    '<a href="/" class="brand-wordmark" aria-label="LEAMSS"><img src="/leamss-logo.png" alt="LEAMSS Logo" style="height:44px;width:auto;vertical-align:middle;display:inline-block"></a>'
+  );
+  content = content.replace(/<img src="https:\/\/leamss\.com\/public\/assets\/web\/images\/logo\.webp" alt="LEAMSS Logo">/g,
+    '<img src="/leamss-logo.png" alt="LEAMSS Logo" style="height:48px;width:auto">'
+  );
+
+  // 10. Footer logo replacement (replace text wordmark with leamss-logo.png)
+  content = content.replace(/<div class="brand-wordmark" style="font-size:2[24]px;margin-bottom:1[02]px">\s*<span style="color:#2a777a">LE<\/span><span style="color:#f7620b">AM<\/span><span style="color:#d81f26">SS<\/span><span style="color:#[A-Za-z0-9]+">\.<\/span>\s*<\/div>/g,
+    '<div class="brand-wordmark" style="margin-bottom:12px"><img src="/leamss-logo.png" alt="LEAMSS Logo" style="height:40px;width:auto;background:#fff;padding:3px 8px;border-radius:6px;display:inline-block"></div>'
+  );
+  content = content.replace(/<div class="brand-wordmark" style="margin-bottom:12px"><img src="\/leamss-logo\.png" alt="LEAMSS Logo" style="height:40px;width:auto;display:inline-block"><\/div>/g,
+    '<div class="brand-wordmark" style="margin-bottom:12px"><img src="/leamss-logo.png" alt="LEAMSS Logo" style="height:40px;width:auto;background:#fff;padding:3px 8px;border-radius:6px;display:inline-block"></div>'
+  );
+
   return content;
 }
 
@@ -110,9 +138,11 @@ function processDirectory(dirName, dirPath) {
 }
 
 function main() {
-  processDirectory('frontend/public/atlas', PUBLIC_ATLAS_DIR);
-  processDirectory('frontend/build/atlas', BUILD_ATLAS_DIR);
-  console.log('All Atlas static HTML files successfully updated!');
+  processDirectory('frontend/public', PUBLIC_DIR);
+  if (fs.existsSync(BUILD_DIR)) {
+    processDirectory('frontend/build', BUILD_DIR);
+  }
+  console.log('All static HTML files successfully updated!');
 }
 
 main();
