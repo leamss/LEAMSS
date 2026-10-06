@@ -144,10 +144,10 @@ function LeamssShell({ children, transparentHeader = false }) {
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium" style={{ color: headerTextColor }}>
             <Link reloadDocument to="/atlas" className="hover:opacity-80 transition-opacity">Atlas</Link>
             <Link to="/start" className="hover:opacity-80 transition-opacity">Eligibility Quiz</Link>
-            <Link reloadDocument to="/atlas/au" className="hover:opacity-80 transition-opacity">🇦🇺 Australia</Link>
-            <Link reloadDocument to="/atlas/ca" className="hover:opacity-80 transition-opacity">🇨🇦 Canada</Link>
-            <Link reloadDocument to="/atlas/nz" className="hover:opacity-80 transition-opacity">🇳🇿 New Zealand</Link>
-            <a href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noreferrer"
+            <Link reloadDocument to="/atlas/au" className="hover:opacity-80 transition-opacity flex items-center gap-1.5"><img src="https://flagcdn.com/w20/au.png" srcSet="https://flagcdn.com/w40/au.png 2x" width="20" height="15" alt="Australia" className="rounded-sm inline-block" /> AU</Link>
+            <Link reloadDocument to="/atlas/ca" className="hover:opacity-80 transition-opacity flex items-center gap-1.5"><img src="https://flagcdn.com/w20/ca.png" srcSet="https://flagcdn.com/w40/ca.png 2x" width="20" height="15" alt="Canada" className="rounded-sm inline-block" /> CA</Link>
+            <Link reloadDocument to="/atlas/nz" className="hover:opacity-80 transition-opacity flex items-center gap-1.5"><img src="https://flagcdn.com/w20/nz.png" srcSet="https://flagcdn.com/w40/nz.png 2x" width="20" height="15" alt="New Zealand" className="rounded-sm inline-block" /> NZ</Link>
+            <a href="https://calendly.com/rohit-leamss/30min" target="_blank" rel="noreferrer"
               className="px-4 py-2 rounded-md text-white font-semibold transition-all hover:brightness-110"
               style={{ background: BRAND.accent }}
               data-testid="header-whatsapp-cta"
@@ -174,9 +174,9 @@ function LeamssShell({ children, transparentHeader = false }) {
           <div>
             <p className="font-bold mb-3 font-serif-leamss text-lg">Browse Atlas</p>
             <ul className="space-y-1.5 text-white/80">
-              <li><Link reloadDocument to="/atlas/au" className="hover:text-white">🇦🇺 Australia ANZSCO</Link></li>
-              <li><Link reloadDocument to="/atlas/ca" className="hover:text-white">🇨🇦 Canada NOC 2021</Link></li>
-              <li><Link reloadDocument to="/atlas/nz" className="hover:text-white">🇳🇿 New Zealand</Link></li>
+              <li><Link reloadDocument to="/atlas/au" className="hover:text-white flex items-center gap-1.5"><img src="https://flagcdn.com/w20/au.png" srcSet="https://flagcdn.com/w40/au.png 2x" width="20" height="15" alt="Australia" className="rounded-sm inline-block" /> Australia ANZSCO</Link></li>
+              <li><Link reloadDocument to="/atlas/ca" className="hover:text-white flex items-center gap-1.5"><img src="https://flagcdn.com/w20/ca.png" srcSet="https://flagcdn.com/w40/ca.png 2x" width="20" height="15" alt="Canada" className="rounded-sm inline-block" /> Canada NOC 2021</Link></li>
+              <li><Link reloadDocument to="/atlas/nz" className="hover:text-white flex items-center gap-1.5"><img src="https://flagcdn.com/w20/nz.png" srcSet="https://flagcdn.com/w40/nz.png 2x" width="20" height="15" alt="New Zealand" className="rounded-sm inline-block" /> New Zealand</Link></li>
               <li><Link to="/start" className="hover:text-white">AI Eligibility Score</Link></li>
             </ul>
           </div>
@@ -200,7 +200,7 @@ function LeamssShell({ children, transparentHeader = false }) {
         </div>
         <div className="border-t border-white/10">
           <div className="max-w-7xl mx-auto px-4 py-4 text-center text-xs text-white/60">
-            © 2026 Ladhani Education & Migration Services (OPC) Pvt. Ltd · MARA Registered · 100% Refund Guarantee Policy
+            © 2026 Ladhani Education & Migration Services (OPC) Pvt. Ltd · 100% Refund Guarantee Policy
           </div>
         </div>
       </footer>
