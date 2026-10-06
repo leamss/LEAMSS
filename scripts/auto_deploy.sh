@@ -53,6 +53,7 @@ if [ -f "docker-compose.prod.yml" ]; then
     if command -v node >/dev/null 2>&1; then
         node scripts/sync_start_pages.js || true
         node scripts/patch_all_atlas_ssg.js || true
+        node scripts/patch_atlas_footer_flags.js || true
     fi
     # Ensure frontend container serves the freshly generated static Atlas, Start, and Calculator files immediately
     $DC -f docker-compose.prod.yml cp frontend/public/atlas/. frontend:/usr/share/nginx/html/atlas/ || true
@@ -68,6 +69,7 @@ elif [ -f "docker-compose.yml" ]; then
     if command -v node >/dev/null 2>&1; then
         node scripts/sync_start_pages.js || true
         node scripts/patch_all_atlas_ssg.js || true
+        node scripts/patch_atlas_footer_flags.js || true
     fi
     $DC cp frontend/public/atlas/. frontend:/usr/share/nginx/html/atlas/ || true
     $DC cp frontend/public/start/. frontend:/usr/share/nginx/html/start/ || true
