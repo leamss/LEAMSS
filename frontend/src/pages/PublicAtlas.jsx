@@ -82,9 +82,15 @@ function PublicShell({ children }) {
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-5 text-sm">
-            <Link reloadDocument to="/atlas/au" className="hover:underline" style={{ color: C.body }} data-testid="header-link-au">🇦🇺 Australia</Link>
-            <Link reloadDocument to="/atlas/ca" className="hover:underline" style={{ color: C.body }} data-testid="header-link-ca">🇨🇦 Canada</Link>
-            <Link reloadDocument to="/atlas/nz" className="hover:underline" style={{ color: C.body }} data-testid="header-link-nz">🇳🇿 New Zealand</Link>
+            <Link reloadDocument to="/atlas/au" className="hover:underline flex items-center gap-1.5" style={{ color: C.body }} data-testid="header-link-au">
+              <img src="https://flagcdn.com/w20/au.png" srcSet="https://flagcdn.com/w40/au.png 2x" width="20" height="15" alt="Australia" className="rounded-sm inline-block" /> AU
+            </Link>
+            <Link reloadDocument to="/atlas/ca" className="hover:underline flex items-center gap-1.5" style={{ color: C.body }} data-testid="header-link-ca">
+              <img src="https://flagcdn.com/w20/ca.png" srcSet="https://flagcdn.com/w40/ca.png 2x" width="20" height="15" alt="Canada" className="rounded-sm inline-block" /> CA
+            </Link>
+            <Link reloadDocument to="/atlas/nz" className="hover:underline flex items-center gap-1.5" style={{ color: C.body }} data-testid="header-link-nz">
+              <img src="https://flagcdn.com/w20/nz.png" srcSet="https://flagcdn.com/w40/nz.png 2x" width="20" height="15" alt="New Zealand" className="rounded-sm inline-block" /> NZ
+            </Link>
             <a href="https://leamss.com/start" className="px-3.5 py-1.5 rounded-full text-xs font-bold text-white shadow-sm hover:opacity-95" style={{ background: '#D4633F' }} data-testid="header-cta-start">
               Free Eligibility Check
             </a>

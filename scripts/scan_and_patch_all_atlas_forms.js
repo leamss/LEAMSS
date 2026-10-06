@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
           '</div>';
       })
       .catch(function(err) {
-        alert('Sorry, there was an issue submitting your request. Please try again or contact support@leamss.com');
+        alert('Sorry, there was an issue submitting your request. Please try again or contact info@leamss.com');
         if (btn) {
           btn.disabled = false;
           btn.innerText = origText;

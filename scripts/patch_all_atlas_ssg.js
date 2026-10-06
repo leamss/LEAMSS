@@ -757,11 +757,11 @@ document.addEventListener('DOMContentLoaded', function() {
           '<div style="width:52px;height:52px;background:#e6f4ea;color:#137333;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:26px;font-weight:bold;margin-bottom:14px">✓</div>' +
           '<h3 style="font-family:\\'Playfair Display\\',Georgia,serif;font-size:22px;font-weight:700;color:var(--forest);margin-bottom:8px">Pathway plan requested!</h3>' +
           '<p style="font-size:14px;color:var(--body);line-height:1.6;margin-bottom:18px">Thank you, <strong>' + name + '</strong>. Our Australian migration specialist for ANZSCO ' + code + ' will review your profile and contact you on ' + contact + ' within 24 hours.</p>' +
-          '<div style="font-size:12px;color:var(--muted);background:var(--cream);padding:10px 14px;border-radius:8px;border:1px solid var(--border)">Free consultation · 100% confidential · MARA registered network</div>' +
+          '<div style="font-size:12px;color:var(--muted);background:var(--cream);padding:10px 14px;border-radius:8px;border:1px solid var(--border)">Free consultation · 100% confidential</div>' +
           '</div>';
       })
       .catch(function(err) {
-        alert('Sorry, there was an issue submitting your request. Please try again or contact support@leamss.com');
+        alert('Sorry, there was an issue submitting your request. Please try again or contact info@leamss.com');
         if (btn) {
           btn.disabled = false;
           btn.innerText = origText;
