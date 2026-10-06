@@ -61,6 +61,7 @@ if [ -f "docker-compose.prod.yml" ]; then
     $DC -f docker-compose.prod.yml cp frontend/public/calculator/. frontend:/usr/share/nginx/html/calculator/ || true
     $DC -f docker-compose.prod.yml cp frontend/public/start.html frontend:/usr/share/nginx/html/start.html || true
     $DC -f docker-compose.prod.yml cp frontend/public/calculator.html frontend:/usr/share/nginx/html/calculator.html || true
+    $DC -f docker-compose.prod.yml cp frontend/public/leamss-logo.png frontend:/usr/share/nginx/html/leamss-logo.png || true
 elif [ -f "docker-compose.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker containers..."
     $DC down || true
@@ -76,6 +77,7 @@ elif [ -f "docker-compose.yml" ]; then
     $DC cp frontend/public/calculator/. frontend:/usr/share/nginx/html/calculator/ || true
     $DC cp frontend/public/start.html frontend:/usr/share/nginx/html/start.html || true
     $DC cp frontend/public/calculator.html frontend:/usr/share/nginx/html/calculator.html || true
+    $DC cp frontend/public/leamss-logo.png frontend:/usr/share/nginx/html/leamss-logo.png || true
 fi
 
 # Clean up dangling images to keep EC2 disk & RAM clean and fast
