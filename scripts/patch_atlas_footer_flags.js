@@ -17,6 +17,8 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 const PUBLIC_DIR = path.join(PROJECT_ROOT, 'frontend', 'public');
 const BUILD_DIR = path.join(PROJECT_ROOT, 'frontend', 'build');
 
+const { color: logoColorBase64, white: logoWhiteBase64 } = require('./logo_base64.json');
+
 const auFlagHeader = '<a href="/atlas/au/"><img src="https://flagcdn.com/w20/au.png" srcset="https://flagcdn.com/w40/au.png 2x" width="20" height="15" alt="AU" style="vertical-align:-2px;border-radius:2px;margin-right:5px;display:inline-block">AU</a>';
 const caFlagHeader = '<a href="/atlas/ca/"><img src="https://flagcdn.com/w20/ca.png" srcset="https://flagcdn.com/w40/ca.png 2x" width="20" height="15" alt="CA" style="vertical-align:-2px;border-radius:2px;margin-right:5px;display:inline-block">CA</a>';
 const nzFlagHeader = '<a href="/atlas/nz/"><img src="https://flagcdn.com/w20/nz.png" srcset="https://flagcdn.com/w40/nz.png 2x" width="20" height="15" alt="NZ" style="vertical-align:-2px;border-radius:2px;margin-right:5px;display:inline-block">NZ</a>';
@@ -27,11 +29,11 @@ const nzFlagFooter = '<li><a href="/atlas/nz/"><img src="https://flagcdn.com/w20
 
 const privacyPolicyReplacement = '<a href="https://leamss.com/privacy-policy" target="_blank" rel="noopener noreferrer">privacy policy</a>';
 
-const headerLogoAtlas = '<a href="/" class="brand-wordmark" aria-label="LEAMSS"><img src="/atlas/leamss-logo.png" alt="LEAMSS" style="height:44px;width:auto;vertical-align:middle;display:inline-block" onerror="this.onerror=null;this.src=\'/leamss-logo.png\'"></a>';
-const headerLogoStart = '<a href="https://leamss.com" class="brand-wordmark"><img src="/start/leamss-logo.png" alt="LEAMSS" style="height:46px;width:auto" onerror="this.onerror=null;this.src=\'/leamss-logo.png\'"></a>';
+const headerLogoAtlas = `<a href="/" class="brand-wordmark" aria-label="LEAMSS"><img src="${logoColorBase64}" alt="LEAMSS" style="height:44px;width:auto;vertical-align:middle;display:inline-block"></a>`;
+const headerLogoStart = `<a href="https://leamss.com" class="brand-wordmark"><img src="${logoColorBase64}" alt="LEAMSS" style="height:46px;width:auto;display:inline-block"></a>`;
 
-const footerLogoAtlas = '<div class="brand-wordmark" style="margin-bottom:12px"><img src="/atlas/leamss-logo.png" alt="LEAMSS" style="height:40px;width:auto;display:inline-block" onerror="this.onerror=null;this.src=\'/leamss-logo.png\'"></div>';
-const footerLogoDark = '<div class="brand-wordmark" style="margin-bottom:14px"><img src="/start/leamss-logo-white.png" alt="LEAMSS" style="height:42px;width:auto;display:inline-block" onerror="this.onerror=null;this.src=\'/leamss-logo-white.png\'"></div>';
+const footerLogoAtlas = `<div class="brand-wordmark" style="margin-bottom:12px"><img src="${logoColorBase64}" alt="LEAMSS" style="height:40px;width:auto;display:inline-block"></div>`;
+const footerLogoDark = `<div class="brand-wordmark" style="margin-bottom:14px"><img src="${logoWhiteBase64}" alt="LEAMSS" style="height:42px;width:auto;display:inline-block"></div>`;
 
 function walk(dir, results = []) {
   if (!fs.existsSync(dir)) return results;
