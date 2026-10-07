@@ -44,7 +44,7 @@ const BRAND = {
   success:    '#2E7D32',
 };
 
-const LOGO_URL = 'https://leamss.com/public/assets/web/images/logo.webp';
+const LOGO_URL = '/leamss-logo.png';
 const WHATSAPP = '7738352427';
 const PHONE = '7718882427';
 const TOLL_FREE = '1800-210-2427';
@@ -164,7 +164,7 @@ function LeamssShell({ children, transparentHeader = false }) {
       <footer style={{ background: BRAND.primaryDk, color: '#FFFFFF' }}>
         <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-4 gap-8 text-sm">
           <div>
-            <img src={LOGO_URL} alt="LEAMSS" className="h-12 w-auto mb-3 brightness-0 invert opacity-95" />
+            <img src="/leamss-logo-white.png" alt="LEAMSS" className="h-11 w-auto mb-3 opacity-95" />
             <p className="text-white/80 leading-relaxed">
               <strong>Ladhani Education & Migration Services (OPC) Pvt. Ltd</strong><br />
               India&apos;s trusted immigration experts. We value emotions.

@@ -8,7 +8,7 @@
  * 6. Replace country card flags in atlas/index.html with flag images
  * 7. Change "Book Free Consultation" -> "Book a Consultation"
  * 8. Change "since 2014" -> "since 2024"
- * 9. Ensure crisp, high-res LEAMSS logo in header and footer across all pages
+ * 9. Ensure crisp, high-res transparent LEAMSS logo in header and footer across all pages
  */
 const fs = require('fs');
 const path = require('path');
@@ -27,11 +27,11 @@ const nzFlagFooter = '<li><a href="/atlas/nz/"><img src="https://flagcdn.com/w20
 
 const privacyPolicyReplacement = '<a href="https://leamss.com/privacy-policy" target="_blank" rel="noopener noreferrer">privacy policy</a>';
 
-const headerLogoAtlas = '<a href="/" class="brand-wordmark" aria-label="LEAMSS"><img src="https://leamss.com/public/assets/web/images/logo.webp" alt="LEAMSS Logo" style="height:44px;width:auto;vertical-align:middle;display:inline-block" onerror="this.src=\'/leamss-logo.png\'"></a>';
-const headerLogoStart = '<a href="https://leamss.com" class="brand-wordmark"><img src="https://leamss.com/public/assets/web/images/logo.webp" alt="LEAMSS Logo" style="height:48px;width:auto" onerror="this.src=\'/leamss-logo.png\'"></a>';
+const headerLogoAtlas = '<a href="/" class="brand-wordmark" aria-label="LEAMSS"><img src="/atlas/leamss-logo.png" alt="LEAMSS" style="height:44px;width:auto;vertical-align:middle;display:inline-block" onerror="this.onerror=null;this.src=\'/leamss-logo.png\'"></a>';
+const headerLogoStart = '<a href="https://leamss.com" class="brand-wordmark"><img src="/start/leamss-logo.png" alt="LEAMSS" style="height:46px;width:auto" onerror="this.onerror=null;this.src=\'/leamss-logo.png\'"></a>';
 
-const footerLogoAtlas = '<div class="brand-wordmark" style="margin-bottom:12px"><img src="https://leamss.com/public/assets/web/images/logo.webp" alt="LEAMSS Logo" style="height:44px;width:auto;display:inline-block" onerror="this.src=\'/leamss-logo.png\'"></div>';
-const footerLogoDark = '<div class="brand-wordmark" style="margin-bottom:14px"><img src="https://leamss.com/public/assets/web/images/logo.webp" alt="LEAMSS Logo" style="height:44px;width:auto;filter:brightness(0) invert(1);opacity:0.95;display:inline-block" onerror="this.src=\'/leamss-logo.png\'"></div>';
+const footerLogoAtlas = '<div class="brand-wordmark" style="margin-bottom:12px"><img src="/atlas/leamss-logo.png" alt="LEAMSS" style="height:40px;width:auto;display:inline-block" onerror="this.onerror=null;this.src=\'/leamss-logo.png\'"></div>';
+const footerLogoDark = '<div class="brand-wordmark" style="margin-bottom:14px"><img src="/start/leamss-logo-white.png" alt="LEAMSS" style="height:42px;width:auto;display:inline-block" onerror="this.onerror=null;this.src=\'/leamss-logo-white.png\'"></div>';
 
 function walk(dir, results = []) {
   if (!fs.existsSync(dir)) return results;
@@ -113,11 +113,8 @@ function patchHtml(html, filePath) {
   // 9. Header logo replacement
   if (isStartOrCalc) {
     content = content.replace(/<a href="https:\/\/leamss\.com" class="brand-wordmark">\s*<img[^>]*>\s*<\/a>/g, headerLogoStart);
-    content = content.replace(/<img src="https:\/\/leamss\.com\/public\/assets\/web\/images\/logo\.webp" alt="LEAMSS Logo"[^>]*>/g,
-      '<img src="https://leamss.com/public/assets/web/images/logo.webp" alt="LEAMSS Logo" style="height:48px;width:auto" onerror="this.src=\'/leamss-logo.png\'">'
-    );
-    content = content.replace(/<img src="\/leamss-logo\.png" alt="LEAMSS Logo"[^>]*>/g,
-      '<img src="https://leamss.com/public/assets/web/images/logo.webp" alt="LEAMSS Logo" style="height:48px;width:auto" onerror="this.src=\'/leamss-logo.png\'">'
+    content = content.replace(/<img src="[^"]*logo\.(?:webp|png)" alt="LEAMSS Logo"[^>]*>/g,
+      '<img src="/start/leamss-logo.png" alt="LEAMSS" style="height:46px;width:auto" onerror="this.onerror=null;this.src=\'/leamss-logo.png\'">'
     );
   } else {
     content = content.replace(/<a href="(?:\/|https:\/\/leamss\.com)" class="brand-wordmark" aria-label="LEAMSS">\s*(?:<img[^>]*>|<span style="color:#2a777a">LE<\/span><span style="color:#f7620b">AM<\/span><span style="color:#d81f26">SS<\/span><span style="color:#1F4D44">\.<\/span>(?:\s*<span class="brand-tagline-pill">.*?<\/span>)?)\s*<\/a>/g,
@@ -127,10 +124,10 @@ function patchHtml(html, filePath) {
 
   // 10. Footer logo replacement
   if (isStartOrCalc) {
-    content = content.replace(/<div class="brand-wordmark" style="margin-bottom:12px">\s*<img[^>]*>\s*<\/div>/g, footerLogoDark);
+    content = content.replace(/<div class="brand-wordmark" style="margin-bottom:1[24]px">\s*<img[^>]*>\s*<\/div>/g, footerLogoDark);
     content = content.replace(/<div class="brand-wordmark" style="font-size:2[24]px;margin-bottom:1[02]px">\s*<span style="color:#2a777a">LE<\/span><span style="color:#f7620b">AM<\/span><span style="color:#d81f26">SS<\/span><span style="color:#[A-Za-z0-9]+">\.<\/span>\s*<\/div>/g, footerLogoDark);
   } else {
-    content = content.replace(/<div class="brand-wordmark" style="margin-bottom:12px">\s*<img[^>]*>\s*<\/div>/g, footerLogoAtlas);
+    content = content.replace(/<div class="brand-wordmark" style="margin-bottom:1[24]px">\s*<img[^>]*>\s*<\/div>/g, footerLogoAtlas);
     content = content.replace(/<div class="brand-wordmark" style="font-size:2[24]px;margin-bottom:1[02]px">\s*<span style="color:#2a777a">LE<\/span><span style="color:#f7620b">AM<\/span><span style="color:#d81f26">SS<\/span><span style="color:#[A-Za-z0-9]+">\.<\/span>\s*<\/div>/g, footerLogoAtlas);
   }
 
