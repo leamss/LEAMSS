@@ -340,6 +340,7 @@ em, i { font-style: italic; }
   border-radius: 10pt;
   padding: 12pt 14pt;
   margin-bottom: 8pt;
+  box-sizing: border-box;
 }
 .card.tinted {
   background: var(--teal-50);
@@ -360,12 +361,15 @@ table.kv {
   border-collapse: collapse;
   font-size: 10pt;
   margin-bottom: 8pt;
+  table-layout: fixed;
 }
 table.kv th, table.kv td {
   padding: 7pt 10pt;
   text-align: left;
   vertical-align: top;
   border-bottom: 0.5pt solid var(--border);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 table.kv th {
   font-family: 'Manrope', sans-serif;
@@ -430,10 +434,11 @@ table.kv tr.total td {
 }
 
 /* ─── Layout helpers ────────────────────────────────────────────────────── */
-.row { display: flex; gap: 10pt; flex-wrap: wrap; }
-.row > .col { flex: 1; }
-.row > .col-2 { flex: 0 0 calc(50% - 5pt); }
-.row > .col-3 { flex: 0 0 calc(33.333% - 7pt); }
+.row { display: flex; gap: 10pt; flex-wrap: wrap; width: 100%; box-sizing: border-box; }
+.row.nowrap { flex-wrap: nowrap; }
+.row > .col { flex: 1 1 0; min-width: 0; box-sizing: border-box; }
+.row > .col-2 { flex: 0 0 calc(50% - 5pt); width: calc(50% - 5pt); max-width: calc(50% - 5pt); min-width: 0; box-sizing: border-box; }
+.row > .col-3 { flex: 0 0 calc(33.333% - 7pt); width: calc(33.333% - 7pt); max-width: calc(33.333% - 7pt); min-width: 0; box-sizing: border-box; }
 
 .spacer-sm { height: 6pt; }
 .spacer-md { height: 14pt; }

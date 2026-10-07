@@ -13,31 +13,31 @@
     <p class="lead">Locked at the time this report was generated. Any change requires a fresh assessment.</p>
   </div>
 
-  <div class="row">
-    <div class="col-2">
-      <div class="card tinted">
+  <div class="row" style="display:flex;flex-wrap:nowrap;gap:10pt;width:100%;box-sizing:border-box;">
+    <div class="col-2" style="flex:1 1 50%;max-width:calc(50% - 5pt);min-width:0;box-sizing:border-box;">
+      <div class="card tinted" style="height:100%;margin-bottom:0;box-sizing:border-box;">
         <h4>Primary Applicant</h4>
-        <table class="kv" style="margin-top:6pt;">
+        <table class="kv" style="margin-top:6pt;table-layout:fixed;width:100%;">
           <tbody>
-            <tr><td style="width:42%;color:var(--slate-500);">Full Name</td><td><b>{{ client.name or '—' }}</b></td></tr>
-            <tr><td style="color:var(--slate-500);">Email</td><td>{{ client.email or '—' }}</td></tr>
-            <tr><td style="color:var(--slate-500);">Phone</td><td>{{ client.phone or '—' }}</td></tr>
-            <tr><td style="color:var(--slate-500);">Marital Status</td><td>{{ (profile.marital_status or '—')|title }}</td></tr>
-            <tr><td style="color:var(--slate-500);">Age</td><td>{{ (primary.personal or {}).age or '—' }}</td></tr>
+            <tr><td style="width:40%;color:var(--slate-500);">Full Name</td><td style="word-break:break-word;"><b>{{ client.name or '—' }}</b></td></tr>
+            <tr><td style="color:var(--slate-500);">Email</td><td style="word-break:break-word;font-size:9pt;">{{ client.email or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Phone</td><td style="word-break:break-word;">{{ client.phone or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Marital Status</td><td style="word-break:break-word;">{{ (profile.marital_status or '—')|title }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Age</td><td style="word-break:break-word;">{{ (primary.personal or {}).age or '—' }}</td></tr>
           </tbody>
         </table>
       </div>
     </div>
-    <div class="col-2">
-      <div class="card warm">
+    <div class="col-2" style="flex:1 1 50%;max-width:calc(50% - 5pt);min-width:0;box-sizing:border-box;">
+      <div class="card warm" style="height:100%;margin-bottom:0;box-sizing:border-box;">
         <h4>Education &amp; Profession</h4>
-        <table class="kv" style="margin-top:6pt;">
+        <table class="kv" style="margin-top:6pt;table-layout:fixed;width:100%;">
           <tbody>
-            <tr><td style="width:42%;color:var(--slate-500);">Highest Qualification</td><td>{{ (primary.education or {}).highest_qualification or '—' }}</td></tr>
-            <tr><td style="color:var(--slate-500);">Field of Study</td><td>{{ (primary.education or {}).field_of_study or '—' }}</td></tr>
-            <tr><td style="color:var(--slate-500);">Current Profession</td><td><b>{{ (primary.professional or {}).current_profession or '—' }}</b></td></tr>
-            <tr><td style="color:var(--slate-500);">Years of Experience</td><td>{{ (primary.professional or {}).years_experience_total or '—' }}</td></tr>
-            <tr><td style="color:var(--slate-500);">IELTS Overall</td><td>{{ (((primary.language or {}).scores or {}).overall) or '—' }}</td></tr>
+            <tr><td style="width:44%;color:var(--slate-500);">Highest Qualification</td><td style="word-break:break-word;">{{ (primary.education or {}).highest_qualification or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Field of Study</td><td style="word-break:break-word;">{{ (primary.education or {}).field_of_study or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Current Profession</td><td style="word-break:break-word;"><b>{{ (primary.professional or {}).current_profession or '—' }}</b></td></tr>
+            <tr><td style="color:var(--slate-500);">Years of Experience</td><td style="word-break:break-word;">{{ (primary.professional or {}).years_experience_total or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">IELTS Overall</td><td style="word-break:break-word;">{{ (((primary.language or {}).scores or {}).overall) or '—' }}</td></tr>
           </tbody>
         </table>
       </div>
