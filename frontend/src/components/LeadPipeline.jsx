@@ -8,10 +8,49 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Plus, CreditCard, FileText, Eye, CheckCircle, Send, XCircle,
   RefreshCw, Globe, Clock, LayoutGrid, List as ListIcon, Search, ChevronRight,
-  MessageCircle, Mail, Phone, ExternalLink, Copy, Check, User, Sparkles, BookOpen, Briefcase
+  MessageCircle, Mail, Phone, ExternalLink, Copy, Check, User, Sparkles, BookOpen, Briefcase, Download
 } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
+
+const getResumeHref = (url) => {
+  if (!url) return '';
+  const str = String(url).trim();
+  const hex = str.match(/[a-fA-F0-9]{24}/);
+  if (hex && (str.includes('cockpit') || str.includes('resume') || /^[a-fA-F0-9]{24}$/.test(str))) {
+    return `${BACKEND_URL}/api/cockpit/resume/${hex[0]}`;
+  }
+  if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('blob:') || str.startsWith('data:')) return str;
+  if (str.startsWith('/api')) return `${BACKEND_URL}${str}`;
+  if (str.startsWith('/')) return `${BACKEND_URL}/api${str}`;
+  return `${BACKEND_URL}/api/${str}`;
+};
+
+const getReportPdfHref = (lead) => {
+  if (!lead) return '';
+  if (lead.report_pdf_url) {
+    const u = String(lead.report_pdf_url).trim();
+    if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('blob:') || u.startsWith('data:')) return u;
+    if (u.startsWith('/api')) return `${BACKEND_URL}${u}`;
+    if (u.startsWith('/')) return `${BACKEND_URL}/api${u}`;
+    return `${BACKEND_URL}/api/${u}`;
+  }
+  if (lead.bulk_row_id) {
+    return `${BACKEND_URL}/api/bulk-assessments/public/row/${lead.bulk_row_id}/report.pdf`;
+  }
+  if (lead.share_token) {
+    return `${BACKEND_URL}/api/assessment-reports/public/${lead.share_token}/pdf`;
+  }
+  if (lead.assessment_report_id || lead.latest_report_snapshot_id) {
+    const snapId = lead.assessment_report_id || lead.latest_report_snapshot_id;
+    return `${BACKEND_URL}/api/assessment-reports/${snapId}/pdf`;
+  }
+  if (lead.id && lead.item_type === 'pre_assessment') {
+    return `${BACKEND_URL}/api/pre-assess-portal/pdf/${lead.id}`;
+  }
+  return '';
+};
 
 const STAGES = [
   { key: 'new', label: 'New Leads', color: 'bg-slate-500', text: 'text-slate-700', border: 'border-slate-300', bg: 'bg-slate-50', dot: 'bg-slate-500', icon: Plus },
@@ -427,6 +466,20 @@ const LeadPipeline = ({ onLeadClick }) => {
                   <p className="text-slate-400 font-medium">PA Number</p>
                   <p className="text-slate-800 font-semibold font-mono">{selectedLead.pa_number || 'N/A'}</p>
                 </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Assigned Partner / Owner</p>
+                  <p className="text-slate-800 font-semibold">{selectedLead.assigned_to_name || selectedLead.partner_name || 'Unassigned'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Report Status</p>
+                  <p className="font-semibold">
+                    {selectedLead.report_generated ? (
+                      <span className="text-emerald-700 font-bold">✓ Generated</span>
+                    ) : (
+                      <span className="text-amber-700 font-medium">Pending</span>
+                    )}
+                  </p>
+                </div>
                 {selectedLead.education && (
                   <div>
                     <p className="text-slate-400 font-medium">Education</p>
@@ -440,6 +493,82 @@ const LeadPipeline = ({ onLeadClick }) => {
                   </div>
                 )}
               </div>
+
+              {/* Client Pre-Assessment Report (PDF) Box */}
+              {selectedLead.report_generated || getReportPdfHref(selectedLead) ? (
+                <div className="border border-emerald-300 bg-emerald-50/80 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-xs text-emerald-950">Client Pre-Assessment Report</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 border border-emerald-300">✓ PDF Generated</span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800 truncate mt-0.5">
+                        {selectedLead.bulk_batch_id ? `Generated via Batch: ${selectedLead.bulk_batch_id}` : 'Complete strategic eligibility, occupation & visa points report'}
+                      </p>
+                    </div>
+                  </div>
+                  {getReportPdfHref(selectedLead) && (
+                    <a
+                      href={getReportPdfHref(selectedLead)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 flex items-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-98"
+                      data-testid="modal-view-report-pdf-btn"
+                    >
+                      <Download className="h-4 w-4" /> View PDF Report
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="border border-slate-200 bg-slate-50/60 rounded-xl p-3 flex items-center justify-between text-xs text-slate-500">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-slate-400" />
+                    <span>Pre-Assessment Report: <strong className="text-slate-700">Pending Generation</strong></span>
+                  </div>
+                </div>
+              )}
+
+              {/* Uploaded Candidate Resume Box */}
+              {selectedLead.has_resume || selectedLead.resume_url ? (
+                <div className="border border-teal-300 bg-teal-50/80 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-[#0F766E] text-white flex items-center justify-center shrink-0 shadow-sm">
+                      <Briefcase className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-teal-950">Candidate Resume</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-200 text-teal-900 border border-teal-300">Attached</span>
+                      </div>
+                      <p className="text-[11px] text-teal-800 font-mono truncate mt-0.5">
+                        {selectedLead.resume_filename || 'Resume.pdf'}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedLead.resume_url && (
+                    <a
+                      href={getResumeHref(selectedLead.resume_url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-[#0F766E] hover:bg-[#115E59] flex items-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-98"
+                      data-testid="modal-view-resume-btn"
+                    >
+                      <Download className="h-4 w-4" /> View Resume
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="border border-slate-200 bg-slate-50/60 rounded-xl p-3 flex items-center justify-between text-xs text-slate-500">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-slate-400" />
+                    <span>Candidate Resume: <strong className="text-slate-600">No resume uploaded</strong></span>
+                  </div>
+                </div>
+              )}
 
               {/* Follow-Up Action Hub */}
               <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-3">

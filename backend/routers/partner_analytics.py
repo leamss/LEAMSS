@@ -251,7 +251,71 @@ async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
     # 2. Fetch Leads
     leads = await db["leads"].find(lead_query, {"_id": 0}).sort("created_at", -1).to_list(2000)
 
-    # 3. Merge without duplicates
+    # 3. Collect IDs and emails for bulk rows / snapshots lookup
+    lead_ids = [l.get("id") for l in leads if l.get("id")]
+    pa_ids = [p.get("id") for p in pas if p.get("id")]
+    emails = list({(l.get("email") or l.get("client_email") or "").strip().lower() for l in leads if l.get("email") or l.get("client_email")} |
+                  {(p.get("client_email") or "").strip().lower() for p in pas if p.get("client_email")})
+    emails = [e for e in emails if e and "@" in e]
+
+    # Pre-fetch bulk assessment rows
+    bulk_rows = []
+    if lead_ids or emails or pa_ids:
+        or_conditions = []
+        if lead_ids:
+            or_conditions.append({"lead_id": {"$in": lead_ids}})
+        if pa_ids:
+            or_conditions.append({"pa_id": {"$in": pa_ids}})
+        if emails:
+            or_conditions.append({"parsed.email": {"$in": emails}})
+        if or_conditions:
+            bulk_rows = await db["bulk_assessment_rows"].find(
+                {"$or": or_conditions},
+                {"_id": 0, "id": 1, "batch_id": 1, "lead_id": 1, "pa_id": 1, "parsed.email": 1, "pdf_file_id": 1, "status": 1, "resume_file_id": 1, "parsed.resume_file_id": 1, "parsed.resume_link": 1, "parsed.resume_filename": 1}
+            ).to_list(2000)
+
+    # Map bulk rows by lead_id, pa_id, and email
+    bulk_by_lead_id = {}
+    bulk_by_pa_id = {}
+    bulk_by_email = {}
+    for r in bulk_rows:
+        if r.get("lead_id"):
+            bulk_by_lead_id[r["lead_id"]] = r
+        if r.get("pa_id"):
+            bulk_by_pa_id[r["pa_id"]] = r
+        em = (r.get("parsed") or {}).get("email")
+        if em and isinstance(em, str):
+            bulk_by_email[em.strip().lower()] = r
+
+    # Pre-fetch report snapshots
+    report_snaps = []
+    if emails or lead_ids or pa_ids:
+        snap_or = []
+        if emails:
+            snap_or.append({"client_email": {"$in": emails}})
+        if lead_ids:
+            snap_or.append({"lead_id": {"$in": lead_ids}})
+        if pa_ids:
+            snap_or.append({"pa_id": {"$in": pa_ids}})
+        if snap_or:
+            report_snaps = await db["report_snapshots"].find(
+                {"$or": snap_or},
+                {"_id": 0, "snapshot_id": 1, "share_token": 1, "client_email": 1, "lead_id": 1, "pa_id": 1}
+            ).to_list(2000)
+
+    snap_by_lead_id = {}
+    snap_by_pa_id = {}
+    snap_by_email = {}
+    for s in report_snaps:
+        if s.get("lead_id"):
+            snap_by_lead_id[s["lead_id"]] = s
+        if s.get("pa_id"):
+            snap_by_pa_id[s["pa_id"]] = s
+        em = s.get("client_email")
+        if em and isinstance(em, str):
+            snap_by_email[em.strip().lower()] = s
+
+    # 4. Merge without duplicates
     items_by_id = {}
     linked_lead_ids = set()
 
@@ -267,6 +331,39 @@ async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
         created_at = pa.get("created_at")
         if isinstance(created_at, datetime):
             created_at = created_at.isoformat()
+
+        c_email = (pa.get("client_email") or "").strip().lower()
+        matched_bulk = bulk_by_pa_id.get(pa_id) or (bulk_by_lead_id.get(lead_id) if lead_id else None) or (bulk_by_email.get(c_email) if c_email else None)
+        matched_snap = snap_by_pa_id.get(pa_id) or (snap_by_lead_id.get(lead_id) if lead_id else None) or (snap_by_email.get(c_email) if c_email else None)
+
+        has_report = bool(
+            pa.get("report_generated") is True
+            or pa.get("pdf_url")
+            or pa.get("report_pdf_url")
+            or pa.get("report_data")
+            or (matched_bulk and (matched_bulk.get("pdf_file_id") or matched_bulk.get("status") == "generated"))
+            or bool(matched_snap)
+        )
+
+        bulk_row_id = pa.get("bulk_row_id") or (matched_bulk.get("id") if matched_bulk else None)
+        bulk_batch_id = pa.get("batch_id") or pa.get("bulk_batch_id") or (matched_bulk.get("batch_id") if matched_bulk else None)
+        share_token = pa.get("share_token") or (matched_snap.get("share_token") if matched_snap else None)
+
+        report_pdf_url = pa.get("report_pdf_url") or pa.get("pdf_url")
+        if not report_pdf_url:
+            if bulk_row_id and (matched_bulk and (matched_bulk.get("pdf_file_id") or matched_bulk.get("status") == "generated")):
+                report_pdf_url = f"/api/bulk-assessments/public/row/{bulk_row_id}/report.pdf"
+            elif share_token:
+                report_pdf_url = f"/api/assessment-reports/public/{share_token}/pdf"
+            elif matched_snap and matched_snap.get("snapshot_id"):
+                report_pdf_url = f"/api/assessment-reports/{matched_snap.get('snapshot_id')}/pdf"
+            elif pa_id and has_report:
+                report_pdf_url = f"/api/pre-assess-portal/pdf/{pa_id}"
+
+        resume_fid = pa.get("resume_file_id") or (matched_bulk.get("resume_file_id") or (matched_bulk.get("parsed") or {}).get("resume_file_id") if matched_bulk else None)
+        resume_url = pa.get("resume_url") or pa.get("cv_url") or pa.get("resume_link") or (f"/cockpit/resume/{resume_fid}" if resume_fid else None) or ((matched_bulk.get("parsed") or {}).get("resume_link") if matched_bulk else None)
+        has_resume = bool(resume_url or resume_fid or pa.get("has_resume"))
+        resume_fname = pa.get("resume_filename") or ((matched_bulk.get("parsed") or {}).get("resume_filename") if matched_bulk else None) or ("Resume.pdf" if has_resume else None)
 
         item = {
             "id": pa_id,
@@ -285,9 +382,19 @@ async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
             "work_experience": pa.get("work_experience") or "",
             "created_at": created_at,
             "assigned_to": pa.get("assigned_to"),
-            "assigned_to_name": pa.get("assigned_to_name"),
-            "partner_id": pa.get("partner_id"),
-            "partner_name": pa.get("partner_name"),
+            "assigned_to_name": pa.get("assigned_to_name") or pa.get("partner_name") or "Unassigned",
+            "partner_id": pa.get("partner_id") or pa.get("assigned_to"),
+            "partner_name": pa.get("partner_name") or pa.get("assigned_to_name") or "Unassigned",
+            "has_resume": has_resume,
+            "resume_url": resume_url,
+            "resume_filename": resume_fname,
+            "resume_file_id": resume_fid,
+            "report_generated": has_report,
+            "report_pdf_url": report_pdf_url,
+            "report_url": pa.get("report_url"),
+            "share_token": share_token,
+            "bulk_batch_id": bulk_batch_id,
+            "bulk_row_id": bulk_row_id,
             "item_type": "pre_assessment"
         }
         items_by_id[pa_id] = item
@@ -303,6 +410,10 @@ async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
                     items_by_id[target_pa_id]["education"] = l.get("qualification")
                 if not items_by_id[target_pa_id].get("work_experience"):
                     items_by_id[target_pa_id]["work_experience"] = l.get("experience")
+                if not items_by_id[target_pa_id].get("has_resume") and (l.get("resume_url") or l.get("resume_file_id")):
+                    items_by_id[target_pa_id]["has_resume"] = True
+                    items_by_id[target_pa_id]["resume_url"] = l.get("resume_url") or (f"/cockpit/resume/{l.get('resume_file_id')}" if l.get('resume_file_id') else None)
+                    items_by_id[target_pa_id]["resume_filename"] = l.get("resume_filename") or "Resume.pdf"
             continue
 
         raw_stage = l.get("stage") or "new"
@@ -311,6 +422,36 @@ async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
         created_at = l.get("created_at")
         if isinstance(created_at, datetime):
             created_at = created_at.isoformat()
+
+        l_email = (l.get("email") or l.get("client_email") or "").strip().lower()
+        matched_bulk = bulk_by_lead_id.get(l_id) or (bulk_by_email.get(l_email) if l_email else None)
+        matched_snap = snap_by_lead_id.get(l_id) or (snap_by_email.get(l_email) if l_email else None)
+
+        has_report = bool(
+            l.get("report_generated") is True
+            or l.get("pdf_url")
+            or l.get("report_pdf_url")
+            or (matched_bulk and (matched_bulk.get("pdf_file_id") or matched_bulk.get("status") == "generated"))
+            or bool(matched_snap)
+        )
+
+        bulk_row_id = l.get("bulk_row_id") or (matched_bulk.get("id") if matched_bulk else None)
+        bulk_batch_id = l.get("batch_id") or l.get("bulk_batch_id") or (matched_bulk.get("batch_id") if matched_bulk else None)
+        share_token = l.get("share_token") or (matched_snap.get("share_token") if matched_snap else None)
+
+        report_pdf_url = l.get("report_pdf_url") or l.get("pdf_url")
+        if not report_pdf_url:
+            if bulk_row_id and (matched_bulk and (matched_bulk.get("pdf_file_id") or matched_bulk.get("status") == "generated")):
+                report_pdf_url = f"/api/bulk-assessments/public/row/{bulk_row_id}/report.pdf"
+            elif share_token:
+                report_pdf_url = f"/api/assessment-reports/public/{share_token}/pdf"
+            elif matched_snap and matched_snap.get("snapshot_id"):
+                report_pdf_url = f"/api/assessment-reports/{matched_snap.get('snapshot_id')}/pdf"
+
+        resume_fid = l.get("resume_file_id") or (matched_bulk.get("resume_file_id") or (matched_bulk.get("parsed") or {}).get("resume_file_id") if matched_bulk else None)
+        resume_url = l.get("resume_url") or l.get("resume_link") or (f"/cockpit/resume/{resume_fid}" if resume_fid else None) or ((matched_bulk.get("parsed") or {}).get("resume_link") if matched_bulk else None)
+        has_resume = bool(resume_url or resume_fid or l.get("has_resume"))
+        resume_fname = l.get("resume_filename") or ((matched_bulk.get("parsed") or {}).get("resume_filename") if matched_bulk else None) or ("Resume.pdf" if has_resume else None)
 
         item = {
             "id": l_id,
@@ -329,9 +470,19 @@ async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
             "work_experience": l.get("experience") or l.get("work_experience") or "",
             "created_at": created_at,
             "assigned_to": l.get("assigned_to"),
-            "assigned_to_name": l.get("assigned_to_name"),
-            "partner_id": l.get("partner_id"),
-            "partner_name": l.get("partner_name"),
+            "assigned_to_name": l.get("assigned_to_name") or l.get("partner_name") or "Unassigned",
+            "partner_id": l.get("partner_id") or l.get("assigned_to"),
+            "partner_name": l.get("partner_name") or l.get("assigned_to_name") or "Unassigned",
+            "has_resume": has_resume,
+            "resume_url": resume_url,
+            "resume_filename": resume_fname,
+            "resume_file_id": resume_fid,
+            "report_generated": has_report,
+            "report_pdf_url": report_pdf_url,
+            "report_url": l.get("report_url"),
+            "share_token": share_token,
+            "bulk_batch_id": bulk_batch_id,
+            "bulk_row_id": bulk_row_id,
             "item_type": "lead"
         }
         items_by_id[f"lead_{l_id}"] = item
