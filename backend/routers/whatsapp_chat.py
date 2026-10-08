@@ -58,6 +58,18 @@ def _is_admin(user: dict) -> bool:
     return role in ADMIN_ROLES or "*" in (user.get("permissions") or [])
 
 
+def _can_access_conv(conv: dict, user: dict) -> bool:
+    if _is_admin(user):
+        return True
+    role = (user.get("rbac_role") or user.get("role") or "").lower()
+    if role == "partner":
+        user_id = user.get("id")
+        if not user_id:
+            return False
+        return conv.get("assigned_to") == user_id or conv.get("partner_id") == user_id
+    return True
+
+
 # ── Pydantic Request Models ───────────────────────────────────────────────────
 
 class SendMessageRequest(BaseModel):
@@ -766,31 +778,30 @@ async def list_conversations(
         raise HTTPException(status_code=403, detail="Not authorized to access WhatsApp Inbox")
 
     user_id = current_user.get("id")
-    user_role = current_user.get("rbac_role") or current_user.get("role") or ""
+    user_role = (current_user.get("rbac_role") or current_user.get("role") or "").lower()
     is_admin = _is_admin(current_user)
 
     query: Dict[str, Any] = {}
 
-    # Tab logic
-    if tab == "mine":
-        query["assigned_to"] = user_id
-    elif tab == "unassigned":
-        query["$or"] = [{"assigned_to": None}, {"assigned_to": ""}, {"assigned_to": {"$exists": False}}]
-    elif not is_admin and user_role in ("partner", "sales_executive"):
-        if assigned_to:
-            query["assigned_to"] = assigned_to
+    is_partner = not is_admin and user_role == "partner"
+
+    if is_partner:
+        # Partner must ONLY see conversations assigned to them
+        if tab == "unassigned":
+            query["id"] = "__none__"
         else:
-            query["$or"] = [
-                {"assigned_to": user_id},
-                {"assigned_to": None},
-                {"assigned_to": ""},
-                {"assigned_to": {"$exists": False}},
-            ]
+            query["$or"] = [{"assigned_to": user_id}, {"partner_id": user_id}]
     else:
-        if assigned_to == "unassigned":
+        # Tab logic for Admin / Staff
+        if tab == "mine":
+            query["assigned_to"] = user_id
+        elif tab == "unassigned":
             query["$or"] = [{"assigned_to": None}, {"assigned_to": ""}, {"assigned_to": {"$exists": False}}]
-        elif assigned_to and assigned_to != "all":
-            query["assigned_to"] = assigned_to
+        else:
+            if assigned_to == "unassigned":
+                query["$or"] = [{"assigned_to": None}, {"assigned_to": ""}, {"assigned_to": {"$exists": False}}]
+            elif assigned_to and assigned_to != "all":
+                query["assigned_to"] = assigned_to
 
     # Status filter
     if status and status != "all":
@@ -819,12 +830,19 @@ async def list_conversations(
         items.append(_clean_doc(doc))
 
     # Calculate global counters
-    total_all = len(items) if search else await CONVERSATIONS.count_documents({})
-    total_open = await CONVERSATIONS.count_documents({"status": "open"})
-    total_unassigned = await CONVERSATIONS.count_documents({
-        "$or": [{"assigned_to": None}, {"assigned_to": ""}, {"assigned_to": {"$exists": False}}]
-    })
-    total_mine = await CONVERSATIONS.count_documents({"assigned_to": user_id}) if user_id else 0
+    if is_partner:
+        partner_filter = {"$or": [{"assigned_to": user_id}, {"partner_id": user_id}]} if user_id else {"id": "__none__"}
+        total_mine = await CONVERSATIONS.count_documents(partner_filter)
+        total_all = total_mine
+        total_open = await CONVERSATIONS.count_documents({"status": "open", **partner_filter})
+        total_unassigned = 0
+    else:
+        total_all = len(items) if search else await CONVERSATIONS.count_documents({})
+        total_open = await CONVERSATIONS.count_documents({"status": "open"})
+        total_unassigned = await CONVERSATIONS.count_documents({
+            "$or": [{"assigned_to": None}, {"assigned_to": ""}, {"assigned_to": {"$exists": False}}]
+        })
+        total_mine = await CONVERSATIONS.count_documents({"assigned_to": user_id}) if user_id else 0
 
     return {
         "conversations": items,
@@ -850,6 +868,9 @@ async def get_conversation(
     conv = await CONVERSATIONS.find_one({"id": conv_id})
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if not _can_access_conv(conv, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
 
     conv_clean = _clean_doc(conv)
 
@@ -899,6 +920,9 @@ async def get_conversation_messages(
     conv = await CONVERSATIONS.find_one({"id": conv_id})
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if not _can_access_conv(conv, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
 
     phone = conv.get("phone")
     clean_p = normalize_phone_number(phone) if phone else None
@@ -974,6 +998,9 @@ async def send_chat_message(
     conv = await CONVERSATIONS.find_one({"id": conv_id})
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if not _can_access_conv(conv, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to send messages to this conversation")
 
     phone = conv.get("phone")
     if not phone:
@@ -1099,6 +1126,13 @@ async def update_conversation_status(
     if not _has_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    conv = await CONVERSATIONS.find_one({"id": conv_id})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if not _can_access_conv(conv, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to modify this conversation")
+
     valid_statuses = {"open", "in_progress", "qualified", "closed"}
     if req.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
@@ -1108,8 +1142,6 @@ async def update_conversation_status(
         {"id": conv_id},
         {"$set": {"status": req.status, "updated_at": now}}
     )
-    if res.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Conversation not found")
 
     return {"success": True, "status": req.status}
 
@@ -1123,6 +1155,13 @@ async def add_internal_note(
     """Add a private staff/partner internal note to a WhatsApp conversation."""
     if not _has_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    conv = await CONVERSATIONS.find_one({"id": conv_id})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if not _can_access_conv(conv, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to add notes to this conversation")
 
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="Note text cannot be empty")

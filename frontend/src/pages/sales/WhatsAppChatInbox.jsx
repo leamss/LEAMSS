@@ -53,6 +53,11 @@ export default function WhatsAppChatInbox() {
     return ['admin', 'admin_owner', 'super_admin'].includes(role);
   }, [currentUser]);
 
+  const isPartner = useMemo(() => {
+    const role = (currentUser?.rbac_role || currentUser?.role || '').toLowerCase();
+    return role === 'partner';
+  }, [currentUser]);
+
   // State
   const [conversations, setConversations] = useState([]);
   const [stats, setStats] = useState({ total_all: 0, total_open: 0, total_unassigned: 0, total_mine: 0 });
@@ -551,7 +556,7 @@ export default function WhatsAppChatInbox() {
                 }`}
                 onClick={() => setActiveTab('all')}
               >
-                All ({stats.total_all || 0})
+                {isPartner ? `My Chats (${stats.total_all || 0})` : `All (${stats.total_all || 0})`}
               </button>
               <button
                 className={`flex-1 py-1 px-2 rounded text-center transition-all ${
@@ -561,14 +566,16 @@ export default function WhatsAppChatInbox() {
               >
                 Assigned to Me ({stats.total_mine || 0})
               </button>
-              <button
-                className={`flex-1 py-1 px-2 rounded text-center transition-all ${
-                  activeTab === 'unassigned' ? 'bg-white dark:bg-slate-900 text-amber-700 shadow-sm font-bold' : 'text-slate-600'
-                }`}
-                onClick={() => setActiveTab('unassigned')}
-              >
-                Unassigned ({stats.total_unassigned || 0})
-              </button>
+              {!isPartner && (
+                <button
+                  className={`flex-1 py-1 px-2 rounded text-center transition-all ${
+                    activeTab === 'unassigned' ? 'bg-white dark:bg-slate-900 text-amber-700 shadow-sm font-bold' : 'text-slate-600'
+                  }`}
+                  onClick={() => setActiveTab('unassigned')}
+                >
+                  Unassigned ({stats.total_unassigned || 0})
+                </button>
+              )}
             </div>
 
             {/* Search and Status filter */}
