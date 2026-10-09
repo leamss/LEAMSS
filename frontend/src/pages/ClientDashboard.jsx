@@ -583,7 +583,7 @@ const ClientDashboard = () => {
 
   // Determine active pre-assessment (most-recent not-expired)
   const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded', 'international_payment_pending'].includes(p.stage));
-  const isMiniMode = !caseData && !!activePA && activePA.stage !== 'case_created';
+  const isMiniMode = !!activePA && activePA.stage !== 'case_created';
   const isExpandedMode = isMiniMode && ['approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid'].includes(activePA?.stage);
 
   const clientNavGroups = isMiniMode ? [
