@@ -2057,8 +2057,8 @@ async def send_assessment_whatsapp(
         except Exception as err:
             logger.warning("Failed pre-rendering PDF report: %s", err)
 
-    sla_url = f"{api_base_origin}/api/email-settings/asset/sla" if (attach_sla_flag and s.get("sla_file_id")) else None
-    qr_url = f"{api_base_origin}/api/email-settings/asset/qr" if (attach_qr_flag and s.get("qr_file_id")) else None
+    sla_url = f"{api_base_origin}/api/email-settings/asset/sla" if attach_sla_flag else None
+    qr_url = f"{api_base_origin}/api/email-settings/asset/qr.png" if attach_qr_flag else None
 
     has_candidate_resume = bool(
         doc.get("resume_file_id")
@@ -2427,10 +2427,10 @@ async def send_assessment_whatsapp(
                 logger.warning("Failed to dispatch WhatsApp SLA attachment: %s", e)
 
         # 2c. Attach Payment QR Image
-        if attach_qr_flag and (s.get("qr_file_id") or qr_url):
+        if attach_qr_flag:
             try:
                 await asyncio.sleep(0.5)
-                if is_twilio_mode and qr_url:
+                if qr_url:
                     await send_whatsapp_image_by_url(
                         to_phone=clean_phone,
                         image_url=qr_url,

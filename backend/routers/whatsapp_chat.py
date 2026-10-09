@@ -77,6 +77,10 @@ class SendMessageRequest(BaseModel):
     template_id: Optional[str] = None
     media_url: Optional[str] = None
     media_filename: Optional[str] = None
+    attach_qr: Optional[bool] = None
+    attach_report: Optional[bool] = None
+    attach_sla: Optional[bool] = None
+    attach_resume: Optional[bool] = None
 
 
 class AssignChatRequest(BaseModel):
@@ -1013,6 +1017,22 @@ async def send_chat_message(
     sender_name = current_user.get("name") or current_user.get("email") or "Staff"
     sender_id = current_user.get("id")
 
+    api_base_origin = (
+        os.environ.get("BACKEND_PUBLIC_URL")
+        or os.environ.get("PUBLIC_API_URL")
+        or "https://api.leamss.com"
+    ).strip().rstrip("/")
+    if "localhost" in api_base_origin or "127.0.0.1" in api_base_origin:
+        api_base_origin = "https://api.leamss.com"
+
+    media_url_to_send = req.media_url
+    media_fname = req.media_filename
+
+    # If QR attachment is requested
+    if req.attach_qr and not media_url_to_send:
+        media_url_to_send = f"{api_base_origin}/api/email-settings/asset/qr.png"
+        media_fname = "LEAMSS-Payment-QR.png"
+
     # Check WhatsApp API configuration
     cfg = await get_whatsapp_config()
     send_status = "sent"
@@ -1023,9 +1043,21 @@ async def send_chat_message(
             await send_whatsapp_text(
                 to_phone=phone,
                 text=text_to_send,
-                media_url=req.media_url,
+                media_url=media_url_to_send,
                 client_name=conv.get("client_name"),
             )
+            # For Meta Cloud API fallback, if media_url was provided, also ensure image dispatch
+            if req.attach_qr and not (cfg.get("provider") == "twilio" or cfg.get("is_twilio")):
+                try:
+                    from core.whatsapp_service import send_whatsapp_image_by_url
+                    await send_whatsapp_image_by_url(
+                        to_phone=phone,
+                        image_url=media_url_to_send,
+                        caption="💳 LEAMSS Official Payment QR & Banking Details",
+                    )
+                except Exception as qr_err:
+                    logger.warning("Secondary Meta QR send: %s", qr_err)
+
             send_status = "sent"
         except Exception as exc:
             logger.warning("Live WhatsApp send encountered error: %s (recording message to chat thread)", exc)
@@ -1046,8 +1078,8 @@ async def send_chat_message(
         client_email=conv.get("client_email"),
         assessment_id=conv.get("assessment_id"),
         status=send_status,
-        media_url=req.media_url,
-        media_filename=req.media_filename,
+        media_url=media_url_to_send,
+        media_filename=media_fname,
     )
 
     return {

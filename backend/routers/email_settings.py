@@ -277,15 +277,16 @@ async def delete_asset(asset: str, current_user: dict = Depends(get_current_user
 @router.get("/asset/{asset}")
 async def get_asset(asset: str):
     """PUBLIC — serves the QR / offer banner image (used by <img> in emails) and SLA."""
-    if asset not in _ASSET_FIELDS:
+    clean_asset = asset.lower().split(".")[0]
+    if clean_asset not in _ASSET_FIELDS:
         raise HTTPException(status_code=404, detail="Not found")
-    field = _ASSET_FIELDS[asset]
+    field = _ASSET_FIELDS[clean_asset]
     s = await SETTINGS.find_one({"id": "global"}, {field: 1})
     fid = (s or {}).get(field)
     data = None
     if fid:
         data = await read_asset_bytes(fid)
-    if asset == "sla":
+    if clean_asset == "sla":
         from core.official_assets import ensure_valid_sla_pdf
         pdf_data = ensure_valid_sla_pdf(data)
         return Response(
@@ -293,7 +294,7 @@ async def get_asset(asset: str):
             media_type="application/pdf",
             headers={"Content-Disposition": 'inline; filename="LEAMSS-Service-Level-Agreement-2026.pdf"'}
         )
-    if not data and asset == "qr":
+    if not data and clean_asset == "qr":
         from core.official_assets import generate_official_qr_image
         data = generate_official_qr_image()
     if not data:
@@ -305,7 +306,7 @@ async def get_asset(asset: str):
     return Response(
         content=data,
         media_type=ctype,
-        headers={"Cache-Control": "public, max-age=300", "Content-Disposition": f'inline; filename="LEAMSS-{asset.upper()}.png"'}
+        headers={"Cache-Control": "public, max-age=300", "Content-Disposition": f'inline; filename="LEAMSS-{clean_asset.upper()}.png"'}
     )
 
 

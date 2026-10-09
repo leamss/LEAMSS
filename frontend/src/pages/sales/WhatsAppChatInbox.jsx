@@ -75,6 +75,10 @@ export default function WhatsAppChatInbox() {
   // Messaging state
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const [attachQr, setAttachQr] = useState(false);
+  const [attachSla, setAttachSla] = useState(false);
+  const [attachReport, setAttachReport] = useState(false);
+  const [attachResume, setAttachResume] = useState(false);
 
   // Directory & Canned templates
   const [assignableUsers, setAssignableUsers] = useState([]);
@@ -212,7 +216,13 @@ export default function WhatsAppChatInbox() {
     try {
       const res = await axios.post(
         `${API}/whatsapp-chat/conversations/${selectedConvId}/send`,
-        { text: inputText.trim() },
+        {
+          text: inputText.trim(),
+          attach_qr: attachQr,
+          attach_sla: attachSla,
+          attach_report: attachReport,
+          attach_resume: attachResume,
+        },
         { headers }
       );
 
@@ -221,10 +231,14 @@ export default function WhatsAppChatInbox() {
       } else if (res.data?.api_error) {
         toast.warning(`Message saved, but WhatsApp API responded: ${res.data.api_error}`);
       } else {
-        toast.success('Message dispatched successfully');
+        toast.success(attachQr ? 'Message & Payment QR dispatched successfully' : 'Message dispatched successfully');
       }
 
       setInputText('');
+      setAttachQr(false);
+      setAttachSla(false);
+      setAttachReport(false);
+      setAttachResume(false);
       fetchMessages(selectedConvId, true);
       fetchConversations(true);
     } catch (err) {
@@ -247,6 +261,10 @@ export default function WhatsAppChatInbox() {
         .replace(/{company}/g, 'LEAMSS');
     }
     setInputText(text);
+    if (tmpl.attach_qr !== undefined) setAttachQr(Boolean(tmpl.attach_qr));
+    if (tmpl.attach_sla !== undefined) setAttachSla(Boolean(tmpl.attach_sla));
+    if (tmpl.attach_report !== undefined) setAttachReport(Boolean(tmpl.attach_report));
+    if (tmpl.attach_resume !== undefined) setAttachResume(Boolean(tmpl.attach_resume));
     setShowTemplatesDropdown(false);
   };
 
@@ -788,7 +806,35 @@ export default function WhatsAppChatInbox() {
                           </div>
 
                           {/* Media attachments */}
-                          {m.media_filename && (
+                          {m.media_url && (
+                            <div className="mt-2 p-1.5 rounded bg-black/10 text-[11px] space-y-1">
+                              {m.media_url.includes('asset/qr') || m.media_filename?.toLowerCase().includes('qr') ? (
+                                <div>
+                                  <div className={`flex items-center gap-1.5 font-semibold mb-1 ${isOutbound ? 'text-emerald-100' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                                    <span>💳</span> Official Payment QR Attached
+                                  </div>
+                                  <img
+                                    src={m.media_url}
+                                    alt="Payment QR"
+                                    className="w-32 h-32 object-contain bg-white rounded-md p-1 shadow-xs border border-slate-200"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <Paperclip className="w-3.5 h-3.5" />
+                                  <a
+                                    href={m.media_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="underline truncate text-current"
+                                  >
+                                    {m.media_filename || 'Attached Document'}
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {!m.media_url && m.media_filename && (
                             <div className="mt-2 p-1.5 rounded bg-black/10 flex items-center gap-2 text-[11px]">
                               <Paperclip className="w-3.5 h-3.5" />
                               <span className="truncate">{m.media_filename}</span>
@@ -821,41 +867,61 @@ export default function WhatsAppChatInbox() {
               {/* Message Input & Canned Template Picker */}
               <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-3 space-y-2">
                 {/* Template Toolbar */}
-                <div className="flex items-center justify-between text-xs">
-                  <div className="relative">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[11px] bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100"
-                      onClick={() => setShowTemplatesDropdown(!showTemplatesDropdown)}
-                    >
-                      <Sparkles className="w-3 h-3 mr-1 text-emerald-600" /> Insert Canned Template
-                      <ChevronDown className="w-3 h-3 ml-1" />
-                    </Button>
+                <div className="flex items-center justify-between text-xs flex-wrap gap-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="relative">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100"
+                        onClick={() => setShowTemplatesDropdown(!showTemplatesDropdown)}
+                      >
+                        <Sparkles className="w-3 h-3 mr-1 text-emerald-600" /> Insert Canned Template
+                        <ChevronDown className="w-3 h-3 ml-1" />
+                      </Button>
 
-                    {showTemplatesDropdown && (
-                      <div className="absolute bottom-9 left-0 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-2 z-50 max-h-64 overflow-y-auto">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
-                          Saved WhatsApp Templates
+                      {showTemplatesDropdown && (
+                        <div className="absolute bottom-9 left-0 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-2 z-50 max-h-64 overflow-y-auto">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
+                            Saved WhatsApp Templates
+                          </div>
+                          {cannedTemplates.length === 0 ? (
+                            <div className="p-3 text-center text-slate-400 text-xs">No templates found</div>
+                          ) : (
+                            cannedTemplates.map((t) => (
+                              <button
+                                key={t.id || t.name}
+                                type="button"
+                                onClick={() => handleInsertTemplate(t)}
+                                className="w-full text-left p-2 rounded hover:bg-emerald-50 dark:hover:bg-slate-700 transition-colors"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">{t.name}</span>
+                                  {t.attach_qr && (
+                                    <Badge className="text-[9px] bg-indigo-100 text-indigo-700 font-semibold px-1 py-0">QR</Badge>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-slate-500 truncate">{t.body}</div>
+                              </button>
+                            ))
+                          )}
                         </div>
-                        {cannedTemplates.length === 0 ? (
-                          <div className="p-3 text-center text-slate-400 text-xs">No templates found</div>
-                        ) : (
-                          cannedTemplates.map((t) => (
-                            <button
-                              key={t.id || t.name}
-                              type="button"
-                              onClick={() => handleInsertTemplate(t)}
-                              className="w-full text-left p-2 rounded hover:bg-emerald-50 dark:hover:bg-slate-700 transition-colors"
-                            >
-                              <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">{t.name}</div>
-                              <div className="text-[10px] text-slate-500 truncate">{t.body}</div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
+                      )}
+                    </div>
+
+                    {/* Quick QR Attachment Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setAttachQr(!attachQr)}
+                      className={`h-7 px-2 text-[11px] rounded-md font-medium flex items-center gap-1 border transition-colors ${
+                        attachQr
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs font-semibold'
+                          : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      💳 {attachQr ? 'Payment QR Attached ✓' : 'Attach Payment QR'}
+                    </button>
                   </div>
 
                   <span className="text-[10px] text-slate-400">
