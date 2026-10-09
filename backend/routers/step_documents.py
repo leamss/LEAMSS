@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 from core.database import (
-    db, cases_col, users_col, documents_col, notifications_col,
+    db, cases_col, users_col, products_col, documents_col, notifications_col,
     audit_logs_col, workflow_steps_col, case_steps_col, additional_doc_requests_col, pre_assessments_col, sales_col
 )
 from core.auth import get_current_user
@@ -404,9 +404,59 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
     """Get complete step-wise document structure for a case.
     Merges admin-default docs from workflow_steps with case-specific docs from case_steps.
     """
-    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    case = None
+    if case_id and str(case_id).strip() not in ("default", "none", "null", "undefined"):
+        case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+        if not case:
+            case = await cases_col.find_one({
+                "$or": [
+                    {"client_id": case_id},
+                    {"client_email": {"$regex": f"^{re.escape(str(case_id))}$", "$options": "i"}},
+                    {"email": {"$regex": f"^{re.escape(str(case_id))}$", "$options": "i"}},
+                    {"pre_assessment_id": case_id},
+                    {"sale_id": case_id},
+                ]
+            }, {"_id": 0})
+
+    if not case and current_user:
+        u_id = str(current_user.get("id") or current_user.get("_id") or "")
+        u_email = (current_user.get("email") or "").strip().lower()
+        email_regex = {"$regex": f"^{re.escape(u_email)}$", "$options": "i"} if u_email else None
+        or_list = []
+        if u_id:
+            or_list.extend([{"client_id": u_id}, {"spouse_id": u_id}, {"user_id": u_id}])
+        if email_regex:
+            or_list.extend([{"client_email": email_regex}, {"spouse_email": email_regex}, {"email": email_regex}])
+        if or_list:
+            case = await cases_col.find_one({"$or": or_list}, {"_id": 0})
+
     if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
+        u_id = str(current_user.get("id") or current_user.get("_id") or "") if current_user else ""
+        u_email = (current_user.get("email") or "").strip().lower() if current_user else ""
+        email_regex = {"$regex": f"^{re.escape(u_email)}$", "$options": "i"} if u_email else None
+        pa = None
+        sa = None
+        if email_regex:
+            pa = await pre_assessments_col.find_one({"$or": [{"email": email_regex}, {"client_email": email_regex}]}, {"_id": 0})
+            sa = await db["sales_assessments"].find_one({"$or": [{"lead_email": email_regex}, {"email": email_regex}, {"client_email": email_regex}]}, {"_id": 0})
+        
+        case = {
+            "id": case_id if case_id and str(case_id).strip() not in ("default", "none", "null", "undefined") else ((pa and pa.get("id")) or str(uuid.uuid4())),
+            "client_id": u_id,
+            "client_name": current_user.get("name", "Client") if current_user else "Client",
+            "client_email": u_email,
+            "product_name": (pa and pa.get("product_name")) or (sa and sa.get("product_name")) or "Australia PR",
+            "country": (pa and pa.get("country")) or (sa and sa.get("country")) or "Australia",
+            "service_type": "PR",
+            "status": "active",
+            "current_step": "Profile Creation",
+            "current_step_order": 1,
+            "occupation_code": (pa and (pa.get("occupation_code") or pa.get("suggested_occupation_code"))) or (sa and (sa.get("occupation", {}).get("code") if isinstance(sa.get("occupation"), dict) else sa.get("occupation_code"))) or "",
+            "occupation_title": (pa and (pa.get("occupation_title") or pa.get("suggested_occupation_title"))) or (sa and (sa.get("occupation", {}).get("title") if isinstance(sa.get("occupation"), dict) else sa.get("occupation_title"))) or "",
+            "assessing_authority_code": (pa and (pa.get("assessing_authority_code") or pa.get("suggested_assessing_authority_code"))) or "",
+            "client_occupation_review_status": "pending_client_review",
+            "is_virtual": True
+        }
 
     # Fallback to linked pre-assessment if case lacks occupation details
     if not case.get("occupation_code") and case.get("pre_assessment_id"):
@@ -419,12 +469,21 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 case["client_occupation_review_status"] = pa_obj.get("client_occupation_review_status") or "pending_client_review"
 
     # Access check
-    if current_user["role"] == "client" and current_user["id"] != case.get("client_id") and current_user["id"] != case.get("spouse_id"):
-        raise HTTPException(status_code=403, detail="Access denied")
+    if current_user and current_user.get("role") == "client" and not case.get("is_virtual"):
+        c_id = str(current_user.get("id") or current_user.get("_id") or "")
+        c_email = (current_user.get("email") or "").strip().lower()
+        allowed = (
+            (c_id and (c_id == case.get("client_id") or c_id == case.get("spouse_id")))
+            or (c_email and (c_email == (case.get("client_email") or "").strip().lower() or c_email == (case.get("spouse_email") or "").strip().lower() or c_email == (case.get("email") or "").strip().lower()))
+        )
+        if not allowed:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    effective_case_id = case.get("id") or case_id
 
     # Get case steps
     case_steps = await case_steps_col.find(
-        {"case_id": case_id}, {"_id": 0}
+        {"$or": [{"case_id": case_id}, {"case_id": effective_case_id}]}, {"_id": 0}
     ).sort("step_order", 1).to_list(50)
 
     # Get latest admin-defined workflow steps for this product
@@ -600,8 +659,18 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 })
 
         admin_docs_by_step[step_name] = intake_documents
+    doc_query_ids = [case_id, effective_case_id]
+    if case.get("id"):
+        doc_query_ids.append(case["id"])
+    doc_query_or = [{"case_id": {"$in": doc_query_ids}}]
+    if case.get("client_id"):
+        doc_query_or.append({"client_id": case["client_id"]})
+        doc_query_or.append({"user_id": case["client_id"]})
+    if case.get("client_email"):
+        doc_query_or.append({"client_email": {"$regex": f"^{re.escape(case['client_email'])}$", "$options": "i"}})
+
     uploaded_docs = await documents_col.find(
-        {"case_id": case_id}, {"_id": 0, "file_path": 0}
+        {"$or": doc_query_or}, {"_id": 0, "file_path": 0}
     ).sort("uploaded_at", -1).to_list(500)
 
     for d in uploaded_docs:
@@ -611,12 +680,12 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
 
     # Get additional doc requests
     additional_requests = await doc_requests_col.find(
-        {"case_id": case_id}, {"_id": 0}
+        {"$or": [{"case_id": {"$in": doc_query_ids}}]}, {"_id": 0}
     ).sort("created_at", 1).to_list(100)
 
     # Also fetch from the legacy additional_doc_requests collection
     legacy_requests = await additional_doc_requests_col.find(
-        {"case_id": case_id}, {"_id": 0}
+        {"$or": [{"case_id": {"$in": doc_query_ids}}]}, {"_id": 0}
     ).sort("created_at", 1).to_list(100)
 
     # Merge legacy requests (avoid duplicates by id)

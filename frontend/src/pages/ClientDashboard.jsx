@@ -1088,11 +1088,13 @@ const ClientDashboard = () => {
               {activeTab === 'documents' && (
                 <UnifiedDocumentView 
                   token={localStorage.getItem('token')} 
-                  caseId={caseData?.id}
+                  caseId={caseData?.id || 'default'}
                   caseData={caseData}
                   onDocumentUploaded={() => {
                     // Refresh documents
-                    axios.get(`${API}/documents/case/${caseData.id}`, getAuthHeader()).then(r => setDocuments(r.data)).catch(() => {});
+                    if (caseData?.id) {
+                      axios.get(`${API}/documents/case/${caseData.id}`, getAuthHeader()).then(r => setDocuments(r.data)).catch(() => {});
+                    }
                   }}
                 />
               )}

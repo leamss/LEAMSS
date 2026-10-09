@@ -13,6 +13,7 @@ from core.auth import get_current_user
 from core.services import create_notification, notify_users, log_activity
 from core.email_service import send_case_step_update_email
 import uuid
+import re
 from datetime import datetime, timezone, date, timedelta
 
 router = APIRouter(prefix="/cases", tags=["Cases"])
@@ -323,27 +324,82 @@ async def get_unassigned_cases(current_user: dict = Depends(get_current_user)):
 
 @router.get("/my-cases")
 async def get_my_cases(current_user: dict = Depends(get_current_user)):
-    user_id = current_user.get("id")
-    user_email = (current_user.get("email") or "").lower()
+    user_id = str(current_user.get("id") or current_user.get("_id") or "")
+    user_email = (current_user.get("email") or "").strip().lower()
     role = current_user.get("role")
 
     if role == "case_manager":
-        query = {"case_manager_id": user_id}
+        query = {"$or": [{"case_manager_id": user_id}, {"case_manager_id": str(current_user.get("_id", ""))}]}
     elif role in ("partner", "sales_executive", "sr_sales_executive"):
-        query = {"partner_id": user_id}
+        query = {"$or": [{"partner_id": user_id}, {"partner_id": str(current_user.get("_id", ""))}]}
     else:
-        # Default to strictly matching client ID or email
-        query = {
-            "$or": [
+        # Client role or admin impersonating client
+        email_regex = {"$regex": f"^{re.escape(user_email)}$", "$options": "i"} if user_email else None
+        or_clauses = []
+        if user_id:
+            or_clauses.extend([
                 {"client_id": user_id},
                 {"spouse_id": user_id},
-                {"client_email": user_email},
-                {"spouse_email": user_email},
-            ]
-        }
+                {"user_id": user_id},
+                {"client_id": str(current_user.get("_id", ""))},
+            ])
+        if user_email:
+            or_clauses.extend([
+                {"client_email": email_regex},
+                {"spouse_email": email_regex},
+                {"email": email_regex},
+            ])
+        if user_email or user_id:
+            linked_pa_ids = []
+            if user_email:
+                pas = await pre_assessments_col.find({"$or": [{"email": email_regex}, {"client_email": email_regex}]}, {"id": 1}).to_list(20)
+                linked_pa_ids.extend([p["id"] for p in pas if p.get("id")])
+                sas = await db["sales_assessments"].find({"$or": [{"lead_email": email_regex}, {"email": email_regex}, {"client_email": email_regex}]}, {"id": 1}).to_list(20)
+                linked_pa_ids.extend([s["id"] for s in sas if s.get("id")])
+            if linked_pa_ids:
+                or_clauses.append({"pre_assessment_id": {"$in": linked_pa_ids}})
+
+        query = {"$or": or_clauses} if or_clauses else {"client_id": user_id}
 
     cases = await cases_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-    return await _enrich_cases(cases)
+    enriched = await _enrich_cases(cases)
+
+    # If client has no formal case in cases_col yet, provide an active default case record so workflow steps and documents are visible
+    if not enriched and role in ("client", "admin", "partner"):
+        pa = None
+        sa = None
+        if user_email:
+            email_regex = {"$regex": f"^{re.escape(user_email)}$", "$options": "i"}
+            pa = await pre_assessments_col.find_one({"$or": [{"email": email_regex}, {"client_email": email_regex}]}, {"_id": 0})
+            sa = await db["sales_assessments"].find_one({"$or": [{"lead_email": email_regex}, {"email": email_regex}, {"client_email": email_regex}]}, {"_id": 0})
+
+        # Fetch product workflow steps if available
+        product_name = (pa and pa.get("product_name")) or (sa and sa.get("product_name")) or "Australia PR"
+        country = (pa and pa.get("country")) or (sa and sa.get("country")) or "Australia"
+        
+        default_case = {
+            "id": (pa and pa.get("id")) or str(uuid.uuid4()),
+            "case_id": f"LEAMSS-{datetime.now().year}-{str(uuid.uuid4())[:4].upper()}",
+            "client_id": user_id,
+            "client_name": current_user.get("name", "Client"),
+            "client_email": user_email,
+            "product_name": product_name,
+            "country": country,
+            "service_type": "PR",
+            "status": "active",
+            "current_step": "Profile Creation",
+            "current_step_order": 1,
+            "case_manager_name": "Case Manager",
+            "pre_assessment_id": pa.get("id") if pa else None,
+            "occupation_code": (pa and (pa.get("occupation_code") or pa.get("suggested_occupation_code"))) or (sa and (sa.get("occupation", {}).get("code") if isinstance(sa.get("occupation"), dict) else sa.get("occupation_code"))) or "",
+            "occupation_title": (pa and (pa.get("occupation_title") or pa.get("suggested_occupation_title"))) or (sa and (sa.get("occupation", {}).get("title") if isinstance(sa.get("occupation"), dict) else sa.get("occupation_title"))) or "",
+            "assessing_authority_code": (pa and (pa.get("assessing_authority_code") or pa.get("suggested_assessing_authority_code"))) or "",
+            "client_occupation_review_status": "pending_client_review",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        return [default_case]
+
+    return enriched
 
 
 @router.get("/info-sheet-schema")

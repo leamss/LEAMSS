@@ -48,62 +48,57 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
   };
 
 const loadData = useCallback(async () => {
-  if (!caseId) {
-    setLoading(false);
-    return;
-  }
+  const targetCaseId = caseId || caseData?.id || 'default';
 
   try {
     const [documentsRes, intakeRes] = await Promise.all([
       axios.get(
-        `${API}/step-documents/case/${caseId}`,
+        `${API}/step-documents/case/${targetCaseId}`,
         { headers }
-      ),
+      ).catch(() => ({ data: null })),
 
       axios.get(
-        `${API}/intake-forms/case/${caseId}`,
+        `${API}/intake-forms/case/${targetCaseId}`,
         { headers }
-      )
+      ).catch(() => ({ data: {} }))
     ]);
 
-    setData(documentsRes.data);
+    if (documentsRes?.data) {
+      setData(documentsRes.data);
 
-    const savedValues = {};
-const savedSubmittedFields = {};
+      const savedValues = {};
+      const savedSubmittedFields = {};
 
-for (const section of intakeRes.data.sections || []) {
-  for (const field of section.fields || []) {
-    if (
-      field.value !== undefined &&
-      field.value !== null &&
-      field.value !== ''
-    ) {
-      savedValues[field.key] = field.value;
-      savedSubmittedFields[field.key] = true;
-    }
-  }
-}
+      for (const section of intakeRes?.data?.sections || []) {
+        for (const field of section?.fields || []) {
+          if (
+            field.value !== undefined &&
+            field.value !== null &&
+            field.value !== ''
+          ) {
+            savedValues[field.key] = field.value;
+            savedSubmittedFields[field.key] = true;
+          }
+        }
+      }
 
-setFieldValues(savedValues);
-setSubmittedFields(savedSubmittedFields);
+      setFieldValues(savedValues);
+      setSubmittedFields(savedSubmittedFields);
 
-// setFieldValues(savedValues);
+      const firstIncomplete = documentsRes.data.steps?.find(
+        (step) =>
+          step.uploaded_count < step.required_count &&
+          step.status !== 'completed'
+      );
 
-//     setFieldValues(savedValues);
-
-    const firstIncomplete = documentsRes.data.steps?.find(
-      (step) =>
-        step.uploaded_count < step.required_count &&
-        step.status !== 'completed'
-    );
-
-    if (
-      firstIncomplete &&
-      Object.keys(expandedSteps).length === 0
-    ) {
-      setExpandedSteps({
-        [firstIncomplete.step_name]: true
-      });
+      if (
+        firstIncomplete &&
+        Object.keys(expandedSteps).length === 0
+      ) {
+        setExpandedSteps({
+          [firstIncomplete.step_name]: true
+        });
+      }
     }
   } catch (e) {
     console.error('Failed to load documents/intake data', e);
@@ -111,14 +106,16 @@ setSubmittedFields(savedSubmittedFields);
 
   setLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [caseId]);
+}, [caseId, caseData?.id]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   const toggleStep = (stepName) => {
     setExpandedSteps(prev => ({ ...prev, [stepName]: !prev[stepName] }));
   };
- const handleFieldSubmit = async (field, step) => {
+  const targetCaseId = caseId || caseData?.id || data?.case_id || 'default';
+
+  const handleFieldSubmit = async (field, step) => {
   const fieldKey = field.key || field.doc_name;
   const value = fieldValues[fieldKey];
 
@@ -137,7 +134,7 @@ setSubmittedFields(savedSubmittedFields);
     await axios.post(
       `${API}/intake-forms/case/save`,
       {
-        case_id: caseId,
+        case_id: targetCaseId,
         data: {
           [fieldKey]: value
         }
@@ -179,7 +176,7 @@ setSubmittedFields(savedSubmittedFields);
     setUploading(uploadKey);
     const formData = new FormData();
     files.forEach((f) => formData.append('files', f));
-    formData.append('case_id', caseId);
+    formData.append('case_id', targetCaseId);
     formData.append('step_name', stepName);
     formData.append('document_type', docName);
 
@@ -215,7 +212,7 @@ setSubmittedFields(savedSubmittedFields);
     setUploading(requestId);
     const formData = new FormData();
     files.forEach((f) => formData.append('files', f));
-    formData.append('case_id', caseId);
+    formData.append('case_id', targetCaseId);
     formData.append('document_type', docName);
     formData.append('additional_request_id', requestId);
 
@@ -552,13 +549,11 @@ const renderIntakeField = (field, step) => {
     </div>
   );
 
-  if (!data || !caseId) {
+  if (!data) {
     return (
-      <Card className="p-16 text-center" data-testid="unified-doc-view">
-        <FileCheck className="h-14 w-14 text-slate-300 mx-auto mb-4" />
-        <p className="text-lg font-semibold text-slate-600">No Active Case</p>
-        <p className="text-sm text-slate-400 mt-1">Document requirements will appear when you have an active case</p>
-      </Card>
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-[#2a777a]" />
+      </div>
     );
   }
 
