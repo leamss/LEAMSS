@@ -215,24 +215,25 @@ useEffect(() => {
 
 const loadCaseDetails = async (caseId) => {
   try {
-    await axios
-      .get(`${API}/step-documents/case/${caseId}`, getAuthHeader())
-      .catch(() => {});
-
-    const [caseRes, docsRes, intakeRes] = await Promise.all([
+    const [caseRes, docsRes, intakeRes, stepDocsRes] = await Promise.all([
       axios.get(`${API}/cases/${caseId}`, getAuthHeader()),
       axios.get(`${API}/documents/case/${caseId}`, getAuthHeader()),
-      axios.get(`${API}/intake-forms/case/${caseId}`, getAuthHeader())
+      axios.get(`${API}/intake-forms/case/${caseId}`, getAuthHeader()),
+      axios.get(`${API}/step-documents/case/${caseId}`, getAuthHeader()).catch(() => ({ data: { steps: [] } }))
     ]);
 
-    const stepDocsRes = await axios.get(
-      `${API}/step-documents/case/${caseId}`,
-      getAuthHeader()
-    );
+    const stepList = (caseRes.data?.steps && caseRes.data.steps.length > 0)
+      ? caseRes.data.steps
+      : (stepDocsRes.data?.steps || []);
+    
+    const enrichedCase = {
+      ...caseRes.data,
+      steps: stepList
+    };
 
     setStepDocuments(stepDocsRes.data?.steps || []);
-    setSelectedCase(caseRes.data);
-    setCaseDocuments(docsRes.data);
+    setSelectedCase(enrichedCase);
+    setCaseDocuments(docsRes.data || []);
     setCaseIntakeData(intakeRes.data);
     setCmFieldValues(intakeRes.data?.data || {});
   } catch (error) {
@@ -524,17 +525,26 @@ const loadCaseDetails = async (caseId) => {
 
   const downloadDocument = async (docId, filename) => {
     try {
-      const response = await axios.get(`${API}/documents/download/${docId}`, {
-        ...getAuthHeader(),
-        responseType: 'blob'
-      });
+      let response;
+      try {
+        response = await axios.get(`${API}/documents/download/${docId}`, {
+          ...getAuthHeader(),
+          responseType: 'blob'
+        });
+      } catch (err) {
+        response = await axios.get(`${API}/documents/view/${docId}`, {
+          ...getAuthHeader(),
+          responseType: 'blob'
+        });
+      }
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', filename);
+      link.setAttribute('download', filename || 'document.pdf');
       document.body.appendChild(link);
       link.click();
       link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
       toast.success('Document downloaded');
     } catch (error) {
       toast.error('Failed to download document');
@@ -597,10 +607,18 @@ const loadCaseDetails = async (caseId) => {
   const viewDocument = async (fileId, filename) => {
     try {
       toast.info('Opening document...');
-      const response = await axios.get(`${API}/documents/view/${fileId}`, {
-        ...getAuthHeader(),
-        responseType: 'blob'
-      });
+      let response;
+      try {
+        response = await axios.get(`${API}/documents/view/${fileId}`, {
+          ...getAuthHeader(),
+          responseType: 'blob'
+        });
+      } catch (err) {
+        response = await axios.get(`${API}/documents/download/${fileId}`, {
+          ...getAuthHeader(),
+          responseType: 'blob'
+        });
+      }
 
       // Get the content type from response or guess from filename
       const contentType = response.headers['content-type'] || 'application/pdf';
@@ -609,6 +627,7 @@ const loadCaseDetails = async (caseId) => {
 
       // Open in new tab
       window.open(blobUrl, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000);
     } catch (error) {
       console.error('View error:', error);
       toast.error('Failed to open document');
@@ -854,7 +873,7 @@ const loadCaseDetails = async (caseId) => {
               )}
             </div>
             <div className="space-y-4" data-testid="workflow-steps">
-              {selectedCase.steps && selectedCase.steps.map((step, index) => {
+              {(((selectedCase.steps && selectedCase.steps.length > 0) ? selectedCase.steps : stepDocuments) || []).map((step, index, arr) => {
                 const stepDocData = stepDocuments.find(
   (item) =>
     item.step_name?.trim().toLowerCase() ===
@@ -862,7 +881,7 @@ const loadCaseDetails = async (caseId) => {
 );
 
 const workflowDocuments = stepDocData?.documents || [];
-                const prevCompleted = index === 0 || selectedCase.steps.slice(0, index).every(s => s.status === 'completed');
+                const prevCompleted = index === 0 || arr.slice(0, index).every(s => s.status === 'completed');
                 const isLocked = step.is_locked !== undefined ? step.is_locked : (!prevCompleted && index > 0);
                 const isCompleted = step.status === 'completed';
 

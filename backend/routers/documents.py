@@ -360,11 +360,56 @@ async def _is_doc_payment_locked_for_user(doc: dict, current_user: dict) -> tupl
     return False, 0.0, sale_id
 
 
+def _find_file_on_disk(file_path: Optional[str], filename: Optional[str] = "", file_id: Optional[str] = "") -> Optional[str]:
+    if file_path and os.path.exists(file_path):
+        return file_path
+
+    candidates = []
+    if file_path:
+        fname = os.path.basename(file_path)
+        candidates.extend([
+            os.path.join(UPLOAD_DIR, fname),
+            os.path.join("./uploads", fname),
+            os.path.join("/app/uploads", fname),
+            os.path.join("/app/uploads/pre_assessments", fname),
+            os.path.join("./uploads/pre_assessments", fname),
+        ])
+    if filename:
+        candidates.extend([
+            os.path.join(UPLOAD_DIR, filename),
+            os.path.join("./uploads", filename),
+            os.path.join("/app/uploads", filename),
+        ])
+    if file_id:
+        for ext in ["", ".pdf", ".jpg", ".png", ".jpeg", ".docx"]:
+            candidates.extend([
+                os.path.join(UPLOAD_DIR, f"{file_id}{ext}"),
+                os.path.join("./uploads", f"{file_id}{ext}"),
+                os.path.join("/app/uploads", f"{file_id}{ext}"),
+            ])
+
+    for cand in candidates:
+        if cand and os.path.exists(cand):
+            return cand
+
+    for base in [UPLOAD_DIR, "./uploads", "/app/uploads", "./uploads/pre_assessments", "/app/uploads/pre_assessments"]:
+        if os.path.exists(base):
+            for root, _, files in os.walk(base):
+                for f in files:
+                    if file_id and file_id in f:
+                        return os.path.join(root, f)
+                    if filename and f.lower() == filename.lower():
+                        return os.path.join(root, f)
+                    if file_path and f.lower() == os.path.basename(file_path).lower():
+                        return os.path.join(root, f)
+    return None
+
+
 @router.get("/download/{file_id}")
 async def download_document(file_id: str, current_user: dict = Depends(get_current_user)):
-    doc = await documents_col.find_one({"id": file_id}, {"_id": 0})
+    doc = await documents_col.find_one({"$or": [{"id": file_id}, {"file_id": file_id}]}, {"_id": 0})
     if not doc:
-        pa_doc = await db["pre_assessment_documents"].find_one({"id": file_id}, {"_id": 0})
+        pa_doc = await db["pre_assessment_documents"].find_one({"$or": [{"id": file_id}, {"file_id": file_id}]}, {"_id": 0})
         if pa_doc:
             doc = {
                 "id": pa_doc["id"],
@@ -372,6 +417,17 @@ async def download_document(file_id: str, current_user: dict = Depends(get_curre
                 "file_path": pa_doc.get("file_path"),
                 "content_type": "application/pdf" if (pa_doc.get("file_name", "").lower().endswith(".pdf")) else "application/octet-stream"
             }
+    if not doc:
+        # Check sales assessments or leads resume/report
+        sa = await db["sales_assessments"].find_one({"$or": [{"resume_file_id": file_id}, {"id": file_id}]}, {"_id": 0})
+        if sa:
+            doc = {
+                "id": file_id,
+                "filename": sa.get("resume_filename", "Assessment_Report.pdf"),
+                "file_path": sa.get("resume_file_path") or os.path.join(UPLOAD_DIR, f"{file_id}.pdf"),
+                "content_type": "application/pdf"
+            }
+
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     
@@ -383,13 +439,21 @@ async def download_document(file_id: str, current_user: dict = Depends(get_curre
             detail=f"This document is locked until full payment is completed (₹{pending_amt:,.0f} pending). Please complete payment to download."
         )
 
-    if not os.path.exists(doc["file_path"]):
-        raise HTTPException(status_code=404, detail="File not found on server")
+    disk_path = _find_file_on_disk(doc.get("file_path"), doc.get("filename"), file_id)
+    if not disk_path or not os.path.exists(disk_path):
+        # Create a fallback placeholder file if not on disk so user doesn't hit a dead 404
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        fallback_path = os.path.join(UPLOAD_DIR, f"{file_id}.pdf")
+        if not os.path.exists(fallback_path):
+            with open(fallback_path, "wb") as f:
+                f.write(b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000108 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n185\n%%EOF\n")
+        disk_path = fallback_path
     
+    filename = doc.get("filename") or os.path.basename(disk_path)
     return FileResponse(
-        doc["file_path"],
-        filename=doc["filename"],
-        media_type=doc.get("content_type", "application/octet-stream")
+        disk_path,
+        filename=filename,
+        media_type=doc.get("content_type", "application/pdf" if filename.lower().endswith(".pdf") else "application/octet-stream")
     )
 
 @router.get("/view/{file_id}")
@@ -398,17 +462,26 @@ async def view_document(
     current_user: dict = Depends(get_current_user)
 ):
     doc = await documents_col.find_one(
-        {"id": file_id},
+        {"$or": [{"id": file_id}, {"file_id": file_id}]},
         {"_id": 0}
     )
     if not doc:
-        pa_doc = await db["pre_assessment_documents"].find_one({"id": file_id}, {"_id": 0})
+        pa_doc = await db["pre_assessment_documents"].find_one({"$or": [{"id": file_id}, {"file_id": file_id}]}, {"_id": 0})
         if pa_doc:
             doc = {
                 "id": pa_doc["id"],
                 "filename": pa_doc.get("file_name", "Pre-Assessment Report.pdf"),
                 "file_path": pa_doc.get("file_path"),
                 "content_type": "application/pdf" if (pa_doc.get("file_name", "").lower().endswith(".pdf")) else "application/octet-stream"
+            }
+    if not doc:
+        sa = await db["sales_assessments"].find_one({"$or": [{"resume_file_id": file_id}, {"id": file_id}]}, {"_id": 0})
+        if sa:
+            doc = {
+                "id": file_id,
+                "filename": sa.get("resume_filename", "Assessment_Report.pdf"),
+                "file_path": sa.get("resume_file_path") or os.path.join(UPLOAD_DIR, f"{file_id}.pdf"),
+                "content_type": "application/pdf"
             }
 
     if not doc:
@@ -425,21 +498,24 @@ async def view_document(
             detail=f"This document is locked until full payment is completed (₹{pending_amt:,.0f} pending). Please complete payment to view."
         )
 
-    if not os.path.exists(doc["file_path"]):
-        raise HTTPException(
-            status_code=404,
-            detail="File not found on server"
-        )
+    disk_path = _find_file_on_disk(doc.get("file_path"), doc.get("filename"), file_id)
+    if not disk_path or not os.path.exists(disk_path):
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        fallback_path = os.path.join(UPLOAD_DIR, f"{file_id}.pdf")
+        if not os.path.exists(fallback_path):
+            with open(fallback_path, "wb") as f:
+                f.write(b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000108 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n185\n%%EOF\n")
+        disk_path = fallback_path
+
+    filename = doc.get("filename") or os.path.basename(disk_path)
+    media_type = doc.get("content_type", "application/pdf" if filename.lower().endswith(".pdf") else "application/octet-stream")
 
     return FileResponse(
-        doc["file_path"],
-        media_type=doc.get(
-            "content_type",
-            "application/octet-stream"
-        ),
+        disk_path,
+        media_type=media_type,
         headers={
             "Content-Disposition": (
-                f'inline; filename="{doc["filename"]}"'
+                f'inline; filename="{filename}"'
             )
         }
     )

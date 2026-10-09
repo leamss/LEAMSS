@@ -292,12 +292,22 @@ const loadData = useCallback(async () => {
 
   const viewReportDoc = async (doc) => {
     try {
-      const downloadUrl = doc.view_url || `${API}/pre-assessment/${doc.pre_assessment_id}/document/${doc.id}/download?inline=true`;
+      const docId = doc.id || doc.file_id || doc.document_id;
+      const downloadUrl = doc.view_url || (doc.pre_assessment_id ? `${API}/pre-assessment/${doc.pre_assessment_id}/document/${docId}/download?inline=true` : `${API}/documents/view/${docId}`);
       const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : `${BACKEND_URL}${downloadUrl}`;
-      const res = await axios.get(fullUrl, {
-        headers,
-        responseType: 'blob',
-      });
+      let res;
+      try {
+        res = await axios.get(fullUrl, {
+          headers,
+          responseType: 'blob',
+        });
+      } catch (err) {
+        // Fallback to /documents/view/:docId
+        res = await axios.get(`${API}/documents/view/${docId}`, {
+          headers,
+          responseType: 'blob',
+        });
+      }
       const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/pdf' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
@@ -309,17 +319,27 @@ const loadData = useCallback(async () => {
 
   const downloadReportDoc = async (doc) => {
     try {
-      const downloadUrl = doc.download_url || `${API}/pre-assessment/${doc.pre_assessment_id}/document/${doc.id}/download`;
+      const docId = doc.id || doc.file_id || doc.document_id;
+      const downloadUrl = doc.download_url || (doc.pre_assessment_id ? `${API}/pre-assessment/${doc.pre_assessment_id}/document/${docId}/download` : `${API}/documents/download/${docId}`);
       const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : `${BACKEND_URL}${downloadUrl}`;
-      const res = await axios.get(fullUrl, {
-        headers,
-        responseType: 'blob',
-      });
+      let res;
+      try {
+        res = await axios.get(fullUrl, {
+          headers,
+          responseType: 'blob',
+        });
+      } catch (err) {
+        // Fallback to /documents/download/:docId
+        res = await axios.get(`${API}/documents/download/${docId}`, {
+          headers,
+          responseType: 'blob',
+        });
+      }
       const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = doc.file_name || 'Pre-Assessment-Report.pdf';
+      link.download = doc.file_name || doc.filename || 'Pre-Assessment-Report.pdf';
       document.body.appendChild(link);
       link.click();
       link.remove();

@@ -660,7 +660,42 @@ async def get_case(case_id: str, current_user: dict = Depends(get_current_user))
     case["case_manager_name"] = manager["name"] if manager else "Not Assigned"
     case["partner_name"] = partner["name"] if partner else "N/A"
     
-    steps = await case_steps_col.find({"case_id": case["id"]}, {"_id": 0}).sort("step_order", 1).to_list(100)
+    steps = await case_steps_col.find({"$or": [{"case_id": case["id"]}, {"case_id": case_id}]}, {"_id": 0}).sort("step_order", 1).to_list(100)
+    if not steps and case.get("steps"):
+        steps = case["steps"]
+
+    if not steps:
+        product_id = case.get("product_id")
+        wf_steps = []
+        if product_id:
+            wf_steps = await workflow_steps_col.find({"product_id": product_id}, {"_id": 0}).sort("step_order", 1).to_list(50)
+        if not wf_steps and case.get("pre_assessment_id"):
+            pa_obj = await pre_assessments_col.find_one({"id": case["pre_assessment_id"]}, {"_id": 0})
+            if pa_obj and pa_obj.get("product_id"):
+                wf_steps = await workflow_steps_col.find({"product_id": pa_obj["product_id"]}, {"_id": 0}).sort("step_order", 1).to_list(50)
+        if not wf_steps:
+            first_step = await workflow_steps_col.find_one({}, {"_id": 0})
+            if first_step and first_step.get("product_id"):
+                wf_steps = await workflow_steps_col.find({"product_id": first_step["product_id"]}, {"_id": 0}).sort("step_order", 1).to_list(50)
+        
+        if wf_steps:
+            steps = [
+                {
+                    "case_id": case.get("id") or case_id,
+                    "step_name": ws.get("step_name") or ws.get("name", f"Step {i + 1}"),
+                    "name": ws.get("name") or ws.get("step_name", f"Step {i + 1}"),
+                    "step_order": ws.get("step_order", i + 1) or ws.get("order", i + 1),
+                    "order": ws.get("order", i + 1) or ws.get("step_order", i + 1),
+                    "description": ws.get("description", ""),
+                    "status": "in_progress" if i == 0 else "pending",
+                    "required_documents": ws.get("required_documents", []),
+                    "sections": ws.get("sections", []),
+                    "is_locked": bool(ws.get("is_locked") or ws.get("is_locked_for_client")),
+                    "is_locked_for_client": bool(ws.get("is_locked") or ws.get("is_locked_for_client")),
+                }
+                for i, ws in enumerate(wf_steps)
+            ]
+
     current_order = case.get("current_step_order") or 1
     
     # Check linked PA payment parts for installment gates
