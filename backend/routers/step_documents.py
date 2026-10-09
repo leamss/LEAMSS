@@ -38,21 +38,39 @@ async def request_step_document(data: StepDocRequest, current_user: dict = Depen
     if current_user["role"] not in ["case_manager", "admin"]:
         raise HTTPException(status_code=403, detail="CM or Admin only")
 
-    case = await cases_col.find_one({"id": data.case_id}, {"_id": 0})
-    if not case:
-        raise HTTPException(status_code=404, detail="Case not found")
+    case = await cases_col.find_one({"$or": [{"id": data.case_id}, {"case_id": data.case_id}]}, {"_id": 0})
+    target_case_id = (case and case.get("id")) or data.case_id
+    step_clean = re.sub(r'^\d+[\.\s\-]+', '', data.step_name).strip()
 
     # Add to case_steps required_documents as CM-added
     step = await case_steps_col.find_one(
-        {"case_id": data.case_id, "step_name": data.step_name}, {"_id": 0}
+        {
+            "$or": [{"case_id": data.case_id}, {"case_id": target_case_id}],
+            "$or": [
+                {"step_name": data.step_name},
+                {"step_name": {"$regex": f"^{re.escape(data.step_name)}$", "$options": "i"}},
+                {"step_name": {"$regex": f"^{re.escape(step_clean)}$", "$options": "i"}}
+            ]
+        },
+        {"_id": 0}
     )
     if not step:
-        raise HTTPException(status_code=404, detail="Step not found in case")
+        # Create the step entry in case_steps_col so document can be added
+        step = {
+            "id": str(uuid.uuid4()),
+            "case_id": target_case_id,
+            "step_name": data.step_name,
+            "step_order": 1,
+            "status": "in_progress",
+            "required_documents": [],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await case_steps_col.insert_one(step)
 
     existing_docs = step.get("required_documents", [])
     # Check if doc already exists (handle both 'doc_name' and 'name' fields)
     if any(_get_doc_name(d).lower() == data.doc_name.lower() for d in existing_docs):
-        raise HTTPException(status_code=400, detail="Document already exists in this step")
+        return {"message": f"Document '{data.doc_name}' already exists in step '{data.step_name}'"}
 
     new_doc = {
         "doc_name": data.doc_name,
@@ -67,12 +85,19 @@ async def request_step_document(data: StepDocRequest, current_user: dict = Depen
     }
 
     await case_steps_col.update_one(
-        {"case_id": data.case_id, "step_name": data.step_name},
+        {
+            "$or": [{"case_id": data.case_id}, {"case_id": target_case_id}],
+            "$or": [
+                {"step_name": step.get("step_name")},
+                {"step_name": data.step_name},
+                {"id": step.get("id")}
+            ]
+        },
         {"$push": {"required_documents": new_doc}}
     )
 
     # Notify client
-    if case.get("client_id"):
+    if case and case.get("client_id"):
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()), "user_id": case["client_id"],
             "title": "Document Requested",
@@ -84,8 +109,8 @@ async def request_step_document(data: StepDocRequest, current_user: dict = Depen
     await audit_logs_col.insert_one({
         "id": str(uuid.uuid4()), "user_id": current_user["id"],
         "action": "step_doc_requested", "entity_type": "case_step",
-        "entity_id": data.case_id,
-        "new_value": {"step": data.step_name, "doc": data.doc_name, "client_id": case.get("client_id")},
+        "entity_id": target_case_id,
+        "new_value": {"step": data.step_name, "doc": data.doc_name, "client_id": (case and case.get("client_id"))},
         "created_at": datetime.now(timezone.utc)
     })
 
@@ -1256,6 +1281,20 @@ IMMIGRATION_TEMPLATES = {
         "assessment_bodies": ["VETASSESS", "ACS (Australian Computer Society)", "Engineers Australia", "TRA (Trades Recognition Australia)", "ANMAC", "CPAA", "CAANZ"],
         "language_tests": ["IELTS Academic", "PTE Academic", "TOEFL iBT", "OET", "Cambridge C1 Advanced"],
         "steps": {
+            "Profile Creation": [
+                {"doc_name": "Valid Passport (Bio & Address Pages)", "description": "Color scan of valid passport bio and observation pages", "is_mandatory": True, "doc_type": "passport"},
+                {"doc_name": "Digital Passport Photograph", "description": "Recent passport-sized color photograph with white background", "is_mandatory": True, "doc_type": "photo"},
+                {"doc_name": "National Identity Card (Aadhaar / National ID)", "description": "Official government identity card (both sides)", "is_mandatory": True, "doc_type": "id_card"},
+                {"doc_name": "Comprehensive CV / Resume", "description": "Detailed chronological work history and qualification summary", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Birth Certificate / Proof of Age", "description": "Official birth certificate or 10th standard certificate", "is_mandatory": False, "doc_type": "legal"},
+            ],
+            "Document Collection": [
+                {"doc_name": "Educational Degree / Diploma Certificate", "description": "Final degree certificate awarded by recognized university", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Academic Transcripts & Marksheets", "description": "All semester / annual marksheets and official transcripts", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Work Experience / Reference Letters", "description": "Service reference letters on employer letterhead with ANZSCO duties", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Salary Payslips & Tax Returns", "description": "First and last 3 payslips per employer plus Form 16 / ITR", "is_mandatory": True, "doc_type": "financial"},
+                {"doc_name": "Bank Statements (Salary Credits)", "description": "Bank account statements showing official salary credits", "is_mandatory": True, "doc_type": "financial"},
+            ],
             "Skills Assessment": [
                 {"doc_name": "Skills Assessment Outcome Letter", "description": "Positive skills assessment from relevant assessing authority (ACS/VETASSESS/EA)", "is_mandatory": True, "doc_type": "certificate"},
                 {"doc_name": "Qualification Certificates", "description": "All degree/diploma certificates relevant to nominated occupation", "is_mandatory": True, "doc_type": "certificate"},
@@ -1465,6 +1504,8 @@ IMMIGRATION_TEMPLATES = {
 
 def _find_best_template(product_name: str) -> dict:
     """Find the best matching template for a product name using keyword matching."""
+    if not product_name:
+        return IMMIGRATION_TEMPLATES.get("australia_pr", {})
     product_lower = product_name.lower()
     best_match = None
     best_score = 0
@@ -1473,21 +1514,78 @@ def _find_best_template(product_name: str) -> dict:
         if score > best_score:
             best_score = score
             best_match = tmpl
-    return best_match
+    return best_match or IMMIGRATION_TEMPLATES.get("australia_pr", {})
 
 
 def _find_step_docs_from_template(template: dict, step_name: str) -> list:
-    """Find matching step documents from template using fuzzy matching."""
+    """Find matching step documents from template using fuzzy matching and synonym routing."""
     if not template:
-        return []
-    step_lower = step_name.lower()
+        template = IMMIGRATION_TEMPLATES.get("australia_pr", {})
+    step_lower = (step_name or "").lower().strip()
+    step_clean = re.sub(r'^\d+[\.\s\-]+', '', step_lower).strip()
+
+    # 1. Direct matching
     for tmpl_step_name, docs in template.get("steps", {}).items():
-        # Check if step names are similar
         tmpl_lower = tmpl_step_name.lower()
-        if (tmpl_lower in step_lower or step_lower in tmpl_lower or
-            any(w in step_lower for w in tmpl_lower.split() if len(w) > 3)):
+        if (tmpl_lower == step_lower or tmpl_lower == step_clean or
+            tmpl_lower in step_lower or step_lower in tmpl_lower or
+            tmpl_lower in step_clean or step_clean in tmpl_lower or
+            any(w in step_clean for w in tmpl_lower.split() if len(w) > 3)):
             return docs
-    return []
+
+    # 2. Semantic synonym matching
+    if any(k in step_lower for k in ["profile", "creation", "onboard", "intake", "personal", "identity", "initial"]):
+        if "Profile Creation" in template.get("steps", {}):
+            return template["steps"]["Profile Creation"]
+        return [
+            {"doc_name": "Valid Passport (Bio & Address Pages)", "description": "Color scan of valid passport bio and observation pages", "is_mandatory": True, "doc_type": "passport"},
+            {"doc_name": "Digital Passport Photograph", "description": "Recent passport-sized color photograph with white background", "is_mandatory": True, "doc_type": "photo"},
+            {"doc_name": "National Identity Card (Aadhaar / National ID)", "description": "Official government identity card (both sides)", "is_mandatory": True, "doc_type": "id_card"},
+            {"doc_name": "Comprehensive CV / Resume", "description": "Detailed chronological work history and qualification summary", "is_mandatory": True, "doc_type": "other"},
+            {"doc_name": "Birth Certificate / Proof of Age", "description": "Official birth certificate or 10th standard certificate", "is_mandatory": False, "doc_type": "legal"},
+        ]
+
+    if any(k in step_lower for k in ["document", "collection", "qualification", "education", "skill", "assessment", "work", "employment", "experience", "degree"]):
+        if "Document Collection" in template.get("steps", {}):
+            return template["steps"]["Document Collection"]
+        if "Skills Assessment" in template.get("steps", {}):
+            return template["steps"]["Skills Assessment"]
+        return [
+            {"doc_name": "Educational Degree / Qualification Certificate", "description": "Final degree certificate awarded by recognized university", "is_mandatory": True, "doc_type": "certificate"},
+            {"doc_name": "Academic Transcripts & Marksheets", "description": "All semester / annual marksheets and official transcripts", "is_mandatory": True, "doc_type": "certificate"},
+            {"doc_name": "Employment Reference Letters", "description": "Service reference letters on employer letterhead with duties and salary", "is_mandatory": True, "doc_type": "legal"},
+            {"doc_name": "Salary Payslips & Tax Returns", "description": "First and last 3 payslips per employer plus Form 16 / ITR", "is_mandatory": True, "doc_type": "financial"},
+            {"doc_name": "Bank Statements (Salary Credits)", "description": "Bank account statements showing official salary credits", "is_mandatory": True, "doc_type": "financial"},
+        ]
+
+    if any(k in step_lower for k in ["language", "english", "ielts", "pte", "toefl", "test"]):
+        if "Language Testing" in template.get("steps", {}):
+            return template["steps"]["Language Testing"]
+        return [
+            {"doc_name": "English Test Score Report (PTE/IELTS)", "description": "Official language test score report (valid 2-3 years)", "is_mandatory": True, "doc_type": "certificate"}
+        ]
+
+    if any(k in step_lower for k in ["eoi", "expression", "nomination", "state", "invitation", "ita"]):
+        if "EOI Submission" in template.get("steps", {}):
+            return template["steps"]["EOI Submission"]
+        return [
+            {"doc_name": "Points Calculation Evidence", "description": "Evidence for each points claim (age, English, qualifications, experience)", "is_mandatory": True, "doc_type": "other"},
+            {"doc_name": "State Nomination Letter", "description": "State / territory nomination approval letter", "is_mandatory": False, "doc_type": "legal"}
+        ]
+
+    if any(k in step_lower for k in ["visa", "filing", "application", "lodgement", "lodge", "pcc", "medical"]):
+        if "Visa Application" in template.get("steps", {}):
+            return template["steps"]["Visa Application"]
+        return [
+            {"doc_name": "Police Clearance Certificate (PCC)", "description": "National PCC from each country lived 6+ months", "is_mandatory": True, "doc_type": "legal"},
+            {"doc_name": "Health Examination Report", "description": "Medical examination report from approved panel clinic", "is_mandatory": True, "doc_type": "medical"},
+            {"doc_name": "Personal Particulars Form 80", "description": "Completed Form 80 with full travel and address history", "is_mandatory": True, "doc_type": "other"}
+        ]
+
+    return [
+        {"doc_name": "Supporting Document / Certificate", "description": f"Official documentation required for step {step_name}", "is_mandatory": True, "doc_type": "certificate"},
+        {"doc_name": "Identification / Reference Proof", "description": "Relevant identity or reference verification document", "is_mandatory": False, "doc_type": "other"}
+    ]
 
 
 async def _web_search_context(product_name: str, step_name: str) -> str:
@@ -1520,6 +1618,8 @@ async def _call_ai(prompt: str, system_msg: str) -> str:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     from core.ai_models import model_for
     try:
+        if not EMERGENT_LLM_KEY:
+            return ""
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=f"doc-suggest-{uuid.uuid4().hex[:8]}",
@@ -1527,7 +1627,8 @@ async def _call_ai(prompt: str, system_msg: str) -> str:
         ).with_model("anthropic", model_for("step_document_helper"))  # Phase 9.7 — Haiku 4.5
         return await chat.send_message(UserMessage(text=prompt))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+        logger.warning(f"AI service error: {e}")
+        return ""
 
 
 class AISuggestRequest(BaseModel):
@@ -1613,18 +1714,25 @@ async def ai_suggest_step_documents(data: AISuggestRequest, current_user: dict =
         "Return ONLY valid JSON arrays."
     )
 
+    suggestions = []
     result = await _call_ai(prompt, system_msg)
-
-    try:
-        cleaned = result.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-            cleaned = cleaned.rsplit("```", 1)[0]
-        suggestions = json.loads(cleaned)
-        if not isinstance(suggestions, list):
+    if result:
+        try:
+            cleaned = result.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+                cleaned = cleaned.rsplit("```", 1)[0]
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, list):
+                suggestions = parsed
+        except (json.JSONDecodeError, Exception):
             suggestions = []
-    except (json.JSONDecodeError, Exception):
-        suggestions = []
+
+    # If AI returned nothing or key is not set, fallback to smart template generator
+    if not suggestions:
+        fallback_docs = _find_step_docs_from_template(template, data.step_name)
+        existing_lower = {d.lower() for d in data.existing_docs}
+        suggestions = [d for d in fallback_docs if d["doc_name"].lower() not in existing_lower]
 
     await audit_logs_col.insert_one({
         "id": str(uuid.uuid4()), "user_id": current_user["id"],

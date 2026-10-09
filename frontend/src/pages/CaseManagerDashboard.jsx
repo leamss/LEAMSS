@@ -413,7 +413,13 @@ const loadCaseDetails = async (caseId) => {
     if (!selectedCase) return;
     setAiSuggesting(stepName);
     try {
-      const existingDocs = (selectedCase.steps?.find(s => s.step_name === stepName)?.required_documents || []).map(d => d.doc_name || d.name || '').filter(Boolean);
+      const stepClean = (stepName || '').replace(/^\d+[\.\s\-]+/, '').trim().toLowerCase();
+      const matchedStep = selectedCase.steps?.find(s => {
+        const sName = (s.step_name || '').trim().toLowerCase();
+        const sClean = sName.replace(/^\d+[\.\s\-]+/, '').trim();
+        return sName === (stepName || '').trim().toLowerCase() || sClean === stepClean;
+      });
+      const existingDocs = (matchedStep?.required_documents || []).map(d => d.doc_name || d.name || '').filter(Boolean);
       const res = await axios.post(`${API}/step-documents/ai-suggest-step-docs`, {
         product_name: selectedCase.product_name || '',
         step_name: stepName,
@@ -427,7 +433,7 @@ const loadCaseDetails = async (caseId) => {
       for (const s of suggestions) {
         try {
           await axios.post(`${API}/step-documents/request-step-doc`, {
-            case_id: selectedCase.id,
+            case_id: selectedCase.id || selectedCase.case_id,
             step_name: stepName,
             doc_name: s.doc_name,
             is_mandatory: s.is_mandatory !== false,
@@ -439,9 +445,9 @@ const loadCaseDetails = async (caseId) => {
           // Duplicate doc - skip silently
         }
       }
-      const sourceLabel = res.data.source === 'template' ? 'Official Template' : 'AI + Web Search';
-      toast.success(`${sourceLabel}: ${added} documents added to "${stepName}"!`, { duration: 5000 });
-      loadCaseDetails(selectedCase.id);
+      const sourceLabel = res.data.source === 'template' ? 'Official Template' : 'AI + Template';
+      toast.success(`${sourceLabel}: ${added > 0 ? added : suggestions.length} documents added to "${stepName}"!`, { duration: 5000 });
+      await loadCaseDetails(selectedCase.id || selectedCase.case_id);
     } catch (e) {
       toast.error(e.response?.data?.detail || 'AI suggestion failed');
     }
