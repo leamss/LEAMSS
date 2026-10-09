@@ -329,43 +329,11 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
     else:
         starting_stage = "new" 
 
-    # Look up or create client user in users_col
-    client_email_clean = (data.client_email or "").strip().lower()
-    client_user_id = None
-    client_temp_pwd = None
-    existing_client_user = None
-    if client_email_clean:
-        existing_client_user = await users_col.find_one({"email": client_email_clean})
-        if not existing_client_user:
-            from routers.mini_portal import _gen_temp_password
-            client_temp_pwd = _gen_temp_password()
-            client_user_id = str(uuid.uuid4())
-            user_doc = {
-                "id": client_user_id,
-                "email": client_email_clean,
-                "name": data.client_name.strip(),
-                "mobile": data.client_mobile or "",
-                "role": "client",
-                "rbac_role": "client",
-                "user_type": "client",
-                "password": get_password_hash(client_temp_pwd),
-                "password_hash": get_password_hash(client_temp_pwd),
-                "temp_password": client_temp_pwd,
-                "must_change_password": True,
-                "status": "active",
-                "created_at": datetime.now(timezone.utc),
-                "updated_at": datetime.now(timezone.utc),
-            }
-            await users_col.insert_one(user_doc)
-        else:
-            client_user_id = existing_client_user.get("id") or str(existing_client_user.get("_id"))
-
     pre_assessment = {
         "id": pa_id,
         "pa_number": pa_number,
         "partner_id": current_user["id"],
         "partner_name": current_user.get("name", ""),
-        "client_user_id": client_user_id,
         # Phase 4A — Internal sales tracking
         "created_by_user_id": current_user["id"],
         "created_by_role": current_user["role"],
@@ -406,44 +374,6 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
     }
     await pre_assessments_col.insert_one(pre_assessment)
     pre_assessment.pop("_id", None)
-
-    # Auto-provision Client Mini Portal and send credentials email
-    if client_email_clean:
-        try:
-            from routers.mini_portal import provision_mini_portal, _gen_temp_password
-            from core.email_service import send_client_mini_portal_credentials_email
-
-            portal_res = await provision_mini_portal(db, pre_assessment, triggered_by=current_user["id"])
-            pwd_to_send = client_temp_pwd or (portal_res.get("temp_password") if portal_res else None)
-
-            if not pwd_to_send:
-                portal_rec = await db["client_mini_portals"].find_one({"client_email": client_email_clean})
-                if portal_rec and portal_rec.get("temp_password"):
-                    pwd_to_send = portal_rec.get("temp_password")
-                elif existing_client_user and existing_client_user.get("temp_password"):
-                    pwd_to_send = existing_client_user.get("temp_password")
-
-            if not pwd_to_send:
-                pwd_to_send = _gen_temp_password()
-                await db["client_mini_portals"].update_one(
-                    {"client_email": client_email_clean},
-                    {"$set": {"temp_password": pwd_to_send, "password_hash": get_password_hash(pwd_to_send), "password_must_change": True}}
-                )
-                await users_col.update_one(
-                    {"email": client_email_clean},
-                    {"$set": {"temp_password": pwd_to_send, "password": get_password_hash(pwd_to_send), "password_hash": get_password_hash(pwd_to_send)}}
-                )
-
-            if pwd_to_send:
-                await send_client_mini_portal_credentials_email(
-                    client_email=client_email_clean,
-                    client_name=data.client_name,
-                    password=pwd_to_send,
-                    pa_number=pa_number,
-                )
-                logger.info(f"Client mini portal credentials emailed to {client_email_clean} for PA {pa_number}")
-        except Exception as e:
-            logger.error(f"Failed to auto-provision mini portal or send credentials email: {e!r}", exc_info=True)
 
     action_label = "create_express_pre_assessment" if sale_type == "express" else "create_pre_assessment"
     detail_label = (

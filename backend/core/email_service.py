@@ -222,30 +222,3 @@ async def send_ticket_update_email(user_email: str, user_name: str, ticket_subje
     <p style="color: #374151; font-size: 14px;">Log in to your portal to view the full conversation.</p>
     """
     return await send_email(user_email, f"Ticket Update - {ticket_subject}", "Support Ticket Update", body)
-
-
-async def send_client_mini_portal_credentials_email(client_email: str, client_name: str, password: str, portal_url: str = "", pa_number: str = ""):
-    """Send login credentials for Client Mini Portal to client upon pre-assessment creation"""
-    login_url = portal_url or os.environ.get("FRONTEND_URL", "https://app.leamss.com") + "/client-portal/login"
-    pa_info = f'<p style="color: #374151; font-size: 13px; margin: 4px 0 0 0;"><strong>Pre-Assessment Number:</strong> {pa_number}</p>' if pa_number else ""
-    body = f"""
-    <p style="color: #374151; font-size: 14px; line-height: 1.6;">Dear {client_name},</p>
-    <p style="color: #374151; font-size: 14px; line-height: 1.6;">Your pre-assessment profile with <strong>{COMPANY_NAME}</strong> has been created successfully.</p>
-    <p style="color: #374151; font-size: 14px; line-height: 1.6;">You can now log in to your dedicated <strong>Client Portal</strong> to track your assessment progress, complete your information sheet, and upload documents.</p>
-    
-    <div style="background: #f0fdf4; border-left: 4px solid #2a777a; padding: 16px 20px; margin: 20px 0; border-radius: 4px;">
-        <h3 style="color: #2a777a; font-size: 15px; margin: 0 0 10px 0; font-weight: 700;">Your Login Credentials</h3>
-        <p style="color: #374151; font-size: 14px; margin: 4px 0;"><strong>Portal URL:</strong> <a href="{login_url}" style="color: #2a777a; font-weight: 600;">{login_url}</a></p>
-        <p style="color: #374151; font-size: 14px; margin: 4px 0;"><strong>Registered Email:</strong> <span style="font-family: monospace; font-size: 14px; background: #e2e8f0; padding: 2px 6px; border-radius: 3px;">{client_email}</span></p>
-        <p style="color: #374151; font-size: 14px; margin: 4px 0;"><strong>Temporary Password:</strong> <span style="font-family: monospace; font-size: 15px; font-weight: bold; background: #e2e8f0; color: #1e293b; padding: 2px 8px; border-radius: 3px;">{password}</span></p>
-        {pa_info}
-    </div>
-
-    <div style="text-align: center; margin: 24px 0;">
-        <a href="{login_url}" style="display: inline-block; background: #2a777a; color: #ffffff; padding: 12px 28px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 6px;">Log in to Client Portal</a>
-    </div>
-
-    <p style="color: #64748b; font-size: 13px; line-height: 1.5;">For security purposes, you will be prompted to change your temporary password after your initial login.</p>
-    <p style="color: #374151; font-size: 14px; margin-top: 16px;">If you have any questions or need assistance, feel free to reply directly or contact your representative.</p>
-    """
-    return await send_email(client_email, "Your LEAMSS Client Portal Login Credentials", "Welcome to Your Client Portal", body)
