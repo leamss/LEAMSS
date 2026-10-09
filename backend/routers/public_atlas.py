@@ -713,7 +713,7 @@ async def get_featured():
     return {
         "items": items,
         "countries": [
-            {"code": "AU", **_country_meta("AU"), "total": (await db["anzsco_4digit_master"].count_documents({})) or 1236},
+            {"code": "AU", **_country_meta("AU"), "total": await db["occupation_master"].count_documents({"country_code": "AU", "status": "verified"})},
             {"code": "CA", **_country_meta("CA"), "total": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified"})},
             {"code": "NZ", **_country_meta("NZ"), "total": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified"})},
         ],
@@ -985,10 +985,7 @@ async def list_country(
             {"visa_pathways.visa_eligibility.visa_subclass": {"$regex": s, "$options": "i"}},
         ]
 
-    if country == "AU" and not search:
-        total = (await db["anzsco_4digit_master"].count_documents({})) or 1236
-    else:
-        total = await db["occupation_master"].count_documents(match)
+    total = await db["occupation_master"].count_documents(match)
     proj = {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
             "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
             "assessing_authority": 1, "visa_pathways": 1, "abs_data": 1, "jsa_data": 1}
@@ -1040,7 +1037,7 @@ async def get_single_occupation(country: str, code: str):
     if country not in {"AU", "CA", "NZ"}:
         raise HTTPException(404, "Unknown country")
     # Sanity on code format
-    if not re.match(r"^\d{5,6}$", code):
+    if not re.match(r"^\d{4,6}$", code):
         raise HTTPException(400, "Invalid code format")
 
     d = await db["occupation_master"].find_one(

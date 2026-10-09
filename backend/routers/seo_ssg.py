@@ -513,10 +513,7 @@ async def render_country_index_html(country_code: str) -> str:
             o["salary_chip"] = None
         o["growth_chip"] = jsa_d.get("future_growth") if jsa_d.get("future_growth") not in (None, "Unknown") else None
         top.append(o)
-    if cc == "AU":
-        total = (await db["anzsco_4digit_master"].count_documents({})) or 1236
-    else:
-        total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
+    total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
     skill_breakdown = await _skill_level_breakdown(cc)
 
     # Phase 19.4c — latest Vacancy Report (AU only) for the trust chip
@@ -566,10 +563,7 @@ async def render_atlas_hub_html() -> str:
 
     countries = []
     for cc in ("AU", "CA", "NZ"):
-        if cc == "AU":
-            n = (await db["anzsco_4digit_master"].count_documents({})) or 1236
-        else:
-            n = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
+        n = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
         meta = _country_meta(cc)
         skill_breakdown = await _skill_level_breakdown(cc)
         countries.append({

@@ -366,7 +366,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
           <span class="pill {% if jsa_d.future_growth in ('Very Strong','Strong','Very Strong Growth demand','Strong demand') %}pill-emerald{% elif jsa_d.future_growth == 'Moderate' %}pill-amber{% else %}pill-slate{% endif %}">
             {{ jsa_d.future_growth }} demand
           </span>
-          {% if jsa_d.growth_pct_2025_to_2035 is not none %}
+          {% if jsa_d.growth_pct_2025_to_2035 is defined and jsa_d.growth_pct_2025_to_2035 is not none %}
           <span style="font-weight:700;color:var(--forest)">
             {% if jsa_d.growth_pct_2025_to_2035 >= 0 %}+{% endif %}{{ '%.1f' % jsa_d.growth_pct_2025_to_2035 }}% by 2035
           </span>
