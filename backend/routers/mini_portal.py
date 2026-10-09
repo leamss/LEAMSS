@@ -28,7 +28,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from core.auth import get_current_user
+from core.auth import get_current_user, get_password_hash
 from core.database import db
 from services import import_batch_service as ibs
 from services.audit_service import log_action
@@ -75,14 +75,22 @@ async def provision_mini_portal(
     if not client_id:
         client_id = pa.get("client_email") or f"client_{pa['id']}"
     client_name = pa.get("client_name") or "Client"
-    client_email = pa.get("client_email") or ""
+    client_email = (pa.get("client_email") or "").strip().lower()
     pa_id = pa["id"]
     product_id = pa.get("product_id")
 
-    existing = await db_[MINI_PORTAL_COLL].find_one({"client_id": client_id})
+    existing = None
+    if client_email:
+        existing = await db_[MINI_PORTAL_COLL].find_one({
+            "$or": [{"client_id": client_id}, {"client_email": client_email}]
+        })
+    else:
+        existing = await db_[MINI_PORTAL_COLL].find_one({"client_id": client_id})
+
     if existing:
         return {"ok": True, "status": "already_provisioned",
                 "portal_id": existing["id"], "client_id": client_id,
+                "temp_password": existing.get("temp_password"),
                 "info_sheet_id": existing.get("info_sheet_id")}
 
     now = datetime.now(timezone.utc)
@@ -106,6 +114,7 @@ async def provision_mini_portal(
         "client_email": client_email, "pa_id": pa_id, "product_id": product_id,
         "country": pa.get("country"), "service_type": pa.get("service_type"),
         "temp_password": temp_password,  # In prod: bcrypt + send via email
+        "password_hash": get_password_hash(temp_password),
         "password_must_change": True,
         "status": "active",  # active | locked | closed
         "locked": False, "locked_by": None, "locked_at": None, "locked_reason": None,
