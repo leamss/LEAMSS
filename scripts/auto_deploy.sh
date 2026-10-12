@@ -52,7 +52,9 @@ if [ -f "docker-compose.prod.yml" ]; then
     $DC -f docker-compose.prod.yml exec -T backend python scripts/enrich_jsa_and_ssg.py || true
     if command -v node >/dev/null 2>&1; then
         node scripts/sync_start_pages.js || true
+        node scripts/build_full_anzsco_extras.js || true
         node scripts/patch_all_atlas_ssg.js || true
+        node scripts/patch_atlas_country_search.js || true
         node scripts/patch_atlas_footer_flags.js || true
     fi
     # Ensure frontend container serves the freshly generated static Atlas, Start, and Calculator files immediately
@@ -70,7 +72,9 @@ elif [ -f "docker-compose.yml" ]; then
     $DC exec -T backend python scripts/enrich_jsa_and_ssg.py || true
     if command -v node >/dev/null 2>&1; then
         node scripts/sync_start_pages.js || true
+        node scripts/build_full_anzsco_extras.js || true
         node scripts/patch_all_atlas_ssg.js || true
+        node scripts/patch_atlas_country_search.js || true
         node scripts/patch_atlas_footer_flags.js || true
     fi
     $DC cp frontend/public/atlas/. frontend:/usr/share/nginx/html/atlas/ || true

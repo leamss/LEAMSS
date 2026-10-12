@@ -107,6 +107,25 @@ async def main():
     client = AsyncIOMotorClient(mongo_url)
     db = client[db_name]
 
+    # 0. Import all 1236 ANZSCO into anzsco_4digit_master and populate occupation_master
+    jsa_dir = BACKEND_DIR / "data" / "jsa_imports"
+    occ_file = jsa_dir / "occupation_profiles_feb_2026.xlsx"
+    if occ_file.exists():
+        print("\n--- 0a. Importing 1,236 ANZSCO Excel into anzsco_4digit_master ---")
+        try:
+            from core.anzsco_excel_importer import import_anzsco_excel
+            imp_res = await import_anzsco_excel(str(occ_file))
+            print("ANZSCO Excel imported:", imp_res)
+        except Exception as e:
+            print("ANZSCO Excel import error:", e)
+
+        print("\n--- 0b. Populating all 1,236 ANZSCO into occupation_master ---")
+        try:
+            from scripts.populate_all_1236_anzsco import run_population
+            await run_population()
+        except Exception as e:
+            print("ANZSCO Population error:", e)
+
     # 1. Seed Skill Levels
     print("\n--- 1. Seeding ANZSCO Skill Levels ---")
     cursor = db["occupation_master"].find({"country_code": "AU"})

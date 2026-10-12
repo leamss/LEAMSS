@@ -1,4 +1,3226 @@
 {
+  "1111": {
+    "alternative_titles": [
+      "Professional Chief Executives and Managing Directors"
+    ],
+    "specialisations": [
+      "Senior Chief Executives and Managing Directors",
+      "Lead Chief Executives and Managing Directors"
+    ]
+  },
+  "1112": {
+    "alternative_titles": [
+      "Professional General Managers"
+    ],
+    "specialisations": [
+      "Senior General Managers",
+      "Lead General Managers"
+    ]
+  },
+  "1113": {
+    "alternative_titles": [
+      "Professional Legislators"
+    ],
+    "specialisations": [
+      "Senior Legislators",
+      "Lead Legislators"
+    ]
+  },
+  "1211": {
+    "alternative_titles": [
+      "Professional Aquaculture Farmers"
+    ],
+    "specialisations": [
+      "Senior Aquaculture Farmers",
+      "Lead Aquaculture Farmers"
+    ]
+  },
+  "1212": {
+    "alternative_titles": [
+      "Professional Crop Farmers"
+    ],
+    "specialisations": [
+      "Senior Crop Farmers",
+      "Lead Crop Farmers"
+    ]
+  },
+  "1213": {
+    "alternative_titles": [
+      "Professional Livestock Farmers"
+    ],
+    "specialisations": [
+      "Senior Livestock Farmers",
+      "Lead Livestock Farmers"
+    ]
+  },
+  "1214": {
+    "alternative_titles": [
+      "Professional Mixed Crop and Livestock Farmers"
+    ],
+    "specialisations": [
+      "Senior Mixed Crop and Livestock Farmers",
+      "Lead Mixed Crop and Livestock Farmers"
+    ]
+  },
+  "1311": {
+    "alternative_titles": [
+      "Advertising, Public Relations and Sales Director"
+    ],
+    "specialisations": [
+      "Head of Advertising, Public Relations and Sales",
+      "Senior Advertising, Public Relations and Sales Manager"
+    ]
+  },
+  "1321": {
+    "alternative_titles": [
+      "Professional Corporate Services Managers"
+    ],
+    "specialisations": [
+      "Senior Corporate Services Managers",
+      "Lead Corporate Services Managers"
+    ]
+  },
+  "1322": {
+    "alternative_titles": [
+      "Professional Finance Managers"
+    ],
+    "specialisations": [
+      "Senior Finance Managers",
+      "Lead Finance Managers"
+    ]
+  },
+  "1323": {
+    "alternative_titles": [
+      "Professional Human Resource Managers"
+    ],
+    "specialisations": [
+      "Senior Human Resource Managers",
+      "Lead Human Resource Managers"
+    ]
+  },
+  "1324": {
+    "alternative_titles": [
+      "Professional Policy and Planning Managers"
+    ],
+    "specialisations": [
+      "Senior Policy and Planning Managers",
+      "Lead Policy and Planning Managers"
+    ]
+  },
+  "1325": {
+    "alternative_titles": [
+      "Professional Research and Development Managers"
+    ],
+    "specialisations": [
+      "Senior Research and Development Managers",
+      "Lead Research and Development Managers"
+    ]
+  },
+  "1331": {
+    "alternative_titles": [
+      "Professional Construction Managers"
+    ],
+    "specialisations": [
+      "Senior Construction Managers",
+      "Lead Construction Managers"
+    ]
+  },
+  "1332": {
+    "alternative_titles": [
+      "Professional Engineering Managers"
+    ],
+    "specialisations": [
+      "Senior Engineering Managers",
+      "Lead Engineering Managers"
+    ]
+  },
+  "1333": {
+    "alternative_titles": [
+      "Professional Importers, Exporters and Wholesalers"
+    ],
+    "specialisations": [
+      "Senior Importers, Exporters and Wholesalers",
+      "Lead Importers, Exporters and Wholesalers"
+    ]
+  },
+  "1334": {
+    "alternative_titles": [
+      "Professional Manufacturers"
+    ],
+    "specialisations": [
+      "Senior Manufacturers",
+      "Lead Manufacturers"
+    ]
+  },
+  "1335": {
+    "alternative_titles": [
+      "Professional Production Managers"
+    ],
+    "specialisations": [
+      "Senior Production Managers",
+      "Lead Production Managers"
+    ]
+  },
+  "1336": {
+    "alternative_titles": [
+      "Professional Supply, Distribution and Procurement Managers"
+    ],
+    "specialisations": [
+      "Senior Supply, Distribution and Procurement Managers",
+      "Lead Supply, Distribution and Procurement Managers"
+    ]
+  },
+  "1341": {
+    "alternative_titles": [
+      "Professional Child Care Centre Managers"
+    ],
+    "specialisations": [
+      "Senior Child Care Centre Managers",
+      "Lead Child Care Centre Managers"
+    ]
+  },
+  "1342": {
+    "alternative_titles": [
+      "Professional Health and Welfare Services Managers"
+    ],
+    "specialisations": [
+      "Senior Health and Welfare Services Managers",
+      "Lead Health and Welfare Services Managers"
+    ]
+  },
+  "1343": {
+    "alternative_titles": [
+      "Professional School Principals"
+    ],
+    "specialisations": [
+      "Senior School Principals",
+      "Lead School Principals"
+    ]
+  },
+  "1344": {
+    "alternative_titles": [
+      "Professional Other Education Managers"
+    ],
+    "specialisations": [
+      "Senior Other Education Managers",
+      "Lead Other Education Managers"
+    ]
+  },
+  "1351": {
+    "alternative_titles": [
+      "Professional ICT Managers"
+    ],
+    "specialisations": [
+      "Senior ICT Managers",
+      "Lead ICT Managers"
+    ]
+  },
+  "1391": {
+    "alternative_titles": [
+      "Professional Commissioned Officers"
+    ],
+    "specialisations": [
+      "Senior Commissioned Officers",
+      "Lead Commissioned Officers"
+    ]
+  },
+  "1392": {
+    "alternative_titles": [
+      "Professional Senior Non-Commissioned Defence Force Officers"
+    ],
+    "specialisations": [
+      "Senior Senior Non-Commissioned Defence Force Officers",
+      "Lead Senior Non-Commissioned Defence Force Officers"
+    ]
+  },
+  "1399": {
+    "alternative_titles": [
+      "Professional Other Specialist Managers"
+    ],
+    "specialisations": [
+      "Senior Other Specialist Managers",
+      "Lead Other Specialist Managers"
+    ]
+  },
+  "1411": {
+    "alternative_titles": [
+      "Professional Cafe and Restaurant Managers"
+    ],
+    "specialisations": [
+      "Senior Cafe and Restaurant Managers",
+      "Lead Cafe and Restaurant Managers"
+    ]
+  },
+  "1412": {
+    "alternative_titles": [
+      "Professional Caravan Park and Camping Ground Managers"
+    ],
+    "specialisations": [
+      "Senior Caravan Park and Camping Ground Managers",
+      "Lead Caravan Park and Camping Ground Managers"
+    ]
+  },
+  "1413": {
+    "alternative_titles": [
+      "Professional Hotel and Motel Managers"
+    ],
+    "specialisations": [
+      "Senior Hotel and Motel Managers",
+      "Lead Hotel and Motel Managers"
+    ]
+  },
+  "1414": {
+    "alternative_titles": [
+      "Professional Licensed Club Managers"
+    ],
+    "specialisations": [
+      "Senior Licensed Club Managers",
+      "Lead Licensed Club Managers"
+    ]
+  },
+  "1419": {
+    "alternative_titles": [
+      "Professional Other Accommodation and Hospitality Managers"
+    ],
+    "specialisations": [
+      "Senior Other Accommodation and Hospitality Managers",
+      "Lead Other Accommodation and Hospitality Managers"
+    ]
+  },
+  "1421": {
+    "alternative_titles": [
+      "Professional Retail Managers"
+    ],
+    "specialisations": [
+      "Senior Retail Managers",
+      "Lead Retail Managers"
+    ]
+  },
+  "1491": {
+    "alternative_titles": [
+      "Professional Amusement, Fitness and Sports Centre Managers"
+    ],
+    "specialisations": [
+      "Senior Amusement, Fitness and Sports Centre Managers",
+      "Lead Amusement, Fitness and Sports Centre Managers"
+    ]
+  },
+  "1492": {
+    "alternative_titles": [
+      "Professional Call, Contact Centre and Customer Service Managers"
+    ],
+    "specialisations": [
+      "Senior Call, Contact Centre and Customer Service Managers",
+      "Lead Call, Contact Centre and Customer Service Managers"
+    ]
+  },
+  "1493": {
+    "alternative_titles": [
+      "Professional Conference and Event Organisers"
+    ],
+    "specialisations": [
+      "Senior Conference and Event Organisers",
+      "Lead Conference and Event Organisers"
+    ]
+  },
+  "1494": {
+    "alternative_titles": [
+      "Professional Transport Services Managers"
+    ],
+    "specialisations": [
+      "Senior Transport Services Managers",
+      "Lead Transport Services Managers"
+    ]
+  },
+  "1499": {
+    "alternative_titles": [
+      "Professional Other Hospitality, Retail and Service Managers"
+    ],
+    "specialisations": [
+      "Senior Other Hospitality, Retail and Service Managers",
+      "Lead Other Hospitality, Retail and Service Managers"
+    ]
+  },
+  "2111": {
+    "alternative_titles": [
+      "Professional Actors, Dancers and Other Entertainers"
+    ],
+    "specialisations": [
+      "Senior Actors, Dancers and Other Entertainers",
+      "Lead Actors, Dancers and Other Entertainers"
+    ]
+  },
+  "2112": {
+    "alternative_titles": [
+      "Professional Music Professionals"
+    ],
+    "specialisations": [
+      "Senior Music Professionals",
+      "Lead Music Professionals"
+    ]
+  },
+  "2113": {
+    "alternative_titles": [
+      "Professional Photographers"
+    ],
+    "specialisations": [
+      "Senior Photographers",
+      "Lead Photographers"
+    ]
+  },
+  "2114": {
+    "alternative_titles": [
+      "Professional Visual Arts and Crafts Professionals"
+    ],
+    "specialisations": [
+      "Senior Visual Arts and Crafts Professionals",
+      "Lead Visual Arts and Crafts Professionals"
+    ]
+  },
+  "2121": {
+    "alternative_titles": [
+      "Professional Artistic Directors, Media Producers and Presenters"
+    ],
+    "specialisations": [
+      "Senior Artistic Directors, Media Producers and Presenters",
+      "Lead Artistic Directors, Media Producers and Presenters"
+    ]
+  },
+  "2122": {
+    "alternative_titles": [
+      "Professional Authors, and Book and Script Editors"
+    ],
+    "specialisations": [
+      "Senior Authors, and Book and Script Editors",
+      "Lead Authors, and Book and Script Editors"
+    ]
+  },
+  "2123": {
+    "alternative_titles": [
+      "Professional Film, Television, Radio and Stage Directors"
+    ],
+    "specialisations": [
+      "Senior Film, Television, Radio and Stage Directors",
+      "Lead Film, Television, Radio and Stage Directors"
+    ]
+  },
+  "2124": {
+    "alternative_titles": [
+      "Professional Journalists and Other Writers"
+    ],
+    "specialisations": [
+      "Senior Journalists and Other Writers",
+      "Lead Journalists and Other Writers"
+    ]
+  },
+  "2211": {
+    "alternative_titles": [
+      "Professional Accountants"
+    ],
+    "specialisations": [
+      "Senior Accountants",
+      "Lead Accountants"
+    ]
+  },
+  "2212": {
+    "alternative_titles": [
+      "Professional Auditors, Company Secretaries and Corporate Treasurers"
+    ],
+    "specialisations": [
+      "Senior Auditors, Company Secretaries and Corporate Treasurers",
+      "Lead Auditors, Company Secretaries and Corporate Treasurers"
+    ]
+  },
+  "2221": {
+    "alternative_titles": [
+      "Professional Financial Brokers"
+    ],
+    "specialisations": [
+      "Senior Financial Brokers",
+      "Lead Financial Brokers"
+    ]
+  },
+  "2222": {
+    "alternative_titles": [
+      "Professional Financial Dealers"
+    ],
+    "specialisations": [
+      "Senior Financial Dealers",
+      "Lead Financial Dealers"
+    ]
+  },
+  "2223": {
+    "alternative_titles": [
+      "Professional Financial Investment Advisers and Managers"
+    ],
+    "specialisations": [
+      "Senior Financial Investment Advisers and Managers",
+      "Lead Financial Investment Advisers and Managers"
+    ]
+  },
+  "2231": {
+    "alternative_titles": [
+      "Professional Human Resource Professionals"
+    ],
+    "specialisations": [
+      "Senior Human Resource Professionals",
+      "Lead Human Resource Professionals"
+    ]
+  },
+  "2232": {
+    "alternative_titles": [
+      "Professional ICT Trainers"
+    ],
+    "specialisations": [
+      "Senior ICT Trainers",
+      "Lead ICT Trainers"
+    ]
+  },
+  "2233": {
+    "alternative_titles": [
+      "Professional Training and Development Professionals"
+    ],
+    "specialisations": [
+      "Senior Training and Development Professionals",
+      "Lead Training and Development Professionals"
+    ]
+  },
+  "2241": {
+    "alternative_titles": [
+      "Professional Actuaries, Mathematicians and Statisticians"
+    ],
+    "specialisations": [
+      "Senior Actuaries, Mathematicians and Statisticians",
+      "Lead Actuaries, Mathematicians and Statisticians"
+    ]
+  },
+  "2242": {
+    "alternative_titles": [
+      "Professional Archivists, Curators and Records Managers"
+    ],
+    "specialisations": [
+      "Senior Archivists, Curators and Records Managers",
+      "Lead Archivists, Curators and Records Managers"
+    ]
+  },
+  "2243": {
+    "alternative_titles": [
+      "Professional Economists"
+    ],
+    "specialisations": [
+      "Senior Economists",
+      "Lead Economists"
+    ]
+  },
+  "2244": {
+    "alternative_titles": [
+      "Professional Intelligence and Policy Analysts"
+    ],
+    "specialisations": [
+      "Senior Intelligence and Policy Analysts",
+      "Lead Intelligence and Policy Analysts"
+    ]
+  },
+  "2245": {
+    "alternative_titles": [
+      "Professional Land Economists and Valuers"
+    ],
+    "specialisations": [
+      "Senior Land Economists and Valuers",
+      "Lead Land Economists and Valuers"
+    ]
+  },
+  "2246": {
+    "alternative_titles": [
+      "Professional Librarians"
+    ],
+    "specialisations": [
+      "Senior Librarians",
+      "Lead Librarians"
+    ]
+  },
+  "2247": {
+    "alternative_titles": [
+      "Professional Management and Organisation Analysts"
+    ],
+    "specialisations": [
+      "Senior Management and Organisation Analysts",
+      "Lead Management and Organisation Analysts"
+    ]
+  },
+  "2249": {
+    "alternative_titles": [
+      "Professional Other Information and Organisation Professionals"
+    ],
+    "specialisations": [
+      "Senior Other Information and Organisation Professionals",
+      "Lead Other Information and Organisation Professionals"
+    ]
+  },
+  "2251": {
+    "alternative_titles": [
+      "Professional Advertising and Marketing Professionals"
+    ],
+    "specialisations": [
+      "Senior Advertising and Marketing Professionals",
+      "Lead Advertising and Marketing Professionals"
+    ]
+  },
+  "2252": {
+    "alternative_titles": [
+      "Professional ICT Sales Professionals"
+    ],
+    "specialisations": [
+      "Senior ICT Sales Professionals",
+      "Lead ICT Sales Professionals"
+    ]
+  },
+  "2253": {
+    "alternative_titles": [
+      "Professional Public Relations Professionals"
+    ],
+    "specialisations": [
+      "Senior Public Relations Professionals",
+      "Lead Public Relations Professionals"
+    ]
+  },
+  "2254": {
+    "alternative_titles": [
+      "Professional Technical Sales Representatives"
+    ],
+    "specialisations": [
+      "Senior Technical Sales Representatives",
+      "Lead Technical Sales Representatives"
+    ]
+  },
+  "2311": {
+    "alternative_titles": [
+      "Professional Air Transport Professionals"
+    ],
+    "specialisations": [
+      "Senior Air Transport Professionals",
+      "Lead Air Transport Professionals"
+    ]
+  },
+  "2312": {
+    "alternative_titles": [
+      "Professional Marine Transport Professionals"
+    ],
+    "specialisations": [
+      "Senior Marine Transport Professionals",
+      "Lead Marine Transport Professionals"
+    ]
+  },
+  "2321": {
+    "alternative_titles": [
+      "Professional Architects and Landscape Architects"
+    ],
+    "specialisations": [
+      "Senior Architects and Landscape Architects",
+      "Lead Architects and Landscape Architects"
+    ]
+  },
+  "2322": {
+    "alternative_titles": [
+      "Professional Surveyors and Spatial Scientists"
+    ],
+    "specialisations": [
+      "Senior Surveyors and Spatial Scientists",
+      "Lead Surveyors and Spatial Scientists"
+    ]
+  },
+  "2323": {
+    "alternative_titles": [
+      "Professional Fashion, Industrial and Jewellery Designers"
+    ],
+    "specialisations": [
+      "Senior Fashion, Industrial and Jewellery Designers",
+      "Lead Fashion, Industrial and Jewellery Designers"
+    ]
+  },
+  "2324": {
+    "alternative_titles": [
+      "Professional Graphic and Web Designers, and Illustrators"
+    ],
+    "specialisations": [
+      "Senior Graphic and Web Designers, and Illustrators",
+      "Lead Graphic and Web Designers, and Illustrators"
+    ]
+  },
+  "2325": {
+    "alternative_titles": [
+      "Professional Interior Designers"
+    ],
+    "specialisations": [
+      "Senior Interior Designers",
+      "Lead Interior Designers"
+    ]
+  },
+  "2326": {
+    "alternative_titles": [
+      "Professional Urban and Regional Planners"
+    ],
+    "specialisations": [
+      "Senior Urban and Regional Planners",
+      "Lead Urban and Regional Planners"
+    ]
+  },
+  "2331": {
+    "alternative_titles": [
+      "Professional Chemical and Materials Engineers"
+    ],
+    "specialisations": [
+      "Senior Chemical and Materials Engineers",
+      "Lead Chemical and Materials Engineers"
+    ]
+  },
+  "2332": {
+    "alternative_titles": [
+      "Professional Civil Engineering Professionals"
+    ],
+    "specialisations": [
+      "Senior Civil Engineering Professionals",
+      "Lead Civil Engineering Professionals"
+    ]
+  },
+  "2333": {
+    "alternative_titles": [
+      "Professional Electrical Engineers"
+    ],
+    "specialisations": [
+      "Senior Electrical Engineers",
+      "Lead Electrical Engineers"
+    ]
+  },
+  "2334": {
+    "alternative_titles": [
+      "Professional Electronics Engineers"
+    ],
+    "specialisations": [
+      "Senior Electronics Engineers",
+      "Lead Electronics Engineers"
+    ]
+  },
+  "2335": {
+    "alternative_titles": [
+      "Professional Industrial, Mechanical and Production Engineers"
+    ],
+    "specialisations": [
+      "Senior Industrial, Mechanical and Production Engineers",
+      "Lead Industrial, Mechanical and Production Engineers"
+    ]
+  },
+  "2336": {
+    "alternative_titles": [
+      "Professional Mining Engineers"
+    ],
+    "specialisations": [
+      "Senior Mining Engineers",
+      "Lead Mining Engineers"
+    ]
+  },
+  "2339": {
+    "alternative_titles": [
+      "Professional Other Engineering Professionals"
+    ],
+    "specialisations": [
+      "Senior Other Engineering Professionals",
+      "Lead Other Engineering Professionals"
+    ]
+  },
+  "2341": {
+    "alternative_titles": [
+      "Professional Agricultural and Forestry Scientists"
+    ],
+    "specialisations": [
+      "Senior Agricultural and Forestry Scientists",
+      "Lead Agricultural and Forestry Scientists"
+    ]
+  },
+  "2342": {
+    "alternative_titles": [
+      "Professional Chemists, and Food and Wine Scientists"
+    ],
+    "specialisations": [
+      "Senior Chemists, and Food and Wine Scientists",
+      "Lead Chemists, and Food and Wine Scientists"
+    ]
+  },
+  "2343": {
+    "alternative_titles": [
+      "Professional Environmental Scientists"
+    ],
+    "specialisations": [
+      "Senior Environmental Scientists",
+      "Lead Environmental Scientists"
+    ]
+  },
+  "2344": {
+    "alternative_titles": [
+      "Professional Geologists, Geophysicists and Hydrogeologists"
+    ],
+    "specialisations": [
+      "Senior Geologists, Geophysicists and Hydrogeologists",
+      "Lead Geologists, Geophysicists and Hydrogeologists"
+    ]
+  },
+  "2345": {
+    "alternative_titles": [
+      "Professional Life Scientists"
+    ],
+    "specialisations": [
+      "Senior Life Scientists",
+      "Lead Life Scientists"
+    ]
+  },
+  "2346": {
+    "alternative_titles": [
+      "Professional Medical Laboratory Scientists"
+    ],
+    "specialisations": [
+      "Senior Medical Laboratory Scientists",
+      "Lead Medical Laboratory Scientists"
+    ]
+  },
+  "2347": {
+    "alternative_titles": [
+      "Professional Veterinarians"
+    ],
+    "specialisations": [
+      "Senior Veterinarians",
+      "Lead Veterinarians"
+    ]
+  },
+  "2349": {
+    "alternative_titles": [
+      "Professional Other Natural and Physical Science Professionals"
+    ],
+    "specialisations": [
+      "Senior Other Natural and Physical Science Professionals",
+      "Lead Other Natural and Physical Science Professionals"
+    ]
+  },
+  "2411": {
+    "alternative_titles": [
+      "Professional Early Childhood Teachers"
+    ],
+    "specialisations": [
+      "Senior Early Childhood Teachers",
+      "Lead Early Childhood Teachers"
+    ]
+  },
+  "2412": {
+    "alternative_titles": [
+      "Professional Primary School Teachers"
+    ],
+    "specialisations": [
+      "Senior Primary School Teachers",
+      "Lead Primary School Teachers"
+    ]
+  },
+  "2413": {
+    "alternative_titles": [
+      "Professional Middle School Teachers"
+    ],
+    "specialisations": [
+      "Senior Middle School Teachers",
+      "Lead Middle School Teachers"
+    ]
+  },
+  "2414": {
+    "alternative_titles": [
+      "Professional Secondary School Teachers"
+    ],
+    "specialisations": [
+      "Senior Secondary School Teachers",
+      "Lead Secondary School Teachers"
+    ]
+  },
+  "2415": {
+    "alternative_titles": [
+      "Professional Special Education Teachers"
+    ],
+    "specialisations": [
+      "Senior Special Education Teachers",
+      "Lead Special Education Teachers"
+    ]
+  },
+  "2421": {
+    "alternative_titles": [
+      "Professional University Lecturers and Tutors"
+    ],
+    "specialisations": [
+      "Senior University Lecturers and Tutors",
+      "Lead University Lecturers and Tutors"
+    ]
+  },
+  "2422": {
+    "alternative_titles": [
+      "Professional Vocational Education Teachers"
+    ],
+    "specialisations": [
+      "Senior Vocational Education Teachers",
+      "Lead Vocational Education Teachers"
+    ]
+  },
+  "2491": {
+    "alternative_titles": [
+      "Professional Education Advisers and Reviewers"
+    ],
+    "specialisations": [
+      "Senior Education Advisers and Reviewers",
+      "Lead Education Advisers and Reviewers"
+    ]
+  },
+  "2492": {
+    "alternative_titles": [
+      "Professional Private Tutors and Teachers"
+    ],
+    "specialisations": [
+      "Senior Private Tutors and Teachers",
+      "Lead Private Tutors and Teachers"
+    ]
+  },
+  "2493": {
+    "alternative_titles": [
+      "Professional Teachers of English to Speakers of Other Languages"
+    ],
+    "specialisations": [
+      "Senior Teachers of English to Speakers of Other Languages",
+      "Lead Teachers of English to Speakers of Other Languages"
+    ]
+  },
+  "2511": {
+    "alternative_titles": [
+      "Professional Nutrition Professionals"
+    ],
+    "specialisations": [
+      "Senior Nutrition Professionals",
+      "Lead Nutrition Professionals"
+    ]
+  },
+  "2512": {
+    "alternative_titles": [
+      "Professional Medical Imaging Professionals"
+    ],
+    "specialisations": [
+      "Senior Medical Imaging Professionals",
+      "Lead Medical Imaging Professionals"
+    ]
+  },
+  "2513": {
+    "alternative_titles": [
+      "Professional Occupational and Environmental Health Professionals"
+    ],
+    "specialisations": [
+      "Senior Occupational and Environmental Health Professionals",
+      "Lead Occupational and Environmental Health Professionals"
+    ]
+  },
+  "2514": {
+    "alternative_titles": [
+      "Professional Optometrists and Orthoptists"
+    ],
+    "specialisations": [
+      "Senior Optometrists and Orthoptists",
+      "Lead Optometrists and Orthoptists"
+    ]
+  },
+  "2515": {
+    "alternative_titles": [
+      "Professional Pharmacists"
+    ],
+    "specialisations": [
+      "Senior Pharmacists",
+      "Lead Pharmacists"
+    ]
+  },
+  "2519": {
+    "alternative_titles": [
+      "Professional Other Health Diagnostic and Promotion Professionals"
+    ],
+    "specialisations": [
+      "Senior Other Health Diagnostic and Promotion Professionals",
+      "Lead Other Health Diagnostic and Promotion Professionals"
+    ]
+  },
+  "2521": {
+    "alternative_titles": [
+      "Professional Chiropractors and Osteopaths"
+    ],
+    "specialisations": [
+      "Senior Chiropractors and Osteopaths",
+      "Lead Chiropractors and Osteopaths"
+    ]
+  },
+  "2522": {
+    "alternative_titles": [
+      "Professional Complementary Health Therapists"
+    ],
+    "specialisations": [
+      "Senior Complementary Health Therapists",
+      "Lead Complementary Health Therapists"
+    ]
+  },
+  "2523": {
+    "alternative_titles": [
+      "Professional Dental Practitioners"
+    ],
+    "specialisations": [
+      "Senior Dental Practitioners",
+      "Lead Dental Practitioners"
+    ]
+  },
+  "2524": {
+    "alternative_titles": [
+      "Professional Occupational Therapists"
+    ],
+    "specialisations": [
+      "Senior Occupational Therapists",
+      "Lead Occupational Therapists"
+    ]
+  },
+  "2525": {
+    "alternative_titles": [
+      "Professional Physiotherapists"
+    ],
+    "specialisations": [
+      "Senior Physiotherapists",
+      "Lead Physiotherapists"
+    ]
+  },
+  "2526": {
+    "alternative_titles": [
+      "Professional Podiatrists"
+    ],
+    "specialisations": [
+      "Senior Podiatrists",
+      "Lead Podiatrists"
+    ]
+  },
+  "2527": {
+    "alternative_titles": [
+      "Professional Audiologists and Speech Pathologists \\ Therapists"
+    ],
+    "specialisations": [
+      "Senior Audiologists and Speech Pathologists \\ Therapists",
+      "Lead Audiologists and Speech Pathologists \\ Therapists"
+    ]
+  },
+  "2531": {
+    "alternative_titles": [
+      "Professional General Practitioners and Resident Medical Officers"
+    ],
+    "specialisations": [
+      "Senior General Practitioners and Resident Medical Officers",
+      "Lead General Practitioners and Resident Medical Officers"
+    ]
+  },
+  "2532": {
+    "alternative_titles": [
+      "Professional Anaesthetists"
+    ],
+    "specialisations": [
+      "Senior Anaesthetists",
+      "Lead Anaesthetists"
+    ]
+  },
+  "2533": {
+    "alternative_titles": [
+      "Professional Specialist Physicians"
+    ],
+    "specialisations": [
+      "Senior Specialist Physicians",
+      "Lead Specialist Physicians"
+    ]
+  },
+  "2534": {
+    "alternative_titles": [
+      "Professional Psychiatrists"
+    ],
+    "specialisations": [
+      "Senior Psychiatrists",
+      "Lead Psychiatrists"
+    ]
+  },
+  "2535": {
+    "alternative_titles": [
+      "Professional Surgeons"
+    ],
+    "specialisations": [
+      "Senior Surgeons",
+      "Lead Surgeons"
+    ]
+  },
+  "2539": {
+    "alternative_titles": [
+      "Professional Other Medical Practitioners"
+    ],
+    "specialisations": [
+      "Senior Other Medical Practitioners",
+      "Lead Other Medical Practitioners"
+    ]
+  },
+  "2541": {
+    "alternative_titles": [
+      "Professional Midwives"
+    ],
+    "specialisations": [
+      "Senior Midwives",
+      "Lead Midwives"
+    ]
+  },
+  "2542": {
+    "alternative_titles": [
+      "Professional Nurse Educators and Researchers"
+    ],
+    "specialisations": [
+      "Senior Nurse Educators and Researchers",
+      "Lead Nurse Educators and Researchers"
+    ]
+  },
+  "2543": {
+    "alternative_titles": [
+      "Professional Nurse Managers"
+    ],
+    "specialisations": [
+      "Senior Nurse Managers",
+      "Lead Nurse Managers"
+    ]
+  },
+  "2544": {
+    "alternative_titles": [
+      "Professional Registered Nurses"
+    ],
+    "specialisations": [
+      "Senior Registered Nurses",
+      "Lead Registered Nurses"
+    ]
+  },
+  "2611": {
+    "alternative_titles": [
+      "Professional ICT Business and Systems Analysts"
+    ],
+    "specialisations": [
+      "Senior ICT Business and Systems Analysts",
+      "Lead ICT Business and Systems Analysts"
+    ]
+  },
+  "2612": {
+    "alternative_titles": [
+      "Professional Multimedia Specialists and Web Developers"
+    ],
+    "specialisations": [
+      "Senior Multimedia Specialists and Web Developers",
+      "Lead Multimedia Specialists and Web Developers"
+    ]
+  },
+  "2613": {
+    "alternative_titles": [
+      "Professional Software and Applications Programmers"
+    ],
+    "specialisations": [
+      "Senior Software and Applications Programmers",
+      "Lead Software and Applications Programmers"
+    ]
+  },
+  "2621": {
+    "alternative_titles": [
+      "Professional Database and Systems Administrators, and ICT Security Specialists"
+    ],
+    "specialisations": [
+      "Senior Database and Systems Administrators, and ICT Security Specialists",
+      "Lead Database and Systems Administrators, and ICT Security Specialists"
+    ]
+  },
+  "2631": {
+    "alternative_titles": [
+      "Professional Computer Network Professionals"
+    ],
+    "specialisations": [
+      "Senior Computer Network Professionals",
+      "Lead Computer Network Professionals"
+    ]
+  },
+  "2632": {
+    "alternative_titles": [
+      "Professional ICT Support and Test Engineers"
+    ],
+    "specialisations": [
+      "Senior ICT Support and Test Engineers",
+      "Lead ICT Support and Test Engineers"
+    ]
+  },
+  "2633": {
+    "alternative_titles": [
+      "Professional Telecommunications Engineering Professionals"
+    ],
+    "specialisations": [
+      "Senior Telecommunications Engineering Professionals",
+      "Lead Telecommunications Engineering Professionals"
+    ]
+  },
+  "2711": {
+    "alternative_titles": [
+      "Professional Barristers"
+    ],
+    "specialisations": [
+      "Senior Barristers",
+      "Lead Barristers"
+    ]
+  },
+  "2712": {
+    "alternative_titles": [
+      "Professional Judicial and Other Legal Professionals"
+    ],
+    "specialisations": [
+      "Senior Judicial and Other Legal Professionals",
+      "Lead Judicial and Other Legal Professionals"
+    ]
+  },
+  "2713": {
+    "alternative_titles": [
+      "Professional Solicitors"
+    ],
+    "specialisations": [
+      "Senior Solicitors",
+      "Lead Solicitors"
+    ]
+  },
+  "2721": {
+    "alternative_titles": [
+      "Professional Counsellors"
+    ],
+    "specialisations": [
+      "Senior Counsellors",
+      "Lead Counsellors"
+    ]
+  },
+  "2722": {
+    "alternative_titles": [
+      "Professional Ministers of Religion"
+    ],
+    "specialisations": [
+      "Senior Ministers of Religion",
+      "Lead Ministers of Religion"
+    ]
+  },
+  "2723": {
+    "alternative_titles": [
+      "Professional Psychologists and Psychotherapists"
+    ],
+    "specialisations": [
+      "Senior Psychologists and Psychotherapists",
+      "Lead Psychologists and Psychotherapists"
+    ]
+  },
+  "2724": {
+    "alternative_titles": [
+      "Professional Social Professionals"
+    ],
+    "specialisations": [
+      "Senior Social Professionals",
+      "Lead Social Professionals"
+    ]
+  },
+  "2725": {
+    "alternative_titles": [
+      "Professional Social Workers"
+    ],
+    "specialisations": [
+      "Senior Social Workers",
+      "Lead Social Workers"
+    ]
+  },
+  "2726": {
+    "alternative_titles": [
+      "Professional Welfare, Recreation and Community Arts Workers"
+    ],
+    "specialisations": [
+      "Senior Welfare, Recreation and Community Arts Workers",
+      "Lead Welfare, Recreation and Community Arts Workers"
+    ]
+  },
+  "3111": {
+    "alternative_titles": [
+      "Professional Agricultural Technicians"
+    ],
+    "specialisations": [
+      "Senior Agricultural Technicians",
+      "Lead Agricultural Technicians"
+    ]
+  },
+  "3112": {
+    "alternative_titles": [
+      "Professional Medical Technicians"
+    ],
+    "specialisations": [
+      "Senior Medical Technicians",
+      "Lead Medical Technicians"
+    ]
+  },
+  "3113": {
+    "alternative_titles": [
+      "Professional Primary Products Inspectors"
+    ],
+    "specialisations": [
+      "Senior Primary Products Inspectors",
+      "Lead Primary Products Inspectors"
+    ]
+  },
+  "3114": {
+    "alternative_titles": [
+      "Professional Science Technicians"
+    ],
+    "specialisations": [
+      "Senior Science Technicians",
+      "Lead Science Technicians"
+    ]
+  },
+  "3121": {
+    "alternative_titles": [
+      "Professional Architectural, Building and Surveying Technicians"
+    ],
+    "specialisations": [
+      "Senior Architectural, Building and Surveying Technicians",
+      "Lead Architectural, Building and Surveying Technicians"
+    ]
+  },
+  "3122": {
+    "alternative_titles": [
+      "Professional Civil Engineering Draftspersons and Technicians"
+    ],
+    "specialisations": [
+      "Senior Civil Engineering Draftspersons and Technicians",
+      "Lead Civil Engineering Draftspersons and Technicians"
+    ]
+  },
+  "3123": {
+    "alternative_titles": [
+      "Professional Electrical Engineering Draftspersons, Technicians"
+    ],
+    "specialisations": [
+      "Senior Electrical Engineering Draftspersons, Technicians",
+      "Lead Electrical Engineering Draftspersons, Technicians"
+    ]
+  },
+  "3124": {
+    "alternative_titles": [
+      "Professional Electronic Engineering Draftspersons, Technicians"
+    ],
+    "specialisations": [
+      "Senior Electronic Engineering Draftspersons, Technicians",
+      "Lead Electronic Engineering Draftspersons, Technicians"
+    ]
+  },
+  "3125": {
+    "alternative_titles": [
+      "Professional Mechanical Engineering Draftspersons, Technicians"
+    ],
+    "specialisations": [
+      "Senior Mechanical Engineering Draftspersons, Technicians",
+      "Lead Mechanical Engineering Draftspersons, Technicians"
+    ]
+  },
+  "3126": {
+    "alternative_titles": [
+      "Professional Safety Inspectors"
+    ],
+    "specialisations": [
+      "Senior Safety Inspectors",
+      "Lead Safety Inspectors"
+    ]
+  },
+  "3129": {
+    "alternative_titles": [
+      "Professional Other Building and Engineering Technicians"
+    ],
+    "specialisations": [
+      "Senior Other Building and Engineering Technicians",
+      "Lead Other Building and Engineering Technicians"
+    ]
+  },
+  "3131": {
+    "alternative_titles": [
+      "Professional ICT Support Technicians"
+    ],
+    "specialisations": [
+      "Senior ICT Support Technicians",
+      "Lead ICT Support Technicians"
+    ]
+  },
+  "3132": {
+    "alternative_titles": [
+      "Professional Telecommunications Technical Specialists"
+    ],
+    "specialisations": [
+      "Senior Telecommunications Technical Specialists",
+      "Lead Telecommunications Technical Specialists"
+    ]
+  },
+  "3211": {
+    "alternative_titles": [
+      "Professional Automotive Electricians"
+    ],
+    "specialisations": [
+      "Senior Automotive Electricians",
+      "Lead Automotive Electricians"
+    ]
+  },
+  "3212": {
+    "alternative_titles": [
+      "Professional Motor Mechanics"
+    ],
+    "specialisations": [
+      "Senior Motor Mechanics",
+      "Lead Motor Mechanics"
+    ]
+  },
+  "3221": {
+    "alternative_titles": [
+      "Professional Metal Casting, Forging and Finishing Trades"
+    ],
+    "specialisations": [
+      "Senior Metal Casting, Forging and Finishing Trades",
+      "Lead Metal Casting, Forging and Finishing Trades"
+    ]
+  },
+  "3222": {
+    "alternative_titles": [
+      "Professional Sheetmetal Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Sheetmetal Trades Workers",
+      "Lead Sheetmetal Trades Workers"
+    ]
+  },
+  "3223": {
+    "alternative_titles": [
+      "Professional Structural Steel and Welding Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Structural Steel and Welding Trades Workers",
+      "Lead Structural Steel and Welding Trades Workers"
+    ]
+  },
+  "3231": {
+    "alternative_titles": [
+      "Professional Aircraft Maintenance Engineers"
+    ],
+    "specialisations": [
+      "Senior Aircraft Maintenance Engineers",
+      "Lead Aircraft Maintenance Engineers"
+    ]
+  },
+  "3232": {
+    "alternative_titles": [
+      "Professional Metal Fitters and Machinists"
+    ],
+    "specialisations": [
+      "Senior Metal Fitters and Machinists",
+      "Lead Metal Fitters and Machinists"
+    ]
+  },
+  "3233": {
+    "alternative_titles": [
+      "Professional Precision Metal Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Precision Metal Trades Workers",
+      "Lead Precision Metal Trades Workers"
+    ]
+  },
+  "3234": {
+    "alternative_titles": [
+      "Professional Toolmakers and Engineering Patternmakers"
+    ],
+    "specialisations": [
+      "Senior Toolmakers and Engineering Patternmakers",
+      "Lead Toolmakers and Engineering Patternmakers"
+    ]
+  },
+  "3241": {
+    "alternative_titles": [
+      "Professional Panelbeaters"
+    ],
+    "specialisations": [
+      "Senior Panelbeaters",
+      "Lead Panelbeaters"
+    ]
+  },
+  "3242": {
+    "alternative_titles": [
+      "Professional Vehicle Body Builders and Trimmers"
+    ],
+    "specialisations": [
+      "Senior Vehicle Body Builders and Trimmers",
+      "Lead Vehicle Body Builders and Trimmers"
+    ]
+  },
+  "3243": {
+    "alternative_titles": [
+      "Professional Vehicle Painters"
+    ],
+    "specialisations": [
+      "Senior Vehicle Painters",
+      "Lead Vehicle Painters"
+    ]
+  },
+  "3311": {
+    "alternative_titles": [
+      "Professional Bricklayers and Stonemasons"
+    ],
+    "specialisations": [
+      "Senior Bricklayers and Stonemasons",
+      "Lead Bricklayers and Stonemasons"
+    ]
+  },
+  "3312": {
+    "alternative_titles": [
+      "Professional Carpenters and Joiners"
+    ],
+    "specialisations": [
+      "Senior Carpenters and Joiners",
+      "Lead Carpenters and Joiners"
+    ]
+  },
+  "3321": {
+    "alternative_titles": [
+      "Professional Floor Finishers"
+    ],
+    "specialisations": [
+      "Senior Floor Finishers",
+      "Lead Floor Finishers"
+    ]
+  },
+  "3322": {
+    "alternative_titles": [
+      "Professional Painting Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Painting Trades Workers",
+      "Lead Painting Trades Workers"
+    ]
+  },
+  "3331": {
+    "alternative_titles": [
+      "Professional Glaziers"
+    ],
+    "specialisations": [
+      "Senior Glaziers",
+      "Lead Glaziers"
+    ]
+  },
+  "3332": {
+    "alternative_titles": [
+      "Professional Plasterers"
+    ],
+    "specialisations": [
+      "Senior Plasterers",
+      "Lead Plasterers"
+    ]
+  },
+  "3333": {
+    "alternative_titles": [
+      "Professional Roof Tilers"
+    ],
+    "specialisations": [
+      "Senior Roof Tilers",
+      "Lead Roof Tilers"
+    ]
+  },
+  "3334": {
+    "alternative_titles": [
+      "Professional Wall and Floor Tilers"
+    ],
+    "specialisations": [
+      "Senior Wall and Floor Tilers",
+      "Lead Wall and Floor Tilers"
+    ]
+  },
+  "3341": {
+    "alternative_titles": [
+      "Professional Plumbers"
+    ],
+    "specialisations": [
+      "Senior Plumbers",
+      "Lead Plumbers"
+    ]
+  },
+  "3411": {
+    "alternative_titles": [
+      "Professional Electricians"
+    ],
+    "specialisations": [
+      "Senior Electricians",
+      "Lead Electricians"
+    ]
+  },
+  "3421": {
+    "alternative_titles": [
+      "Professional Airconditioning and Refrigeration Mechanics"
+    ],
+    "specialisations": [
+      "Senior Airconditioning and Refrigeration Mechanics",
+      "Lead Airconditioning and Refrigeration Mechanics"
+    ]
+  },
+  "3422": {
+    "alternative_titles": [
+      "Professional Electrical Distribution Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Electrical Distribution Trades Workers",
+      "Lead Electrical Distribution Trades Workers"
+    ]
+  },
+  "3423": {
+    "alternative_titles": [
+      "Professional Electronics Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Electronics Trades Workers",
+      "Lead Electronics Trades Workers"
+    ]
+  },
+  "3424": {
+    "alternative_titles": [
+      "Professional Telecommunications Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Telecommunications Trades Workers",
+      "Lead Telecommunications Trades Workers"
+    ]
+  },
+  "3511": {
+    "alternative_titles": [
+      "Professional Bakers and Pastrycooks"
+    ],
+    "specialisations": [
+      "Senior Bakers and Pastrycooks",
+      "Lead Bakers and Pastrycooks"
+    ]
+  },
+  "3512": {
+    "alternative_titles": [
+      "Professional Butchers and Smallgoods Makers"
+    ],
+    "specialisations": [
+      "Senior Butchers and Smallgoods Makers",
+      "Lead Butchers and Smallgoods Makers"
+    ]
+  },
+  "3513": {
+    "alternative_titles": [
+      "Professional Chefs"
+    ],
+    "specialisations": [
+      "Senior Chefs",
+      "Lead Chefs"
+    ]
+  },
+  "3514": {
+    "alternative_titles": [
+      "Professional Cooks"
+    ],
+    "specialisations": [
+      "Senior Cooks",
+      "Lead Cooks"
+    ]
+  },
+  "3611": {
+    "alternative_titles": [
+      "Professional Animal Attendants and Trainers"
+    ],
+    "specialisations": [
+      "Senior Animal Attendants and Trainers",
+      "Lead Animal Attendants and Trainers"
+    ]
+  },
+  "3612": {
+    "alternative_titles": [
+      "Professional Shearers"
+    ],
+    "specialisations": [
+      "Senior Shearers",
+      "Lead Shearers"
+    ]
+  },
+  "3613": {
+    "alternative_titles": [
+      "Professional Veterinary Nurses"
+    ],
+    "specialisations": [
+      "Senior Veterinary Nurses",
+      "Lead Veterinary Nurses"
+    ]
+  },
+  "3621": {
+    "alternative_titles": [
+      "Professional Florists"
+    ],
+    "specialisations": [
+      "Senior Florists",
+      "Lead Florists"
+    ]
+  },
+  "3622": {
+    "alternative_titles": [
+      "Professional Gardeners"
+    ],
+    "specialisations": [
+      "Senior Gardeners",
+      "Lead Gardeners"
+    ]
+  },
+  "3623": {
+    "alternative_titles": [
+      "Professional Greenkeepers"
+    ],
+    "specialisations": [
+      "Senior Greenkeepers",
+      "Lead Greenkeepers"
+    ]
+  },
+  "3624": {
+    "alternative_titles": [
+      "Professional Nurserypersons"
+    ],
+    "specialisations": [
+      "Senior Nurserypersons",
+      "Lead Nurserypersons"
+    ]
+  },
+  "3911": {
+    "alternative_titles": [
+      "Professional Hairdressers"
+    ],
+    "specialisations": [
+      "Senior Hairdressers",
+      "Lead Hairdressers"
+    ]
+  },
+  "3921": {
+    "alternative_titles": [
+      "Professional Print Finishers and Screen Printers"
+    ],
+    "specialisations": [
+      "Senior Print Finishers and Screen Printers",
+      "Lead Print Finishers and Screen Printers"
+    ]
+  },
+  "3922": {
+    "alternative_titles": [
+      "Professional Graphic Pre-press Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Graphic Pre-press Trades Workers",
+      "Lead Graphic Pre-press Trades Workers"
+    ]
+  },
+  "3923": {
+    "alternative_titles": [
+      "Professional Printers"
+    ],
+    "specialisations": [
+      "Senior Printers",
+      "Lead Printers"
+    ]
+  },
+  "3931": {
+    "alternative_titles": [
+      "Professional Canvas and Leather Goods Makers"
+    ],
+    "specialisations": [
+      "Senior Canvas and Leather Goods Makers",
+      "Lead Canvas and Leather Goods Makers"
+    ]
+  },
+  "3932": {
+    "alternative_titles": [
+      "Professional Clothing Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Clothing Trades Workers",
+      "Lead Clothing Trades Workers"
+    ]
+  },
+  "3933": {
+    "alternative_titles": [
+      "Professional Upholsterers"
+    ],
+    "specialisations": [
+      "Senior Upholsterers",
+      "Lead Upholsterers"
+    ]
+  },
+  "3941": {
+    "alternative_titles": [
+      "Professional Cabinetmakers"
+    ],
+    "specialisations": [
+      "Senior Cabinetmakers",
+      "Lead Cabinetmakers"
+    ]
+  },
+  "3942": {
+    "alternative_titles": [
+      "Professional Wood Machinists and Other Wood Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Wood Machinists and Other Wood Trades Workers",
+      "Lead Wood Machinists and Other Wood Trades Workers"
+    ]
+  },
+  "3991": {
+    "alternative_titles": [
+      "Professional Boat Builders and Shipwrights"
+    ],
+    "specialisations": [
+      "Senior Boat Builders and Shipwrights",
+      "Lead Boat Builders and Shipwrights"
+    ]
+  },
+  "3992": {
+    "alternative_titles": [
+      "Professional Chemical, Gas, Petroleum and Power Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Chemical, Gas, Petroleum and Power Plant Operators",
+      "Lead Chemical, Gas, Petroleum and Power Plant Operators"
+    ]
+  },
+  "3993": {
+    "alternative_titles": [
+      "Professional Gallery, Library and Museum Technicians"
+    ],
+    "specialisations": [
+      "Senior Gallery, Library and Museum Technicians",
+      "Lead Gallery, Library and Museum Technicians"
+    ]
+  },
+  "3994": {
+    "alternative_titles": [
+      "Professional Jewellers"
+    ],
+    "specialisations": [
+      "Senior Jewellers",
+      "Lead Jewellers"
+    ]
+  },
+  "3995": {
+    "alternative_titles": [
+      "Professional Performing Arts Technicians"
+    ],
+    "specialisations": [
+      "Senior Performing Arts Technicians",
+      "Lead Performing Arts Technicians"
+    ]
+  },
+  "3996": {
+    "alternative_titles": [
+      "Professional Signwriters"
+    ],
+    "specialisations": [
+      "Senior Signwriters",
+      "Lead Signwriters"
+    ]
+  },
+  "3999": {
+    "alternative_titles": [
+      "Professional Other Miscellaneous Technicians and Trades Workers"
+    ],
+    "specialisations": [
+      "Senior Other Miscellaneous Technicians and Trades Workers",
+      "Lead Other Miscellaneous Technicians and Trades Workers"
+    ]
+  },
+  "4111": {
+    "alternative_titles": [
+      "Professional Ambulance Officers and Paramedics"
+    ],
+    "specialisations": [
+      "Senior Ambulance Officers and Paramedics",
+      "Lead Ambulance Officers and Paramedics"
+    ]
+  },
+  "4112": {
+    "alternative_titles": [
+      "Professional Dental Hygienists, Technicians and Therapists"
+    ],
+    "specialisations": [
+      "Senior Dental Hygienists, Technicians and Therapists",
+      "Lead Dental Hygienists, Technicians and Therapists"
+    ]
+  },
+  "4113": {
+    "alternative_titles": [
+      "Professional Diversional Therapists"
+    ],
+    "specialisations": [
+      "Senior Diversional Therapists",
+      "Lead Diversional Therapists"
+    ]
+  },
+  "4114": {
+    "alternative_titles": [
+      "Professional Enrolled and Mothercraft Nurses"
+    ],
+    "specialisations": [
+      "Senior Enrolled and Mothercraft Nurses",
+      "Lead Enrolled and Mothercraft Nurses"
+    ]
+  },
+  "4115": {
+    "alternative_titles": [
+      "Professional Indigenous Health Workers"
+    ],
+    "specialisations": [
+      "Senior Indigenous Health Workers",
+      "Lead Indigenous Health Workers"
+    ]
+  },
+  "4116": {
+    "alternative_titles": [
+      "Professional Massage Therapists"
+    ],
+    "specialisations": [
+      "Senior Massage Therapists",
+      "Lead Massage Therapists"
+    ]
+  },
+  "4117": {
+    "alternative_titles": [
+      "Professional Welfare Support Workers"
+    ],
+    "specialisations": [
+      "Senior Welfare Support Workers",
+      "Lead Welfare Support Workers"
+    ]
+  },
+  "4211": {
+    "alternative_titles": [
+      "Professional Child Carers"
+    ],
+    "specialisations": [
+      "Senior Child Carers",
+      "Lead Child Carers"
+    ]
+  },
+  "4221": {
+    "alternative_titles": [
+      "Professional Education Aides"
+    ],
+    "specialisations": [
+      "Senior Education Aides",
+      "Lead Education Aides"
+    ]
+  },
+  "4231": {
+    "alternative_titles": [
+      "Professional Aged and Disabled Carers"
+    ],
+    "specialisations": [
+      "Senior Aged and Disabled Carers",
+      "Lead Aged and Disabled Carers"
+    ]
+  },
+  "4232": {
+    "alternative_titles": [
+      "Professional Dental Assistants"
+    ],
+    "specialisations": [
+      "Senior Dental Assistants",
+      "Lead Dental Assistants"
+    ]
+  },
+  "4233": {
+    "alternative_titles": [
+      "Professional Nursing Support and Personal Care Workers"
+    ],
+    "specialisations": [
+      "Senior Nursing Support and Personal Care Workers",
+      "Lead Nursing Support and Personal Care Workers"
+    ]
+  },
+  "4234": {
+    "alternative_titles": [
+      "Professional Special Care Workers"
+    ],
+    "specialisations": [
+      "Senior Special Care Workers",
+      "Lead Special Care Workers"
+    ]
+  },
+  "4311": {
+    "alternative_titles": [
+      "Professional Bar Attendants and Baristas"
+    ],
+    "specialisations": [
+      "Senior Bar Attendants and Baristas",
+      "Lead Bar Attendants and Baristas"
+    ]
+  },
+  "4312": {
+    "alternative_titles": [
+      "Professional Cafe Workers"
+    ],
+    "specialisations": [
+      "Senior Cafe Workers",
+      "Lead Cafe Workers"
+    ]
+  },
+  "4313": {
+    "alternative_titles": [
+      "Professional Gaming Workers"
+    ],
+    "specialisations": [
+      "Senior Gaming Workers",
+      "Lead Gaming Workers"
+    ]
+  },
+  "4314": {
+    "alternative_titles": [
+      "Professional Hotel Service Managers"
+    ],
+    "specialisations": [
+      "Senior Hotel Service Managers",
+      "Lead Hotel Service Managers"
+    ]
+  },
+  "4315": {
+    "alternative_titles": [
+      "Professional Waiters"
+    ],
+    "specialisations": [
+      "Senior Waiters",
+      "Lead Waiters"
+    ]
+  },
+  "4319": {
+    "alternative_titles": [
+      "Professional Other Hospitality Workers"
+    ],
+    "specialisations": [
+      "Senior Other Hospitality Workers",
+      "Lead Other Hospitality Workers"
+    ]
+  },
+  "4411": {
+    "alternative_titles": [
+      "Professional Defence Force Members - Other Ranks"
+    ],
+    "specialisations": [
+      "Senior Defence Force Members - Other Ranks",
+      "Lead Defence Force Members - Other Ranks"
+    ]
+  },
+  "4412": {
+    "alternative_titles": [
+      "Professional Fire and Emergency Workers"
+    ],
+    "specialisations": [
+      "Senior Fire and Emergency Workers",
+      "Lead Fire and Emergency Workers"
+    ]
+  },
+  "4413": {
+    "alternative_titles": [
+      "Professional Police"
+    ],
+    "specialisations": [
+      "Senior Police",
+      "Lead Police"
+    ]
+  },
+  "4421": {
+    "alternative_titles": [
+      "Professional Prison Officers"
+    ],
+    "specialisations": [
+      "Senior Prison Officers",
+      "Lead Prison Officers"
+    ]
+  },
+  "4422": {
+    "alternative_titles": [
+      "Professional Security Officers and Guards"
+    ],
+    "specialisations": [
+      "Senior Security Officers and Guards",
+      "Lead Security Officers and Guards"
+    ]
+  },
+  "4511": {
+    "alternative_titles": [
+      "Professional Beauty Therapists"
+    ],
+    "specialisations": [
+      "Senior Beauty Therapists",
+      "Lead Beauty Therapists"
+    ]
+  },
+  "4512": {
+    "alternative_titles": [
+      "Professional Driving Instructors"
+    ],
+    "specialisations": [
+      "Senior Driving Instructors",
+      "Lead Driving Instructors"
+    ]
+  },
+  "4513": {
+    "alternative_titles": [
+      "Professional Funeral Workers"
+    ],
+    "specialisations": [
+      "Senior Funeral Workers",
+      "Lead Funeral Workers"
+    ]
+  },
+  "4514": {
+    "alternative_titles": [
+      "Professional Gallery, Museum and Tour Guides"
+    ],
+    "specialisations": [
+      "Senior Gallery, Museum and Tour Guides",
+      "Lead Gallery, Museum and Tour Guides"
+    ]
+  },
+  "4515": {
+    "alternative_titles": [
+      "Professional Personal Care Consultants"
+    ],
+    "specialisations": [
+      "Senior Personal Care Consultants",
+      "Lead Personal Care Consultants"
+    ]
+  },
+  "4516": {
+    "alternative_titles": [
+      "Professional Tourism and Travel Advisers"
+    ],
+    "specialisations": [
+      "Senior Tourism and Travel Advisers",
+      "Lead Tourism and Travel Advisers"
+    ]
+  },
+  "4517": {
+    "alternative_titles": [
+      "Professional Travel Attendants"
+    ],
+    "specialisations": [
+      "Senior Travel Attendants",
+      "Lead Travel Attendants"
+    ]
+  },
+  "4518": {
+    "alternative_titles": [
+      "Professional Other Personal Service Workers"
+    ],
+    "specialisations": [
+      "Senior Other Personal Service Workers",
+      "Lead Other Personal Service Workers"
+    ]
+  },
+  "4521": {
+    "alternative_titles": [
+      "Professional Fitness Instructors"
+    ],
+    "specialisations": [
+      "Senior Fitness Instructors",
+      "Lead Fitness Instructors"
+    ]
+  },
+  "4522": {
+    "alternative_titles": [
+      "Professional Outdoor Adventure Guides"
+    ],
+    "specialisations": [
+      "Senior Outdoor Adventure Guides",
+      "Lead Outdoor Adventure Guides"
+    ]
+  },
+  "4523": {
+    "alternative_titles": [
+      "Professional Sports Coaches, Instructors and Officials"
+    ],
+    "specialisations": [
+      "Senior Sports Coaches, Instructors and Officials",
+      "Lead Sports Coaches, Instructors and Officials"
+    ]
+  },
+  "4524": {
+    "alternative_titles": [
+      "Professional Sportspersons"
+    ],
+    "specialisations": [
+      "Senior Sportspersons",
+      "Lead Sportspersons"
+    ]
+  },
+  "5111": {
+    "alternative_titles": [
+      "Professional Contract, Program and Project Administrators"
+    ],
+    "specialisations": [
+      "Senior Contract, Program and Project Administrators",
+      "Lead Contract, Program and Project Administrators"
+    ]
+  },
+  "5121": {
+    "alternative_titles": [
+      "Professional Office Managers"
+    ],
+    "specialisations": [
+      "Senior Office Managers",
+      "Lead Office Managers"
+    ]
+  },
+  "5122": {
+    "alternative_titles": [
+      "Professional Practice Managers"
+    ],
+    "specialisations": [
+      "Senior Practice Managers",
+      "Lead Practice Managers"
+    ]
+  },
+  "5211": {
+    "alternative_titles": [
+      "Professional Personal Assistants"
+    ],
+    "specialisations": [
+      "Senior Personal Assistants",
+      "Lead Personal Assistants"
+    ]
+  },
+  "5212": {
+    "alternative_titles": [
+      "Professional Secretaries"
+    ],
+    "specialisations": [
+      "Senior Secretaries",
+      "Lead Secretaries"
+    ]
+  },
+  "5311": {
+    "alternative_titles": [
+      "Professional General Clerks"
+    ],
+    "specialisations": [
+      "Senior General Clerks",
+      "Lead General Clerks"
+    ]
+  },
+  "5321": {
+    "alternative_titles": [
+      "Professional Keyboard Operators"
+    ],
+    "specialisations": [
+      "Senior Keyboard Operators",
+      "Lead Keyboard Operators"
+    ]
+  },
+  "5411": {
+    "alternative_titles": [
+      "Professional Call or Contact Centre Workers"
+    ],
+    "specialisations": [
+      "Senior Call or Contact Centre Workers",
+      "Lead Call or Contact Centre Workers"
+    ]
+  },
+  "5412": {
+    "alternative_titles": [
+      "Professional Information Officers"
+    ],
+    "specialisations": [
+      "Senior Information Officers",
+      "Lead Information Officers"
+    ]
+  },
+  "5421": {
+    "alternative_titles": [
+      "Professional Receptionists"
+    ],
+    "specialisations": [
+      "Senior Receptionists",
+      "Lead Receptionists"
+    ]
+  },
+  "5511": {
+    "alternative_titles": [
+      "Professional Accounting Clerks"
+    ],
+    "specialisations": [
+      "Senior Accounting Clerks",
+      "Lead Accounting Clerks"
+    ]
+  },
+  "5512": {
+    "alternative_titles": [
+      "Professional Bookkeepers"
+    ],
+    "specialisations": [
+      "Senior Bookkeepers",
+      "Lead Bookkeepers"
+    ]
+  },
+  "5513": {
+    "alternative_titles": [
+      "Professional Payroll Clerks"
+    ],
+    "specialisations": [
+      "Senior Payroll Clerks",
+      "Lead Payroll Clerks"
+    ]
+  },
+  "5521": {
+    "alternative_titles": [
+      "Professional Bank Workers"
+    ],
+    "specialisations": [
+      "Senior Bank Workers",
+      "Lead Bank Workers"
+    ]
+  },
+  "5522": {
+    "alternative_titles": [
+      "Professional Credit and Loans Officers"
+    ],
+    "specialisations": [
+      "Senior Credit and Loans Officers",
+      "Lead Credit and Loans Officers"
+    ]
+  },
+  "5523": {
+    "alternative_titles": [
+      "Professional Insurance, Money Market and Statistical Clerks"
+    ],
+    "specialisations": [
+      "Senior Insurance, Money Market and Statistical Clerks",
+      "Lead Insurance, Money Market and Statistical Clerks"
+    ]
+  },
+  "5611": {
+    "alternative_titles": [
+      "Professional Betting Clerks"
+    ],
+    "specialisations": [
+      "Senior Betting Clerks",
+      "Lead Betting Clerks"
+    ]
+  },
+  "5612": {
+    "alternative_titles": [
+      "Professional Couriers and Postal Deliverers"
+    ],
+    "specialisations": [
+      "Senior Couriers and Postal Deliverers",
+      "Lead Couriers and Postal Deliverers"
+    ]
+  },
+  "5613": {
+    "alternative_titles": [
+      "Professional Filing and Registry Clerks"
+    ],
+    "specialisations": [
+      "Senior Filing and Registry Clerks",
+      "Lead Filing and Registry Clerks"
+    ]
+  },
+  "5614": {
+    "alternative_titles": [
+      "Professional Mail Sorters"
+    ],
+    "specialisations": [
+      "Senior Mail Sorters",
+      "Lead Mail Sorters"
+    ]
+  },
+  "5615": {
+    "alternative_titles": [
+      "Professional Survey Interviewers"
+    ],
+    "specialisations": [
+      "Senior Survey Interviewers",
+      "Lead Survey Interviewers"
+    ]
+  },
+  "5616": {
+    "alternative_titles": [
+      "Professional Switchboard Operators"
+    ],
+    "specialisations": [
+      "Senior Switchboard Operators",
+      "Lead Switchboard Operators"
+    ]
+  },
+  "5619": {
+    "alternative_titles": [
+      "Professional Other Clerical and Office Support Workers"
+    ],
+    "specialisations": [
+      "Senior Other Clerical and Office Support Workers",
+      "Lead Other Clerical and Office Support Workers"
+    ]
+  },
+  "5911": {
+    "alternative_titles": [
+      "Professional Purchasing and Supply Logistics Clerks"
+    ],
+    "specialisations": [
+      "Senior Purchasing and Supply Logistics Clerks",
+      "Lead Purchasing and Supply Logistics Clerks"
+    ]
+  },
+  "5912": {
+    "alternative_titles": [
+      "Professional Transport and Despatch Clerks"
+    ],
+    "specialisations": [
+      "Senior Transport and Despatch Clerks",
+      "Lead Transport and Despatch Clerks"
+    ]
+  },
+  "5991": {
+    "alternative_titles": [
+      "Professional Conveyancers and Legal Executives"
+    ],
+    "specialisations": [
+      "Senior Conveyancers and Legal Executives",
+      "Lead Conveyancers and Legal Executives"
+    ]
+  },
+  "5992": {
+    "alternative_titles": [
+      "Professional Court and Legal Clerks"
+    ],
+    "specialisations": [
+      "Senior Court and Legal Clerks",
+      "Lead Court and Legal Clerks"
+    ]
+  },
+  "5993": {
+    "alternative_titles": [
+      "Professional Debt Collectors"
+    ],
+    "specialisations": [
+      "Senior Debt Collectors",
+      "Lead Debt Collectors"
+    ]
+  },
+  "5994": {
+    "alternative_titles": [
+      "Professional Human Resource Clerks"
+    ],
+    "specialisations": [
+      "Senior Human Resource Clerks",
+      "Lead Human Resource Clerks"
+    ]
+  },
+  "5995": {
+    "alternative_titles": [
+      "Professional Inspectors and Regulatory Officers"
+    ],
+    "specialisations": [
+      "Senior Inspectors and Regulatory Officers",
+      "Lead Inspectors and Regulatory Officers"
+    ]
+  },
+  "5996": {
+    "alternative_titles": [
+      "Professional Insurance Investigators, Loss Adjusters and Risk Surveyors"
+    ],
+    "specialisations": [
+      "Senior Insurance Investigators, Loss Adjusters and Risk Surveyors",
+      "Lead Insurance Investigators, Loss Adjusters and Risk Surveyors"
+    ]
+  },
+  "5997": {
+    "alternative_titles": [
+      "Professional Library Assistants"
+    ],
+    "specialisations": [
+      "Senior Library Assistants",
+      "Lead Library Assistants"
+    ]
+  },
+  "5999": {
+    "alternative_titles": [
+      "Professional Other Miscellaneous Clerical and Administrative Workers"
+    ],
+    "specialisations": [
+      "Senior Other Miscellaneous Clerical and Administrative Workers",
+      "Lead Other Miscellaneous Clerical and Administrative Workers"
+    ]
+  },
+  "6111": {
+    "alternative_titles": [
+      "Professional Auctioneers, and Stock and Station Agents"
+    ],
+    "specialisations": [
+      "Senior Auctioneers, and Stock and Station Agents",
+      "Lead Auctioneers, and Stock and Station Agents"
+    ]
+  },
+  "6112": {
+    "alternative_titles": [
+      "Professional Insurance Agents"
+    ],
+    "specialisations": [
+      "Senior Insurance Agents",
+      "Lead Insurance Agents"
+    ]
+  },
+  "6113": {
+    "alternative_titles": [
+      "Professional Sales Representatives"
+    ],
+    "specialisations": [
+      "Senior Sales Representatives",
+      "Lead Sales Representatives"
+    ]
+  },
+  "6121": {
+    "alternative_titles": [
+      "Professional Real Estate Sales Agents"
+    ],
+    "specialisations": [
+      "Senior Real Estate Sales Agents",
+      "Lead Real Estate Sales Agents"
+    ]
+  },
+  "6211": {
+    "alternative_titles": [
+      "Professional Sales Assistants"
+    ],
+    "specialisations": [
+      "Senior Sales Assistants",
+      "Lead Sales Assistants"
+    ]
+  },
+  "6212": {
+    "alternative_titles": [
+      "Professional ICT Sales Assistants"
+    ],
+    "specialisations": [
+      "Senior ICT Sales Assistants",
+      "Lead ICT Sales Assistants"
+    ]
+  },
+  "6213": {
+    "alternative_titles": [
+      "Professional Motor Vehicle and Vehicle Parts Salespersons"
+    ],
+    "specialisations": [
+      "Senior Motor Vehicle and Vehicle Parts Salespersons",
+      "Lead Motor Vehicle and Vehicle Parts Salespersons"
+    ]
+  },
+  "6214": {
+    "alternative_titles": [
+      "Professional Pharmacy Sales Assistants"
+    ],
+    "specialisations": [
+      "Senior Pharmacy Sales Assistants",
+      "Lead Pharmacy Sales Assistants"
+    ]
+  },
+  "6215": {
+    "alternative_titles": [
+      "Professional Retail Supervisors"
+    ],
+    "specialisations": [
+      "Senior Retail Supervisors",
+      "Lead Retail Supervisors"
+    ]
+  },
+  "6216": {
+    "alternative_titles": [
+      "Professional Service Station Attendants"
+    ],
+    "specialisations": [
+      "Senior Service Station Attendants",
+      "Lead Service Station Attendants"
+    ]
+  },
+  "6217": {
+    "alternative_titles": [
+      "Professional Street Vendors and Related Salespersons"
+    ],
+    "specialisations": [
+      "Senior Street Vendors and Related Salespersons",
+      "Lead Street Vendors and Related Salespersons"
+    ]
+  },
+  "6219": {
+    "alternative_titles": [
+      "Professional Other Sales Assistants and Salespersons"
+    ],
+    "specialisations": [
+      "Senior Other Sales Assistants and Salespersons",
+      "Lead Other Sales Assistants and Salespersons"
+    ]
+  },
+  "6311": {
+    "alternative_titles": [
+      "Professional Checkout Operators and Office Cashiers"
+    ],
+    "specialisations": [
+      "Senior Checkout Operators and Office Cashiers",
+      "Lead Checkout Operators and Office Cashiers"
+    ]
+  },
+  "6391": {
+    "alternative_titles": [
+      "Professional Models and Sales Demonstrators"
+    ],
+    "specialisations": [
+      "Senior Models and Sales Demonstrators",
+      "Lead Models and Sales Demonstrators"
+    ]
+  },
+  "6392": {
+    "alternative_titles": [
+      "Professional Retail and Wool Buyers"
+    ],
+    "specialisations": [
+      "Senior Retail and Wool Buyers",
+      "Lead Retail and Wool Buyers"
+    ]
+  },
+  "6393": {
+    "alternative_titles": [
+      "Professional Telemarketers"
+    ],
+    "specialisations": [
+      "Senior Telemarketers",
+      "Lead Telemarketers"
+    ]
+  },
+  "6394": {
+    "alternative_titles": [
+      "Professional Ticket Salespersons"
+    ],
+    "specialisations": [
+      "Senior Ticket Salespersons",
+      "Lead Ticket Salespersons"
+    ]
+  },
+  "6395": {
+    "alternative_titles": [
+      "Professional Visual Merchandisers"
+    ],
+    "specialisations": [
+      "Senior Visual Merchandisers",
+      "Lead Visual Merchandisers"
+    ]
+  },
+  "6399": {
+    "alternative_titles": [
+      "Professional Other Sales Support Workers"
+    ],
+    "specialisations": [
+      "Senior Other Sales Support Workers",
+      "Lead Other Sales Support Workers"
+    ]
+  },
+  "7111": {
+    "alternative_titles": [
+      "Professional Clay, Concrete, Glass and Stone Processing Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Clay, Concrete, Glass and Stone Processing Machine Operators",
+      "Lead Clay, Concrete, Glass and Stone Processing Machine Operators"
+    ]
+  },
+  "7112": {
+    "alternative_titles": [
+      "Professional Industrial Spraypainters"
+    ],
+    "specialisations": [
+      "Senior Industrial Spraypainters",
+      "Lead Industrial Spraypainters"
+    ]
+  },
+  "7113": {
+    "alternative_titles": [
+      "Professional Paper and Wood Processing Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Paper and Wood Processing Machine Operators",
+      "Lead Paper and Wood Processing Machine Operators"
+    ]
+  },
+  "7114": {
+    "alternative_titles": [
+      "Professional Photographic Developers and Printers"
+    ],
+    "specialisations": [
+      "Senior Photographic Developers and Printers",
+      "Lead Photographic Developers and Printers"
+    ]
+  },
+  "7115": {
+    "alternative_titles": [
+      "Professional Plastics and Rubber Production Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Plastics and Rubber Production Machine Operators",
+      "Lead Plastics and Rubber Production Machine Operators"
+    ]
+  },
+  "7116": {
+    "alternative_titles": [
+      "Professional Sewing Machinists"
+    ],
+    "specialisations": [
+      "Senior Sewing Machinists",
+      "Lead Sewing Machinists"
+    ]
+  },
+  "7117": {
+    "alternative_titles": [
+      "Professional Textile and Footwear Production Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Textile and Footwear Production Machine Operators",
+      "Lead Textile and Footwear Production Machine Operators"
+    ]
+  },
+  "7119": {
+    "alternative_titles": [
+      "Professional Other Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Other Machine Operators",
+      "Lead Other Machine Operators"
+    ]
+  },
+  "7121": {
+    "alternative_titles": [
+      "Professional Crane, Hoist and Lift Operators"
+    ],
+    "specialisations": [
+      "Senior Crane, Hoist and Lift Operators",
+      "Lead Crane, Hoist and Lift Operators"
+    ]
+  },
+  "7122": {
+    "alternative_titles": [
+      "Professional Drillers, Miners and Shot Firers"
+    ],
+    "specialisations": [
+      "Senior Drillers, Miners and Shot Firers",
+      "Lead Drillers, Miners and Shot Firers"
+    ]
+  },
+  "7123": {
+    "alternative_titles": [
+      "Professional Engineering Production Workers"
+    ],
+    "specialisations": [
+      "Senior Engineering Production Workers",
+      "Lead Engineering Production Workers"
+    ]
+  },
+  "7129": {
+    "alternative_titles": [
+      "Professional Other Stationary Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Other Stationary Plant Operators",
+      "Lead Other Stationary Plant Operators"
+    ]
+  },
+  "7211": {
+    "alternative_titles": [
+      "Professional Agricultural, Forestry and Horticultural Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Agricultural, Forestry and Horticultural Plant Operators",
+      "Lead Agricultural, Forestry and Horticultural Plant Operators"
+    ]
+  },
+  "7212": {
+    "alternative_titles": [
+      "Professional Earthmoving Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Earthmoving Plant Operators",
+      "Lead Earthmoving Plant Operators"
+    ]
+  },
+  "7213": {
+    "alternative_titles": [
+      "Professional Forklift Drivers"
+    ],
+    "specialisations": [
+      "Senior Forklift Drivers",
+      "Lead Forklift Drivers"
+    ]
+  },
+  "7219": {
+    "alternative_titles": [
+      "Professional Other Mobile Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Other Mobile Plant Operators",
+      "Lead Other Mobile Plant Operators"
+    ]
+  },
+  "7311": {
+    "alternative_titles": [
+      "Professional Automobile Drivers"
+    ],
+    "specialisations": [
+      "Senior Automobile Drivers",
+      "Lead Automobile Drivers"
+    ]
+  },
+  "7312": {
+    "alternative_titles": [
+      "Professional Bus and Coach Drivers"
+    ],
+    "specialisations": [
+      "Senior Bus and Coach Drivers",
+      "Lead Bus and Coach Drivers"
+    ]
+  },
+  "7313": {
+    "alternative_titles": [
+      "Professional Train and Tram Drivers"
+    ],
+    "specialisations": [
+      "Senior Train and Tram Drivers",
+      "Lead Train and Tram Drivers"
+    ]
+  },
+  "7321": {
+    "alternative_titles": [
+      "Professional Delivery Drivers"
+    ],
+    "specialisations": [
+      "Senior Delivery Drivers",
+      "Lead Delivery Drivers"
+    ]
+  },
+  "7331": {
+    "alternative_titles": [
+      "Professional Truck Drivers"
+    ],
+    "specialisations": [
+      "Senior Truck Drivers",
+      "Lead Truck Drivers"
+    ]
+  },
+  "7411": {
+    "alternative_titles": [
+      "Professional Storepersons"
+    ],
+    "specialisations": [
+      "Senior Storepersons",
+      "Lead Storepersons"
+    ]
+  },
+  "8111": {
+    "alternative_titles": [
+      "Professional Car Detailers"
+    ],
+    "specialisations": [
+      "Senior Car Detailers",
+      "Lead Car Detailers"
+    ]
+  },
+  "8112": {
+    "alternative_titles": [
+      "Professional Commercial Cleaners"
+    ],
+    "specialisations": [
+      "Senior Commercial Cleaners",
+      "Lead Commercial Cleaners"
+    ]
+  },
+  "8113": {
+    "alternative_titles": [
+      "Professional Domestic Cleaners"
+    ],
+    "specialisations": [
+      "Senior Domestic Cleaners",
+      "Lead Domestic Cleaners"
+    ]
+  },
+  "8114": {
+    "alternative_titles": [
+      "Professional Housekeepers"
+    ],
+    "specialisations": [
+      "Senior Housekeepers",
+      "Lead Housekeepers"
+    ]
+  },
+  "8115": {
+    "alternative_titles": [
+      "Professional Laundry Workers"
+    ],
+    "specialisations": [
+      "Senior Laundry Workers",
+      "Lead Laundry Workers"
+    ]
+  },
+  "8116": {
+    "alternative_titles": [
+      "Professional Other Cleaners"
+    ],
+    "specialisations": [
+      "Senior Other Cleaners",
+      "Lead Other Cleaners"
+    ]
+  },
+  "8211": {
+    "alternative_titles": [
+      "Professional Building and Plumbing Labourers"
+    ],
+    "specialisations": [
+      "Senior Building and Plumbing Labourers",
+      "Lead Building and Plumbing Labourers"
+    ]
+  },
+  "8212": {
+    "alternative_titles": [
+      "Professional Concreters"
+    ],
+    "specialisations": [
+      "Senior Concreters",
+      "Lead Concreters"
+    ]
+  },
+  "8213": {
+    "alternative_titles": [
+      "Professional Fencers"
+    ],
+    "specialisations": [
+      "Senior Fencers",
+      "Lead Fencers"
+    ]
+  },
+  "8214": {
+    "alternative_titles": [
+      "Professional Insulation and Home Improvement Installers"
+    ],
+    "specialisations": [
+      "Senior Insulation and Home Improvement Installers",
+      "Lead Insulation and Home Improvement Installers"
+    ]
+  },
+  "8215": {
+    "alternative_titles": [
+      "Professional Paving and Surfacing Labourers"
+    ],
+    "specialisations": [
+      "Senior Paving and Surfacing Labourers",
+      "Lead Paving and Surfacing Labourers"
+    ]
+  },
+  "8216": {
+    "alternative_titles": [
+      "Professional Railway Track Workers"
+    ],
+    "specialisations": [
+      "Senior Railway Track Workers",
+      "Lead Railway Track Workers"
+    ]
+  },
+  "8217": {
+    "alternative_titles": [
+      "Professional Structural Steel Construction Workers"
+    ],
+    "specialisations": [
+      "Senior Structural Steel Construction Workers",
+      "Lead Structural Steel Construction Workers"
+    ]
+  },
+  "8219": {
+    "alternative_titles": [
+      "Professional Other Construction and Mining Labourers"
+    ],
+    "specialisations": [
+      "Senior Other Construction and Mining Labourers",
+      "Lead Other Construction and Mining Labourers"
+    ]
+  },
+  "8311": {
+    "alternative_titles": [
+      "Professional Food and Drink Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Food and Drink Factory Workers",
+      "Lead Food and Drink Factory Workers"
+    ]
+  },
+  "8312": {
+    "alternative_titles": [
+      "Professional Meat Boners and Slicers, and Slaughterers"
+    ],
+    "specialisations": [
+      "Senior Meat Boners and Slicers, and Slaughterers",
+      "Lead Meat Boners and Slicers, and Slaughterers"
+    ]
+  },
+  "8313": {
+    "alternative_titles": [
+      "Professional Meat, Poultry and Seafood Process Workers"
+    ],
+    "specialisations": [
+      "Senior Meat, Poultry and Seafood Process Workers",
+      "Lead Meat, Poultry and Seafood Process Workers"
+    ]
+  },
+  "8321": {
+    "alternative_titles": [
+      "Professional Packers"
+    ],
+    "specialisations": [
+      "Senior Packers",
+      "Lead Packers"
+    ]
+  },
+  "8322": {
+    "alternative_titles": [
+      "Professional Product Assemblers"
+    ],
+    "specialisations": [
+      "Senior Product Assemblers",
+      "Lead Product Assemblers"
+    ]
+  },
+  "8391": {
+    "alternative_titles": [
+      "Professional Metal Engineering Process Workers"
+    ],
+    "specialisations": [
+      "Senior Metal Engineering Process Workers",
+      "Lead Metal Engineering Process Workers"
+    ]
+  },
+  "8392": {
+    "alternative_titles": [
+      "Professional Plastics and Rubber Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Plastics and Rubber Factory Workers",
+      "Lead Plastics and Rubber Factory Workers"
+    ]
+  },
+  "8393": {
+    "alternative_titles": [
+      "Professional Product Quality Controllers"
+    ],
+    "specialisations": [
+      "Senior Product Quality Controllers",
+      "Lead Product Quality Controllers"
+    ]
+  },
+  "8394": {
+    "alternative_titles": [
+      "Professional Timber and Wood Process Workers"
+    ],
+    "specialisations": [
+      "Senior Timber and Wood Process Workers",
+      "Lead Timber and Wood Process Workers"
+    ]
+  },
+  "8399": {
+    "alternative_titles": [
+      "Professional Other Factory Process Workers"
+    ],
+    "specialisations": [
+      "Senior Other Factory Process Workers",
+      "Lead Other Factory Process Workers"
+    ]
+  },
+  "8411": {
+    "alternative_titles": [
+      "Professional Aquaculture Workers"
+    ],
+    "specialisations": [
+      "Senior Aquaculture Workers",
+      "Lead Aquaculture Workers"
+    ]
+  },
+  "8412": {
+    "alternative_titles": [
+      "Professional Crop Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Crop Farm Workers",
+      "Lead Crop Farm Workers"
+    ]
+  },
+  "8413": {
+    "alternative_titles": [
+      "Professional Forestry and Logging Workers"
+    ],
+    "specialisations": [
+      "Senior Forestry and Logging Workers",
+      "Lead Forestry and Logging Workers"
+    ]
+  },
+  "8414": {
+    "alternative_titles": [
+      "Professional Garden and Nursery Labourers"
+    ],
+    "specialisations": [
+      "Senior Garden and Nursery Labourers",
+      "Lead Garden and Nursery Labourers"
+    ]
+  },
+  "8415": {
+    "alternative_titles": [
+      "Professional Livestock Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Livestock Farm Workers",
+      "Lead Livestock Farm Workers"
+    ]
+  },
+  "8416": {
+    "alternative_titles": [
+      "Professional Mixed Crop and Livestock Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Mixed Crop and Livestock Farm Workers",
+      "Lead Mixed Crop and Livestock Farm Workers"
+    ]
+  },
+  "8419": {
+    "alternative_titles": [
+      "Professional Other Farm, Forestry and Garden Workers"
+    ],
+    "specialisations": [
+      "Senior Other Farm, Forestry and Garden Workers",
+      "Lead Other Farm, Forestry and Garden Workers"
+    ]
+  },
+  "8511": {
+    "alternative_titles": [
+      "Professional Fast Food Cooks"
+    ],
+    "specialisations": [
+      "Senior Fast Food Cooks",
+      "Lead Fast Food Cooks"
+    ]
+  },
+  "8512": {
+    "alternative_titles": [
+      "Professional Food Trades Assistants"
+    ],
+    "specialisations": [
+      "Senior Food Trades Assistants",
+      "Lead Food Trades Assistants"
+    ]
+  },
+  "8513": {
+    "alternative_titles": [
+      "Professional Kitchenhands"
+    ],
+    "specialisations": [
+      "Senior Kitchenhands",
+      "Lead Kitchenhands"
+    ]
+  },
+  "8911": {
+    "alternative_titles": [
+      "Professional Freight and Furniture Handlers"
+    ],
+    "specialisations": [
+      "Senior Freight and Furniture Handlers",
+      "Lead Freight and Furniture Handlers"
+    ]
+  },
+  "8912": {
+    "alternative_titles": [
+      "Professional Shelf Fillers"
+    ],
+    "specialisations": [
+      "Senior Shelf Fillers",
+      "Lead Shelf Fillers"
+    ]
+  },
+  "8991": {
+    "alternative_titles": [
+      "Professional Caretakers"
+    ],
+    "specialisations": [
+      "Senior Caretakers",
+      "Lead Caretakers"
+    ]
+  },
+  "8992": {
+    "alternative_titles": [
+      "Professional Deck and Fishing Hands"
+    ],
+    "specialisations": [
+      "Senior Deck and Fishing Hands",
+      "Lead Deck and Fishing Hands"
+    ]
+  },
+  "8993": {
+    "alternative_titles": [
+      "Professional Handypersons"
+    ],
+    "specialisations": [
+      "Senior Handypersons",
+      "Lead Handypersons"
+    ]
+  },
+  "8994": {
+    "alternative_titles": [
+      "Professional Motor Vehicle Parts and Accessories Fitters"
+    ],
+    "specialisations": [
+      "Senior Motor Vehicle Parts and Accessories Fitters",
+      "Lead Motor Vehicle Parts and Accessories Fitters"
+    ]
+  },
+  "8995": {
+    "alternative_titles": [
+      "Professional Printing Assistants and Table Workers"
+    ],
+    "specialisations": [
+      "Senior Printing Assistants and Table Workers",
+      "Lead Printing Assistants and Table Workers"
+    ]
+  },
+  "8996": {
+    "alternative_titles": [
+      "Professional Recycling and Rubbish Collectors"
+    ],
+    "specialisations": [
+      "Senior Recycling and Rubbish Collectors",
+      "Lead Recycling and Rubbish Collectors"
+    ]
+  },
+  "8997": {
+    "alternative_titles": [
+      "Professional Vending Machine Attendants"
+    ],
+    "specialisations": [
+      "Senior Vending Machine Attendants",
+      "Lead Vending Machine Attendants"
+    ]
+  },
+  "8999": {
+    "alternative_titles": [
+      "Professional Other Miscellaneous Labourers"
+    ],
+    "specialisations": [
+      "Senior Other Miscellaneous Labourers",
+      "Lead Other Miscellaneous Labourers"
+    ]
+  },
   "111111": {
     "alternative_titles": [
       "Director-General",
@@ -76,6 +3298,15 @@
     "specialisations": [
       "Commercial Cotton Grower",
       "Enterprise Cotton Grower"
+    ]
+  },
+  "121212": {
+    "alternative_titles": [
+      "Professional Flower Growers"
+    ],
+    "specialisations": [
+      "Senior Flower Growers",
+      "Lead Flower Growers"
     ]
   },
   "121213": {
@@ -618,6 +3849,15 @@
     "specialisations": [
       "Head of Laboratory",
       "Senior Laboratory Manager"
+    ]
+  },
+  "139914": {
+    "alternative_titles": [
+      "Professional Quality Assurance Managers"
+    ],
+    "specialisations": [
+      "Senior Quality Assurance Managers",
+      "Lead Quality Assurance Managers"
     ]
   },
   "139915": {
@@ -1457,6 +4697,15 @@
       "Algorithm Design Specialist"
     ]
   },
+  "224113": {
+    "alternative_titles": [
+      "Data Scientist"
+    ],
+    "specialisations": [
+      "Biostatistician",
+      "Quantitative Data Analyst"
+    ]
+  },
   "224114": {
     "alternative_titles": [
       "Professional Data Analyst"
@@ -1573,6 +4822,15 @@
     "specialisations": [
       "Senior Librarian",
       "Lead Librarian"
+    ]
+  },
+  "224711": {
+    "alternative_titles": [
+      "Business Consultant"
+    ],
+    "specialisations": [
+      "Strategy Consultant",
+      "Operations Transformation Specialist"
     ]
   },
   "224712": {
@@ -1805,29 +5063,29 @@
   },
   "231212": {
     "alternative_titles": [
-      "Ship&#39;s Specialist"
+      "Ship's Specialist"
     ],
     "specialisations": [
-      "Lead Ship&#39;s Engineer",
-      "Principal Ship&#39;s Engineer"
+      "Lead Ship's Engineer",
+      "Principal Ship's Engineer"
     ]
   },
   "231213": {
     "alternative_titles": [
-      "Professional Ship&#39;s Master"
+      "Professional Ship's Master"
     ],
     "specialisations": [
-      "Senior Ship&#39;s Master",
-      "Lead Ship&#39;s Master"
+      "Senior Ship's Master",
+      "Lead Ship's Master"
     ]
   },
   "231214": {
     "alternative_titles": [
-      "Ship&#39;s Specialist"
+      "Ship's Specialist"
     ],
     "specialisations": [
-      "Senior Ship&#39;s Officer",
-      "Lead Ship&#39;s Officer"
+      "Senior Ship's Officer",
+      "Lead Ship's Officer"
     ]
   },
   "231215": {
@@ -2380,6 +5638,16 @@
     "specialisations": [
       "Virologist",
       "Clinical Diagnostic Microbiologist"
+    ]
+  },
+  "234518": {
+    "alternative_titles": [
+      "Entomologist"
+    ],
+    "specialisations": [
+      "Mammalogist",
+      "Wildlife Ecologist",
+      "Ornithologist"
     ]
   },
   "234521": {
@@ -4917,6 +8185,16 @@
       "Waterproofing Installer"
     ]
   },
+  "334111": {
+    "alternative_titles": [
+      "Licensed Plumber"
+    ],
+    "specialisations": [
+      "Plumber (General)",
+      "Commercial Sanitary Plumber",
+      "Water Supply Specialist"
+    ]
+  },
   "334112": {
     "alternative_titles": [
       "HVAC Plumber"
@@ -5258,6 +8536,26 @@
       "Gardener (General)",
       "Commercial Grounds Maintenance Specialist",
       "Botanical Gardens Horticulturist"
+    ]
+  },
+  "362212": {
+    "alternative_titles": [
+      "Tree Surgeon"
+    ],
+    "specialisations": [
+      "Arborist",
+      "Utility Tree Trimmer",
+      "Climbing Arborist"
+    ]
+  },
+  "362213": {
+    "alternative_titles": [
+      "Landscape Tradesperson"
+    ],
+    "specialisations": [
+      "Landscape Gardener",
+      "Hardscape Construction Specialist",
+      "Softscape Horticulturalist"
     ]
   },
   "362311": {
@@ -5726,11 +9024,11 @@
   },
   "399915": {
     "alternative_titles": [
-      "Community Photographer&#39;s Assistant"
+      "Community Photographer's Assistant"
     ],
     "specialisations": [
-      "Senior Photographer&#39;s Assistant",
-      "Lead Photographer&#39;s Assistant"
+      "Senior Photographer's Assistant",
+      "Lead Photographer's Assistant"
     ]
   },
   "399916": {
@@ -5943,6 +9241,24 @@
       "Family Day Care Educator"
     ]
   },
+  "421112": {
+    "alternative_titles": [
+      "Professional Family Day Care Workers"
+    ],
+    "specialisations": [
+      "Senior Family Day Care Workers",
+      "Lead Family Day Care Workers"
+    ]
+  },
+  "421113": {
+    "alternative_titles": [
+      "Professional Nannies"
+    ],
+    "specialisations": [
+      "Senior Nannies",
+      "Lead Nannies"
+    ]
+  },
   "421114": {
     "alternative_titles": [
       "OSHC Educator"
@@ -5952,6 +9268,123 @@
       "Before/After School Care Coordinator"
     ]
   },
+  "422111": {
+    "alternative_titles": [
+      "Professional Aboriginal and Torres Strait Islander Education Workers"
+    ],
+    "specialisations": [
+      "Senior Aboriginal and Torres Strait Islander Education Workers",
+      "Lead Aboriginal and Torres Strait Islander Education Workers"
+    ]
+  },
+  "422112": {
+    "alternative_titles": [
+      "Professional Integration Aides"
+    ],
+    "specialisations": [
+      "Senior Integration Aides",
+      "Lead Integration Aides"
+    ]
+  },
+  "422115": {
+    "alternative_titles": [
+      "Professional Preschool Aides"
+    ],
+    "specialisations": [
+      "Senior Preschool Aides",
+      "Lead Preschool Aides"
+    ]
+  },
+  "422116": {
+    "alternative_titles": [
+      "Professional Teachers' Aides"
+    ],
+    "specialisations": [
+      "Senior Teachers' Aides",
+      "Lead Teachers' Aides"
+    ]
+  },
+  "423311": {
+    "alternative_titles": [
+      "Professional Hospital orderlies"
+    ],
+    "specialisations": [
+      "Senior Hospital orderlies",
+      "Lead Hospital orderlies"
+    ]
+  },
+  "423312": {
+    "alternative_titles": [
+      "Assistant in Nursing (AIN)"
+    ],
+    "specialisations": [
+      "Nursing Support Worker",
+      "Hospital Ward Care Assistant"
+    ]
+  },
+  "423313": {
+    "alternative_titles": [
+      "Care Aide"
+    ],
+    "specialisations": [
+      "Personal Care Assistant",
+      "Individual Support Worker"
+    ]
+  },
+  "423314": {
+    "alternative_titles": [
+      "Professional Therapy Aides"
+    ],
+    "specialisations": [
+      "Senior Therapy Aides",
+      "Lead Therapy Aides"
+    ]
+  },
+  "423411": {
+    "alternative_titles": [
+      "Professional Child and Youth Residential Care Assistants"
+    ],
+    "specialisations": [
+      "Senior Child and Youth Residential Care Assistants",
+      "Lead Child and Youth Residential Care Assistants"
+    ]
+  },
+  "423412": {
+    "alternative_titles": [
+      "Professional Hostel Parents"
+    ],
+    "specialisations": [
+      "Senior Hostel Parents",
+      "Lead Hostel Parents"
+    ]
+  },
+  "423413": {
+    "alternative_titles": [
+      "Professional Refuge Workers"
+    ],
+    "specialisations": [
+      "Senior Refuge Workers",
+      "Lead Refuge Workers"
+    ]
+  },
+  "431111": {
+    "alternative_titles": [
+      "Professional Bar Attendants"
+    ],
+    "specialisations": [
+      "Senior Bar Attendants",
+      "Lead Bar Attendants"
+    ]
+  },
+  "431112": {
+    "alternative_titles": [
+      "Professional Baristas"
+    ],
+    "specialisations": [
+      "Senior Baristas",
+      "Lead Baristas"
+    ]
+  },
   "431411": {
     "alternative_titles": [
       "Hotel Service Director"
@@ -5959,6 +9392,33 @@
     "specialisations": [
       "Head of Hotel Service",
       "Senior Hotel Service Manager"
+    ]
+  },
+  "431911": {
+    "alternative_titles": [
+      "Professional Bar Usefuls and Bussers"
+    ],
+    "specialisations": [
+      "Senior Bar Usefuls and Bussers",
+      "Lead Bar Usefuls and Bussers"
+    ]
+  },
+  "431912": {
+    "alternative_titles": [
+      "Professional Doorpersons and Luggage Porters"
+    ],
+    "specialisations": [
+      "Senior Doorpersons and Luggage Porters",
+      "Lead Doorpersons and Luggage Porters"
+    ]
+  },
+  "431999": {
+    "alternative_titles": [
+      "Professional Hospitality Workers"
+    ],
+    "specialisations": [
+      "Senior Hospitality Workers",
+      "Lead Hospitality Workers"
     ]
   },
   "441111": {
@@ -6006,6 +9466,51 @@
       "Lead Police Officer"
     ]
   },
+  "442211": {
+    "alternative_titles": [
+      "Professional Alarm, Security and Surveillance Monitors"
+    ],
+    "specialisations": [
+      "Senior Alarm, Security and Surveillance Monitors",
+      "Lead Alarm, Security and Surveillance Monitors"
+    ]
+  },
+  "442212": {
+    "alternative_titles": [
+      "Professional Armoured Car Escorts"
+    ],
+    "specialisations": [
+      "Senior Armoured Car Escorts",
+      "Lead Armoured Car Escorts"
+    ]
+  },
+  "442213": {
+    "alternative_titles": [
+      "Professional Crowd Controllers"
+    ],
+    "specialisations": [
+      "Senior Crowd Controllers",
+      "Lead Crowd Controllers"
+    ]
+  },
+  "442214": {
+    "alternative_titles": [
+      "Professional Private Investigators"
+    ],
+    "specialisations": [
+      "Senior Private Investigators",
+      "Lead Private Investigators"
+    ]
+  },
+  "442215": {
+    "alternative_titles": [
+      "Professional Retail Loss Prevention Officers"
+    ],
+    "specialisations": [
+      "Senior Retail Loss Prevention Officers",
+      "Lead Retail Loss Prevention Officers"
+    ]
+  },
   "442216": {
     "alternative_titles": [
       "Security Advisor"
@@ -6013,6 +9518,24 @@
     "specialisations": [
       "Principal Security Consultant",
       "Senior Security Consultant"
+    ]
+  },
+  "442217": {
+    "alternative_titles": [
+      "Professional Security Officers"
+    ],
+    "specialisations": [
+      "Senior Security Officers",
+      "Lead Security Officers"
+    ]
+  },
+  "442299": {
+    "alternative_titles": [
+      "Professional Other Security Workers"
+    ],
+    "specialisations": [
+      "Senior Other Security Workers",
+      "Lead Other Security Workers"
     ]
   },
   "451111": {
@@ -6054,6 +9577,15 @@
       "Catering Attendant"
     ]
   },
+  "451411": {
+    "alternative_titles": [
+      "Professional Gallery and Museum Guides"
+    ],
+    "specialisations": [
+      "Senior Gallery and Museum Guides",
+      "Lead Gallery and Museum Guides"
+    ]
+  },
   "451412": {
     "alternative_titles": [
       "Travel Agent"
@@ -6062,6 +9594,42 @@
       "Travel Consultant",
       "Corporate Travel Manager",
       "Cruise Holiday Specialist"
+    ]
+  },
+  "451511": {
+    "alternative_titles": [
+      "Professional Natural Remedy Consultants"
+    ],
+    "specialisations": [
+      "Senior Natural Remedy Consultants",
+      "Lead Natural Remedy Consultants"
+    ]
+  },
+  "451512": {
+    "alternative_titles": [
+      "Professional Weight Loss Consultants"
+    ],
+    "specialisations": [
+      "Senior Weight Loss Consultants",
+      "Lead Weight Loss Consultants"
+    ]
+  },
+  "451513": {
+    "alternative_titles": [
+      "Professional Herbalists"
+    ],
+    "specialisations": [
+      "Senior Herbalists",
+      "Lead Herbalists"
+    ]
+  },
+  "451611": {
+    "alternative_titles": [
+      "Professional Tourist Information Officers"
+    ],
+    "specialisations": [
+      "Senior Tourist Information Officers",
+      "Lead Tourist Information Officers"
     ]
   },
   "451612": {
@@ -6092,6 +9660,33 @@
       "Lead Travel Attendants nec"
     ]
   },
+  "451811": {
+    "alternative_titles": [
+      "Professional Civil Celebrants"
+    ],
+    "specialisations": [
+      "Senior Civil Celebrants",
+      "Lead Civil Celebrants"
+    ]
+  },
+  "451812": {
+    "alternative_titles": [
+      "Professional Hair and Beauty Salon Assistants"
+    ],
+    "specialisations": [
+      "Senior Hair and Beauty Salon Assistants",
+      "Lead Hair and Beauty Salon Assistants"
+    ]
+  },
+  "451814": {
+    "alternative_titles": [
+      "Professional Body Artists"
+    ],
+    "specialisations": [
+      "Senior Body Artists",
+      "Lead Body Artists"
+    ]
+  },
   "451815": {
     "alternative_titles": [
       "Driving Teacher"
@@ -6099,6 +9694,96 @@
     "specialisations": [
       "Driving Instructor",
       "Heavy Vehicle Driving Assessor"
+    ]
+  },
+  "451816": {
+    "alternative_titles": [
+      "Professional Religious Assistants"
+    ],
+    "specialisations": [
+      "Senior Religious Assistants",
+      "Lead Religious Assistants"
+    ]
+  },
+  "451899": {
+    "alternative_titles": [
+      "Professional Personal Service Workers"
+    ],
+    "specialisations": [
+      "Senior Personal Service Workers",
+      "Lead Personal Service Workers"
+    ]
+  },
+  "452211": {
+    "alternative_titles": [
+      "Professional Bungy Jump Masters"
+    ],
+    "specialisations": [
+      "Senior Bungy Jump Masters",
+      "Lead Bungy Jump Masters"
+    ]
+  },
+  "452212": {
+    "alternative_titles": [
+      "Professional Fishing Guides"
+    ],
+    "specialisations": [
+      "Senior Fishing Guides",
+      "Lead Fishing Guides"
+    ]
+  },
+  "452213": {
+    "alternative_titles": [
+      "Professional Hunting Guides"
+    ],
+    "specialisations": [
+      "Senior Hunting Guides",
+      "Lead Hunting Guides"
+    ]
+  },
+  "452214": {
+    "alternative_titles": [
+      "Professional Mountain and Glacier Guides"
+    ],
+    "specialisations": [
+      "Senior Mountain and Glacier Guides",
+      "Lead Mountain and Glacier Guides"
+    ]
+  },
+  "452215": {
+    "alternative_titles": [
+      "Professional Outdoor Adventure Instructors"
+    ],
+    "specialisations": [
+      "Senior Outdoor Adventure Instructors",
+      "Lead Outdoor Adventure Instructors"
+    ]
+  },
+  "452216": {
+    "alternative_titles": [
+      "Professional Trekking Guides"
+    ],
+    "specialisations": [
+      "Senior Trekking Guides",
+      "Lead Trekking Guides"
+    ]
+  },
+  "452217": {
+    "alternative_titles": [
+      "Professional Whitewater Rafting Guides"
+    ],
+    "specialisations": [
+      "Senior Whitewater Rafting Guides",
+      "Lead Whitewater Rafting Guides"
+    ]
+  },
+  "452299": {
+    "alternative_titles": [
+      "Professional Other Outdoor Adventure Guides"
+    ],
+    "specialisations": [
+      "Senior Other Outdoor Adventure Guides",
+      "Lead Other Outdoor Adventure Guides"
     ]
   },
   "452311": {
@@ -6321,6 +10006,33 @@
       "Litigation Paralegal Assistant"
     ]
   },
+  "532111": {
+    "alternative_titles": [
+      "Professional Data Entry Operators"
+    ],
+    "specialisations": [
+      "Senior Data Entry Operators",
+      "Lead Data Entry Operators"
+    ]
+  },
+  "532112": {
+    "alternative_titles": [
+      "Professional Machine Shorthand Reporters"
+    ],
+    "specialisations": [
+      "Senior Machine Shorthand Reporters",
+      "Lead Machine Shorthand Reporters"
+    ]
+  },
+  "532113": {
+    "alternative_titles": [
+      "Professional Typists"
+    ],
+    "specialisations": [
+      "Senior Typists",
+      "Lead Typists"
+    ]
+  },
   "541111": {
     "alternative_titles": [
       "Call Centre Supervisor"
@@ -6328,6 +10040,276 @@
     "specialisations": [
       "Contact Centre Team Leader",
       "Customer Operations Supervisor"
+    ]
+  },
+  "541112": {
+    "alternative_titles": [
+      "Professional Call Centre or Contact Centre Operators"
+    ],
+    "specialisations": [
+      "Senior Call Centre or Contact Centre Operators",
+      "Lead Call Centre or Contact Centre Operators"
+    ]
+  },
+  "542111": {
+    "alternative_titles": [
+      "Professional Receptionists"
+    ],
+    "specialisations": [
+      "Senior Receptionists",
+      "Lead Receptionists"
+    ]
+  },
+  "542112": {
+    "alternative_titles": [
+      "Professional Admissions Clerks"
+    ],
+    "specialisations": [
+      "Senior Admissions Clerks",
+      "Lead Admissions Clerks"
+    ]
+  },
+  "542113": {
+    "alternative_titles": [
+      "Professional Hotel and Motel Receptionists"
+    ],
+    "specialisations": [
+      "Senior Hotel and Motel Receptionists",
+      "Lead Hotel and Motel Receptionists"
+    ]
+  },
+  "542114": {
+    "alternative_titles": [
+      "Professional Medical Receptionists"
+    ],
+    "specialisations": [
+      "Senior Medical Receptionists",
+      "Lead Medical Receptionists"
+    ]
+  },
+  "551111": {
+    "alternative_titles": [
+      "Professional Accounts Clerks"
+    ],
+    "specialisations": [
+      "Senior Accounts Clerks",
+      "Lead Accounts Clerks"
+    ]
+  },
+  "551112": {
+    "alternative_titles": [
+      "Professional Cost Clerks"
+    ],
+    "specialisations": [
+      "Senior Cost Clerks",
+      "Lead Cost Clerks"
+    ]
+  },
+  "552311": {
+    "alternative_titles": [
+      "Professional Bookmakers"
+    ],
+    "specialisations": [
+      "Senior Bookmakers",
+      "Lead Bookmakers"
+    ]
+  },
+  "552312": {
+    "alternative_titles": [
+      "Professional Insurance Consultants"
+    ],
+    "specialisations": [
+      "Senior Insurance Consultants",
+      "Lead Insurance Consultants"
+    ]
+  },
+  "552313": {
+    "alternative_titles": [
+      "Professional Money Market Clerks"
+    ],
+    "specialisations": [
+      "Senior Money Market Clerks",
+      "Lead Money Market Clerks"
+    ]
+  },
+  "552314": {
+    "alternative_titles": [
+      "Professional Statistical Clerks"
+    ],
+    "specialisations": [
+      "Senior Statistical Clerks",
+      "Lead Statistical Clerks"
+    ]
+  },
+  "561111": {
+    "alternative_titles": [
+      "Professional Betting Agency Counter Clerks"
+    ],
+    "specialisations": [
+      "Senior Betting Agency Counter Clerks",
+      "Lead Betting Agency Counter Clerks"
+    ]
+  },
+  "561112": {
+    "alternative_titles": [
+      "Professional Bookmaker's Clerks"
+    ],
+    "specialisations": [
+      "Senior Bookmaker's Clerks",
+      "Lead Bookmaker's Clerks"
+    ]
+  },
+  "561113": {
+    "alternative_titles": [
+      "Professional Telephone Betting Clerks"
+    ],
+    "specialisations": [
+      "Senior Telephone Betting Clerks",
+      "Lead Telephone Betting Clerks"
+    ]
+  },
+  "561199": {
+    "alternative_titles": [
+      "Professional Other Betting Clerks"
+    ],
+    "specialisations": [
+      "Senior Other Betting Clerks",
+      "Lead Other Betting Clerks"
+    ]
+  },
+  "561211": {
+    "alternative_titles": [
+      "Professional Couriers"
+    ],
+    "specialisations": [
+      "Senior Couriers",
+      "Lead Couriers"
+    ]
+  },
+  "561212": {
+    "alternative_titles": [
+      "Professional Postal Delivery Officers"
+    ],
+    "specialisations": [
+      "Senior Postal Delivery Officers",
+      "Lead Postal Delivery Officers"
+    ]
+  },
+  "561411": {
+    "alternative_titles": [
+      "Professional Mail Clerks"
+    ],
+    "specialisations": [
+      "Senior Mail Clerks",
+      "Lead Mail Clerks"
+    ]
+  },
+  "561412": {
+    "alternative_titles": [
+      "Professional Postal Sorting Officers"
+    ],
+    "specialisations": [
+      "Senior Postal Sorting Officers",
+      "Lead Postal Sorting Officers"
+    ]
+  },
+  "561911": {
+    "alternative_titles": [
+      "Professional Classified Advertising Clerks"
+    ],
+    "specialisations": [
+      "Senior Classified Advertising Clerks",
+      "Lead Classified Advertising Clerks"
+    ]
+  },
+  "561912": {
+    "alternative_titles": [
+      "Professional Meter Readers"
+    ],
+    "specialisations": [
+      "Senior Meter Readers",
+      "Lead Meter Readers"
+    ]
+  },
+  "561913": {
+    "alternative_titles": [
+      "Professional Parking Inspectors"
+    ],
+    "specialisations": [
+      "Senior Parking Inspectors",
+      "Lead Parking Inspectors"
+    ]
+  },
+  "561999": {
+    "alternative_titles": [
+      "Professional Clerical and Office Support Workers"
+    ],
+    "specialisations": [
+      "Senior Clerical and Office Support Workers",
+      "Lead Clerical and Office Support Workers"
+    ]
+  },
+  "591112": {
+    "alternative_titles": [
+      "Professional Production Clerks"
+    ],
+    "specialisations": [
+      "Senior Production Clerks",
+      "Lead Production Clerks"
+    ]
+  },
+  "591113": {
+    "alternative_titles": [
+      "Professional Purchasing Officers"
+    ],
+    "specialisations": [
+      "Senior Purchasing Officers",
+      "Lead Purchasing Officers"
+    ]
+  },
+  "591115": {
+    "alternative_titles": [
+      "Professional Stock Clerks"
+    ],
+    "specialisations": [
+      "Senior Stock Clerks",
+      "Lead Stock Clerks"
+    ]
+  },
+  "591116": {
+    "alternative_titles": [
+      "Professional Warehouse Administrators"
+    ],
+    "specialisations": [
+      "Senior Warehouse Administrators",
+      "Lead Warehouse Administrators"
+    ]
+  },
+  "591117": {
+    "alternative_titles": [
+      "Professional Order Clerks"
+    ],
+    "specialisations": [
+      "Senior Order Clerks",
+      "Lead Order Clerks"
+    ]
+  },
+  "591211": {
+    "alternative_titles": [
+      "Professional Despatching and Receiving Clerks"
+    ],
+    "specialisations": [
+      "Senior Despatching and Receiving Clerks",
+      "Lead Despatching and Receiving Clerks"
+    ]
+  },
+  "591212": {
+    "alternative_titles": [
+      "Professional Import-Export Clerks"
+    ],
+    "specialisations": [
+      "Senior Import-Export Clerks",
+      "Lead Import-Export Clerks"
     ]
   },
   "599111": {
@@ -6393,6 +10375,96 @@
       "Lead Trust Officer"
     ]
   },
+  "599511": {
+    "alternative_titles": [
+      "Professional Customs Officers"
+    ],
+    "specialisations": [
+      "Senior Customs Officers",
+      "Lead Customs Officers"
+    ]
+  },
+  "599512": {
+    "alternative_titles": [
+      "Professional Immigration Officers"
+    ],
+    "specialisations": [
+      "Senior Immigration Officers",
+      "Lead Immigration Officers"
+    ]
+  },
+  "599513": {
+    "alternative_titles": [
+      "Professional Motor Vehicle Licence Examiners"
+    ],
+    "specialisations": [
+      "Senior Motor Vehicle Licence Examiners",
+      "Lead Motor Vehicle Licence Examiners"
+    ]
+  },
+  "599514": {
+    "alternative_titles": [
+      "Professional Noxious Weeds and Pest Inspectors"
+    ],
+    "specialisations": [
+      "Senior Noxious Weeds and Pest Inspectors",
+      "Lead Noxious Weeds and Pest Inspectors"
+    ]
+  },
+  "599515": {
+    "alternative_titles": [
+      "Professional Social Security Assessors"
+    ],
+    "specialisations": [
+      "Senior Social Security Assessors",
+      "Lead Social Security Assessors"
+    ]
+  },
+  "599516": {
+    "alternative_titles": [
+      "Professional Taxation Inspectors"
+    ],
+    "specialisations": [
+      "Senior Taxation Inspectors",
+      "Lead Taxation Inspectors"
+    ]
+  },
+  "599517": {
+    "alternative_titles": [
+      "Professional Train Examiners"
+    ],
+    "specialisations": [
+      "Senior Train Examiners",
+      "Lead Train Examiners"
+    ]
+  },
+  "599518": {
+    "alternative_titles": [
+      "Professional Transport Operations Inspectors"
+    ],
+    "specialisations": [
+      "Senior Transport Operations Inspectors",
+      "Lead Transport Operations Inspectors"
+    ]
+  },
+  "599521": {
+    "alternative_titles": [
+      "Professional Water Inspectors"
+    ],
+    "specialisations": [
+      "Senior Water Inspectors",
+      "Lead Water Inspectors"
+    ]
+  },
+  "599599": {
+    "alternative_titles": [
+      "Professional Other Inspectors and Regulatory Officers"
+    ],
+    "specialisations": [
+      "Senior Other Inspectors and Regulatory Officers",
+      "Lead Other Inspectors and Regulatory Officers"
+    ]
+  },
   "599611": {
     "alternative_titles": [
       "Insurance Claims Investigator"
@@ -6420,6 +10492,33 @@
       "Commercial Risk Engineer"
     ]
   },
+  "599912": {
+    "alternative_titles": [
+      "Professional Production Assistants"
+    ],
+    "specialisations": [
+      "Senior Production Assistants",
+      "Lead Production Assistants"
+    ]
+  },
+  "599913": {
+    "alternative_titles": [
+      "Professional Proof Readers"
+    ],
+    "specialisations": [
+      "Senior Proof Readers",
+      "Lead Proof Readers"
+    ]
+  },
+  "599914": {
+    "alternative_titles": [
+      "Professional Radio Despatchers"
+    ],
+    "specialisations": [
+      "Senior Radio Despatchers",
+      "Lead Radio Despatchers"
+    ]
+  },
   "599915": {
     "alternative_titles": [
       "Health Information Manager (HIM)"
@@ -6427,6 +10526,24 @@
     "specialisations": [
       "Clinical Coder",
       "ICD-10-AM Health Classification Specialist"
+    ]
+  },
+  "599916": {
+    "alternative_titles": [
+      "Professional Facilities Administrators"
+    ],
+    "specialisations": [
+      "Senior Facilities Administrators",
+      "Lead Facilities Administrators"
+    ]
+  },
+  "599999": {
+    "alternative_titles": [
+      "Professional Clerical and Administrative Workers"
+    ],
+    "specialisations": [
+      "Senior Clerical and Administrative Workers",
+      "Lead Clerical and Administrative Workers"
     ]
   },
   "611111": {
@@ -6455,6 +10572,51 @@
     "specialisations": [
       "Insurance Agent",
       "Life Insurance Advisor"
+    ]
+  },
+  "611311": {
+    "alternative_titles": [
+      "Professional Sales Representatives"
+    ],
+    "specialisations": [
+      "Senior Sales Representatives",
+      "Lead Sales Representatives"
+    ]
+  },
+  "611312": {
+    "alternative_titles": [
+      "Professional Sales Representatives"
+    ],
+    "specialisations": [
+      "Senior Sales Representatives",
+      "Lead Sales Representatives"
+    ]
+  },
+  "611313": {
+    "alternative_titles": [
+      "Professional Sales Representatives"
+    ],
+    "specialisations": [
+      "Senior Sales Representatives",
+      "Lead Sales Representatives"
+    ]
+  },
+  "611314": {
+    "alternative_titles": [
+      "Professional Sales Representatives"
+    ],
+    "specialisations": [
+      "Senior Sales Representatives",
+      "Lead Sales Representatives"
+    ]
+  },
+  "611399": {
+    "alternative_titles": [
+      "Professional Other Sales Representatives"
+    ],
+    "specialisations": [
+      "Senior Other Sales Representatives",
+      "Lead Other Sales Representatives"
     ]
   },
   "612111": {
@@ -6503,6 +10665,114 @@
       "Real Estate Sub-agent"
     ]
   },
+  "621311": {
+    "alternative_titles": [
+      "Professional Motor Vehicle and Caravan Salespersons"
+    ],
+    "specialisations": [
+      "Senior Motor Vehicle and Caravan Salespersons",
+      "Lead Motor Vehicle and Caravan Salespersons"
+    ]
+  },
+  "621312": {
+    "alternative_titles": [
+      "Professional Motor Vehicle Parts Interpreters"
+    ],
+    "specialisations": [
+      "Senior Motor Vehicle Parts Interpreters",
+      "Lead Motor Vehicle Parts Interpreters"
+    ]
+  },
+  "621711": {
+    "alternative_titles": [
+      "Professional Cash Van Salespersons"
+    ],
+    "specialisations": [
+      "Senior Cash Van Salespersons",
+      "Lead Cash Van Salespersons"
+    ]
+  },
+  "621712": {
+    "alternative_titles": [
+      "Professional Door-to-door Salespersons"
+    ],
+    "specialisations": [
+      "Senior Door-to-door Salespersons",
+      "Lead Door-to-door Salespersons"
+    ]
+  },
+  "621713": {
+    "alternative_titles": [
+      "Professional Street Vendors"
+    ],
+    "specialisations": [
+      "Senior Street Vendors",
+      "Lead Street Vendors"
+    ]
+  },
+  "621911": {
+    "alternative_titles": [
+      "Professional Materials Recyclers"
+    ],
+    "specialisations": [
+      "Senior Materials Recyclers",
+      "Lead Materials Recyclers"
+    ]
+  },
+  "621912": {
+    "alternative_titles": [
+      "Professional Rental Salespersons"
+    ],
+    "specialisations": [
+      "Senior Rental Salespersons",
+      "Lead Rental Salespersons"
+    ]
+  },
+  "621999": {
+    "alternative_titles": [
+      "Professional Sales Assistants and Salespersons"
+    ],
+    "specialisations": [
+      "Senior Sales Assistants and Salespersons",
+      "Lead Sales Assistants and Salespersons"
+    ]
+  },
+  "631111": {
+    "alternative_titles": [
+      "Professional Checkout Operators"
+    ],
+    "specialisations": [
+      "Senior Checkout Operators",
+      "Lead Checkout Operators"
+    ]
+  },
+  "631112": {
+    "alternative_titles": [
+      "Professional Cashiers"
+    ],
+    "specialisations": [
+      "Senior Cashiers",
+      "Lead Cashiers"
+    ]
+  },
+  "639111": {
+    "alternative_titles": [
+      "Professional Models"
+    ],
+    "specialisations": [
+      "Senior Models",
+      "Lead Models"
+    ]
+  },
+  "639112": {
+    "alternative_titles": [
+      "Professional Sales Demonstrators"
+    ],
+    "specialisations": [
+      "Senior Sales Demonstrators",
+      "Lead Sales Demonstrators"
+    ]
+  },
   "639211": {
     "alternative_titles": [
       "Merchandiser"
@@ -6519,6 +10789,1635 @@
     "specialisations": [
       "Wool Buyer",
       "Wool Broking Specialist"
+    ]
+  },
+  "639411": {
+    "alternative_titles": [
+      "Professional Ticket Sellers"
+    ],
+    "specialisations": [
+      "Senior Ticket Sellers",
+      "Lead Ticket Sellers"
+    ]
+  },
+  "639412": {
+    "alternative_titles": [
+      "Professional Transport Conductors"
+    ],
+    "specialisations": [
+      "Senior Transport Conductors",
+      "Lead Transport Conductors"
+    ]
+  },
+  "711111": {
+    "alternative_titles": [
+      "Professional Clay Products Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Clay Products Machine Operators",
+      "Lead Clay Products Machine Operators"
+    ]
+  },
+  "711112": {
+    "alternative_titles": [
+      "Professional Concrete Products Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Concrete Products Machine Operators",
+      "Lead Concrete Products Machine Operators"
+    ]
+  },
+  "711113": {
+    "alternative_titles": [
+      "Professional Glass Production Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Glass Production Machine Operators",
+      "Lead Glass Production Machine Operators"
+    ]
+  },
+  "711114": {
+    "alternative_titles": [
+      "Professional Stone Processing Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Stone Processing Machine Operators",
+      "Lead Stone Processing Machine Operators"
+    ]
+  },
+  "711199": {
+    "alternative_titles": [
+      "Professional Other Clay, Concrete, Glass and Stone Processing Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Other Clay, Concrete, Glass and Stone Processing Machine Operators",
+      "Lead Other Clay, Concrete, Glass and Stone Processing Machine Operators"
+    ]
+  },
+  "711311": {
+    "alternative_titles": [
+      "Professional Paper Products Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Paper Products Machine Operators",
+      "Lead Paper Products Machine Operators"
+    ]
+  },
+  "711313": {
+    "alternative_titles": [
+      "Professional Sawmilling Operators"
+    ],
+    "specialisations": [
+      "Senior Sawmilling Operators",
+      "Lead Sawmilling Operators"
+    ]
+  },
+  "711314": {
+    "alternative_titles": [
+      "Professional Other Wood Processing Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Other Wood Processing Machine Operators",
+      "Lead Other Wood Processing Machine Operators"
+    ]
+  },
+  "711511": {
+    "alternative_titles": [
+      "Professional Plastic Cablemaking Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Plastic Cablemaking Machine Operators",
+      "Lead Plastic Cablemaking Machine Operators"
+    ]
+  },
+  "711512": {
+    "alternative_titles": [
+      "Professional Plastic Compounding and Reclamation Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Plastic Compounding and Reclamation Machine Operators",
+      "Lead Plastic Compounding and Reclamation Machine Operators"
+    ]
+  },
+  "711513": {
+    "alternative_titles": [
+      "Professional Plastics Fabricators and Welders"
+    ],
+    "specialisations": [
+      "Senior Plastics Fabricators and Welders",
+      "Lead Plastics Fabricators and Welders"
+    ]
+  },
+  "711514": {
+    "alternative_titles": [
+      "Professional Plastics Production Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Plastics Production Machine Operators",
+      "Lead Plastics Production Machine Operators"
+    ]
+  },
+  "711515": {
+    "alternative_titles": [
+      "Professional Reinforced Plastic and Composite Production Workers"
+    ],
+    "specialisations": [
+      "Senior Reinforced Plastic and Composite Production Workers",
+      "Lead Reinforced Plastic and Composite Production Workers"
+    ]
+  },
+  "711516": {
+    "alternative_titles": [
+      "Professional Rubber Production Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Rubber Production Machine Operators",
+      "Lead Rubber Production Machine Operators"
+    ]
+  },
+  "711599": {
+    "alternative_titles": [
+      "Professional Other Plastics and Rubber Production Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Other Plastics and Rubber Production Machine Operators",
+      "Lead Other Plastics and Rubber Production Machine Operators"
+    ]
+  },
+  "711711": {
+    "alternative_titles": [
+      "Professional Footwear Production Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Footwear Production Machine Operators",
+      "Lead Footwear Production Machine Operators"
+    ]
+  },
+  "711712": {
+    "alternative_titles": [
+      "Professional Hide and Skin Processing Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Hide and Skin Processing Machine Operators",
+      "Lead Hide and Skin Processing Machine Operators"
+    ]
+  },
+  "711713": {
+    "alternative_titles": [
+      "Professional Knitting Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Knitting Machine Operators",
+      "Lead Knitting Machine Operators"
+    ]
+  },
+  "711714": {
+    "alternative_titles": [
+      "Professional Textile Dyeing and Finishing Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Textile Dyeing and Finishing Machine Operators",
+      "Lead Textile Dyeing and Finishing Machine Operators"
+    ]
+  },
+  "711715": {
+    "alternative_titles": [
+      "Professional Weaving Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Weaving Machine Operators",
+      "Lead Weaving Machine Operators"
+    ]
+  },
+  "711716": {
+    "alternative_titles": [
+      "Professional Yarn Carding and Spinning Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Yarn Carding and Spinning Machine Operators",
+      "Lead Yarn Carding and Spinning Machine Operators"
+    ]
+  },
+  "711799": {
+    "alternative_titles": [
+      "Professional Other Textile and Footwear Production Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Other Textile and Footwear Production Machine Operators",
+      "Lead Other Textile and Footwear Production Machine Operators"
+    ]
+  },
+  "711911": {
+    "alternative_titles": [
+      "Professional Chemical Production Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Chemical Production Machine Operators",
+      "Lead Chemical Production Machine Operators"
+    ]
+  },
+  "711912": {
+    "alternative_titles": [
+      "Professional Motion Picture Projectionists"
+    ],
+    "specialisations": [
+      "Senior Motion Picture Projectionists",
+      "Lead Motion Picture Projectionists"
+    ]
+  },
+  "711913": {
+    "alternative_titles": [
+      "Professional Sand Blasters"
+    ],
+    "specialisations": [
+      "Senior Sand Blasters",
+      "Lead Sand Blasters"
+    ]
+  },
+  "711914": {
+    "alternative_titles": [
+      "Professional Sterilisation Technicians"
+    ],
+    "specialisations": [
+      "Senior Sterilisation Technicians",
+      "Lead Sterilisation Technicians"
+    ]
+  },
+  "711999": {
+    "alternative_titles": [
+      "Professional Machine Operators"
+    ],
+    "specialisations": [
+      "Senior Machine Operators",
+      "Lead Machine Operators"
+    ]
+  },
+  "712211": {
+    "alternative_titles": [
+      "Professional Drillers"
+    ],
+    "specialisations": [
+      "Senior Drillers",
+      "Lead Drillers"
+    ]
+  },
+  "712212": {
+    "alternative_titles": [
+      "Professional Miners"
+    ],
+    "specialisations": [
+      "Senior Miners",
+      "Lead Miners"
+    ]
+  },
+  "712213": {
+    "alternative_titles": [
+      "Professional Shot Firers"
+    ],
+    "specialisations": [
+      "Senior Shot Firers",
+      "Lead Shot Firers"
+    ]
+  },
+  "712911": {
+    "alternative_titles": [
+      "Professional Boiler and Engine Operators"
+    ],
+    "specialisations": [
+      "Senior Boiler and Engine Operators",
+      "Lead Boiler and Engine Operators"
+    ]
+  },
+  "712912": {
+    "alternative_titles": [
+      "Professional Bulk Materials Handling Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Bulk Materials Handling Plant Operators",
+      "Lead Bulk Materials Handling Plant Operators"
+    ]
+  },
+  "712913": {
+    "alternative_titles": [
+      "Professional Cement Production Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Cement Production Plant Operators",
+      "Lead Cement Production Plant Operators"
+    ]
+  },
+  "712914": {
+    "alternative_titles": [
+      "Professional Concrete Batching Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Concrete Batching Plant Operators",
+      "Lead Concrete Batching Plant Operators"
+    ]
+  },
+  "712915": {
+    "alternative_titles": [
+      "Professional Concrete Pump Operators"
+    ],
+    "specialisations": [
+      "Senior Concrete Pump Operators",
+      "Lead Concrete Pump Operators"
+    ]
+  },
+  "712916": {
+    "alternative_titles": [
+      "Professional Paper and Pulp Mill Operators"
+    ],
+    "specialisations": [
+      "Senior Paper and Pulp Mill Operators",
+      "Lead Paper and Pulp Mill Operators"
+    ]
+  },
+  "712917": {
+    "alternative_titles": [
+      "Professional Railway Signal Operators"
+    ],
+    "specialisations": [
+      "Senior Railway Signal Operators",
+      "Lead Railway Signal Operators"
+    ]
+  },
+  "712918": {
+    "alternative_titles": [
+      "Professional Train Controllers"
+    ],
+    "specialisations": [
+      "Senior Train Controllers",
+      "Lead Train Controllers"
+    ]
+  },
+  "712921": {
+    "alternative_titles": [
+      "Professional Waste Water and Water Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Waste Water and Water Plant Operators",
+      "Lead Waste Water and Water Plant Operators"
+    ]
+  },
+  "712922": {
+    "alternative_titles": [
+      "Professional Weighbridge Operators"
+    ],
+    "specialisations": [
+      "Senior Weighbridge Operators",
+      "Lead Weighbridge Operators"
+    ]
+  },
+  "712999": {
+    "alternative_titles": [
+      "Professional Stationary Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Stationary Plant Operators",
+      "Lead Stationary Plant Operators"
+    ]
+  },
+  "721111": {
+    "alternative_titles": [
+      "Professional Agricultural and Horticultural Mobile Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Agricultural and Horticultural Mobile Plant Operators",
+      "Lead Agricultural and Horticultural Mobile Plant Operators"
+    ]
+  },
+  "721112": {
+    "alternative_titles": [
+      "Professional Logging Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Logging Plant Operators",
+      "Lead Logging Plant Operators"
+    ]
+  },
+  "721211": {
+    "alternative_titles": [
+      "Professional Earthmoving Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Earthmoving Plant Operators",
+      "Lead Earthmoving Plant Operators"
+    ]
+  },
+  "721212": {
+    "alternative_titles": [
+      "Professional Backhoe Operators"
+    ],
+    "specialisations": [
+      "Senior Backhoe Operators",
+      "Lead Backhoe Operators"
+    ]
+  },
+  "721213": {
+    "alternative_titles": [
+      "Professional Bulldozer Operators"
+    ],
+    "specialisations": [
+      "Senior Bulldozer Operators",
+      "Lead Bulldozer Operators"
+    ]
+  },
+  "721214": {
+    "alternative_titles": [
+      "Professional Excavator Operators"
+    ],
+    "specialisations": [
+      "Senior Excavator Operators",
+      "Lead Excavator Operators"
+    ]
+  },
+  "721215": {
+    "alternative_titles": [
+      "Professional Grader Operators"
+    ],
+    "specialisations": [
+      "Senior Grader Operators",
+      "Lead Grader Operators"
+    ]
+  },
+  "721216": {
+    "alternative_titles": [
+      "Professional Loader Operators"
+    ],
+    "specialisations": [
+      "Senior Loader Operators",
+      "Lead Loader Operators"
+    ]
+  },
+  "721911": {
+    "alternative_titles": [
+      "Professional Aircraft Baggage Handlers and Airline Ground Crews"
+    ],
+    "specialisations": [
+      "Senior Aircraft Baggage Handlers and Airline Ground Crews",
+      "Lead Aircraft Baggage Handlers and Airline Ground Crews"
+    ]
+  },
+  "721912": {
+    "alternative_titles": [
+      "Professional Linemarkers"
+    ],
+    "specialisations": [
+      "Senior Linemarkers",
+      "Lead Linemarkers"
+    ]
+  },
+  "721913": {
+    "alternative_titles": [
+      "Professional Paving Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Paving Plant Operators",
+      "Lead Paving Plant Operators"
+    ]
+  },
+  "721914": {
+    "alternative_titles": [
+      "Professional Railway Track Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Railway Track Plant Operators",
+      "Lead Railway Track Plant Operators"
+    ]
+  },
+  "721915": {
+    "alternative_titles": [
+      "Professional Road Roller Operators"
+    ],
+    "specialisations": [
+      "Senior Road Roller Operators",
+      "Lead Road Roller Operators"
+    ]
+  },
+  "721916": {
+    "alternative_titles": [
+      "Professional Streetsweeper Operators"
+    ],
+    "specialisations": [
+      "Senior Streetsweeper Operators",
+      "Lead Streetsweeper Operators"
+    ]
+  },
+  "721999": {
+    "alternative_titles": [
+      "Professional Mobile Plant Operators"
+    ],
+    "specialisations": [
+      "Senior Mobile Plant Operators",
+      "Lead Mobile Plant Operators"
+    ]
+  },
+  "731111": {
+    "alternative_titles": [
+      "Professional Chauffeurs"
+    ],
+    "specialisations": [
+      "Senior Chauffeurs",
+      "Lead Chauffeurs"
+    ]
+  },
+  "731112": {
+    "alternative_titles": [
+      "Professional Taxi Drivers"
+    ],
+    "specialisations": [
+      "Senior Taxi Drivers",
+      "Lead Taxi Drivers"
+    ]
+  },
+  "731199": {
+    "alternative_titles": [
+      "Professional Other Automobile Drivers"
+    ],
+    "specialisations": [
+      "Senior Other Automobile Drivers",
+      "Lead Other Automobile Drivers"
+    ]
+  },
+  "731211": {
+    "alternative_titles": [
+      "Professional Bus Drivers"
+    ],
+    "specialisations": [
+      "Senior Bus Drivers",
+      "Lead Bus Drivers"
+    ]
+  },
+  "731212": {
+    "alternative_titles": [
+      "Professional Charter and Tour Bus Drivers"
+    ],
+    "specialisations": [
+      "Senior Charter and Tour Bus Drivers",
+      "Lead Charter and Tour Bus Drivers"
+    ]
+  },
+  "731213": {
+    "alternative_titles": [
+      "Professional Passenger Coach Drivers"
+    ],
+    "specialisations": [
+      "Senior Passenger Coach Drivers",
+      "Lead Passenger Coach Drivers"
+    ]
+  },
+  "731311": {
+    "alternative_titles": [
+      "Professional Train Drivers"
+    ],
+    "specialisations": [
+      "Senior Train Drivers",
+      "Lead Train Drivers"
+    ]
+  },
+  "731312": {
+    "alternative_titles": [
+      "Professional Tram Drivers"
+    ],
+    "specialisations": [
+      "Senior Tram Drivers",
+      "Lead Tram Drivers"
+    ]
+  },
+  "733111": {
+    "alternative_titles": [
+      "Professional Truck Drivers"
+    ],
+    "specialisations": [
+      "Senior Truck Drivers",
+      "Lead Truck Drivers"
+    ]
+  },
+  "733112": {
+    "alternative_titles": [
+      "Professional Aircraft Refuellers"
+    ],
+    "specialisations": [
+      "Senior Aircraft Refuellers",
+      "Lead Aircraft Refuellers"
+    ]
+  },
+  "733113": {
+    "alternative_titles": [
+      "Professional Furniture Removalist Drivers"
+    ],
+    "specialisations": [
+      "Senior Furniture Removalist Drivers",
+      "Lead Furniture Removalist Drivers"
+    ]
+  },
+  "733114": {
+    "alternative_titles": [
+      "Professional Tanker Drivers"
+    ],
+    "specialisations": [
+      "Senior Tanker Drivers",
+      "Lead Tanker Drivers"
+    ]
+  },
+  "733115": {
+    "alternative_titles": [
+      "Professional Tow Truck Drivers"
+    ],
+    "specialisations": [
+      "Senior Tow Truck Drivers",
+      "Lead Tow Truck Drivers"
+    ]
+  },
+  "811411": {
+    "alternative_titles": [
+      "Professional Commercial Housekeepers"
+    ],
+    "specialisations": [
+      "Senior Commercial Housekeepers",
+      "Lead Commercial Housekeepers"
+    ]
+  },
+  "811412": {
+    "alternative_titles": [
+      "Professional Domestic Housekeepers"
+    ],
+    "specialisations": [
+      "Senior Domestic Housekeepers",
+      "Lead Domestic Housekeepers"
+    ]
+  },
+  "811511": {
+    "alternative_titles": [
+      "Professional Laundry Workers"
+    ],
+    "specialisations": [
+      "Senior Laundry Workers",
+      "Lead Laundry Workers"
+    ]
+  },
+  "811512": {
+    "alternative_titles": [
+      "Professional Drycleaners"
+    ],
+    "specialisations": [
+      "Senior Drycleaners",
+      "Lead Drycleaners"
+    ]
+  },
+  "811513": {
+    "alternative_titles": [
+      "Professional Ironers and Pressers"
+    ],
+    "specialisations": [
+      "Senior Ironers and Pressers",
+      "Lead Ironers and Pressers"
+    ]
+  },
+  "811611": {
+    "alternative_titles": [
+      "Professional Carpet Cleaners"
+    ],
+    "specialisations": [
+      "Senior Carpet Cleaners",
+      "Lead Carpet Cleaners"
+    ]
+  },
+  "811612": {
+    "alternative_titles": [
+      "Professional Window Cleaners"
+    ],
+    "specialisations": [
+      "Senior Window Cleaners",
+      "Lead Window Cleaners"
+    ]
+  },
+  "811699": {
+    "alternative_titles": [
+      "Professional Cleaners"
+    ],
+    "specialisations": [
+      "Senior Cleaners",
+      "Lead Cleaners"
+    ]
+  },
+  "821111": {
+    "alternative_titles": [
+      "Professional Builder's Labourers"
+    ],
+    "specialisations": [
+      "Senior Builder's Labourers",
+      "Lead Builder's Labourers"
+    ]
+  },
+  "821112": {
+    "alternative_titles": [
+      "Professional Drainage, Sewerage and Stormwater Labourers"
+    ],
+    "specialisations": [
+      "Senior Drainage, Sewerage and Stormwater Labourers",
+      "Lead Drainage, Sewerage and Stormwater Labourers"
+    ]
+  },
+  "821113": {
+    "alternative_titles": [
+      "Professional Earthmoving Labourers"
+    ],
+    "specialisations": [
+      "Senior Earthmoving Labourers",
+      "Lead Earthmoving Labourers"
+    ]
+  },
+  "821114": {
+    "alternative_titles": [
+      "Professional Plumber's Assistants"
+    ],
+    "specialisations": [
+      "Senior Plumber's Assistants",
+      "Lead Plumber's Assistants"
+    ]
+  },
+  "821411": {
+    "alternative_titles": [
+      "Professional Building Insulation Installers"
+    ],
+    "specialisations": [
+      "Senior Building Insulation Installers",
+      "Lead Building Insulation Installers"
+    ]
+  },
+  "821412": {
+    "alternative_titles": [
+      "Professional Home Improvement Installers"
+    ],
+    "specialisations": [
+      "Senior Home Improvement Installers",
+      "Lead Home Improvement Installers"
+    ]
+  },
+  "821711": {
+    "alternative_titles": [
+      "Professional Construction Riggers"
+    ],
+    "specialisations": [
+      "Senior Construction Riggers",
+      "Lead Construction Riggers"
+    ]
+  },
+  "821712": {
+    "alternative_titles": [
+      "Professional Scaffolders"
+    ],
+    "specialisations": [
+      "Senior Scaffolders",
+      "Lead Scaffolders"
+    ]
+  },
+  "821713": {
+    "alternative_titles": [
+      "Professional Steel Fixers"
+    ],
+    "specialisations": [
+      "Senior Steel Fixers",
+      "Lead Steel Fixers"
+    ]
+  },
+  "821714": {
+    "alternative_titles": [
+      "Professional Structural Steel Erectors"
+    ],
+    "specialisations": [
+      "Senior Structural Steel Erectors",
+      "Lead Structural Steel Erectors"
+    ]
+  },
+  "821911": {
+    "alternative_titles": [
+      "Professional Crane Chasers"
+    ],
+    "specialisations": [
+      "Senior Crane Chasers",
+      "Lead Crane Chasers"
+    ]
+  },
+  "821912": {
+    "alternative_titles": [
+      "Professional Driller's Assistants"
+    ],
+    "specialisations": [
+      "Senior Driller's Assistants",
+      "Lead Driller's Assistants"
+    ]
+  },
+  "821913": {
+    "alternative_titles": [
+      "Professional Laggers"
+    ],
+    "specialisations": [
+      "Senior Laggers",
+      "Lead Laggers"
+    ]
+  },
+  "821914": {
+    "alternative_titles": [
+      "Professional Mining Support Workers"
+    ],
+    "specialisations": [
+      "Senior Mining Support Workers",
+      "Lead Mining Support Workers"
+    ]
+  },
+  "821915": {
+    "alternative_titles": [
+      "Professional Surveyor's Assistants"
+    ],
+    "specialisations": [
+      "Senior Surveyor's Assistants",
+      "Lead Surveyor's Assistants"
+    ]
+  },
+  "831111": {
+    "alternative_titles": [
+      "Professional Baking Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Baking Factory Workers",
+      "Lead Baking Factory Workers"
+    ]
+  },
+  "831112": {
+    "alternative_titles": [
+      "Professional Brewery Workers"
+    ],
+    "specialisations": [
+      "Senior Brewery Workers",
+      "Lead Brewery Workers"
+    ]
+  },
+  "831113": {
+    "alternative_titles": [
+      "Professional Confectionery Makers"
+    ],
+    "specialisations": [
+      "Senior Confectionery Makers",
+      "Lead Confectionery Makers"
+    ]
+  },
+  "831114": {
+    "alternative_titles": [
+      "Professional Dairy Products Makers"
+    ],
+    "specialisations": [
+      "Senior Dairy Products Makers",
+      "Lead Dairy Products Makers"
+    ]
+  },
+  "831115": {
+    "alternative_titles": [
+      "Professional Fruit and Vegetable Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Fruit and Vegetable Factory Workers",
+      "Lead Fruit and Vegetable Factory Workers"
+    ]
+  },
+  "831116": {
+    "alternative_titles": [
+      "Professional Grain Mill Workers"
+    ],
+    "specialisations": [
+      "Senior Grain Mill Workers",
+      "Lead Grain Mill Workers"
+    ]
+  },
+  "831117": {
+    "alternative_titles": [
+      "Professional Sugar Mill Workers"
+    ],
+    "specialisations": [
+      "Senior Sugar Mill Workers",
+      "Lead Sugar Mill Workers"
+    ]
+  },
+  "831118": {
+    "alternative_titles": [
+      "Professional Winery Cellar Hands"
+    ],
+    "specialisations": [
+      "Senior Winery Cellar Hands",
+      "Lead Winery Cellar Hands"
+    ]
+  },
+  "831199": {
+    "alternative_titles": [
+      "Professional Other Food and Drink Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Other Food and Drink Factory Workers",
+      "Lead Other Food and Drink Factory Workers"
+    ]
+  },
+  "831211": {
+    "alternative_titles": [
+      "Professional Meat Boners and Slicers"
+    ],
+    "specialisations": [
+      "Senior Meat Boners and Slicers",
+      "Lead Meat Boners and Slicers"
+    ]
+  },
+  "831212": {
+    "alternative_titles": [
+      "Professional Slaughterers"
+    ],
+    "specialisations": [
+      "Senior Slaughterers",
+      "Lead Slaughterers"
+    ]
+  },
+  "831311": {
+    "alternative_titles": [
+      "Professional Meat Process Workers"
+    ],
+    "specialisations": [
+      "Senior Meat Process Workers",
+      "Lead Meat Process Workers"
+    ]
+  },
+  "831312": {
+    "alternative_titles": [
+      "Professional Poultry Process Workers"
+    ],
+    "specialisations": [
+      "Senior Poultry Process Workers",
+      "Lead Poultry Process Workers"
+    ]
+  },
+  "831313": {
+    "alternative_titles": [
+      "Professional Seafood Process Workers"
+    ],
+    "specialisations": [
+      "Senior Seafood Process Workers",
+      "Lead Seafood Process Workers"
+    ]
+  },
+  "832111": {
+    "alternative_titles": [
+      "Professional Chocolate Packers"
+    ],
+    "specialisations": [
+      "Senior Chocolate Packers",
+      "Lead Chocolate Packers"
+    ]
+  },
+  "832112": {
+    "alternative_titles": [
+      "Professional Container Fillers"
+    ],
+    "specialisations": [
+      "Senior Container Fillers",
+      "Lead Container Fillers"
+    ]
+  },
+  "832113": {
+    "alternative_titles": [
+      "Professional Fruit and Vegetable Packers"
+    ],
+    "specialisations": [
+      "Senior Fruit and Vegetable Packers",
+      "Lead Fruit and Vegetable Packers"
+    ]
+  },
+  "832114": {
+    "alternative_titles": [
+      "Professional Meat Packers"
+    ],
+    "specialisations": [
+      "Senior Meat Packers",
+      "Lead Meat Packers"
+    ]
+  },
+  "832115": {
+    "alternative_titles": [
+      "Professional Seafood Packers"
+    ],
+    "specialisations": [
+      "Senior Seafood Packers",
+      "Lead Seafood Packers"
+    ]
+  },
+  "832199": {
+    "alternative_titles": [
+      "Professional Other Packers"
+    ],
+    "specialisations": [
+      "Senior Other Packers",
+      "Lead Other Packers"
+    ]
+  },
+  "839211": {
+    "alternative_titles": [
+      "Professional Plastics Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Plastics Factory Workers",
+      "Lead Plastics Factory Workers"
+    ]
+  },
+  "839212": {
+    "alternative_titles": [
+      "Professional Rubber Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Rubber Factory Workers",
+      "Lead Rubber Factory Workers"
+    ]
+  },
+  "839311": {
+    "alternative_titles": [
+      "Professional Product Examiners"
+    ],
+    "specialisations": [
+      "Senior Product Examiners",
+      "Lead Product Examiners"
+    ]
+  },
+  "839312": {
+    "alternative_titles": [
+      "Professional Product Graders"
+    ],
+    "specialisations": [
+      "Senior Product Graders",
+      "Lead Product Graders"
+    ]
+  },
+  "839313": {
+    "alternative_titles": [
+      "Professional Product Testers"
+    ],
+    "specialisations": [
+      "Senior Product Testers",
+      "Lead Product Testers"
+    ]
+  },
+  "839411": {
+    "alternative_titles": [
+      "Professional Paper and Pulp Mill Workers"
+    ],
+    "specialisations": [
+      "Senior Paper and Pulp Mill Workers",
+      "Lead Paper and Pulp Mill Workers"
+    ]
+  },
+  "839412": {
+    "alternative_titles": [
+      "Professional Sawmill and Timber Yard Workers"
+    ],
+    "specialisations": [
+      "Senior Sawmill and Timber Yard Workers",
+      "Lead Sawmill and Timber Yard Workers"
+    ]
+  },
+  "839413": {
+    "alternative_titles": [
+      "Professional Wood and Wood Products Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Wood and Wood Products Factory Workers",
+      "Lead Wood and Wood Products Factory Workers"
+    ]
+  },
+  "839911": {
+    "alternative_titles": [
+      "Professional Cement and Concrete Plant Workers"
+    ],
+    "specialisations": [
+      "Senior Cement and Concrete Plant Workers",
+      "Lead Cement and Concrete Plant Workers"
+    ]
+  },
+  "839912": {
+    "alternative_titles": [
+      "Professional Chemical Plant Workers"
+    ],
+    "specialisations": [
+      "Senior Chemical Plant Workers",
+      "Lead Chemical Plant Workers"
+    ]
+  },
+  "839913": {
+    "alternative_titles": [
+      "Professional Clay Processing Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Clay Processing Factory Workers",
+      "Lead Clay Processing Factory Workers"
+    ]
+  },
+  "839914": {
+    "alternative_titles": [
+      "Professional Fabric and Textile Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Fabric and Textile Factory Workers",
+      "Lead Fabric and Textile Factory Workers"
+    ]
+  },
+  "839915": {
+    "alternative_titles": [
+      "Professional Footwear Factory Workers"
+    ],
+    "specialisations": [
+      "Senior Footwear Factory Workers",
+      "Lead Footwear Factory Workers"
+    ]
+  },
+  "839916": {
+    "alternative_titles": [
+      "Professional Glass Processing Workers"
+    ],
+    "specialisations": [
+      "Senior Glass Processing Workers",
+      "Lead Glass Processing Workers"
+    ]
+  },
+  "839917": {
+    "alternative_titles": [
+      "Professional Hide and Skin Processing Workers"
+    ],
+    "specialisations": [
+      "Senior Hide and Skin Processing Workers",
+      "Lead Hide and Skin Processing Workers"
+    ]
+  },
+  "839918": {
+    "alternative_titles": [
+      "Professional Recycling Workers"
+    ],
+    "specialisations": [
+      "Senior Recycling Workers",
+      "Lead Recycling Workers"
+    ]
+  },
+  "839999": {
+    "alternative_titles": [
+      "Professional Factory Process Workers"
+    ],
+    "specialisations": [
+      "Senior Factory Process Workers",
+      "Lead Factory Process Workers"
+    ]
+  },
+  "841211": {
+    "alternative_titles": [
+      "Professional Fruit and Nut Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Fruit and Nut Farm Workers",
+      "Lead Fruit and Nut Farm Workers"
+    ]
+  },
+  "841212": {
+    "alternative_titles": [
+      "Professional Fruit and Nut Pickers"
+    ],
+    "specialisations": [
+      "Senior Fruit and Nut Pickers",
+      "Lead Fruit and Nut Pickers"
+    ]
+  },
+  "841213": {
+    "alternative_titles": [
+      "Professional Grain, Oilseed and Pasture Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Grain, Oilseed and Pasture Farm Workers",
+      "Lead Grain, Oilseed and Pasture Farm Workers"
+    ]
+  },
+  "841214": {
+    "alternative_titles": [
+      "Professional Vegetable Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Vegetable Farm Workers",
+      "Lead Vegetable Farm Workers"
+    ]
+  },
+  "841215": {
+    "alternative_titles": [
+      "Professional Vegetable Pickers"
+    ],
+    "specialisations": [
+      "Senior Vegetable Pickers",
+      "Lead Vegetable Pickers"
+    ]
+  },
+  "841216": {
+    "alternative_titles": [
+      "Professional Vineyard Workers"
+    ],
+    "specialisations": [
+      "Senior Vineyard Workers",
+      "Lead Vineyard Workers"
+    ]
+  },
+  "841217": {
+    "alternative_titles": [
+      "Professional Mushroom Pickers"
+    ],
+    "specialisations": [
+      "Senior Mushroom Pickers",
+      "Lead Mushroom Pickers"
+    ]
+  },
+  "841299": {
+    "alternative_titles": [
+      "Professional Other Crop Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Other Crop Farm Workers",
+      "Lead Other Crop Farm Workers"
+    ]
+  },
+  "841311": {
+    "alternative_titles": [
+      "Professional Forestry Workers"
+    ],
+    "specialisations": [
+      "Senior Forestry Workers",
+      "Lead Forestry Workers"
+    ]
+  },
+  "841312": {
+    "alternative_titles": [
+      "Professional Logging Assistants"
+    ],
+    "specialisations": [
+      "Senior Logging Assistants",
+      "Lead Logging Assistants"
+    ]
+  },
+  "841313": {
+    "alternative_titles": [
+      "Professional Tree Fallers"
+    ],
+    "specialisations": [
+      "Senior Tree Fallers",
+      "Lead Tree Fallers"
+    ]
+  },
+  "841411": {
+    "alternative_titles": [
+      "Professional Garden Labourers"
+    ],
+    "specialisations": [
+      "Senior Garden Labourers",
+      "Lead Garden Labourers"
+    ]
+  },
+  "841412": {
+    "alternative_titles": [
+      "Professional Nursery Hands"
+    ],
+    "specialisations": [
+      "Senior Nursery Hands",
+      "Lead Nursery Hands"
+    ]
+  },
+  "841511": {
+    "alternative_titles": [
+      "Professional Beef Cattle Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Beef Cattle Farm Workers",
+      "Lead Beef Cattle Farm Workers"
+    ]
+  },
+  "841512": {
+    "alternative_titles": [
+      "Professional Dairy Cattle Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Dairy Cattle Farm Workers",
+      "Lead Dairy Cattle Farm Workers"
+    ]
+  },
+  "841513": {
+    "alternative_titles": [
+      "Professional Mixed Livestock Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Mixed Livestock Farm Workers",
+      "Lead Mixed Livestock Farm Workers"
+    ]
+  },
+  "841514": {
+    "alternative_titles": [
+      "Professional Poultry Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Poultry Farm Workers",
+      "Lead Poultry Farm Workers"
+    ]
+  },
+  "841515": {
+    "alternative_titles": [
+      "Professional Sheep Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Sheep Farm Workers",
+      "Lead Sheep Farm Workers"
+    ]
+  },
+  "841516": {
+    "alternative_titles": [
+      "Professional Stablehands"
+    ],
+    "specialisations": [
+      "Senior Stablehands",
+      "Lead Stablehands"
+    ]
+  },
+  "841517": {
+    "alternative_titles": [
+      "Professional Wool Handlers"
+    ],
+    "specialisations": [
+      "Senior Wool Handlers",
+      "Lead Wool Handlers"
+    ]
+  },
+  "841599": {
+    "alternative_titles": [
+      "Professional Other Livestock Farm Workers"
+    ],
+    "specialisations": [
+      "Senior Other Livestock Farm Workers",
+      "Lead Other Livestock Farm Workers"
+    ]
+  },
+  "841911": {
+    "alternative_titles": [
+      "Professional Hunter-Trappers"
+    ],
+    "specialisations": [
+      "Senior Hunter-Trappers",
+      "Lead Hunter-Trappers"
+    ]
+  },
+  "841913": {
+    "alternative_titles": [
+      "Professional Pest Controllers"
+    ],
+    "specialisations": [
+      "Senior Pest Controllers",
+      "Lead Pest Controllers"
+    ]
+  },
+  "841999": {
+    "alternative_titles": [
+      "Professional Farm, Forestry and Garden Workers"
+    ],
+    "specialisations": [
+      "Senior Farm, Forestry and Garden Workers",
+      "Lead Farm, Forestry and Garden Workers"
+    ]
+  },
+  "851211": {
+    "alternative_titles": [
+      "Professional Pastrycook's Assistants"
+    ],
+    "specialisations": [
+      "Senior Pastrycook's Assistants",
+      "Lead Pastrycook's Assistants"
+    ]
+  },
+  "851299": {
+    "alternative_titles": [
+      "Professional Other Food Trades Assistants"
+    ],
+    "specialisations": [
+      "Senior Other Food Trades Assistants",
+      "Lead Other Food Trades Assistants"
+    ]
+  },
+  "891111": {
+    "alternative_titles": [
+      "Professional Freight Handlers"
+    ],
+    "specialisations": [
+      "Senior Freight Handlers",
+      "Lead Freight Handlers"
+    ]
+  },
+  "891112": {
+    "alternative_titles": [
+      "Professional Truck Driver's Offsiders"
+    ],
+    "specialisations": [
+      "Senior Truck Driver's Offsiders",
+      "Lead Truck Driver's Offsiders"
+    ]
+  },
+  "891113": {
+    "alternative_titles": [
+      "Professional Waterside Workers"
+    ],
+    "specialisations": [
+      "Senior Waterside Workers",
+      "Lead Waterside Workers"
+    ]
+  },
+  "899211": {
+    "alternative_titles": [
+      "Professional Deck Hands"
+    ],
+    "specialisations": [
+      "Senior Deck Hands",
+      "Lead Deck Hands"
+    ]
+  },
+  "899212": {
+    "alternative_titles": [
+      "Professional Fishing Hands"
+    ],
+    "specialisations": [
+      "Senior Fishing Hands",
+      "Lead Fishing Hands"
+    ]
+  },
+  "899411": {
+    "alternative_titles": [
+      "Professional Motor Vehicle Parts and Accessories Fitters"
+    ],
+    "specialisations": [
+      "Senior Motor Vehicle Parts and Accessories Fitters",
+      "Lead Motor Vehicle Parts and Accessories Fitters"
+    ]
+  },
+  "899412": {
+    "alternative_titles": [
+      "Professional Autoglaziers"
+    ],
+    "specialisations": [
+      "Senior Autoglaziers",
+      "Lead Autoglaziers"
+    ]
+  },
+  "899413": {
+    "alternative_titles": [
+      "Professional Exhaust and Muffler Repairers"
+    ],
+    "specialisations": [
+      "Senior Exhaust and Muffler Repairers",
+      "Lead Exhaust and Muffler Repairers"
+    ]
+  },
+  "899414": {
+    "alternative_titles": [
+      "Professional Radiator Repairers"
+    ],
+    "specialisations": [
+      "Senior Radiator Repairers",
+      "Lead Radiator Repairers"
+    ]
+  },
+  "899415": {
+    "alternative_titles": [
+      "Professional Tyre Fitters"
+    ],
+    "specialisations": [
+      "Senior Tyre Fitters",
+      "Lead Tyre Fitters"
+    ]
+  },
+  "899511": {
+    "alternative_titles": [
+      "Professional Printer's Assistants"
+    ],
+    "specialisations": [
+      "Senior Printer's Assistants",
+      "Lead Printer's Assistants"
+    ]
+  },
+  "899512": {
+    "alternative_titles": [
+      "Professional Printing Table Workers"
+    ],
+    "specialisations": [
+      "Senior Printing Table Workers",
+      "Lead Printing Table Workers"
+    ]
+  },
+  "899911": {
+    "alternative_titles": [
+      "Professional Bicycle Mechanics"
+    ],
+    "specialisations": [
+      "Senior Bicycle Mechanics",
+      "Lead Bicycle Mechanics"
+    ]
+  },
+  "899912": {
+    "alternative_titles": [
+      "Professional Car Park Attendants"
+    ],
+    "specialisations": [
+      "Senior Car Park Attendants",
+      "Lead Car Park Attendants"
+    ]
+  },
+  "899913": {
+    "alternative_titles": [
+      "Professional Crossing Supervisors"
+    ],
+    "specialisations": [
+      "Senior Crossing Supervisors",
+      "Lead Crossing Supervisors"
+    ]
+  },
+  "899914": {
+    "alternative_titles": [
+      "Professional Electrical and Telecommunications Trades Assistants"
+    ],
+    "specialisations": [
+      "Senior Electrical and Telecommunications Trades Assistants",
+      "Lead Electrical and Telecommunications Trades Assistants"
+    ]
+  },
+  "899915": {
+    "alternative_titles": [
+      "Professional Leaflet and Newspaper Deliverers"
+    ],
+    "specialisations": [
+      "Senior Leaflet and Newspaper Deliverers",
+      "Lead Leaflet and Newspaper Deliverers"
+    ]
+  },
+  "899916": {
+    "alternative_titles": [
+      "Professional Mechanic's Assistants"
+    ],
+    "specialisations": [
+      "Senior Mechanic's Assistants",
+      "Lead Mechanic's Assistants"
+    ]
+  },
+  "899917": {
+    "alternative_titles": [
+      "Professional Railways Assistants"
+    ],
+    "specialisations": [
+      "Senior Railways Assistants",
+      "Lead Railways Assistants"
+    ]
+  },
+  "899918": {
+    "alternative_titles": [
+      "Professional Sign Erectors"
+    ],
+    "specialisations": [
+      "Senior Sign Erectors",
+      "Lead Sign Erectors"
+    ]
+  },
+  "899921": {
+    "alternative_titles": [
+      "Professional Ticket Collectors and Ushers"
+    ],
+    "specialisations": [
+      "Senior Ticket Collectors and Ushers",
+      "Lead Ticket Collectors and Ushers"
+    ]
+  },
+  "899922": {
+    "alternative_titles": [
+      "Professional Trolley Collectors"
+    ],
+    "specialisations": [
+      "Senior Trolley Collectors",
+      "Lead Trolley Collectors"
+    ]
+  },
+  "899923": {
+    "alternative_titles": [
+      "Professional Road Traffic Controllers"
+    ],
+    "specialisations": [
+      "Senior Road Traffic Controllers",
+      "Lead Road Traffic Controllers"
+    ]
+  },
+  "899999": {
+    "alternative_titles": [
+      "Professional Labourers"
+    ],
+    "specialisations": [
+      "Senior Labourers",
+      "Lead Labourers"
     ]
   }
 }
