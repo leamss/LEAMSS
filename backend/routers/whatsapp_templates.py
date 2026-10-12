@@ -93,7 +93,7 @@ _STARTERS = [
             "Take the next step towards your Australia immigration journey with our exclusive Navratri Immigration Offer.\n"
             "🎁 Special Offer: {special_offer}\n\n"
             "🎟️ NAVRATRI LUCKY DRAW\n"
-            "Make your full payment on or before 10 October 2026 to become eligible to participate in our Navratri Lucky Draw.\n"
+            "Make your full payment within 3 days of receiving your Pre-Assessment Report to become eligible to participate in our Navratri Lucky Draw.\n"
             "🌟 One lucky eligible participant will receive LEAMSS Immigration processing fees completely FREE.\n\n"
             "💳 Make Full Payment:\n"
             "https://pages.razorpay.com/pl_TaKUWTnoEJNqUt/view\n\n"
