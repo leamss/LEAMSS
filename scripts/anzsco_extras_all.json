@@ -3221,18 +3221,6 @@
       "Lead Other Miscellaneous Labourers"
     ]
   },
-  "111111": {
-    "alternative_titles": [
-      "Director-General",
-      "Managing Director"
-    ],
-    "specialisations": [
-      "Chief Executive Officer (CEO)",
-      "Chief Operating Officer (COO)",
-      "Director-General (Public Service)",
-      "Vice-Chancellor"
-    ]
-  },
   "111211": {
     "alternative_titles": [
       "Assistant Director-General"
@@ -3278,17 +3266,6 @@
     "specialisations": [
       "Aboriginal Council Member",
       "Statutory Authority Board Member"
-    ]
-  },
-  "121111": {
-    "alternative_titles": [
-      "Fish Farmer"
-    ],
-    "specialisations": [
-      "Hatchery Manager",
-      "Mussel Farmer",
-      "Oyster Farmer",
-      "Salmon Farmer"
     ]
   },
   "121211": {
@@ -3480,24 +3457,6 @@
       "Lead Livestock Farmers nec"
     ]
   },
-  "121411": {
-    "alternative_titles": [
-      "Agricultural Mixed Crop and Livestock Farmer"
-    ],
-    "specialisations": [
-      "Commercial Mixed Crop and Livestock Farmer",
-      "Enterprise Mixed Crop and Livestock Farmer"
-    ]
-  },
-  "121611": {
-    "alternative_titles": [
-      "Agricultural Flower Grower"
-    ],
-    "specialisations": [
-      "Commercial Flower Grower",
-      "Enterprise Flower Grower"
-    ]
-  },
   "131112": {
     "alternative_titles": [
       "Marketing Director"
@@ -3525,51 +3484,6 @@
       "External Affairs Director"
     ]
   },
-  "132111": {
-    "alternative_titles": [
-      "Corporate Services Director"
-    ],
-    "specialisations": [
-      "Administration Manager",
-      "Facilities Operations Manager"
-    ]
-  },
-  "132211": {
-    "alternative_titles": [
-      "Financial Controller"
-    ],
-    "specialisations": [
-      "Corporate Treasurer",
-      "Finance Director"
-    ]
-  },
-  "132311": {
-    "alternative_titles": [
-      "Personnel Manager"
-    ],
-    "specialisations": [
-      "Industrial Relations Manager",
-      "People & Culture Director"
-    ]
-  },
-  "132411": {
-    "alternative_titles": [
-      "Procurement Manager"
-    ],
-    "specialisations": [
-      "Strategic Sourcing Director",
-      "Supply Chain Purchasing Lead"
-    ]
-  },
-  "132511": {
-    "alternative_titles": [
-      "R&D Director"
-    ],
-    "specialisations": [
-      "Innovation Manager",
-      "Scientific Research Director"
-    ]
-  },
   "133111": {
     "alternative_titles": [
       "Building Project Manager"
@@ -3588,15 +3502,6 @@
       "Commercial Building Contractor"
     ]
   },
-  "133211": {
-    "alternative_titles": [
-      "Chief Engineer"
-    ],
-    "specialisations": [
-      "Engineering Operations Director",
-      "Technical Director"
-    ]
-  },
   "133311": {
     "alternative_titles": [
       "Plant Manager"
@@ -3613,15 +3518,6 @@
     "specialisations": [
       "Senior Wholesaler",
       "Lead Wholesaler"
-    ]
-  },
-  "133411": {
-    "alternative_titles": [
-      "Professional Manufacturer"
-    ],
-    "specialisations": [
-      "Senior Manufacturer",
-      "Lead Manufacturer"
     ]
   },
   "133511": {
@@ -3669,15 +3565,6 @@
       "Senior Procurement Manager"
     ]
   },
-  "134111": {
-    "alternative_titles": [
-      "Child Care Director"
-    ],
-    "specialisations": [
-      "Early Learning Centre Director",
-      "Preschool Director"
-    ]
-  },
   "134211": {
     "alternative_titles": [
       "Medical Director"
@@ -3721,16 +3608,6 @@
     "specialisations": [
       "Senior Health and Welfare Services Managers nec",
       "Lead Health and Welfare Services Managers nec"
-    ]
-  },
-  "134311": {
-    "alternative_titles": [
-      "School Headmaster / Headmistress"
-    ],
-    "specialisations": [
-      "High School Principal",
-      "Primary School Principal",
-      "Grammar School Head"
     ]
   },
   "134411": {
@@ -3815,15 +3692,6 @@
       "Lead Commissioned Police Officer"
     ]
   },
-  "139211": {
-    "alternative_titles": [
-      "Professional Senior Non-commissioned Defence Force Member"
-    ],
-    "specialisations": [
-      "Senior Senior Non-commissioned Defence Force Member",
-      "Lead Senior Non-commissioned Defence Force Member"
-    ]
-  },
   "139911": {
     "alternative_titles": [
       "Arts Administrator or Director"
@@ -3869,24 +3737,6 @@
       "Lead Sports Administrator"
     ]
   },
-  "139916": {
-    "alternative_titles": [
-      "Quality Assurance Director"
-    ],
-    "specialisations": [
-      "Head of Quality Assurance",
-      "Senior Quality Assurance Manager"
-    ]
-  },
-  "139917": {
-    "alternative_titles": [
-      "Regulatory Affairs Director"
-    ],
-    "specialisations": [
-      "Head of Regulatory Affairs",
-      "Senior Regulatory Affairs Manager"
-    ]
-  },
   "139999": {
     "alternative_titles": [
       "Professional Specialist Managers nec"
@@ -3894,43 +3744,6 @@
     "specialisations": [
       "Senior Specialist Managers nec",
       "Lead Specialist Managers nec"
-    ]
-  },
-  "141111": {
-    "alternative_titles": [
-      "Restaurateur"
-    ],
-    "specialisations": [
-      "Food and Beverage Director",
-      "Bistro Operations Manager"
-    ]
-  },
-  "141211": {
-    "alternative_titles": [
-      "Caravan Park and Camping Ground Director"
-    ],
-    "specialisations": [
-      "Head of Caravan Park and Camping Ground",
-      "Senior Caravan Park and Camping Ground Manager"
-    ]
-  },
-  "141311": {
-    "alternative_titles": [
-      "Hotelier",
-      "Publican"
-    ],
-    "specialisations": [
-      "Resort Operations Director",
-      "Boutique Hotel General Manager"
-    ]
-  },
-  "141411": {
-    "alternative_titles": [
-      "Licensed Club Director"
-    ],
-    "specialisations": [
-      "Head of Licensed Club",
-      "Senior Licensed Club Manager"
     ]
   },
   "141911": {
@@ -4057,15 +3870,6 @@
     "specialisations": [
       "Head of Customer Service",
       "Senior Customer Service Manager"
-    ]
-  },
-  "149311": {
-    "alternative_titles": [
-      "Professional Conference and Event Organiser"
-    ],
-    "specialisations": [
-      "Senior Conference and Event Organiser",
-      "Lead Conference and Event Organiser"
     ]
   },
   "149411": {
@@ -4229,15 +4033,6 @@
     "specialisations": [
       "Senior Music Professionals nec",
       "Lead Music Professionals nec"
-    ]
-  },
-  "211311": {
-    "alternative_titles": [
-      "Professional Photographer"
-    ],
-    "specialisations": [
-      "Senior Photographer",
-      "Lead Photographer"
     ]
   },
   "211411": {
@@ -4661,24 +4456,6 @@
       "Union Liaison Officer"
     ]
   },
-  "223211": {
-    "alternative_titles": [
-      "Professional ICT Trainer"
-    ],
-    "specialisations": [
-      "Senior ICT Trainer",
-      "Lead ICT Trainer"
-    ]
-  },
-  "223311": {
-    "alternative_titles": [
-      "Professional Training and Development Professional"
-    ],
-    "specialisations": [
-      "Senior Training and Development Professional",
-      "Lead Training and Development Professional"
-    ]
-  },
   "224111": {
     "alternative_titles": [
       "Actuarial Analyst"
@@ -4704,33 +4481,6 @@
     "specialisations": [
       "Biostatistician",
       "Quantitative Data Analyst"
-    ]
-  },
-  "224114": {
-    "alternative_titles": [
-      "Professional Data Analyst"
-    ],
-    "specialisations": [
-      "Senior Data Analyst",
-      "Lead Data Analyst"
-    ]
-  },
-  "224115": {
-    "alternative_titles": [
-      "Professional Data Scientist"
-    ],
-    "specialisations": [
-      "Senior Data Scientist",
-      "Lead Data Scientist"
-    ]
-  },
-  "224116": {
-    "alternative_titles": [
-      "Professional Statistician"
-    ],
-    "specialisations": [
-      "Senior Statistician",
-      "Lead Statistician"
     ]
   },
   "224211": {
@@ -4769,16 +4519,6 @@
       "Senior Records Manager"
     ]
   },
-  "224311": {
-    "alternative_titles": [
-      "Economic Analyst"
-    ],
-    "specialisations": [
-      "Macroeconomist",
-      "Econometrician",
-      "Competition Economist"
-    ]
-  },
   "224411": {
     "alternative_titles": [
       "Intelligence Specialist"
@@ -4815,15 +4555,6 @@
       "Lead Valuer"
     ]
   },
-  "224611": {
-    "alternative_titles": [
-      "Professional Librarian"
-    ],
-    "specialisations": [
-      "Senior Librarian",
-      "Lead Librarian"
-    ]
-  },
   "224711": {
     "alternative_titles": [
       "Business Consultant"
@@ -4840,24 +4571,6 @@
     "specialisations": [
       "Continuous Improvement Lead",
       "Methods & Productivity Engineer"
-    ]
-  },
-  "224713": {
-    "alternative_titles": [
-      "Management Advisor"
-    ],
-    "specialisations": [
-      "Principal Management Consultant",
-      "Senior Management Consultant"
-    ]
-  },
-  "224714": {
-    "alternative_titles": [
-      "Professional Supply Chain Analyst"
-    ],
-    "specialisations": [
-      "Senior Supply Chain Analyst",
-      "Lead Supply Chain Analyst"
     ]
   },
   "224911": {
@@ -4934,15 +4647,6 @@
       "Growth Marketing Specialist"
     ]
   },
-  "225114": {
-    "alternative_titles": [
-      "Professional Content Creator"
-    ],
-    "specialisations": [
-      "Senior Content Creator",
-      "Lead Content Creator"
-    ]
-  },
   "225211": {
     "alternative_titles": [
       "IT Client Executive"
@@ -4968,16 +4672,6 @@
     "specialisations": [
       "Senior ICT Sales Representative",
       "Lead ICT Sales Representative"
-    ]
-  },
-  "225311": {
-    "alternative_titles": [
-      "PR Officer"
-    ],
-    "specialisations": [
-      "Communications Specialist",
-      "Media Spokesperson",
-      "Crisis PR Lead"
     ]
   },
   "225411": {
@@ -5217,24 +4911,6 @@
       "Web Experience Designer"
     ]
   },
-  "232511": {
-    "alternative_titles": [
-      "Interior Architect"
-    ],
-    "specialisations": [
-      "Commercial Interior Designer",
-      "Hospitality Interior Designer"
-    ]
-  },
-  "232611": {
-    "alternative_titles": [
-      "Town Planner"
-    ],
-    "specialisations": [
-      "Urban Development Strategist",
-      "Land Use & Environmental Planner"
-    ]
-  },
   "233111": {
     "alternative_titles": [
       "Process Engineer"
@@ -5298,26 +4974,6 @@
     "specialisations": [
       "Highway Planning Engineer",
       "Public Transit Systems Engineer"
-    ]
-  },
-  "233311": {
-    "alternative_titles": [
-      "Power Systems Engineer"
-    ],
-    "specialisations": [
-      "Electrical Power Engineer",
-      "Renewable Grid Integration Specialist",
-      "High Voltage Substation Engineer"
-    ]
-  },
-  "233411": {
-    "alternative_titles": [
-      "Communications Engineer"
-    ],
-    "specialisations": [
-      "Telecommunications Engineer",
-      "Embedded Systems Engineer",
-      "RF Systems Specialist"
     ]
   },
   "233511": {
@@ -5455,33 +5111,6 @@
     "specialisations": [
       "Silviculture Specialist",
       "Forest Operations Planner"
-    ]
-  },
-  "234114": {
-    "alternative_titles": [
-      "Professional Agricultural Research Scientist"
-    ],
-    "specialisations": [
-      "Senior Agricultural Research Scientist",
-      "Lead Agricultural Research Scientist"
-    ]
-  },
-  "234115": {
-    "alternative_titles": [
-      "Professional Agronomist"
-    ],
-    "specialisations": [
-      "Senior Agronomist",
-      "Lead Agronomist"
-    ]
-  },
-  "234116": {
-    "alternative_titles": [
-      "Professional Aquaculture or Fisheries Scientist"
-    ],
-    "specialisations": [
-      "Senior Aquaculture or Fisheries Scientist",
-      "Lead Aquaculture or Fisheries Scientist"
     ]
   },
   "234211": {
@@ -5650,24 +5279,6 @@
       "Ornithologist"
     ]
   },
-  "234521": {
-    "alternative_titles": [
-      "Professional Entomologist"
-    ],
-    "specialisations": [
-      "Senior Entomologist",
-      "Lead Entomologist"
-    ]
-  },
-  "234522": {
-    "alternative_titles": [
-      "Professional Zoologist"
-    ],
-    "specialisations": [
-      "Senior Zoologist",
-      "Lead Zoologist"
-    ]
-  },
   "234599": {
     "alternative_titles": [
       "Professional Life Scientists nec"
@@ -5675,35 +5286,6 @@
     "specialisations": [
       "Senior Life Scientists nec",
       "Lead Life Scientists nec"
-    ]
-  },
-  "234611": {
-    "alternative_titles": [
-      "Medical Scientist"
-    ],
-    "specialisations": [
-      "Diagnostic Pathology Scientist",
-      "Haematologist (Scientist)",
-      "Clinical Immunologist"
-    ]
-  },
-  "234612": {
-    "alternative_titles": [
-      "Professional Respiratory Scientist"
-    ],
-    "specialisations": [
-      "Senior Respiratory Scientist",
-      "Lead Respiratory Scientist"
-    ]
-  },
-  "234711": {
-    "alternative_titles": [
-      "Veterinary Surgeon"
-    ],
-    "specialisations": [
-      "Small Animal Clinician",
-      "Equine Specialist",
-      "Livestock Veterinary Officer"
     ]
   },
   "234911": {
@@ -5761,68 +5343,6 @@
       "Lead Natural and Physical Science Professionals nec"
     ]
   },
-  "241111": {
-    "alternative_titles": [
-      "Kindergarten Teacher"
-    ],
-    "specialisations": [
-      "Preschool Director",
-      "Early Childhood Educational Leader"
-    ]
-  },
-  "241112": {
-    "alternative_titles": [
-      "Professional Kaiako Kohanga Reo"
-    ],
-    "specialisations": [
-      "Senior Kaiako Kohanga Reo",
-      "Lead Kaiako Kohanga Reo"
-    ]
-  },
-  "241211": {
-    "alternative_titles": [
-      "Professional Kaiako Kura Kaupapa Maori"
-    ],
-    "specialisations": [
-      "Senior Kaiako Kura Kaupapa Maori",
-      "Lead Kaiako Kura Kaupapa Maori"
-    ]
-  },
-  "241212": {
-    "alternative_titles": [
-      "Professional Pouako Kura Kaupapa Maori"
-    ],
-    "specialisations": [
-      "Senior Pouako Kura Kaupapa Maori",
-      "Lead Pouako Kura Kaupapa Maori"
-    ]
-  },
-  "241213": {
-    "alternative_titles": [
-      "Elementary School Teacher"
-    ],
-    "specialisations": [
-      "Primary Curriculum Lead",
-      "Literacy / Numeracy Specialist"
-    ]
-  },
-  "241311": {
-    "alternative_titles": [
-      "Junior Secondary Teacher"
-    ],
-    "specialisations": [
-      "Middle Years Program Coordinator"
-    ]
-  },
-  "241411": {
-    "alternative_titles": [
-      "High School Teacher"
-    ],
-    "specialisations": [
-      "Senior Secondary Subject Lead",
-      "Head of Faculty (Secondary)"
-    ]
-  },
   "241511": {
     "alternative_titles": [
       "Teacher of the Deaf"
@@ -5876,15 +5396,6 @@
     "specialisations": [
       "Senior University Tutor",
       "Lead University Tutor"
-    ]
-  },
-  "242211": {
-    "alternative_titles": [
-      "TAFE Teacher"
-    ],
-    "specialisations": [
-      "Vocational Trainer & Assessor",
-      "Industry Skills Instructor"
     ]
   },
   "249111": {
@@ -5948,15 +5459,6 @@
     "specialisations": [
       "Senior Private Tutors and Teachers nec",
       "Lead Private Tutors and Teachers nec"
-    ]
-  },
-  "249311": {
-    "alternative_titles": [
-      "Professional Teacher of English to Speakers of Other Languages"
-    ],
-    "specialisations": [
-      "Senior Teacher of English to Speakers of Other Languages",
-      "Lead Teacher of English to Speakers of Other Languages"
     ]
   },
   "251111": {
@@ -6162,15 +5664,6 @@
       "Lead Traditional Chinese Medicine Practitioner"
     ]
   },
-  "252215": {
-    "alternative_titles": [
-      "Professional Traditional Maori Health Practitioner"
-    ],
-    "specialisations": [
-      "Senior Traditional Maori Health Practitioner",
-      "Lead Traditional Maori Health Practitioner"
-    ]
-  },
   "252299": {
     "alternative_titles": [
       "Professional Complementary Health Therapists nec"
@@ -6198,36 +5691,6 @@
     "specialisations": [
       "General Dental Surgeon",
       "Cosmetic Dentist"
-    ]
-  },
-  "252411": {
-    "alternative_titles": [
-      "Ergonomics Consultant"
-    ],
-    "specialisations": [
-      "Paediatric Occupational Therapist",
-      "NDIS Rehabilitation Specialist",
-      "Hand Therapist"
-    ]
-  },
-  "252511": {
-    "alternative_titles": [
-      "Physical Therapist"
-    ],
-    "specialisations": [
-      "Musculoskeletal Physiotherapist",
-      "Neurological Physiotherapist",
-      "Sports Physiotherapist",
-      "Cardiorespiratory Physio"
-    ]
-  },
-  "252611": {
-    "alternative_titles": [
-      "Chiropodist"
-    ],
-    "specialisations": [
-      "Sports Podiatrist",
-      "High Risk Diabetic Foot Specialist"
     ]
   },
   "252711": {
@@ -6266,16 +5729,6 @@
     "specialisations": [
       "Junior House Officer",
       "Intern (Medical)"
-    ]
-  },
-  "253211": {
-    "alternative_titles": [
-      "Anaesthesiology Consultant"
-    ],
-    "specialisations": [
-      "Intensive Care Anaesthetist",
-      "Paediatric Anaesthetist",
-      "Pain Medicine Specialist"
     ]
   },
   "253311": {
@@ -6395,16 +5848,6 @@
     "specialisations": [
       "Senior Specialist Physicians nec",
       "Lead Specialist Physicians nec"
-    ]
-  },
-  "253411": {
-    "alternative_titles": [
-      "Psychiatry Consultant"
-    ],
-    "specialisations": [
-      "Child and Adolescent Psychiatrist",
-      "Forensic Psychiatrist",
-      "Addiction Psychiatrist"
     ]
   },
   "253511": {
@@ -6568,16 +6011,6 @@
       "Lead Medical Practitioners nec"
     ]
   },
-  "254111": {
-    "alternative_titles": [
-      "Maternity Nurse"
-    ],
-    "specialisations": [
-      "Community Midwife",
-      "Lactation Consultant",
-      "Birth Suite Midwife"
-    ]
-  },
   "254211": {
     "alternative_titles": [
       "Professional Nurse Educator"
@@ -6594,15 +6027,6 @@
     "specialisations": [
       "Senior Nurse Researcher",
       "Lead Nurse Researcher"
-    ]
-  },
-  "254311": {
-    "alternative_titles": [
-      "Nurse Director"
-    ],
-    "specialisations": [
-      "Head of Nurse",
-      "Senior Nurse Manager"
     ]
   },
   "254411": {
@@ -6812,33 +6236,6 @@
       "Performance & Load Test Engineer"
     ]
   },
-  "261315": {
-    "alternative_titles": [
-      "Cyber Security Specialist"
-    ],
-    "specialisations": [
-      "Lead Cyber Security Engineer",
-      "Principal Cyber Security Engineer"
-    ]
-  },
-  "261316": {
-    "alternative_titles": [
-      "Devops Specialist"
-    ],
-    "specialisations": [
-      "Lead Devops Engineer",
-      "Principal Devops Engineer"
-    ]
-  },
-  "261317": {
-    "alternative_titles": [
-      "Professional Penetration Tester"
-    ],
-    "specialisations": [
-      "Senior Penetration Tester",
-      "Lead Penetration Tester"
-    ]
-  },
   "261399": {
     "alternative_titles": [
       "Programmer nec"
@@ -6876,51 +6273,6 @@
       "Cloud Infrastructure Administrator",
       "Linux Systems Engineer",
       "Windows Server Specialist"
-    ]
-  },
-  "262114": {
-    "alternative_titles": [
-      "Cyber Governance Risk and Compliance Consultant"
-    ],
-    "specialisations": [
-      "Senior Cyber Governance Risk and Compliance Specialist",
-      "Lead Cyber Governance Risk and Compliance Specialist"
-    ]
-  },
-  "262115": {
-    "alternative_titles": [
-      "Cyber Security Advice and Assessment Consultant"
-    ],
-    "specialisations": [
-      "Senior Cyber Security Advice and Assessment Specialist",
-      "Lead Cyber Security Advice and Assessment Specialist"
-    ]
-  },
-  "262116": {
-    "alternative_titles": [
-      "Professional Cyber Security Analyst"
-    ],
-    "specialisations": [
-      "Senior Cyber Security Analyst",
-      "Lead Cyber Security Analyst"
-    ]
-  },
-  "262117": {
-    "alternative_titles": [
-      "Professional Cyber Security Architect"
-    ],
-    "specialisations": [
-      "Senior Cyber Security Architect",
-      "Lead Cyber Security Architect"
-    ]
-  },
-  "262118": {
-    "alternative_titles": [
-      "Professional Cyber Security Operations Coordinator"
-    ],
-    "specialisations": [
-      "Senior Cyber Security Operations Coordinator",
-      "Lead Cyber Security Operations Coordinator"
     ]
   },
   "263111": {
@@ -7006,17 +6358,6 @@
       "Network Capacity Planner"
     ]
   },
-  "271111": {
-    "alternative_titles": [
-      "Counsel",
-      "Advocate"
-    ],
-    "specialisations": [
-      "Senior Counsel (SC)",
-      "King's Counsel (KC)",
-      "Criminal Defense Barrister"
-    ]
-  },
   "271211": {
     "alternative_titles": [
       "Tribunal Member"
@@ -7061,18 +6402,6 @@
     "specialisations": [
       "Senior Judicial and Other Legal Professionals nec",
       "Lead Judicial and Other Legal Professionals nec"
-    ]
-  },
-  "271311": {
-    "alternative_titles": [
-      "Lawyer",
-      "Legal Practitioner"
-    ],
-    "specialisations": [
-      "Commercial Solicitor",
-      "Family Law Specialist",
-      "Property & Conveyancing Solicitor",
-      "Litigation Associate"
     ]
   },
   "272111": {
@@ -7127,15 +6456,6 @@
     "specialisations": [
       "Bereavement Counsellor",
       "Crisis Support Counsellor"
-    ]
-  },
-  "272211": {
-    "alternative_titles": [
-      "Professional Minister of Religion"
-    ],
-    "specialisations": [
-      "Senior Minister of Religion",
-      "Lead Minister of Religion"
     ]
   },
   "272311": {
@@ -7230,17 +6550,6 @@
       "Lead Social Professionals nec"
     ]
   },
-  "272511": {
-    "alternative_titles": [
-      "Caseworker"
-    ],
-    "specialisations": [
-      "Medical Social Worker",
-      "Child Protection Practitioner",
-      "Hospital Clinical Social Worker",
-      "Mental Health Social Worker"
-    ]
-  },
   "272611": {
     "alternative_titles": [
       "Community Community Arts Worker"
@@ -7266,51 +6575,6 @@
     "specialisations": [
       "Senior Welfare Worker",
       "Lead Welfare Worker"
-    ]
-  },
-  "311111": {
-    "alternative_titles": [
-      "Field Research Assistant"
-    ],
-    "specialisations": [
-      "Agricultural Field Technician",
-      "Agronomy Support Officer"
-    ]
-  },
-  "311112": {
-    "alternative_titles": [
-      "Technical Agricultural and Agritech Specialist"
-    ],
-    "specialisations": [
-      "Senior Agricultural and Agritech Technician",
-      "Field Agricultural and Agritech Technician"
-    ]
-  },
-  "311113": {
-    "alternative_titles": [
-      "Technical Animal Husbandry Specialist"
-    ],
-    "specialisations": [
-      "Senior Animal Husbandry Technician",
-      "Field Animal Husbandry Technician"
-    ]
-  },
-  "311114": {
-    "alternative_titles": [
-      "Technical Aquaculture or Fisheries Specialist"
-    ],
-    "specialisations": [
-      "Senior Aquaculture or Fisheries Technician",
-      "Field Aquaculture or Fisheries Technician"
-    ]
-  },
-  "311115": {
-    "alternative_titles": [
-      "Professional Irrigation Designer"
-    ],
-    "specialisations": [
-      "Senior Irrigation Designer",
-      "Lead Irrigation Designer"
     ]
   },
   "311211": {
@@ -7368,15 +6632,6 @@
       "Lead Pathology Collector"
     ]
   },
-  "311217": {
-    "alternative_titles": [
-      "Technical Respiratory Specialist"
-    ],
-    "specialisations": [
-      "Senior Respiratory Technician",
-      "Field Respiratory Technician"
-    ]
-  },
   "311299": {
     "alternative_titles": [
       "Professional Medical Technicians nec"
@@ -7411,15 +6666,6 @@
     "specialisations": [
       "Senior Quarantine Officer",
       "Lead Quarantine Officer"
-    ]
-  },
-  "311314": {
-    "alternative_titles": [
-      "Primary Products Quality Assurance Specialist"
-    ],
-    "specialisations": [
-      "Senior Primary Products Quality Assurance Officer",
-      "Lead Primary Products Quality Assurance Officer"
     ]
   },
   "311399": {
@@ -7620,15 +6866,6 @@
       "Hydraulic Systems Specialist"
     ]
   },
-  "312611": {
-    "alternative_titles": [
-      "Professional Safety Inspector"
-    ],
-    "specialisations": [
-      "Senior Safety Inspector",
-      "Lead Safety Inspector"
-    ]
-  },
   "312911": {
     "alternative_titles": [
       "Professional Maintenance Planner"
@@ -7654,15 +6891,6 @@
     "specialisations": [
       "Senior Mine Deputy",
       "Lead Mine Deputy"
-    ]
-  },
-  "312914": {
-    "alternative_titles": [
-      "Professional Other Draftsperson"
-    ],
-    "specialisations": [
-      "Senior Other Draftsperson",
-      "Lead Other Draftsperson"
     ]
   },
   "312999": {
@@ -7747,16 +6975,6 @@
       "Copper & Fiber Splicer"
     ]
   },
-  "321111": {
-    "alternative_titles": [
-      "Auto Sparky"
-    ],
-    "specialisations": [
-      "Automotive Electrician",
-      "Heavy Vehicle Auto Electrician",
-      "EV Systems Technician"
-    ]
-  },
   "321211": {
     "alternative_titles": [
       "Auto Mechanic"
@@ -7838,15 +7056,6 @@
     "specialisations": [
       "Senior Metal Polisher",
       "Lead Metal Polisher"
-    ]
-  },
-  "322211": {
-    "alternative_titles": [
-      "Coppersmith"
-    ],
-    "specialisations": [
-      "Sheetmetal Trades Worker",
-      "Ductwork Fabricator"
     ]
   },
   "322311": {
@@ -8031,16 +7240,6 @@
       "Lead Toolmaker"
     ]
   },
-  "324111": {
-    "alternative_titles": [
-      "Auto Body Repairer"
-    ],
-    "specialisations": [
-      "Panelbeater",
-      "Chassis Alignment Specialist",
-      "Smash Repairer"
-    ]
-  },
   "324211": {
     "alternative_titles": [
       "Automotive Spray Painter"
@@ -8057,15 +7256,6 @@
     "specialisations": [
       "Senior Vehicle Trimmer",
       "Lead Vehicle Trimmer"
-    ]
-  },
-  "324311": {
-    "alternative_titles": [
-      "Professional Vehicle Painter"
-    ],
-    "specialisations": [
-      "Senior Vehicle Painter",
-      "Lead Vehicle Painter"
     ]
   },
   "331111": {
@@ -8085,16 +7275,6 @@
     "specialisations": [
       "Stonemason",
       "Heritage Restoration Stonemason"
-    ]
-  },
-  "331211": {
-    "alternative_titles": [
-      "Master Carpenter"
-    ],
-    "specialisations": [
-      "Carpenter and Joiner",
-      "Formwork Carpenter",
-      "Framing Specialist"
     ]
   },
   "331212": {
@@ -8117,35 +7297,6 @@
       "Bespoke Window & Door Maker"
     ]
   },
-  "332111": {
-    "alternative_titles": [
-      "Professional Floor Finisher"
-    ],
-    "specialisations": [
-      "Senior Floor Finisher",
-      "Lead Floor Finisher"
-    ]
-  },
-  "332211": {
-    "alternative_titles": [
-      "Painter and Decorator"
-    ],
-    "specialisations": [
-      "Painting Trades Worker",
-      "Commercial Painter",
-      "Specialist Finishes Decorator"
-    ]
-  },
-  "333111": {
-    "alternative_titles": [
-      "Leadlight Glazier"
-    ],
-    "specialisations": [
-      "Glazier",
-      "Commercial Glass Installer",
-      "Curtain Wall Specialist"
-    ]
-  },
   "333211": {
     "alternative_titles": [
       "Drywall Plasterer"
@@ -8164,25 +7315,6 @@
       "Solid Plasterer",
       "Venetian Plaster Specialist",
       "Heritage Stucco Worker"
-    ]
-  },
-  "333311": {
-    "alternative_titles": [
-      "Professional Roof Tiler"
-    ],
-    "specialisations": [
-      "Senior Roof Tiler",
-      "Lead Roof Tiler"
-    ]
-  },
-  "333411": {
-    "alternative_titles": [
-      "Ceramic Tiler"
-    ],
-    "specialisations": [
-      "Wall and Floor Tiler",
-      "Mosaic Tile Specialist",
-      "Waterproofing Installer"
     ]
   },
   "334111": {
@@ -8231,24 +7363,6 @@
       "Colorbond Metal Roofing Specialist"
     ]
   },
-  "334116": {
-    "alternative_titles": [
-      "Professional Plumber"
-    ],
-    "specialisations": [
-      "Senior Plumber",
-      "Lead Plumber"
-    ]
-  },
-  "334117": {
-    "alternative_titles": [
-      "Professional Fire Protection Plumber"
-    ],
-    "specialisations": [
-      "Senior Fire Protection Plumber",
-      "Lead Fire Protection Plumber"
-    ]
-  },
   "341111": {
     "alternative_titles": [
       "Licensed Electrician",
@@ -8277,16 +7391,6 @@
     "specialisations": [
       "Lift Mechanic",
       "Escalator Service Specialist"
-    ]
-  },
-  "342111": {
-    "alternative_titles": [
-      "Fridge Mechanic"
-    ],
-    "specialisations": [
-      "Airconditioning and Refrigeration Mechanic",
-      "Commercial Coolroom Technician",
-      "Supermarket Refrigeration Specialist"
     ]
   },
   "342211": {
@@ -8408,39 +7512,6 @@
       "Artisan Cake Decorator"
     ]
   },
-  "351211": {
-    "alternative_titles": [
-      "Retail Butcher"
-    ],
-    "specialisations": [
-      "Butcher or Smallgoods Maker",
-      "Boning Room Specialist",
-      "Artisan Charcutier"
-    ]
-  },
-  "351311": {
-    "alternative_titles": [
-      "Head Chef",
-      "Sous Chef"
-    ],
-    "specialisations": [
-      "Chef",
-      "Executive Chef",
-      "Pastry Chef",
-      "Chef de Partie"
-    ]
-  },
-  "351411": {
-    "alternative_titles": [
-      "Commercial Cook"
-    ],
-    "specialisations": [
-      "Cook",
-      "Short Order Cook",
-      "Breakfast Cook",
-      "Catering Cook"
-    ]
-  },
   "361111": {
     "alternative_titles": [
       "Canine Trainer"
@@ -8498,36 +7569,6 @@
       "Lead Animal Attendants and Trainers nec"
     ]
   },
-  "361211": {
-    "alternative_titles": [
-      "Wool Harvester"
-    ],
-    "specialisations": [
-      "Shearer",
-      "Professional Wool Classer",
-      "Shearing Shed Hand"
-    ]
-  },
-  "361311": {
-    "alternative_titles": [
-      "Vet Tech"
-    ],
-    "specialisations": [
-      "Veterinary Nurse",
-      "Surgical Veterinary Nurse",
-      "Emergency & Critical Care Vet Nurse"
-    ]
-  },
-  "362111": {
-    "alternative_titles": [
-      "Floral Designer"
-    ],
-    "specialisations": [
-      "Florist",
-      "Event Floristry Lead",
-      "Bridal Botanical Artist"
-    ]
-  },
   "362211": {
     "alternative_titles": [
       "Horticulturist"
@@ -8558,73 +7599,6 @@
       "Softscape Horticulturalist"
     ]
   },
-  "362311": {
-    "alternative_titles": [
-      "Turf Manager"
-    ],
-    "specialisations": [
-      "Greenkeeper",
-      "Golf Course Superintendent",
-      "Bowling Green Curator"
-    ]
-  },
-  "362411": {
-    "alternative_titles": [
-      "Plant Nursery Worker"
-    ],
-    "specialisations": [
-      "Nurseryperson",
-      "Wholesale Plant Propagator",
-      "Retail Garden Centre Specialist"
-    ]
-  },
-  "362511": {
-    "alternative_titles": [
-      "Professional Arborist"
-    ],
-    "specialisations": [
-      "Senior Arborist",
-      "Lead Arborist"
-    ]
-  },
-  "362512": {
-    "alternative_titles": [
-      "Community Tree Worker"
-    ],
-    "specialisations": [
-      "Senior Tree Worker",
-      "Lead Tree Worker"
-    ]
-  },
-  "362711": {
-    "alternative_titles": [
-      "Professional Landscape Gardener"
-    ],
-    "specialisations": [
-      "Senior Landscape Gardener",
-      "Lead Landscape Gardener"
-    ]
-  },
-  "362712": {
-    "alternative_titles": [
-      "Technical Irrigation Specialist"
-    ],
-    "specialisations": [
-      "Senior Irrigation Technician",
-      "Field Irrigation Technician"
-    ]
-  },
-  "391111": {
-    "alternative_titles": [
-      "Hairstylist",
-      "Barber"
-    ],
-    "specialisations": [
-      "Hairdresser",
-      "Master Colourist",
-      "Creative Salon Director"
-    ]
-  },
   "392111": {
     "alternative_titles": [
       "Offset Press Operator"
@@ -8642,15 +7616,6 @@
     "specialisations": [
       "Senior Screen Printer",
       "Lead Screen Printer"
-    ]
-  },
-  "392211": {
-    "alternative_titles": [
-      "Digital Pre-press Operator"
-    ],
-    "specialisations": [
-      "Graphic Pre-press Trades Worker",
-      "Colour Separation Specialist"
     ]
   },
   "392311": {
@@ -8742,44 +7707,6 @@
     "specialisations": [
       "Senior Clothing Trades Workers nec",
       "Lead Clothing Trades Workers nec"
-    ]
-  },
-  "393311": {
-    "alternative_titles": [
-      "Furniture Upholsterer"
-    ],
-    "specialisations": [
-      "Upholsterer",
-      "Automotive Marine Upholsterer",
-      "Antique Re-upholstery Specialist"
-    ]
-  },
-  "394111": {
-    "alternative_titles": [
-      "Kitchen Maker"
-    ],
-    "specialisations": [
-      "Cabinetmaker",
-      "Bespoke Architectural Joinery Specialist",
-      "Antique Furniture Restorer"
-    ]
-  },
-  "394112": {
-    "alternative_titles": [
-      "Professional Cabinet Maker"
-    ],
-    "specialisations": [
-      "Senior Cabinet Maker",
-      "Lead Cabinet Maker"
-    ]
-  },
-  "394113": {
-    "alternative_titles": [
-      "Professional Furniture Maker"
-    ],
-    "specialisations": [
-      "Senior Furniture Maker",
-      "Lead Furniture Maker"
     ]
   },
   "394211": {
@@ -8891,17 +7818,6 @@
       "Field Library Technician"
     ]
   },
-  "399411": {
-    "alternative_titles": [
-      "Goldsmith",
-      "Silversmith"
-    ],
-    "specialisations": [
-      "Jeweller",
-      "Master Gem Setter",
-      "Watchmaker and Repairer"
-    ]
-  },
   "399511": {
     "alternative_titles": [
       "Professional Broadcast Transmitter Operator"
@@ -8974,16 +7890,6 @@
     "specialisations": [
       "Senior Performing Arts Technicians nec",
       "Lead Performing Arts Technicians nec"
-    ]
-  },
-  "399611": {
-    "alternative_titles": [
-      "Vehicle Graphic Installer"
-    ],
-    "specialisations": [
-      "Signwriter",
-      "Illuminated Architectural Signmaker",
-      "Vinyl Wrap Specialist"
     ]
   },
   "399911": {
@@ -9121,15 +8027,6 @@
       "Paediatric Oral Health Therapist"
     ]
   },
-  "411311": {
-    "alternative_titles": [
-      "Recreational Therapist"
-    ],
-    "specialisations": [
-      "Diversional Therapist",
-      "Aged Care Lifestyle Coordinator"
-    ]
-  },
   "411411": {
     "alternative_titles": [
       "Division 2 Nurse"
@@ -9146,34 +8043,6 @@
     "specialisations": [
       "Mothercraft Nurse",
       "Infant Sleep & Settling Specialist"
-    ]
-  },
-  "411511": {
-    "alternative_titles": [
-      "Aboriginal Health Practitioner"
-    ],
-    "specialisations": [
-      "Aboriginal and Torres Strait Islander Health Worker",
-      "Community Health Worker"
-    ]
-  },
-  "411512": {
-    "alternative_titles": [
-      "Professional Kaiawhina"
-    ],
-    "specialisations": [
-      "Senior Kaiawhina",
-      "Lead Kaiawhina"
-    ]
-  },
-  "411611": {
-    "alternative_titles": [
-      "Remedial Massage Therapist"
-    ],
-    "specialisations": [
-      "Massage Therapist",
-      "Sports Injury Massage Therapist",
-      "Myotherapist"
     ]
   },
   "411711": {
@@ -9385,15 +8254,6 @@
       "Lead Baristas"
     ]
   },
-  "431411": {
-    "alternative_titles": [
-      "Hotel Service Director"
-    ],
-    "specialisations": [
-      "Head of Hotel Service",
-      "Senior Hotel Service Manager"
-    ]
-  },
   "431911": {
     "alternative_titles": [
       "Professional Bar Usefuls and Bussers"
@@ -9419,15 +8279,6 @@
     "specialisations": [
       "Senior Hospitality Workers",
       "Lead Hospitality Workers"
-    ]
-  },
-  "441111": {
-    "alternative_titles": [
-      "Professional Defence Force Member - Other Ranks"
-    ],
-    "specialisations": [
-      "Senior Defence Force Member - Other Ranks",
-      "Lead Defence Force Member - Other Ranks"
     ]
   },
   "441211": {
@@ -9536,25 +8387,6 @@
     "specialisations": [
       "Senior Other Security Workers",
       "Lead Other Security Workers"
-    ]
-  },
-  "451111": {
-    "alternative_titles": [
-      "Cabin Crew"
-    ],
-    "specialisations": [
-      "Flight Attendant",
-      "Purser",
-      "In-Flight Customer Service Manager"
-    ]
-  },
-  "451211": {
-    "alternative_titles": [
-      "Professional Driving Instructor"
-    ],
-    "specialisations": [
-      "Senior Driving Instructor",
-      "Lead Driving Instructor"
     ]
   },
   "451311": {
@@ -9952,15 +8784,6 @@
       "Project Delivery Coordinator"
     ]
   },
-  "512111": {
-    "alternative_titles": [
-      "Practice Manager"
-    ],
-    "specialisations": [
-      "Office Manager",
-      "Commercial Practice Coordinator"
-    ]
-  },
   "512211": {
     "alternative_titles": [
       "Medical Practice Manager"
@@ -9977,15 +8800,6 @@
     "specialisations": [
       "Senior Practice Managers nec",
       "Lead Practice Managers nec"
-    ]
-  },
-  "521111": {
-    "alternative_titles": [
-      "Executive Assistant (EA)"
-    ],
-    "specialisations": [
-      "Personal Assistant",
-      "C-Suite Executive Officer"
     ]
   },
   "521211": {
@@ -10563,15 +9377,6 @@
     "specialisations": [
       "Senior Stock and Station Agent",
       "Lead Stock and Station Agent"
-    ]
-  },
-  "611211": {
-    "alternative_titles": [
-      "Insurance Representative"
-    ],
-    "specialisations": [
-      "Insurance Agent",
-      "Life Insurance Advisor"
     ]
   },
   "611311": {

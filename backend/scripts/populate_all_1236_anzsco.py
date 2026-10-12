@@ -254,6 +254,15 @@ async def run_population():
             await db["occupation_master"].update_one({"_id": existing["_id"]}, {"$set": update_set})
             updated_count += 1
             
+    # Ensure only the official 1,236 occupations are active and verified for AU
+    valid_1236_codes = {str(item.get("code") or "").strip() for item in all_anzsco if item.get("code")}
+    cleanup_res = await db["occupation_master"].update_many(
+        {"country_code": "AU", "code": {"$nin": list(valid_1236_codes)}},
+        {"$set": {"status": "superseded", "updated_at": now}}
+    )
+    if cleanup_res.modified_count > 0:
+        print(f"✔ Marked {cleanup_res.modified_count} obsolete/duplicate AU occupations as superseded.")
+
     print(f"✔ Completed population: {inserted_count} new occupations inserted, {updated_count} existing occupations updated/verified.")
     
     # Final count check

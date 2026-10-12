@@ -440,6 +440,13 @@ async def startup():
             await seed_fee_master()
         except Exception as e:
             print(f"[Fee Master auto-seed ERROR — non-fatal] {e}")
+
+        # Auto-populate and verify all official 1,236 ANZSCO occupations on server startup
+        try:
+            from scripts.populate_all_1236_anzsco import run_population
+            await run_population()
+        except Exception as e:
+            print(f"[ANZSCO 1236 auto-population ERROR — non-fatal] {e}")
         # Start APScheduler (every 30 min). Disabled in tests via LEAMSS_DISABLE_SCHEDULER env.
         if not os.environ.get("LEAMSS_DISABLE_SCHEDULER"):
             try:
