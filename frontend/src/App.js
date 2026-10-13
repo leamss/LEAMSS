@@ -74,6 +74,7 @@ import AtlasSearch from '@/pages/admin/AtlasSearch';
 import AtlasCountryManager from '@/pages/admin/AtlasCountryManager';
 import PublicCountryGuide from '@/pages/PublicCountryGuide';
 import PublicCountryIndex from '@/pages/PublicCountryIndex';
+import { PublicAtlasHub, PublicAtlasCountry, PublicAtlasOccupation } from '@/pages/PublicAtlas';
 import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWizard';
 import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligibility/EligibilityProfiles';
 import OccupationSearch from '@/pages/sales/OccupationSearch';
@@ -181,11 +182,9 @@ function App() {
           <Route path="/calculator" element={<MegaLanding />} />
           <Route path="/points-calculator" element={<MegaLanding />} />
           <Route path="/free-assessment" element={<MegaLanding />} />
-          {/* Phase 19: /atlas/* paths are served by setupProxy.js as static SSR HTML files.
-              We intentionally do NOT mount React routes for them so that ANY navigation
-              (direct, refresh, or click from inside the SPA) triggers a full page reload
-              and the bot/user receives the pre-rendered, SEO-optimised HTML from
-              frontend/public/atlas/... See Phase 19 CHANGELOG. */}
+          <Route path="/atlas" element={<PublicAtlasHub />} />
+          <Route path="/atlas/:country" element={<PublicAtlasCountry />} />
+          <Route path="/atlas/:country/:code" element={<PublicAtlasOccupation />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
           <Route path="/admin/activity" element={<ActivityLog />} />

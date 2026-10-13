@@ -801,11 +801,25 @@ function main() {
     if (fs.existsSync(pubFile)) {
       const origHtml = fs.readFileSync(pubFile, 'utf8');
       const enrichedHtml = enrichOccupationHtml(origHtml, code, code4Map, indSlugMap, indTopOccsMap, haMap);
-      fs.writeFileSync(pubFile, enrichedHtml, 'utf8');
+      
+      const safeWrite = (filePath, content) => {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            fs.writeFileSync(filePath, content, 'utf8');
+            return;
+          } catch (e) {
+            if (attempt === 4) throw e;
+            const start = Date.now();
+            while (Date.now() - start < 10) {}
+          }
+        }
+      };
+
+      safeWrite(pubFile, enrichedHtml);
 
       // Sync to build
       fs.mkdirSync(path.dirname(bldFile), { recursive: true });
-      fs.writeFileSync(bldFile, enrichedHtml, 'utf8');
+      safeWrite(bldFile, enrichedHtml);
       updatedCount++;
     }
   }

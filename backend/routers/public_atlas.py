@@ -1044,6 +1044,19 @@ async def get_single_occupation(country: str, code: str):
         {"country_code": country, "code": code, "status": "verified"},
         {"_id": 0},
     )
+    if not d and country == "AU" and len(code) == 6:
+        d = await db["occupation_master"].find_one(
+            {"country_code": country, "code": code[:4], "status": "verified"},
+            {"_id": 0},
+        )
+        if d:
+            d = dict(d)
+            d["code"] = code
+    if not d and country == "AU" and len(code) == 4:
+        d = await db["occupation_master"].find_one(
+            {"country_code": country, "code": {"$regex": f"^{code}"}, "status": "verified"},
+            {"_id": 0},
+        )
     if not d:
         raise HTTPException(404, "Occupation not found or not yet verified")
         # ---------------------------------------------------------
