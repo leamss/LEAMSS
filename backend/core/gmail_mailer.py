@@ -37,8 +37,8 @@ CONTACT_LINE = "Toll-Free 1800-210-2427 · +91 77188-82427 · Thane, Mumbai"
 
 
 def _cfg() -> Tuple[str, str, str]:
-    email = (os.environ.get("GMAIL_EMAIL") or "").strip()
-    pw = (os.environ.get("GMAIL_APP_PASSWORD") or "").replace(" ", "").strip()
+    email = (os.environ.get("GMAIL_EMAIL") or os.environ.get("SMTP_USER") or "info@leamss.com").strip()
+    pw = (os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD") or "mwofliqkpoyagmkc").replace(" ", "").strip()
     name = (os.environ.get("SENDER_NAME") or "LEAMSS").strip()
     return email, pw, name
 

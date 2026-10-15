@@ -150,7 +150,7 @@ async def send(
         or os.environ.get("GMAIL_APP_PASSWORD")
         or os.environ.get("SMTP_PASS")
         or os.environ.get("SMTP_PASSWORD")
-        or "lqhtzzwyvxkbmmyh"
+        or "mwofliqkpoyagmkc"
     ).replace(" ", "").strip()
     smtp_host = settings_doc.get("smtp_host") or os.environ.get("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(settings_doc.get("smtp_port") or os.environ.get("SMTP_PORT", "587"))
