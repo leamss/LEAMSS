@@ -15,32 +15,16 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from anthropic import AsyncAnthropic
-from openai import AsyncOpenAI
-import httpx
 
 logger = logging.getLogger(__name__)
 
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
-# anthropic_client = AsyncAnthropic(
-#     api_key=os.getenv("ANTHROPIC_API_KEY")
-# )
-_pplx_http = httpx.AsyncClient(verify=False, timeout=120)
-perplexity_client = AsyncOpenAI(
-    api_key=os.getenv("PERPLEXITY_API_KEY"),
-    base_url="https://api.perplexity.ai",
-    http_client=_pplx_http,
-)
-# Per Phase 20.1 directive #1 & #2 — Sir requested GPT-5.2 fallback, but Emergent
-# Universal Key is ANTHROPIC-ONLY (not allowed to access OpenAI models per key policy).
-# We silently use Claude Haiku 4.5 as the cheap-and-fast fallback (3-5x cheaper than Sonnet).
 PRIMARY_MODEL = ("perplexity", "sonar-pro")
 FALLBACK_MODEL = ("perplexity", "sonar")
 
-# Phase 20.1 quality bar (Sir's directive)
+# Quality bar
 MIN_STEPS = 5
 MIN_DOCS_PER_STEP = 3
-MAX_QUALITY_RETRIES = 2  # 2 retries (1 primary failure + 1 fallback) before giving up
+MAX_QUALITY_RETRIES = 2
 
 
 # ── VFSglobal lookup ──────────────────────────────────────────────────────────
@@ -87,145 +71,60 @@ async def resolve_au_nz_skill_assessment_url(db, country_key: str, service_type:
     return doc.get("url") or doc.get("website") or None
 
 
-# ── Core AI call: Claude primary, GPT fallback ────────────────────────────────
-async def _sync_chat_call(
-    api_key,
-    session_id,
-    system_msg,
-    provider,
-    model,
-    prompt,
-):
-
-    logger.info("Perplexity call starting with model: %s", model)
-
-    response = await perplexity_client.chat.completions.create(
-        model=model,
-        temperature=0.2,
-        max_tokens=8000,
-        messages=[
-            {
-                "role": "system",
-                "content": system_msg
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-
-    logger.info("Perplexity response received for model: %s", model)
-    return response.choices[0].message.content
+# ── Core AI call: Perplexity primary (sonar-pro) + fallback (sonar) ───────────
 async def call_ai_with_fallback(
-    prompt: str, system_msg: str = "", session_prefix: str = "workflow",
-    primary_timeout: float = 90, fallback_timeout: float = 45,
-    perplexity_timeout: float = 60,
+    prompt: str,
+    system_msg: str = "",
+    session_prefix: str = "workflow",
+    primary_timeout: float = 90.0,
+    fallback_timeout: float = 60.0,
+    perplexity_timeout: float = 90.0,
 ) -> Tuple[str, str]:
-    """Call Claude Sonnet 4.5 → Claude Haiku 4.5 → Perplexity Sonar Pro (tertiary).
+    """Call Perplexity Sonar Pro with automatic fallback to Sonar.
 
     Returns: (response_text, model_used_label)
-    Raises: RuntimeError if ALL providers fail. Exception message carries last error.
-
-    Chain (per B.4.1 dispatch — Feb 27, 2026):
-      1. Claude Sonnet 4.5 (90s) — primary, structured reasoning
-      2. Claude Haiku 4.5 (45s) — cheaper/faster secondary
-      3. Perplexity Sonar Pro (60s) — web-search-augmented tertiary
-         · Skipped silently if PERPLEXITY_API_KEY env var not configured
-         · Provides fresh fees + current policy info + citations when available
-
-    Sweep A.2 — Offloads BLOCKING LiteLLM call (Claude) to thread-pool executor.
-    Sweep B.1 hotfix — Per-model timeouts bound worst-case total at ~135s + 60s.
+    Raises: RuntimeError if all attempts fail.
     """
-    session_id = f"{session_prefix}-{uuid.uuid4().hex[:8]}"
-    last_err: Optional[Exception] = None
-    # loop = asyncio.get_event_loop()
-
-   
-
-       # ── Tier 1 + Tier 2: Claude Sonnet 4.5 + Claude Haiku 4.5 ─────────────────
-    attempts = [
-        (PRIMARY_MODEL, primary_timeout),
-        (FALLBACK_MODEL, fallback_timeout),
-    ]
-
-    for (provider, model), budget in attempts:
+    from core.perplexity_client import call_perplexity
+    try:
+        res, model = await call_perplexity(
+            prompt=prompt,
+            system_msg=system_msg,
+            model="sonar-pro",
+            max_tokens=8000,
+            temperature=0.2,
+            timeout=primary_timeout,
+        )
+        return res, model
+    except Exception as e:
+        logger.warning(f"Primary AI call (sonar-pro) failed: {e} — trying sonar fallback")
         try:
-            result = await asyncio.wait_for(
-                _sync_chat_call(
-                    "",  # api_key no longer used
-                    session_id,
-                    system_msg,
-                    provider,
-                    model,
-                    prompt,
-                ),
-                timeout=budget,
+            res, model = await call_perplexity(
+                prompt=prompt,
+                system_msg=system_msg,
+                model="sonar",
+                max_tokens=8000,
+                temperature=0.2,
+                timeout=fallback_timeout,
             )
+            return res, model
+        except Exception as e2:
+            logger.error(f"Fallback AI call (sonar) failed: {e2}")
+            raise RuntimeError(f"All AI providers failed: {e2}") from e2
 
-            logger.info(
-                "AI workflow generated via %s/%s (session=%s, budget=%ss)",
-                provider,
-                model,
-                session_id,
-                budget,
-            )
 
-            return result, f"{provider}/{model}"
-
-        except asyncio.TimeoutError:
-            last_err = TimeoutError(
-                f"{provider}/{model} exceeded {budget}s budget"
-            )
-
-            logger.warning(
-                "AI call timeout (%s/%s after %ss) — trying next model",
-                provider,
-                model,
-                budget,
-            )
-            continue
-
-        except Exception as e:
-            last_err = e
-
-            logger.warning(
-                "AI call failed (%s/%s): %s — trying next model",
-                provider,
-                model,
-                e,
-            )
-            continue
-
-    # ── Tier 3: Perplexity Sonar Pro (B.4.1) ──────────────────────────────────
-    # from services.perplexity_service import call_perplexity_sonar_pro, is_perplexity_configured
-    # if is_perplexity_configured():
-    #     try:
-    #         logger.info("Both Claude tiers failed — attempting Perplexity Sonar Pro tertiary fallback")
-    #         result, label = await call_perplexity_sonar_pro(prompt, system_msg, timeout_seconds=perplexity_timeout)
-    #         logger.info("AI workflow generated via %s (Perplexity tertiary fallback succeeded)", label)
-    #         return result, label
-    #     except Exception as e:  # noqa: BLE001
-    #         last_err = e
-    #         logger.warning("Perplexity Sonar Pro fallback failed: %s", e)
-    # else:
-    #     logger.info("Perplexity Sonar Pro skipped — PERPLEXITY_API_KEY not configured (Sir to set env var to enable)")
-
-    raise RuntimeError(
-    f"All AI providers failed. Last error: {type(last_err).__name__}: {last_err}"
-)
-
-# ── JSON extraction (handles markdown-wrapped responses) ──────────────────────
+# ── JSON extraction (handles markdown-wrapped responses & citations) ──────────
 def parse_json_response(text: str) -> Dict[str, Any]:
     """Extract first valid JSON block from response text.
 
-    Models sometimes wrap JSON in ```json...``` despite instructions.
+    Handles direct JSON, markdown-wrapped JSON, and JSON followed by Perplexity citations/sources.
     """
     if not text:
         raise ValueError("Empty AI response")
+    trimmed = text.strip()
     # Try direct parse
     try:
-        return json.loads(text)
+        return json.loads(trimmed)
     except json.JSONDecodeError:
         pass
     # Strip markdown fence
@@ -235,7 +134,17 @@ def parse_json_response(text: str) -> Dict[str, Any]:
             return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
-    # Best-effort: find first { ... } block
+    # Locate first '{' and use JSONDecoder().raw_decode
+    start = text.find("{")
+    if start != -1:
+        try:
+            decoder = json.JSONDecoder()
+            obj, _ = decoder.raw_decode(text[start:])
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+    # Best-effort greedy regex
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if m:
         try:

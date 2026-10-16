@@ -125,16 +125,12 @@ const AIWorkflowBuilder = () => {
         return;
       }
 
-      // Cache hit (legacy code path)
-      if (r.data.cached && r.data.result) {
-        setWorkflow(r.data.result);
-        const exp = {}; (r.data.result.steps || []).forEach((_, i) => { exp[i] = true; }); setExpandedSteps(exp);
-        setCachedHit(true);
-        setJobProgress(100); setJobStep('done');
-        toast.success('Loaded from cache — instant ⚡');
-        setWorkflowSource('ai'); setVerified(false);
-        if (selectedCountry?.name) loadGovForms(selectedCountry.name);
+      // Immediate failure
+      if (r.data.status === 'failed') {
+        setJobError(r.data.error || 'Generation failed');
+        toast.error(r.data.error || 'Workflow generation failed');
         setGenerating(false);
+        setView('pick-visa');
         return;
       }
 
@@ -435,7 +431,7 @@ const AIWorkflowBuilder = () => {
                 <p className="text-sm text-slate-500 mt-1" data-testid="ai-workflow-current-step">
                   {jobStep === 'queued' && 'Job queued — kicking off background generation'}
                   {jobStep === 'analyzing' && 'Analyzing visa category and resolving authoritative sources'}
-                  {jobStep === 'generating' && 'Calling Claude Sonnet 4.5 for step-by-step workflow'}
+                  {jobStep === 'generating' && 'AI generating step-by-step workflow and official requirements'}
                   {jobStep === 'regenerating' && 'Re-prompting AI to meet our quality bar (≥5 steps, ≥3 docs/step)'}
                   {jobStep === 'formatting' && 'Formatting and validating the workflow output'}
                   {!['queued','analyzing','generating','regenerating','formatting'].includes(jobStep) && 'Working on it…'}
