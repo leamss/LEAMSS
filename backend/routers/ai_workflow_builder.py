@@ -388,11 +388,14 @@ class VisaCategoriesRequest(BaseModel):
     country: str
 
 
+_VISA_CATEGORIES_CACHE: Dict[str, list] = {}
+
+
 async def _call_gpt(prompt: str, system_msg: str = "") -> str:
-    """Call AI with fallback for visa category exploration."""
+    """Fast AI call for visa category exploration using sonar."""
     try:
         from core.perplexity_client import call_perplexity
-        res, _ = await call_perplexity(prompt, system_msg=system_msg, timeout=30.0)
+        res, _ = await call_perplexity(prompt, system_msg=system_msg, model="sonar", max_tokens=1500, timeout=6.0)
         return res
     except Exception as e:
         logger.warning(f"AI call failed in _call_gpt: {e}")
@@ -416,11 +419,15 @@ async def get_supported_countries(current_user: dict = Depends(get_current_user)
 
 @router.post("/visa-categories")
 async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = Depends(get_current_user)):
-    """Get all visa subclasses/categories for a country - uses hardcoded data first, AI as optional enrichment"""
+    """Get all visa subclasses/categories for a country - fast cache + instant hardcoded data + quick AI enrichment"""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
     country_key = data.country.lower().replace(" ", "_")
+
+    # Fast in-memory cache hit (<1ms)
+    if country_key in _VISA_CATEGORIES_CACHE:
+        return {"country": data.country, "categories": _VISA_CATEGORIES_CACHE[country_key]}
     
     # Build categories from COUNTRY_REFERENCES (no AI needed)
     categories = []
@@ -493,6 +500,9 @@ async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = 
                 categories = ai_cats  # AI gave better data, use it
     except Exception:
         pass  # AI failed (budget, timeout etc) - use hardcoded data
+
+    if categories:
+        _VISA_CATEGORIES_CACHE[country_key] = categories
 
     return {"country": data.country, "categories": categories}
 
@@ -573,11 +583,12 @@ async def _execute_workflow_generation(
 
 CRITICAL RULES:
 1. Include 5-6 logical steps.
-2. Every step MUST have 3-4 required_documents with concise descriptions (1-2 sentences each).
+2. Every step MUST have 3-4 required_documents with concise descriptions (1 sentence each).
 3. Include specific document names as used by the official government.
 4. Include ALL fees in local currency based on current official government fee schedules.
 5. Reference official government websites (.gov / official portals) AND VFSglobal for application submission step.
 6. For AU/NZ PR ONLY: include "Skills Assessment" as first or second step (mandatory). For all OTHER workflows, DO NOT include a skills assessment step.
+7. Keep descriptions concise, specific, and punchy (1 sentence per doc, 2 sentences per step) to maximize generation speed.
 
 Return a JSON object with this EXACT structure:
 {{
@@ -975,16 +986,19 @@ async def generate_workflow(
 
     # Cache lookup: most recent successful job for same country+service in last hour
     cache_cutoff = datetime.now(timezone.utc) - timedelta(minutes=JOB_CACHE_TTL_MINUTES)
-    cached = await ai_workflow_jobs_col.find_one(
-        {
-            "user_id": user_id,
-            "country": country,
-            "service_type": service_type,
-            "status": "complete",
-            "completed_at": {"$gte": cache_cutoff.isoformat()},
-        },
-        sort=[("completed_at", -1)],
-    )
+    cache_filter: dict = {
+        "status": "complete",
+        "completed_at": {"$gte": cache_cutoff.isoformat()},
+        "country": {"$regex": f"^{country.strip()}$", "$options": "i"},
+        "service_type": {"$regex": f"^{service_type.strip()}$", "$options": "i"},
+    }
+    if request.custom_instructions:
+        cache_filter["user_id"] = user_id
+        cache_filter["custom_instructions"] = request.custom_instructions
+    else:
+        cache_filter["$or"] = [{"custom_instructions": ""}, {"custom_instructions": {"$exists": False}}]
+
+    cached = await ai_workflow_jobs_col.find_one(cache_filter, sort=[("completed_at", -1)])
     if cached and cached.get("result"):
         cached_job = _serialize_job(cached)
         return {

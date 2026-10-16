@@ -71,16 +71,16 @@ async def resolve_au_nz_skill_assessment_url(db, country_key: str, service_type:
     return doc.get("url") or doc.get("website") or None
 
 
-# ── Core AI call: Perplexity primary (sonar-pro) + fallback (sonar) ───────────
+# ── Core AI call: Perplexity fast primary (sonar) + deep fallback (sonar-pro) ──
 async def call_ai_with_fallback(
     prompt: str,
     system_msg: str = "",
     session_prefix: str = "workflow",
-    primary_timeout: float = 90.0,
-    fallback_timeout: float = 60.0,
-    perplexity_timeout: float = 90.0,
+    primary_timeout: float = 35.0,
+    fallback_timeout: float = 50.0,
+    perplexity_timeout: float = 60.0,
 ) -> Tuple[str, str]:
-    """Call Perplexity Sonar Pro with automatic fallback to Sonar.
+    """Call Perplexity Sonar (fast primary, ~10-15s) with automatic fallback to Sonar Pro.
 
     Returns: (response_text, model_used_label)
     Raises: RuntimeError if all attempts fail.
@@ -90,26 +90,26 @@ async def call_ai_with_fallback(
         res, model = await call_perplexity(
             prompt=prompt,
             system_msg=system_msg,
-            model="sonar-pro",
-            max_tokens=8000,
+            model="sonar",
+            max_tokens=3500,
             temperature=0.2,
             timeout=primary_timeout,
         )
         return res, model
     except Exception as e:
-        logger.warning(f"Primary AI call (sonar-pro) failed: {e} — trying sonar fallback")
+        logger.warning(f"Fast primary AI call (sonar) failed: {e} — trying sonar-pro fallback")
         try:
             res, model = await call_perplexity(
                 prompt=prompt,
                 system_msg=system_msg,
-                model="sonar",
-                max_tokens=8000,
+                model="sonar-pro",
+                max_tokens=4000,
                 temperature=0.2,
                 timeout=fallback_timeout,
             )
             return res, model
         except Exception as e2:
-            logger.error(f"Fallback AI call (sonar) failed: {e2}")
+            logger.error(f"Fallback AI call (sonar-pro) failed: {e2}")
             raise RuntimeError(f"All AI providers failed: {e2}") from e2
 
 

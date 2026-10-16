@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -81,9 +81,24 @@ const AIWorkflowBuilder = () => {
     try { const r = await axios.get(`${API}/step-documents/government-forms/${encodeURIComponent(countryName)}`, auth()); setGovForms(r.data.forms || []); } catch { setGovForms([]); }
   };
 
+  const categoriesCacheRef = useRef({});
+
   const selectCountry = async (country) => {
-    setSelectedCountry(country); setVisaCategories([]); setSelectedVisa(null); setLoadingVisa(true); setView('pick-visa');
-    try { const r = await axios.post(`${API}/ai-workflow/visa-categories`, { country: country.name }, auth()); setVisaCategories(r.data.categories || []); } catch { toast.error('Failed to load visa categories'); }
+    setSelectedCountry(country); setSelectedVisa(null); setView('pick-visa');
+    if (categoriesCacheRef.current[country.name]) {
+      setVisaCategories(categoriesCacheRef.current[country.name]);
+      setLoadingVisa(false);
+      return;
+    }
+    setVisaCategories([]); setLoadingVisa(true);
+    try {
+      const r = await axios.post(`${API}/ai-workflow/visa-categories`, { country: country.name }, auth());
+      const cats = r.data.categories || [];
+      categoriesCacheRef.current[country.name] = cats;
+      setVisaCategories(cats);
+    } catch {
+      toast.error('Failed to load visa categories');
+    }
     setLoadingVisa(false);
   };
 
@@ -165,15 +180,15 @@ const AIWorkflowBuilder = () => {
             setView('pick-visa');
             return;
           }
-          // Still queued/running — re-poll in 2.5s
-          pollTimer = setTimeout(poll, 2500);
+          // Still queued/running — re-poll in 1s for snappy UI updates
+          pollTimer = setTimeout(poll, 1000);
         } catch (e) {
           // Network blip — keep retrying for a while
           console.warn('Workflow status poll failed', e);
-          pollTimer = setTimeout(poll, 4000);
+          pollTimer = setTimeout(poll, 2500);
         }
       };
-      pollTimer = setTimeout(poll, 1500);
+      pollTimer = setTimeout(poll, 800);
     } catch (e) {
       const detail = e.response?.data?.detail || 'Generation failed';
       toast.error(detail);
