@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Bot, Briefcase, Heart, Upload, Map, Sparkles, X, Database, Loader2 } from 'lucide-react';
@@ -53,11 +54,19 @@ export default function Step3Profile({ data, update, setData, headers }) {
   const handleSelectMultiple = (list) => {
     if (!list || !list.length) return;
     const [primary, ...rest] = list;
-    update('occupation_country', primary.country_code);
+    update('occupation_country', primary.country_code || 'AU');
     update('occupation_code', primary.code);
     update('occupation_title', primary.title);
     update('occupation_body', primary.assessing_body);
     update('occupation_pathway', primary.pathway);
+    if (primary.skills_assessment) {
+      update('skills_assessment_outcome', primary.skills_assessment.assessment_outcome);
+      update('skills_assessment_deducted_years', primary.skills_assessment.deducted_years);
+      update('skills_assessment_claimable_years', primary.skills_assessment.points_claimable_years);
+      update('skills_assessment_claimable_points', primary.skills_assessment.points_claimable_points);
+      update('skills_assessment_rpl_required', primary.skills_assessment.rpl_required);
+      update('skills_assessment_data', primary.skills_assessment);
+    }
     // Dedupe alternatives against the primary
     const primaryKey = `${primary.code}-${primary.country_code}`;
     const extras = rest
@@ -67,8 +76,8 @@ export default function Step3Profile({ data, update, setData, headers }) {
     setShowSuggester(false);
     setSuggesterPrefill(null);
     toast.success(extras.length
-      ? `Primary ${primary.code} + ${extras.length} alternative${extras.length > 1 ? 's' : ''} added`
-      : `Selected ${primary.code} ${primary.title}`);
+      ? `Primary ${primary.code} (${primary.assessing_body}) + ${extras.length} alternative${extras.length > 1 ? 's' : ''} added`
+      : `Selected ${primary.code} · ${primary.title} (${primary.assessing_body})`);
     setShowAtlas(true);
   };
 
@@ -215,6 +224,71 @@ export default function Step3Profile({ data, update, setData, headers }) {
         </FieldWithLabel>
       </div>
 
+      {/* Professional Work Experience & Job Duties Details */}
+      <Card className="p-3 bg-slate-50 border border-slate-200 space-y-3" data-testid="work-experience-section">
+        <div className="flex items-center justify-between pb-1.5 border-b">
+          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <Briefcase className="h-4 w-4 text-indigo-600" /> Professional Work Experience &amp; Education Details
+          </span>
+          <span className="text-[10px] text-slate-400">Used by AI to match official ABS ANZSCO unit tasks</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <FieldWithLabel label="Current Designation / Profession *">
+            <Input
+              value={data.current_profession || ''}
+              onChange={e => update('current_profession', e.target.value)}
+              placeholder="e.g. Senior Software Developer, Accountant, Civil Engineer"
+              className="h-8 text-xs font-semibold"
+              data-testid="ca-current-profession"
+            />
+          </FieldWithLabel>
+
+          <FieldWithLabel label="Field of Study *">
+            <Input
+              value={data.field_of_study || ''}
+              onChange={e => update('field_of_study', e.target.value)}
+              placeholder="e.g. Computer Science, Mechanical Engineering, Commerce"
+              className="h-8 text-xs"
+              data-testid="ca-field-of-study"
+            />
+          </FieldWithLabel>
+
+          <FieldWithLabel label="Recent Employer / Company Name">
+            <Input
+              value={data.employer_name || ''}
+              onChange={e => update('employer_name', e.target.value)}
+              placeholder="e.g. Tech Solutions Pvt Ltd"
+              className="h-8 text-xs"
+              data-testid="ca-employer-name"
+            />
+          </FieldWithLabel>
+
+          <FieldWithLabel label="Nature of Company / Business Sector">
+            <Input
+              value={data.employer_nature || ''}
+              onChange={e => update('employer_nature', e.target.value)}
+              placeholder="e.g. Information Technology, Financial Services, Construction"
+              className="h-8 text-xs"
+              data-testid="ca-employer-nature"
+            />
+          </FieldWithLabel>
+        </div>
+
+        <div>
+          <FieldWithLabel label="Core Roles, Responsibilities &amp; Job Duties">
+            <Textarea
+              value={data.roles_and_responsibilities || ''}
+              onChange={e => update('roles_and_responsibilities', e.target.value)}
+              placeholder="Describe actual work duties, technical tools, APIs, frameworks, systems, or responsibilities performed on the job..."
+              rows={3}
+              className="text-xs"
+              data-testid="ca-roles-responsibilities"
+            />
+          </FieldWithLabel>
+        </div>
+      </Card>
+
       <p className="text-[11px] uppercase font-bold text-slate-500 mt-3 mb-1">IELTS Scores (all 4 bands)</p>
       <div className="grid grid-cols-5 gap-2">
         <FieldWithLabel label="Overall"><Input type="number" step="0.5" value={data.ielts_overall} onChange={e => update('ielts_overall', e.target.value)} placeholder="7.5" data-testid="ca-ielts-overall" /></FieldWithLabel>
@@ -265,9 +339,53 @@ export default function Step3Profile({ data, update, setData, headers }) {
 
       {showSuggester && (
         <SuggesterModal
-          initialDescription={suggesterPrefill?.description || ''}
-          initialCountry={suggesterPrefill?.country || 'AU'}
-          autoRun={Boolean(suggesterPrefill)}
+          initialDescription={suggesterPrefill?.description || (() => {
+            const parts = [];
+            if (data.current_profession) parts.push(data.current_profession);
+            if (data.employer_name) parts.push(`at ${data.employer_name}`);
+            if (data.employer_nature) parts.push(`(Sector: ${data.employer_nature})`);
+            if (data.years_experience_total) parts.push(`with ${data.years_experience_total} years of experience`);
+            if (data.qualification || data.field_of_study) parts.push(`. Education: ${data.qualification} in ${data.field_of_study || 'General'}`);
+            if (data.roles_and_responsibilities) parts.push(`. Core duties: ${data.roles_and_responsibilities}`);
+            if (data.work_history?.length > 0) {
+              const whList = data.work_history.map(w =>
+                `${w.designation || w.title || 'Role'} at ${w.employer || w.employer_name || 'Company'} (${w.company_nature || w.employer_nature || ''}) [${w.dates || ''}]: ${w.duties || (w.duty_bullets && w.duty_bullets.join(', ')) || ''}`
+              ).join('. ');
+              parts.push(`. Work history: ${whList}`);
+            }
+            return parts.join(' ').trim();
+          })()}
+          initialCountry={suggesterPrefill?.country || data.occupation_country || 'AU'}
+          initialQualification={suggesterPrefill?.qualification || data.qualification || ''}
+          initialFieldOfStudy={suggesterPrefill?.field_of_study || data.field_of_study || ''}
+          initialExpYears={suggesterPrefill?.years_experience_total != null ? suggesterPrefill.years_experience_total : (data.years_experience_total || 0)}
+          initialProfile={suggesterPrefill?.profile || {
+            qualification: data.qualification,
+            field_of_study: data.field_of_study,
+            years_experience_total: data.years_experience_total ? Number(data.years_experience_total) : 0,
+            current_profession: data.current_profession || '',
+            profession: data.current_profession || '',
+            employer_name: data.employer_name || '',
+            nature_of_company: data.employer_nature || '',
+            company_nature: data.employer_nature || '',
+            roles_and_responsibilities: data.roles_and_responsibilities || '',
+            duty_bullets: data.duty_bullets || [],
+            work_history: data.work_history || [],
+            age: data.age ? Number(data.age) : 30,
+            primary_applicant: {
+              personal: { age: data.age ? Number(data.age) : 30, full_name: data.client_name || '' },
+              education: { highest_qualification: data.qualification, field_of_study: data.field_of_study },
+              professional: {
+                current_profession: data.current_profession || '',
+                designation: data.current_profession || '',
+                employer_name: data.employer_name || '',
+                employer_nature: data.employer_nature || '',
+                years_experience_total: data.years_experience_total ? Number(data.years_experience_total) : 0,
+              },
+              work_history: data.work_history || [],
+            },
+          }}
+          autoRun={false}
           onClose={() => { setShowSuggester(false); setSuggesterPrefill(null); }}
           onSelectMultiple={handleSelectMultiple}
           onSelect={(s) => handleSelectMultiple([s])}
@@ -283,62 +401,131 @@ export default function Step3Profile({ data, update, setData, headers }) {
             const per = p.personal || {};
             const ed = p.education || {};
             const pf = p.professional || {};
-            const lg = (p.language || {}).scores || {};
-            const extName = extracted.name || extracted.client_name || per.full_name || per.name || '';
-            const extEmail = extracted.email || extracted.client_email || per.email || per.contact_email || (extracted.personal || {}).email || '';
-            const extPhone = extracted.phone || extracted.client_phone || per.phone || per.contact_phone || per.mobile || (extracted.personal || {}).phone || '';
+            const lg = (p.language || {}).scores || (p.english || {}).scores || {};
 
-            // 1) Fetch client details + profile fields from the resume
+            // Extract all fields cleanly from both nested & top-level schemas
+            const clientName = extracted.name || extracted.client_name || p.name || per.full_name || per.name || '';
+            const clientEmail = extracted.email || extracted.client_email || per.email || per.contact_email || (extracted.personal || {}).email || '';
+            const clientPhone = extracted.phone || extracted.client_phone || per.phone || per.contact_phone || per.mobile || (extracted.personal || {}).phone || '';
+            const ageVal = per.age || p.age || '';
+            const qualVal = ed.highest_qualification || p.highest_qualification || extracted.qualification || '';
+            const fieldVal = ed.field_of_study || p.field_of_study || extracted.field_of_study || '';
+            const profVal = pf.current_profession || p.current_profession || pf.designation || p.nominated_occupation_title || '';
+            const expVal = pf.years_experience_total != null ? pf.years_experience_total : (p.years_experience_total != null ? p.years_experience_total : (p.experience_years_overall != null ? p.experience_years_overall : ''));
+            const maritalVal = extracted.marital_status || p.marital_status || '';
+
+            // 2) Build rich candidate profile summary for AI occupation & assessment engine across ALL jobs
+            const allWorkHist = (p.work_history || extracted.work_history || []);
+            const allDutyBullets = [];
+            if (Array.isArray(extracted.duty_bullets) && extracted.duty_bullets.length > 0) {
+              allDutyBullets.push(...extracted.duty_bullets);
+            }
+            allWorkHist.forEach(w => {
+              if (Array.isArray(w.duty_bullets)) {
+                w.duty_bullets.forEach(b => { if (b && !allDutyBullets.includes(b)) allDutyBullets.push(b); });
+              } else if (w.duties && typeof w.duties === 'string') {
+                w.duties.split(/[;\n]/).map(s => s.trim()).filter(Boolean).forEach(b => {
+                  if (b && !allDutyBullets.includes(b)) allDutyBullets.push(b);
+                });
+              }
+            });
+            const dutiesList = allDutyBullets.length > 0 ? allDutyBullets : (extracted.duty_bullets || []);
+
+            // Total experience across all historical positions
+            let totalExpNum = Number(expVal) || 0;
+            const whYearsSum = allWorkHist.reduce((acc, w) => acc + (Number(w.years) || 0), 0);
+            if (whYearsSum > totalExpNum) {
+              totalExpNum = whYearsSum;
+            }
+
+            const empName = pf.employer_name || extracted.employer_name || (allWorkHist[0]?.employer || allWorkHist[0]?.employer_name) || '';
+            const empNature = pf.employer_nature || extracted.company_nature || (allWorkHist[0]?.company_nature) || (allWorkHist[0]?.nature_of_company) || '';
+
+            // Update form state
             setData(d => ({
               ...d,
-              client_name: extName || d.client_name,
-              client_email: extEmail || d.client_email,
-              client_phone: extPhone || d.client_phone,
-              age: per.age || d.age,
-              qualification: ed.highest_qualification || d.qualification,
-              years_experience_total: pf.years_experience_total || d.years_experience_total,
+              client_name: clientName || d.client_name,
+              client_email: clientEmail || d.client_email,
+              client_phone: clientPhone || d.client_phone,
+              age: ageVal || d.age,
+              qualification: qualVal || d.qualification,
+              field_of_study: fieldVal || d.field_of_study,
+              years_experience_total: totalExpNum || expVal || d.years_experience_total,
+              current_profession: profVal || d.current_profession,
+              employer_name: empName || d.employer_name,
+              employer_nature: empNature || d.employer_nature,
+              roles_and_responsibilities: extracted.roles_and_responsibilities || (dutiesList.join('\n')) || d.roles_and_responsibilities,
+              duty_bullets: dutiesList.length > 0 ? dutiesList : (d.duty_bullets || []),
+              work_history: allWorkHist.length > 0 ? allWorkHist : (d.work_history || []),
               ielts_overall: lg.overall || d.ielts_overall,
               ielts_listening: lg.listening || d.ielts_listening,
               ielts_reading: lg.reading || d.ielts_reading,
               ielts_writing: lg.writing || d.ielts_writing,
               ielts_speaking: lg.speaking || d.ielts_speaking,
-              marital_status: extracted.marital_status || d.marital_status,
+              marital_status: maritalVal || d.marital_status,
               resume_file_id: extracted.resume_file_id || d.resume_file_id,
               resume_filename: extracted.resume_filename || d.resume_filename,
             }));
             setShowResumeUpload(false);
 
-            // 2) Build a rich job description from the resume → auto-suggest the RIGHT occupation code
             const parts = [];
-            if (pf.current_profession) parts.push(pf.current_profession);
-            if (pf.designation && pf.designation !== pf.current_profession) parts.push(`(designation: ${pf.designation})`);
-            if (pf.years_experience_total) parts.push(`with ${pf.years_experience_total} years of experience`);
-            if (pf.industry) parts.push(`in the ${pf.industry} industry`);
-            if (pf.has_managerial_experience) parts.push('including managerial responsibilities');
-            if (ed.field_of_study) parts.push(`. Educational background: ${ed.field_of_study}${ed.highest_qualification ? ` (${ed.highest_qualification})` : ''}`);
-            const wh = (p.work_history || []).slice(0, 2)
-              .map(w => [w.designation, w.employer && `at ${w.employer}`, w.duties].filter(Boolean).join(' '))
+            if (profVal) parts.push(profVal);
+            if (empName) parts.push(`at ${empName}`);
+            if (empNature) parts.push(`(Sector: ${empNature})`);
+            if (totalExpNum || expVal) parts.push(`with ${totalExpNum || expVal} years of total career experience`);
+            if (qualVal || fieldVal) parts.push(`. Education: ${qualVal} in ${fieldVal || 'General'}`);
+            if (dutiesList.length > 0) {
+              parts.push(`. Core duties & responsibilities across positions: ${dutiesList.join('; ')}`);
+            }
+            
+            const wh = allWorkHist
+              .map(w => [
+                w.designation || w.job_title || w.title,
+                (w.employer || w.employer_name) && `at ${w.employer || w.employer_name}`,
+                (w.company_nature || w.nature_of_company || w.employer_nature) && `(${w.company_nature || w.nature_of_company || w.employer_nature})`,
+                w.dates && `[${w.dates}]`,
+                w.duties || (w.duty_bullets && w.duty_bullets.join(', '))
+              ].filter(Boolean).join(' '))
               .filter(Boolean).join('. ');
+            
             let desc = parts.join(' ').trim();
-            if (wh) desc += `. Recent roles — ${wh}`;
+            if (wh && !desc.includes(wh)) desc += `. Work history: ${wh}`;
             desc = desc.replace(/\s+/g, ' ').trim();
 
-            if (desc.length >= 20) {
-              // Country-first: scope the suggestion to the client's target country
-              // (defaults to the wizard's selected country, AU by default). Each
-              // country has different codes/criteria — the consultant can switch
-              // country or fall back to "All" inside the helper.
-              const preferredCountry =
-                (data.country_mode === 'specific' && data.specific_country)
-                  ? data.specific_country
-                  : (data.occupation_country || 'AU');
-              toast.success(`Resume loaded — finding matching codes for ${preferredCountry}…`);
-              setSuggesterPrefill({ description: desc.slice(0, 1900), country: preferredCountry });
-              setShowSuggester(true);
-            } else {
-              toast.success('Resume data loaded — please review the fields below');
-              toast.message('Tip: use "AI Occupation Helper" to find the matching occupation code.');
+            // Fallback to guarantee a rich description
+            if (desc.length < 20) {
+              desc = `${profVal || 'Experienced Professional'} with ${totalExpNum || expVal || 5} years of work experience in ${fieldVal || 'Information Technology'}. Holds a ${qualVal || 'bachelor'} degree.`;
             }
+
+            const preferredCountry =
+              (data.country_mode === 'specific' && data.specific_country)
+                ? data.specific_country
+                : (data.occupation_country || 'AU');
+
+            toast.success(`Resume loaded (${clientName || 'Candidate'}) — select your target visa subclasses below and click 'Find Matching Codes'.`);
+            
+            setSuggesterPrefill({
+              description: desc.slice(0, 1900),
+              country: preferredCountry,
+              qualification: qualVal,
+              field_of_study: fieldVal,
+              years_experience_total: Number(expVal) || 0,
+              profile: {
+                qualification: qualVal,
+                field_of_study: fieldVal,
+                years_experience_total: Number(expVal) || 0,
+                profession: profVal,
+                employer_name: empName,
+                nature_of_company: empNature,
+                company_nature: empNature,
+                roles_and_responsibilities: extracted.roles_and_responsibilities || (dutiesList.join('\n')),
+                duty_bullets: dutiesList,
+                work_history: p.work_history || extracted.work_history || [],
+                age: Number(ageVal) || 30,
+                primary_applicant: p,
+              },
+            });
+            setShowSuggester(true);
           }}
           headers={headers}
         />
