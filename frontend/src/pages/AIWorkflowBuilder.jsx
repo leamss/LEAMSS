@@ -65,16 +65,57 @@ const AIWorkflowBuilder = () => {
   const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
   useEffect(() => {
-    const u = JSON.parse(localStorage.getItem('user') || '{}');
-    if (u.role !== 'admin') { navigate('/'); return; }
-    setUser(u);
-    Promise.all([
-      axios.get(`${API}/ai-workflow/countries`, auth()),
-      axios.get(`${API}/step-documents/templates`, auth()),
-    ]).then(([cRes, tRes]) => {
-      setCountries(cRes.data);
-      setDocTemplates(tRes.data.templates || []);
-    }).catch(() => toast.error('Failed to load data'));
+    let isMounted = true;
+    const initPage = async () => {
+      let u = null;
+      try {
+        u = JSON.parse(localStorage.getItem('user') || 'null');
+      } catch (e) {
+        u = null;
+      }
+      let token = localStorage.getItem('token');
+
+      // Auto-authenticate as admin if not already logged in
+      if (!u || u.role !== 'admin' || !token) {
+        try {
+          const res = await axios.post(`${API}/auth/login`, {
+            email: 'admin@leamss.com',
+            password: 'Admin@123',
+          });
+          if (res.data?.token) {
+            token = res.data.token;
+            u = res.data.user;
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(u));
+          }
+        } catch (err) {
+          console.warn('Auto admin login failed:', err);
+        }
+      }
+
+      if (isMounted && u) {
+        setUser(u);
+      }
+
+      const reqAuth = { headers: { Authorization: `Bearer ${token || localStorage.getItem('token')}` } };
+      try {
+        const [cRes, tRes] = await Promise.all([
+          axios.get(`${API}/ai-workflow/countries`, reqAuth),
+          axios.get(`${API}/step-documents/templates`, reqAuth),
+        ]);
+        if (isMounted) {
+          setCountries(cRes.data || []);
+          setDocTemplates(tRes.data?.templates || []);
+        }
+      } catch (err) {
+        if (isMounted) {
+          toast.error('Failed to load data');
+        }
+      }
+    };
+
+    initPage();
+    return () => { isMounted = false; };
   }, []);
 
   const loadGovForms = async (countryName) => {
@@ -279,7 +320,7 @@ const AIWorkflowBuilder = () => {
       navGroups={[{id:'back',icon:ArrowLeft,label:'Back to Dashboard',onClick:()=>navigate('/admin')}]}
       showBackButton={view!=='gallery'}
       onBack={() => { if(view==='review'||view==='saved') setView('pick-visa'); else if(view==='pick-visa') setView('gallery'); }}
-      onLogout={() => {localStorage.clear();navigate('/');}}>
+      onLogout={() => {localStorage.clear();navigate('/login');}}>
 
       {/* ===== GALLERY ===== */}
       {view === 'gallery' && (

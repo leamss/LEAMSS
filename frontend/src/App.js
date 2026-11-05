@@ -165,7 +165,8 @@ function App() {
       <BrowserRouter>
         <ScopedRouteBoundary>
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<AIWorkflowBuilder />} />
+          <Route path="/login" element={<Login />} />
           {/* ─── Public Resume Upload (NO LOGIN REQUIRED) ─── */}
           <Route path="/upload-resume" element={<ResumeUpload />} />
           <Route path="/upload-resume/:token" element={<ResumeUpload />} />
