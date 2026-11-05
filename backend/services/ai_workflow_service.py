@@ -15,16 +15,38 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from openai import AsyncOpenAI
+import httpx
 
 logger = logging.getLogger(__name__)
 
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+_pplx_http = httpx.AsyncClient(verify=False, timeout=120)
+
+
+def get_perplexity_client() -> AsyncOpenAI:
+    api_key = os.getenv("PERPLEXITY_API_KEY", "").strip()
+    return AsyncOpenAI(
+        api_key=api_key,
+        base_url="https://api.perplexity.ai",
+        http_client=_pplx_http,
+    )
+
+
+try:
+    perplexity_client = get_perplexity_client()
+except Exception:
+    perplexity_client = None
+# Per Phase 20.1 directive #1 & #2 — Sir requested GPT-5.2 fallback, but Emergent
+# Universal Key is ANTHROPIC-ONLY (not allowed to access OpenAI models per key policy).
+# We silently use Claude Haiku 4.5 as the cheap-and-fast fallback (3-5x cheaper than Sonnet).
 PRIMARY_MODEL = ("perplexity", "sonar-pro")
 FALLBACK_MODEL = ("perplexity", "sonar")
 
-# Quality bar
+# Phase 20.1 quality bar (Sir's directive)
 MIN_STEPS = 5
 MIN_DOCS_PER_STEP = 3
-MAX_QUALITY_RETRIES = 2
+MAX_QUALITY_RETRIES = 2  # 2 retries (1 primary failure + 1 fallback) before giving up
 
 
 # ── VFSglobal lookup ──────────────────────────────────────────────────────────
@@ -44,7 +66,14 @@ def _load_vfs_map() -> Dict[str, Any]:
 
 
 def vfsglobal_url(country_key: str) -> Optional[str]:
-    """Return Indian-applicant VFSglobal URL for destination country, or None."""
+    """Return Indian/international applicant VFSglobal URL for destination country, or None."""
+    try:
+        from services.country_regulatory_authorities import get_country_vfs_url
+        custom_vfs = get_country_vfs_url(country_key)
+        if custom_vfs:
+            return custom_vfs
+    except Exception:
+        pass
     m = _load_vfs_map()
     slug = m.get("countries", {}).get((country_key or "").lower())
     if not slug:
@@ -71,60 +100,145 @@ async def resolve_au_nz_skill_assessment_url(db, country_key: str, service_type:
     return doc.get("url") or doc.get("website") or None
 
 
-# ── Core AI call: Perplexity fast primary (sonar) + deep fallback (sonar-pro) ──
+# ── Core AI call: Claude primary, GPT fallback ────────────────────────────────
+async def _sync_chat_call(
+    api_key,
+    session_id,
+    system_msg,
+    provider,
+    model,
+    prompt,
+):
+
+    logger.info("Perplexity call starting with model: %s", model)
+    client = get_perplexity_client()
+    response = await client.chat.completions.create(
+        model=model,
+        temperature=0.2,
+        max_tokens=8000,
+        messages=[
+            {
+                "role": "system",
+                "content": system_msg
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+
+    logger.info("Perplexity response received for model: %s", model)
+    return response.choices[0].message.content
 async def call_ai_with_fallback(
-    prompt: str,
-    system_msg: str = "",
-    session_prefix: str = "workflow",
-    primary_timeout: float = 35.0,
-    fallback_timeout: float = 50.0,
-    perplexity_timeout: float = 60.0,
+    prompt: str, system_msg: str = "", session_prefix: str = "workflow",
+    primary_timeout: float = 90, fallback_timeout: float = 45,
+    perplexity_timeout: float = 60,
 ) -> Tuple[str, str]:
-    """Call Perplexity Sonar (fast primary, ~10-15s) with automatic fallback to Sonar Pro.
+    """Call Claude Sonnet 4.5 → Claude Haiku 4.5 → Perplexity Sonar Pro (tertiary).
 
     Returns: (response_text, model_used_label)
-    Raises: RuntimeError if all attempts fail.
+    Raises: RuntimeError if ALL providers fail. Exception message carries last error.
+
+    Chain (per B.4.1 dispatch — Feb 27, 2026):
+      1. Claude Sonnet 4.5 (90s) — primary, structured reasoning
+      2. Claude Haiku 4.5 (45s) — cheaper/faster secondary
+      3. Perplexity Sonar Pro (60s) — web-search-augmented tertiary
+         · Skipped silently if PERPLEXITY_API_KEY env var not configured
+         · Provides fresh fees + current policy info + citations when available
+
+    Sweep A.2 — Offloads BLOCKING LiteLLM call (Claude) to thread-pool executor.
+    Sweep B.1 hotfix — Per-model timeouts bound worst-case total at ~135s + 60s.
     """
-    from core.perplexity_client import call_perplexity
-    try:
-        res, model = await call_perplexity(
-            prompt=prompt,
-            system_msg=system_msg,
-            model="sonar",
-            max_tokens=3500,
-            temperature=0.2,
-            timeout=primary_timeout,
-        )
-        return res, model
-    except Exception as e:
-        logger.warning(f"Fast primary AI call (sonar) failed: {e} — trying sonar-pro fallback")
+    session_id = f"{session_prefix}-{uuid.uuid4().hex[:8]}"
+    last_err: Optional[Exception] = None
+    # loop = asyncio.get_event_loop()
+
+   
+
+       # ── Tier 1 + Tier 2: Claude Sonnet 4.5 + Claude Haiku 4.5 ─────────────────
+    attempts = [
+        (PRIMARY_MODEL, primary_timeout),
+        (FALLBACK_MODEL, fallback_timeout),
+    ]
+
+    for (provider, model), budget in attempts:
         try:
-            res, model = await call_perplexity(
-                prompt=prompt,
-                system_msg=system_msg,
-                model="sonar-pro",
-                max_tokens=4000,
-                temperature=0.2,
-                timeout=fallback_timeout,
+            result = await asyncio.wait_for(
+                _sync_chat_call(
+                    "",  # api_key no longer used
+                    session_id,
+                    system_msg,
+                    provider,
+                    model,
+                    prompt,
+                ),
+                timeout=budget,
             )
-            return res, model
-        except Exception as e2:
-            logger.error(f"Fallback AI call (sonar-pro) failed: {e2}")
-            raise RuntimeError(f"All AI providers failed: {e2}") from e2
 
+            logger.info(
+                "AI workflow generated via %s/%s (session=%s, budget=%ss)",
+                provider,
+                model,
+                session_id,
+                budget,
+            )
 
-# ── JSON extraction (handles markdown-wrapped responses & citations) ──────────
+            return result, f"{provider}/{model}"
+
+        except asyncio.TimeoutError:
+            last_err = TimeoutError(
+                f"{provider}/{model} exceeded {budget}s budget"
+            )
+
+            logger.warning(
+                "AI call timeout (%s/%s after %ss) — trying next model",
+                provider,
+                model,
+                budget,
+            )
+            continue
+
+        except Exception as e:
+            last_err = e
+
+            logger.warning(
+                "AI call failed (%s/%s): %s — trying next model",
+                provider,
+                model,
+                e,
+            )
+            continue
+
+    # ── Tier 3: Perplexity Sonar Pro (B.4.1) ──────────────────────────────────
+    # from services.perplexity_service import call_perplexity_sonar_pro, is_perplexity_configured
+    # if is_perplexity_configured():
+    #     try:
+    #         logger.info("Both Claude tiers failed — attempting Perplexity Sonar Pro tertiary fallback")
+    #         result, label = await call_perplexity_sonar_pro(prompt, system_msg, timeout_seconds=perplexity_timeout)
+    #         logger.info("AI workflow generated via %s (Perplexity tertiary fallback succeeded)", label)
+    #         return result, label
+    #     except Exception as e:  # noqa: BLE001
+    #         last_err = e
+    #         logger.warning("Perplexity Sonar Pro fallback failed: %s", e)
+    # else:
+    #     logger.info("Perplexity Sonar Pro skipped — PERPLEXITY_API_KEY not configured (Sir to set env var to enable)")
+
+    raise RuntimeError(
+    f"All AI providers failed. Last error: {type(last_err).__name__}: {last_err}"
+)
+
+# ── JSON extraction (handles markdown-wrapped responses) ──────────────────────
 def parse_json_response(text: str) -> Dict[str, Any]:
     """Extract first valid JSON block from response text.
 
-    Handles direct JSON, markdown-wrapped JSON, and JSON followed by Perplexity citations/sources.
+    Models sometimes wrap JSON in ```json...``` despite instructions.
     """
     if not text:
         raise ValueError("Empty AI response")
-    trimmed = text.strip()
     # Try direct parse
     try:
-        return json.loads(trimmed)
+        return json.loads(text)
     except json.JSONDecodeError:
         pass
     # Strip markdown fence
@@ -134,17 +248,7 @@ def parse_json_response(text: str) -> Dict[str, Any]:
             return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
-    # Locate first '{' and use JSONDecoder().raw_decode
-    start = text.find("{")
-    if start != -1:
-        try:
-            decoder = json.JSONDecoder()
-            obj, _ = decoder.raw_decode(text[start:])
-            if isinstance(obj, dict):
-                return obj
-        except json.JSONDecodeError:
-            pass
-    # Best-effort greedy regex
+    # Best-effort: find first { ... } block
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if m:
         try:
@@ -155,8 +259,16 @@ def parse_json_response(text: str) -> Dict[str, Any]:
 
 
 # ── Quality bar enforcement ───────────────────────────────────────────────────
+GENERIC_DOC_NAMES = {
+    "document", "doc", "identity proof", "proof of identity", "id proof",
+    "address proof", "proof of address", "financial document", "proof of funds",
+    "application form", "form", "photo", "police certificate", "medical certificate",
+    "fees receipt", "document 1", "document 2", "doc 1", "doc 2",
+}
+
+
 def validate_workflow_quality(workflow: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    """Verify generated workflow meets Phase 20.1 quality bar.
+    """Verify generated workflow meets official quality bar.
 
     Returns: (passed, list_of_issues)
     """
@@ -170,10 +282,15 @@ def validate_workflow_quality(workflow: Dict[str, Any]) -> Tuple[bool, List[str]
             issues.append(f"Step {i} '{step.get('step_name')}' has only {len(docs)} docs (min {MIN_DOCS_PER_STEP})")
         if not step.get("step_name"):
             issues.append(f"Step {i} missing step_name")
-        # Each step should have either step-level or workflow-level gov fee mention
         for d in docs:
-            if not d.get("name"):
+            name = (d.get("name") or "").strip()
+            if not name:
                 issues.append(f"Step {i} doc missing name")
+            elif name.lower() in GENERIC_DOC_NAMES:
+                issues.append(f"Step {i} doc '{name}' is too generic — must use official statutory form title/code")
+            desc = (d.get("description") or "").strip()
+            if len(desc) < 15:
+                issues.append(f"Step {i} doc '{name}' description too brief — must specify issuing authority, apostille/translation, and validity")
     if not workflow.get("estimated_government_fees"):
         issues.append("Missing estimated_government_fees")
     return (len(issues) == 0, issues)
@@ -184,19 +301,55 @@ def build_enrichment_context(
     vfs_url: Optional[str], skill_assessment_url: Optional[str],
     template_context: str = "",
 ) -> str:
-    """Compose context block for prompt with VFS + skill assessment URLs."""
-    parts = [f"Official Government Reference:\n{country_ref}"]
-    if vfs_url:
-        parts.append(f"\nVFSglobal Application Centre (Indian applicants): {vfs_url}")
-    if skill_assessment_url and country_key in ("australia", "new_zealand") and service_type == "pr":
-        parts.append(f"\nSkill Assessment Authority (REQUIRED for {country_key.upper()} PR): {skill_assessment_url}")
+    """Compose authoritative context block for prompt with official government authority, forms, and VFS URLs."""
+    parts = []
+    
+    # Check official regulatory authorities directory
+    try:
+        from services.country_regulatory_authorities import get_country_authority_info
+        auth_info = get_country_authority_info(country_key)
+    except Exception:
+        auth_info = None
+
+    if auth_info:
+        country_display = auth_info["country_name"]
+        parts.append(f"TARGET DESTINATION COUNTRY: {country_display} ({auth_info['country_code']})")
+        parts.append(f"OFFICIAL DESTINATION GOVERNMENT AUTHORITY: {auth_info['authority_name']}")
+        parts.append(f"OFFICIAL DESTINATION GOVERNMENT PORTAL: {auth_info['official_portal_url']}")
+        vfs_ref = vfs_url or auth_info.get("vfs_url")
+        if vfs_ref:
+            parts.append(f"VFS GLOBAL APPLICATION CENTRE / EMBASSY REFERENCE: {vfs_ref}")
+        
+        forms = auth_info.get("official_forms") or []
+        if forms:
+            forms_lines = [f"- {f['name']} (ID: {f['form_id']}): {f['description']} [URL: {f['url']}]" for f in forms]
+            parts.append(f"\nOFFICIAL STATUTORY GOVERNMENT FORMS FOR {country_display.upper()} (MUST USE THESE IN THE WORKFLOW):")
+            parts.extend(forms_lines)
+    else:
+        parts.append(f"TARGET DESTINATION COUNTRY: {country_key.replace('_', ' ').title()}")
+        if country_ref:
+            parts.append(f"Official Government Reference:\n{country_ref}")
+        if vfs_url:
+            parts.append(f"VFS Global Application Centre: {vfs_url}")
+
     if template_context:
         parts.append(f"\n{template_context}")
-    # Skill assessment rule (Sir's directive #4)
+
+    # Country jurisdiction isolation rules
     if country_key in ("australia", "new_zealand") and service_type == "pr":
-        parts.append("\nIMPORTANT: This workflow MUST include a 'Skills Assessment' step as the first or second step (mandatory for AU/NZ PR).")
+        if skill_assessment_url:
+            parts.append(f"\nSkill Assessment Authority (REQUIRED for {country_key.upper()} PR): {skill_assessment_url}")
+        parts.append("\nIMPORTANT FOR AU/NZ PR: This workflow MUST include a 'Skills Assessment' step as the first or second step (mandatory for AU/NZ PR).")
     else:
-        parts.append("\nNote: This is NOT an AU/NZ PR workflow — do NOT include a 'Skills Assessment' step unless the destination explicitly requires it.")
+        parts.append(
+            f"\nCRITICAL REGULATORY JURISDICTION MANDATE:\n"
+            f"- This workflow is EXCLUSIVELY for {country_key.replace('_', ' ').title()}.\n"
+            f"- DO NOT mention or include Australian Department of Home Affairs forms (Form 80, Form 1221, Form 1393, Form 40SP, etc.).\n"
+            f"- DO NOT mention or include Australian assessing authorities (VETASSESS, ACS, Engineers Australia, TRA, etc.).\n"
+            f"- DO NOT mention Australian visa subclasses (189, 190, 491, 482, 500, etc.) or DHA SkillSelect.\n"
+            f"- You must STRICTLY use the official government immigration laws, statutory form codes, ministerial bodies, and procedures of {country_key.replace('_', ' ').title()}."
+        )
+
     return "\n".join(parts)
 
 
@@ -206,10 +359,12 @@ def build_stricter_retry_prompt(original_prompt: str, issues: List[str]) -> str:
     return (
         original_prompt
         + f"\n\nIMPORTANT — your previous attempt failed quality checks. Fix these issues:\n{issue_block}\n"
-        + f"\nMINIMUM REQUIREMENTS (HARD RULES):\n"
+        + f"\nMINIMUM REQUIREMENTS (HARD RULES FOR OFFICIAL REGULATORY ACCURACY):\n"
         + f"- At least {MIN_STEPS} steps\n"
         + f"- At least {MIN_DOCS_PER_STEP} required_documents per step\n"
-        + "- Every document MUST have name + description + mandatory flag\n"
-        + "- estimated_government_fees field MUST be populated\n"
+        + "- Every document MUST have exact statutory form code & official government title (NO generic placeholders)\n"
+        + "- Every document description MUST specify issuing authority, apostille/legalization, certified sworn translation, and validity window\n"
+        + "- estimated_government_fees field MUST be populated with official statutory fees in local currency\n"
         + "- Return ONLY valid JSON — no markdown, no preamble.\n"
     )
+

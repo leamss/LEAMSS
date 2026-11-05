@@ -26,14 +26,14 @@ EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 # Sweep A.2 — Job config
 JOB_CACHE_TTL_MINUTES = 60  # Reuse successful job within last 60 min for same country+service
 MAX_CONCURRENT_JOBS_PER_USER = 3
+AI_CALL_TIMEOUT_SECONDS = 300  # Per-AI-call timeout (longer than ingress because we're in bg)
 JOB_OVERALL_TIMEOUT_SECONDS = 240  # 4 min hard ceiling for whole job
-_background_job_tasks = set()
-
 
 
 class WorkflowGenerateRequest(BaseModel):
     country: str
     service_type: str
+    subclass_id: Optional[str] = None
     custom_instructions: Optional[str] = ""
 
 
@@ -388,18 +388,11 @@ class VisaCategoriesRequest(BaseModel):
     country: str
 
 
-_VISA_CATEGORIES_CACHE: Dict[str, list] = {}
-
-
 async def _call_gpt(prompt: str, system_msg: str = "") -> str:
-    """Fast AI call for visa category exploration using sonar."""
-    try:
-        from core.perplexity_client import call_perplexity
-        res, _ = await call_perplexity(prompt, system_msg=system_msg, model="sonar", max_tokens=1500, timeout=6.0)
-        return res
-    except Exception as e:
-        logger.warning(f"AI call failed in _call_gpt: {e}")
-        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+    """Call AI via Perplexity"""
+    from services.ai_workflow_service import call_ai_with_fallback
+    text, _ = await call_ai_with_fallback(prompt, system_msg)
+    return text
 
 
 @router.get("/countries")
@@ -419,68 +412,103 @@ async def get_supported_countries(current_user: dict = Depends(get_current_user)
 
 @router.post("/visa-categories")
 async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = Depends(get_current_user)):
-    """Get all visa subclasses/categories for a country - fast cache + instant hardcoded data + quick AI enrichment"""
+    """Get all visa subclasses/categories for a country - checks verified database first, then Perplexity AI, then hardcoded fallback"""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
     country_key = data.country.lower().replace(" ", "_")
+    country_name_clean = data.country.strip()
 
-    # Fast in-memory cache hit (<1ms)
-    if country_key in _VISA_CATEGORIES_CACHE:
-        return {"country": data.country, "categories": _VISA_CATEGORIES_CACHE[country_key]}
-    
-    # Build categories from COUNTRY_REFERENCES (no AI needed)
-    categories = []
-    if country_key in COUNTRY_REFERENCES:
-        for svc_key, ref_info in COUNTRY_REFERENCES[country_key].items():
-            # Extract URL from reference info
-            url = ""
-            for part in ref_info.split(". "):
-                if "Reference:" in part:
-                    url_part = part.replace("Reference:", "").strip().rstrip(".")
-                    if url_part and not url_part.startswith("http"):
-                        url = f"https://{url_part}"
-                    elif url_part.startswith("http"):
-                        url = url_part
-                    break
-            
-            categories.append({
-                "id": f"{country_key}_{svc_key}",
-                "name": svc_key.replace("_", " ").title(),
-                "description": ref_info.split(". ")[0] if ". " in ref_info else ref_info,
-                "category": svc_key,
-                "service_type": svc_key,  # B.2 HOTFIX — canonical token for /generate
-                "official_url": url,
-                "estimated_fees": "",
-                "reference": ref_info,
-            })
+    from services import ai_workflow_service as ai_svc
+    from services.country_regulatory_authorities import (
+        get_country_authority_info,
+        get_country_official_portal_url,
+        get_country_vfs_url,
+        get_country_visa_categories,
+    )
 
-    # Try AI enrichment (optional - won't fail if budget exceeded)
+    auth_info = get_country_authority_info(data.country)
+    auth_portal = get_country_official_portal_url(data.country) or ""
+    auth_vfs = get_country_vfs_url(data.country) or ai_svc.vfsglobal_url(country_key) or ""
+
+    # 1. First check verified country workflows in MongoDB
     try:
-        example = '[{"id":"subclass_189","name":"Subclass 189 - Skilled Independent","description":"Points-based visa for skilled workers","category":"skilled_migration","service_type":"pr","official_url":"https://homeaffairs.gov.au/...","estimated_fees":"AUD $4,910"}]'
+        from routers.country_workflows import _normalise_country, workflows_col
+        country_resolved = _normalise_country(country_name_clean)
+        q = {}
+        if country_resolved.get("code"):
+            q = {
+                "$or": [
+                    {"country_code": country_resolved["code"]},
+                    {"country_name": {"$regex": f"^{country_resolved['name_regex']}$", "$options": "i"}}
+                ],
+                "status": "verified"
+            }
+        else:
+            q = {
+                "country_name": {"$regex": f"^{re.escape(country_name_clean)}$", "$options": "i"},
+                "status": "verified"
+            }
+        verified_docs = await workflows_col.find(q).to_list(100)
+        if verified_docs:
+            categories = []
+            for w in verified_docs:
+                sc_id = str(w.get("subclass_id", "")).strip()
+                name = w.get("subclass_name") or (f"Subclass {sc_id}" if sc_id else "Visa")
+                svc_type = w.get("service_type") or "pr"
+                fees_code = w.get("fees_local_currency_code") or ""
+                fees_amt = w.get("fees_local_currency_amount")
+                fees_str = f"{fees_code} {fees_amt:,}" if (fees_code and isinstance(fees_amt, (int, float))) else (f"{fees_code} {fees_amt}" if fees_amt else "")
+                
+                categories.append({
+                    "id": f"subclass_{sc_id}" if sc_id else f"{country_key}_{svc_type}",
+                    "subclass_id": sc_id,
+                    "name": name,
+                    "description": (w.get("description") or "").split(". ")[0] if ". " in (w.get("description") or "") else (w.get("description") or "")[:150],
+                    "category": svc_type,
+                    "service_type": svc_type,
+                    "official_url": w.get("official_url") or auth_portal,
+                    "vfs_url": w.get("vfs_url") or auth_vfs,
+                    "estimated_fees": fees_str,
+                    "reference": w.get("eligibility_summary") or "",
+                    "source": "verified_database"
+                })
+            return {"country": data.country, "categories": categories}
+    except Exception as e:
+        logger.warning(f"Error querying verified workflows for {data.country}: {e}")
+
+    # 2. Check verified statutory streams from country_regulatory_authorities
+    try:
+        curated_streams = get_country_visa_categories(data.country)
+        if curated_streams:
+            return {"country": data.country, "categories": curated_streams}
+    except Exception as e:
+        logger.warning(f"Error querying country_regulatory_authorities for {data.country}: {e}")
+
+    # 3. Try AI enrichment via Perplexity (returns live, accurate subclasses + fees)
+    try:
+        example = '[{"id":"work","name":"Temporary Residence (Work)","description":"For foreign nationals with a formal job offer in Argentina","category":"work","service_type":"work","official_url":"https://...","vfs_url":"https://...","estimated_fees":"USD 200"}]'
         prompt = (
-            f'List ALL visa categories and subclasses for {data.country} with subclass numbers where applicable. '
+            f'List ALL official visa categories and subclasses for {data.country} with subclass numbers or official names. '
             f'Include official government page URLs and current application fees. For each item include a '
             f'"service_type" field with one of: "pr" (permanent residence/skilled migration), "work" (work permits), '
             f'"student" (study visas), "visitor" (tourist/business visit), "partner" (spouse/family). '
             f'Return ONLY a JSON array. Example: {example}'
         )
-        system_msg = "Immigration visa expert. List ALL visa subclasses with official URLs and fees. Each item MUST have a canonical service_type from {pr,work,student,visitor,partner}. Return ONLY valid JSON."
+        system_msg = "Immigration visa expert. List ALL visa subclasses with official URLs and fees. Each item MUST have a canonical service_type from {pr,work,student,visitor,partner}. Return ONLY valid JSON array."
         response = await _call_gpt(prompt, system_msg)
         cleaned = response.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-            cleaned = cleaned.rsplit("```", 1)[0]
+        m = re.search(r"(\[.*?\])", cleaned, re.DOTALL)
+        if m:
+            cleaned = m.group(1)
         start = cleaned.find("[")
         end = cleaned.rfind("]") + 1
         if start >= 0 and end > start:
             ai_cats = json.loads(cleaned[start:end])
             if isinstance(ai_cats, list) and len(ai_cats) > 0:
-                # B.2 HOTFIX — ensure each AI item has canonical service_type
-                # If AI omitted it, infer from name/category via keyword scan
                 _SERVICE_KEYWORD_INFER = (
-                    ("pr", ["skilled", "permanent", "express entry", "smc", "pnp", "innovator", "subclass 189", "subclass 190", "subclass 491", "global talent", "green list"]),
-                    ("work", ["work", "worker", "tss", "h-1b", "lmia", "aewv", "employment"]),
+                    ("pr", ["skilled", "permanent", "express entry", "smc", "pnp", "innovator", "subclass 189", "subclass 190", "subclass 491", "global talent", "green list", "residence"]),
+                    ("work", ["work", "worker", "tss", "h-1b", "lmia", "aewv", "employment", "nomad"]),
                     ("student", ["student", "study", "tier 4", "f-1", "d-2", "cas"]),
                     ("visitor", ["visit", "tourist", "trv", "b-1", "b-2", "working holiday"]),
                     ("partner", ["partner", "spouse", "family", "marriage", "appendix fm"]),
@@ -490,21 +518,61 @@ async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = 
                         continue
                     if item.get("service_type"):
                         item["service_type"] = str(item["service_type"]).lower().strip()
-                        continue
-                    # Infer from name/category
-                    text_blob = f"{item.get('name','')} {item.get('category','')} {item.get('description','')}".lower()
-                    for canonical, keywords in _SERVICE_KEYWORD_INFER:
-                        if any(kw in text_blob for kw in keywords):
-                            item["service_type"] = canonical
-                            break
-                categories = ai_cats  # AI gave better data, use it
-    except Exception:
-        pass  # AI failed (budget, timeout etc) - use hardcoded data
+                    else:
+                        text_blob = f"{item.get('name','')} {item.get('category','')} {item.get('description','')}".lower()
+                        for canonical, keywords in _SERVICE_KEYWORD_INFER:
+                            if any(kw in text_blob for kw in keywords):
+                                item["service_type"] = canonical
+                                break
+                    if not item.get("category"):
+                        item["category"] = item.get("service_type", "immigration")
+                    if not item.get("official_url"):
+                        item["official_url"] = auth_portal
+                    if not item.get("vfs_url"):
+                        item["vfs_url"] = auth_vfs
+                return {"country": data.country, "categories": ai_cats}
+    except Exception as e:
+        logger.warning(f"AI enrichment failed for {data.country}: {e}")
 
-    if categories:
-        _VISA_CATEGORIES_CACHE[country_key] = categories
+    # 4. Fallback to hardcoded COUNTRY_REFERENCES with clean display names
+    SVC_DISPLAY_NAMES = {
+        "pr": "Permanent Residence / Skilled Migration",
+        "work": "Work Visa / Employment",
+        "student": "Student / Study Visa",
+        "visitor": "Visitor / Tourist Visa",
+        "partner": "Partner / Spouse / Family Visa",
+        "business": "Business / Investor Visa",
+        "jobseeker": "Job Seeker Visa",
+        "golden": "Golden Visa",
+        "immigrant": "Immigrant Visa / Green Card",
+        "family": "Family-Based Immigration",
+        "transit": "Transit Visa",
+        "nomad": "Digital Nomad Visa",
+    }
+    categories = []
+    if country_key in COUNTRY_REFERENCES:
+        for svc_key, ref_info in COUNTRY_REFERENCES[country_key].items():
+            url = ""
+            for part in ref_info.split(". "):
+                if "Reference:" in part:
+                    url_part = part.replace("Reference:", "").strip().rstrip(".")
+                    url = url_part if url_part.startswith("http") else f"https://{url_part}"
+                    break
+            
+            categories.append({
+                "id": f"{country_key}_{svc_key}",
+                "name": SVC_DISPLAY_NAMES.get(svc_key, svc_key.replace("_", " ").title()),
+                "description": ref_info.split(". ")[0] if ". " in ref_info else ref_info,
+                "category": svc_key,
+                "service_type": svc_key,
+                "official_url": url or auth_portal,
+                "vfs_url": auth_vfs,
+                "estimated_fees": "",
+                "reference": ref_info,
+            })
 
     return {"country": data.country, "categories": categories}
+
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -526,20 +594,18 @@ async def _execute_workflow_generation(
 
     Updates the job doc throughout its lifecycle with progress + current_step.
     """
+    from services import ai_workflow_service as ai_svc
+
     now_iso = lambda: datetime.now(timezone.utc).isoformat()  # noqa: E731
 
     async def _update(patch: dict):
-        try:
-            patch["updated_at"] = now_iso()
-            await ai_workflow_jobs_col.update_one({"job_id": job_id}, {"$set": patch})
-        except Exception as ue:
-            logger.exception(f"Failed to update job {job_id}: {ue}")
+        patch["updated_at"] = now_iso()
+        await ai_workflow_jobs_col.update_one({"job_id": job_id}, {"$set": patch})
 
     started_at = datetime.now(timezone.utc)
-    try:
-        await _update({"status": "running", "started_at": started_at.isoformat(), "progress": 10, "current_step": "analyzing"})
-        from services import ai_workflow_service as ai_svc
+    await _update({"status": "running", "started_at": started_at.isoformat(), "progress": 10, "current_step": "analyzing"})
 
+    try:
         country_key = country.lower().replace(" ", "_")
         service_key = service_type.lower().replace(" ", "_")
 
@@ -569,54 +635,58 @@ async def _execute_workflow_generation(
         )
 
         system_msg = (
-            "You are an expert immigration consultant AI with deep knowledge of global immigration processes. "
-            "You generate accurate, step-by-step immigration workflows based on OFFICIAL government requirements "
-            "and VFSglobal application centre procedures (for Indian applicants). "
-            "You must return ONLY valid JSON, no markdown, no extra text. "
-            "Every step MUST have at least 3 required documents. Include all documents that an applicant would need."
+            "You are a Senior Licensed Immigration Attorney and International Regulatory Expert. "
+            "You generate authoritative, legally accurate immigration workflows strictly reflecting current OFFICIAL government immigration laws and procedures. "
+            "Output STRICT JSON only — no markdown wrapping, no extra conversational preamble or text.\n\n"
+            "STRICT LANGUAGE MANDATE:\n"
+            "ALL OUTPUT (product_name, description, step names, descriptions, required_documents names and descriptions, success_tips, common_rejection_reasons, fees) MUST BE 100% IN THE ENGLISH LANGUAGE FOR EVERY COUNTRY WITHOUT EXCEPTION. "
+            "Even if the destination country is Argentina, Spain, France, Germany, Italy, Japan, etc., you MUST write EVERY document title and description in English (e.g. 'National Criminal Record Police Clearance Certificate (Apostilled with Certified Sworn Translation)', NEVER 'Certificado de Antecedentes Penales'; 'Valid National Biometric Passport', NEVER 'Pasaporte válido y vigente'; 'Official Electronic Residence Application Form (RADEX)', NEVER 'Solicitud de residencia correspondiente'; 'Evidentiary Documentation of Professional / Employment Activity', NEVER 'Documentación acreditativa de la actividad laboral'). NEVER output non-English text.\n\n"
+            "MANDATE FOR DOCUMENT PRECISION AND ACCURACY (OFFICIAL GOVERNMENT STANDARDS):\n"
+            "1. PRECISE OFFICIAL NOMENCLATURE: Use the exact statutory form code and official government document title in English (e.g. 'Form 80 - Personal Particulars for Assessment', 'IMM 5406 - Additional Family Information', 'Form DS-160 Online Nonimmigrant Visa Application Confirmation', 'National Police Clearance Certificate (Apostilled with Sworn Translation)', 'RADEX Online Residence Application Confirmation'). NEVER output generic terms like 'Identity Document', 'Proof of Funds', 'Application Form', 'Police Certificate', or 'Medical Report'.\n"
+            "2. EXHAUSTIVE DOCUMENT SPECIFICATIONS: Every required document's 'description' MUST clearly specify in English: (a) Issuing authority/ministry, (b) Legalization standard (Hague Apostille Convention or Consular Legalization), (c) Translation requirement (must specify sworn certified translation into the official language by an accredited translator where applicable), (d) Specific validity duration (e.g. issued within 90 days, 180 days, or valid 6+ months beyond stay with 2 blank pages), and (e) Specific evidential benchmarks (e.g. 6 consecutive months stamped bank statements with bank branch seal, biometric photo 4x4cm on white background).\n"
+            "3. ACCURATE STATUTORY FEES & PROCESSING TIMES: Provide realistic government processing times and current official fees in local statutory currency (e.g. AUD, USD, CAD, EUR, GBP, ARS) with estimated INR/USD equivalents."
         )
 
-        base_prompt = f"""Generate a COMPREHENSIVE immigration workflow for: {country} - {service_type}
+        base_prompt = f"""Generate a HIGHLY PRECISE, REGULATORY-ACCURATE immigration workflow for: {country} - {service_type}
 
 {enrichment_block}
 {f"Additional Instructions: {custom_instructions}" if custom_instructions else ""}
 
-CRITICAL RULES:
-1. Include 5-6 logical steps.
-2. Every step MUST have 3-4 required_documents with concise descriptions (1 sentence each).
-3. Include specific document names as used by the official government.
-4. Include ALL fees in local currency based on current official government fee schedules.
-5. Reference official government websites (.gov / official portals) AND VFSglobal for application submission step.
-6. For AU/NZ PR ONLY: include "Skills Assessment" as first or second step (mandatory). For all OTHER workflows, DO NOT include a skills assessment step.
-7. Keep descriptions concise, specific, and punchy (1 sentence per doc, 2 sentences per step) to maximize generation speed.
+CRITICAL REGULATORY COMPLIANCE RULES:
+1. STRICT ENGLISH MANDATE: ALL OUTPUT MUST BE 100% IN ENGLISH FOR EVERY COUNTRY WITHOUT EXCEPTION. Even for non-English speaking countries, all step names, descriptions, and document titles must be strictly in English.
+2. OFFICIAL STATUTORY FORM NAMES: Every required document MUST state its exact official form number and title in English as published on the destination country's government immigration website.
+3. APOSTILLE & SWORN TRANSLATION: For all documents originating outside the destination country, explicitly state whether Hague Apostille authentication (e.g. from MEA India) and certified sworn translation (Traductor Público / NAATI / Sworn Court Translator) are mandatory.
+4. EXHAUSTIVE SPECIFICATIONS: Each document's 'description' must specify in English the issuing agency, required format (original with physical seal vs certified copy), validity window, and financial or evidential thresholds.
+5. OFFICIAL GOVERNMENT SOURCES: Reference only real .gov / official ministerial portals and VFSglobal/authorized centers.
+6. WORKFLOW COMPLETENESS: Include 5-8 chronological stages (e.g., Eligibility & Legalization, Assessment/Testing, Official Application Submission, Biometrics & Panel Medicals, Grant & Activation). EVERY step must have 3-6 thoroughly specified required_documents.
 
 Return a JSON object with this EXACT structure:
 {{
-  "product_name": "{country} - {service_type}",
-  "description": "Brief description of this immigration pathway",
+  "product_name": "Official Country - Visa Pathway with Subclass / Category",
+  "description": "Authoritative overview of this statutory immigration pathway, legal basis, and eligibility criteria",
   "category": "immigration",
   "estimated_total_duration_days": 180,
-  "estimated_government_fees": "Complete fee breakdown in local currency",
-  "success_tips": ["tip1", "tip2", "tip3"],
-  "common_rejection_reasons": ["reason1", "reason2"],
+  "estimated_government_fees": "Detailed breakdown of all official government statutory fees in local currency",
+  "success_tips": ["Actionable compliance tip 1", "Actionable compliance tip 2", "Actionable compliance tip 3"],
+  "common_rejection_reasons": ["Specific statutory refusal ground 1", "Specific statutory refusal ground 2"],
   "steps": [
     {{
-      "step_name": "Step Name",
+      "step_name": "Official Step Name",
       "step_order": 1,
-      "description": "Detailed description of what happens in this step",
+      "description": "Detailed explanation of this step per official government guidelines",
       "duration_days": 30,
-      "official_source_url": "https://...gov...",
-      "vfsglobal_url": "https://visa.vfsglobal.com/...",
+      "official_source_url": "https://...official .gov link...",
+      "vfsglobal_url": "https://visa.vfsglobal.com/... (if applicable)",
       "required_documents": [
         {{
-          "name": "Official Document Name",
-          "description": "Concise description of document and requirements",
+          "name": "Exact Statutory Document Name with Form Code",
+          "description": "Specific issuing authority, Hague apostille/legalization rules, certified sworn translation standard, and exact validity window",
           "mandatory": true,
-          "typical_validity_days": 365
+          "typical_validity_days": 180
         }}
       ],
-      "important_notes": "Critical information for this step",
-      "government_fees": "Specific fees for this step in local currency"
+      "important_notes": "Statutory advice, procedural caveats, or embassy guidelines for this step",
+      "government_fees": "Specific fee for this step in local currency"
     }}
   ]
 }}"""
@@ -630,195 +700,207 @@ Return a JSON object with this EXACT structure:
 
         for attempt in range(ai_svc.MAX_QUALITY_RETRIES + 1):
             try:
-                response, model_used = await ai_svc.call_ai_with_fallback(prompt, system_msg)
+                response, model_used = await asyncio.wait_for(
+                    ai_svc.call_ai_with_fallback(prompt, system_msg),
+                    timeout=AI_CALL_TIMEOUT_SECONDS,
+                )
                 workflow_data = ai_svc.parse_json_response(response)
             except asyncio.TimeoutError:
                 workflow_data = None
-                last_quality_issues = [f"ai_call_timeout_attempt_{attempt+1}"]
-                logger.warning(f"AI workflow job {job_id} attempt {attempt+1} timed out")
+                last_quality_issues = [f"ai_call_timeout_attempt_{attempt+1}_after_{AI_CALL_TIMEOUT_SECONDS}s"]
+                logger.warning(f"AI workflow job {job_id} attempt {attempt+1} timed out after {AI_CALL_TIMEOUT_SECONDS}s")
                 continue
             except Exception as e:  # noqa: BLE001
                 workflow_data = None
                 last_quality_issues = [f"ai_call_error_{str(e)[:120]}"]
                 logger.exception(f"AI workflow job {job_id} attempt {attempt+1} errored")
-                break
+                break  # don't retry on hard non-timeout failure
 
-            if workflow_data and isinstance(workflow_data, dict):
-                passed, issues = ai_svc.validate_workflow_quality(workflow_data)
-                if passed:
-                    break
-                last_quality_issues = issues
+            passed, issues = ai_svc.validate_workflow_quality(workflow_data)
+            if passed:
+                break
+            last_quality_issues = issues
             if attempt < ai_svc.MAX_QUALITY_RETRIES:
-                prompt = ai_svc.build_stricter_retry_prompt(base_prompt, last_quality_issues)
+                prompt = ai_svc.build_stricter_retry_prompt(base_prompt, issues)
                 await _update({"progress": 30 + (attempt + 1) * 20, "current_step": "regenerating"})
 
         await _update({"progress": 80, "current_step": "formatting"})
 
-        # Fallback to pre-built template if AI failed
-        if not workflow_data and template:
-            steps = []
-            for i, (step_name, docs) in enumerate(template.get("steps", {}).items(), 1):
-                steps.append({
-                    "step_name": step_name, "step_order": i, "description": "", "duration_days": 14,
-                    "required_documents": [
-                        {"name": d["doc_name"], "description": d.get("description", ""),
-                         "mandatory": d.get("is_mandatory", True)} for d in docs],
-                    "important_notes": "", "government_fees": "",
-                    "official_source_url": "", "vfsglobal_url": vfs_url or "",
-                })
-            workflow_data = {
-                "product_name": f"{country} - {service_type}",
-                "description": template.get("label", ""),
-                "category": "immigration",
-                "estimated_government_fees": template.get("fees_info", ""),
-                "steps": steps, "success_tips": [], "common_rejection_reasons": [],
-                "_degraded_mode": "template_fallback",
-            }
-            model_used = "template_fallback"
+        # Country-aware fallback if AI fully failed
+        if not workflow_data:
+            from services.country_regulatory_authorities import get_country_authority_info, get_country_official_forms
+            auth_info = get_country_authority_info(country)
+            if auth_info:
+                country_name = auth_info["country_name"]
+                authority_name = auth_info["authority_name"]
+                portal_url = auth_info["official_portal_url"]
+                vfs_url_target = vfs_url or auth_info.get("vfs_url", "")
+                official_forms = get_country_official_forms(country, service_type) or auth_info.get("official_forms", [])
+
+                matched_stream = next((s for s in auth_info.get("visa_streams", []) if s.get("service_type") == service_key or s.get("category") == service_key), None)
+                stream_name = matched_stream.get("name") if matched_stream else f"{country_name} - {service_type.replace('_', ' ').title()}"
+                stream_fees = matched_stream.get("estimated_fees") if matched_stream else "Official statutory fees per destination ministerial schedule"
+
+                steps = [
+                    {
+                        "step_name": f"Eligibility & Document Legalization ({country_name})",
+                        "step_order": 1,
+                        "description": f"Verify eligibility criteria per {authority_name} guidelines and legalize civil and educational documents via Hague Apostille Convention.",
+                        "duration_days": 30,
+                        "required_documents": [
+                            {"name": "Valid National Biometric Passport", "description": "Color scan of bio-data and signature pages valid for at least 6 months beyond intended stay with minimum 2 blank pages.", "mandatory": True, "typical_validity_days": 180},
+                            {"name": "Apostilled Educational Degree & Transcripts", "description": "Highest degree certificate and academic transcripts authenticated with Hague Apostille Convention certification and sworn translation.", "mandatory": True, "typical_validity_days": 365},
+                            {"name": "Apostilled National Police Clearance Certificate (PCC)", "description": "National criminal record clearance issued by Passport Seva Kendra / MEA within last 6 months with certified sworn translation.", "mandatory": True, "typical_validity_days": 180},
+                        ],
+                        "important_notes": "All foreign documents must have Hague Apostille authentication from MEA India prior to sworn translation.",
+                        "government_fees": "Apostille: ~INR 50 per document",
+                        "official_source_url": portal_url,
+                        "vfsglobal_url": vfs_url_target,
+                    },
+                    {
+                        "step_name": "Statutory Application Filing & Ministerial Forms",
+                        "step_order": 2,
+                        "description": f"Complete official electronic application forms published by {authority_name}.",
+                        "duration_days": 30,
+                        "required_documents": [
+                            {"name": f["name"], "description": f["description"], "mandatory": f.get("mandatory", True), "typical_validity_days": 180}
+                            for f in official_forms[:3]
+                        ] if official_forms else [
+                            {"name": f"Official {country_name} Visa Application Form", "description": f"Completed and signed statutory visa application form for {country_name}.", "mandatory": True, "typical_validity_days": 90},
+                            {"name": "Comprehensive CV / Resume", "description": "Detailed curriculum vitae formatted according to European / destination standards.", "mandatory": True, "typical_validity_days": 180},
+                        ],
+                        "important_notes": "Ensure all form fields strictly match passport details.",
+                        "government_fees": stream_fees,
+                        "official_source_url": portal_url,
+                        "vfsglobal_url": vfs_url_target,
+                    },
+                    {
+                        "step_name": "Financial Capacity & Accommodation Evidence",
+                        "step_order": 3,
+                        "description": f"Demonstrate financial self-sufficiency and verified accommodation arrangements per {authority_name} requirements.",
+                        "duration_days": 15,
+                        "required_documents": [
+                            {"name": "Bank Account Statements (Past 6 Consecutive Months)", "description": "Original stamped and signed bank statements showing sufficient subsistence funds meeting destination statutory threshold.", "mandatory": True, "typical_validity_days": 30},
+                            {"name": "Proof of Accommodation / Lodging Guarantee", "description": "Confirmed rental agreement, hotel reservation, or official host invitation declaration.", "mandatory": True, "typical_validity_days": 90},
+                            {"name": "Comprehensive International Travel & Health Insurance", "description": "Medical insurance policy providing minimum EUR 30,000 / USD 50,000 coverage valid for entire initial stay.", "mandatory": True, "typical_validity_days": 180},
+                        ],
+                        "important_notes": "Unexplained lump sum deposits may trigger statutory scrutiny.",
+                        "government_fees": "",
+                        "official_source_url": portal_url,
+                        "vfsglobal_url": vfs_url_target,
+                    },
+                    {
+                        "step_name": "Biometrics Appointment & Submission at VFS Global",
+                        "step_order": 4,
+                        "description": f"Schedule and attend appointment at authorized VFS Global Application Centre for biometric enrolment and document submission.",
+                        "duration_days": 14,
+                        "required_documents": [
+                            {"name": "VFS Global Appointment Confirmation Letter", "description": "Official appointment booking confirmation with barcode for document submission.", "mandatory": True, "typical_validity_days": 30},
+                            {"name": "Biometric Photographs (ICAO Standard)", "description": "Recent passport-sized color photographs on light background meeting destination biometric standards.", "mandatory": True, "typical_validity_days": 90},
+                            {"name": "Complete Hard-Copy Application Dossier", "description": "Original passport, statutory forms, and complete set of photocopies.", "mandatory": True, "typical_validity_days": 30},
+                        ],
+                        "important_notes": "All applicants must appear in person for fingerprint and facial biometric collection.",
+                        "government_fees": "VFS Service Fee: ~INR 1,800 - 2,500",
+                        "official_source_url": portal_url,
+                        "vfsglobal_url": vfs_url_target,
+                    },
+                    {
+                        "step_name": "Consular Processing, Visa Grant & Activation",
+                        "step_order": 5,
+                        "description": f"Passport collection with entry visa sticker and post-arrival registration with local municipal / migration authorities in {country_name}.",
+                        "duration_days": 30,
+                        "required_documents": [
+                            {"name": "Original Valid Passport with Entry Visa Vignette", "description": "Passport containing valid entry visa sticker / approval grant notification.", "mandatory": True, "typical_validity_days": 180},
+                            {"name": "Local Residence Registration Document", "description": f"Post-arrival registration certificate at local municipal authority / police headquarters in {country_name}.", "mandatory": True, "typical_validity_days": 365},
+                        ],
+                        "important_notes": f"Register with local immigration authorities within designated window (typically 8 to 14 days) after arrival in {country_name}.",
+                        "government_fees": "",
+                        "official_source_url": portal_url,
+                        "vfsglobal_url": vfs_url_target,
+                    },
+                ]
+
+                workflow_data = {
+                    "product_name": f"{country_name} - {stream_name}",
+                    "description": f"Authoritative statutory immigration and visa pathway for {country_name} regulated by {authority_name}. Procedures, official forms, and appointment protocols adhere to official ministerial directives and VFS Global requirements.",
+                    "category": "immigration",
+                    "estimated_government_fees": stream_fees,
+                    "estimated_total_duration_days": 120,
+                    "success_tips": [
+                        "Ensure all educational and police records are authenticated with Hague Apostille Convention stamps.",
+                        "Verify that certified translations into the destination language are executed by sworn translators.",
+                        "Submit complete financial statements with bank branch manager stamp and signature.",
+                    ],
+                    "common_rejection_reasons": [
+                        "Incomplete document dossier or uncertified sworn translations",
+                        "Failure to meet statutory minimum financial threshold",
+                        "Discrepancies in employment history or statutory form entries",
+                    ],
+                    "steps": steps,
+                    "_degraded_mode": "country_authorities_fallback",
+                }
+                model_used = "country_authorities_fallback"
+            elif template:
+                steps = []
+                for i, (step_name, docs) in enumerate(template.get("steps", {}).items(), 1):
+                    steps.append({
+                        "step_name": step_name, "step_order": i, "description": "", "duration_days": 14,
+                        "required_documents": [
+                            {"name": d["doc_name"], "description": d.get("description", ""),
+                             "mandatory": d.get("is_mandatory", True)} for d in docs],
+                        "important_notes": "", "government_fees": "",
+                        "official_source_url": "", "vfsglobal_url": vfs_url or "",
+                    })
+                workflow_data = {
+                    "product_name": f"{country} - {service_type}",
+                    "description": template.get("label", ""),
+                    "category": "immigration",
+                    "estimated_government_fees": template.get("fees_info", ""),
+                    "steps": steps, "success_tips": [], "common_rejection_reasons": [],
+                    "_degraded_mode": "template_fallback",
+                }
+                model_used = "template_fallback"
+
         elif not workflow_data:
-            # Dynamic baseline fallback so user is NEVER stranded
-            baseline_steps = [
-                {
-                    "step_name": "Eligibility Check & Document Preparation",
-                    "step_order": 1,
-                    "description": f"Gather primary identity, civil status, and qualification documents for {country} {service_type}.",
-                    "duration_days": 14,
-                    "official_source_url": "",
-                    "vfsglobal_url": vfs_url or "",
-                    "required_documents": [
-                        {"name": "Valid International Passport", "description": "Minimum 6 months validity from intended travel date", "mandatory": True},
-                        {"name": "National Identity Proof (Aadhaar / National ID)", "description": "Government issued identity proof", "mandatory": True},
-                        {"name": "Passport Size Photographs", "description": "Recent photos as per destination country specifications", "mandatory": True},
-                    ],
-                    "important_notes": "Ensure all documents are clear, color scans without clipped edges.",
-                    "government_fees": "",
-                },
-                {
-                    "step_name": "Application Submission & Fee Payment",
-                    "step_order": 2,
-                    "description": f"Submit online visa/immigration application on the official {country} immigration portal.",
-                    "duration_days": 7,
-                    "official_source_url": "",
-                    "vfsglobal_url": vfs_url or "",
-                    "required_documents": [
-                        {"name": "Completed Visa Application Form", "description": "Duly filled and signed application form", "mandatory": True},
-                        {"name": "Application Fee Payment Receipt", "description": "Official government fee payment proof", "mandatory": True},
-                        {"name": "Statement of Purpose / Cover Letter", "description": "Detailed intent letter outlining purpose of application", "mandatory": True},
-                    ],
-                    "important_notes": "Double check all passport numbers and personal particulars before final submission.",
-                    "government_fees": "Standard official government filing fee",
-                },
-                {
-                    "step_name": "Financial Capacity & Evidence of Funds",
-                    "step_order": 3,
-                    "description": "Demonstrate sufficient funds to cover application, travel, and stay requirements.",
-                    "duration_days": 7,
-                    "official_source_url": "",
-                    "vfsglobal_url": "",
-                    "required_documents": [
-                        {"name": "Bank Statements (Past 6 Months)", "description": "Original stamped and signed bank statements showing adequate closing balance", "mandatory": True},
-                        {"name": "Income Tax Returns (Past 2-3 Years)", "description": "ITR-V and computation of income for applicant or sponsor", "mandatory": True},
-                        {"name": "Proof of Employment / Income", "description": "Salary slips (past 3-6 months), employment contract, or business registration", "mandatory": True},
-                    ],
-                    "important_notes": "Unexplained large deposits should be accompanied by clear source of funds documentation.",
-                    "government_fees": "",
-                },
-                {
-                    "step_name": "Biometrics & VFS Appointment",
-                    "step_order": 4,
-                    "description": "Book and attend biometrics (fingerprints & photo) appointment at the designated VFS / visa application centre.",
-                    "duration_days": 14,
-                    "official_source_url": "",
-                    "vfsglobal_url": vfs_url or "",
-                    "required_documents": [
-                        {"name": "VFS Appointment Confirmation Letter", "description": "Printed appointment confirmation sheet", "mandatory": True},
-                        {"name": "Original Passport", "description": "Physical passport for verification and submission", "mandatory": True},
-                        {"name": "Biometrics Instruction Letter (BIL)", "description": "Official letter issued by immigration department requiring biometrics", "mandatory": True},
-                    ],
-                    "important_notes": "Arrive 15 minutes before scheduled time with original documents.",
-                    "government_fees": "VFS biometric service fee",
-                },
-                {
-                    "step_name": "Health Examination & Police Clearances",
-                    "step_order": 5,
-                    "description": "Undergo immigration medical examinations with an approved panel physician and obtain police clearance certificates.",
-                    "duration_days": 21,
-                    "official_source_url": "",
-                    "vfsglobal_url": "",
-                    "required_documents": [
-                        {"name": "Police Clearance Certificate (PCC)", "description": "Issued by Regional Passport Office or police authorities for all countries resided 6+ months", "mandatory": True},
-                        {"name": "Medical Examination Information Sheet / eMedical", "description": "Completed by an authorized panel physician", "mandatory": True},
-                        {"name": "Immunization / Health Records", "description": "Vaccination cards and required health certificates", "mandatory": False},
-                    ],
-                    "important_notes": "PCC typically has 6-12 months validity; obtain it close to the submission window.",
-                    "government_fees": "Panel clinic medical fee",
-                },
-                {
-                    "step_name": "Decision, Passport Stamping & Visa Grant",
-                    "step_order": 6,
-                    "description": f"Receive official decision notice and passport visa sticker / electronic grant notification for {country}.",
-                    "duration_days": 30,
-                    "official_source_url": "",
-                    "vfsglobal_url": vfs_url or "",
-                    "required_documents": [
-                        {"name": "Visa Grant Notification / Approval Letter", "description": "Official grant letter specifying visa conditions and entry validity", "mandatory": True},
-                        {"name": "Stamped Passport / eVisa Document", "description": "Counterfoil visa sticker or digital visa confirmation printout", "mandatory": True},
-                        {"name": "Travel Insurance Policy", "description": "Comprehensive international travel and medical insurance", "mandatory": True},
-                    ],
-                    "important_notes": "Verify that all visa details (name spelling, passport number, validity dates, visa conditions) are correct upon receipt.",
-                    "government_fees": "",
-                },
-            ]
-            workflow_data = {
-                "product_name": f"{country} - {service_type}",
-                "description": f"Complete immigration pathway workflow for {country} {service_type} with government and document checklist.",
-                "category": "immigration",
-                "estimated_total_duration_days": 120,
-                "estimated_government_fees": "Check official government portal for latest fee schedule",
-                "steps": baseline_steps,
-                "success_tips": [
-                    "Submit all requested documents in high-resolution color PDF format.",
-                    "Ensure consistency across employment history, educational records, and identity documents.",
-                    "Keep backup copies of all submitted forms and payment receipts.",
-                ],
-                "common_rejection_reasons": [
-                    "Incomplete documentation or unverified financial resources.",
-                    "Inconsistencies between application answers and background checks.",
-                    "Failure to meet minimum validity requirements on identity documents.",
-                ],
-                "_degraded_mode": "baseline_fallback",
-            }
-            model_used = "baseline_fallback"
+            # Hard failure — mark job as failed
+            await _update({
+                "status": "failed",
+                "progress": 100,
+                "current_step": "failed",
+                "error": "AI providers exhausted and no verified template available for this country/visa combo. Try a different category or retry shortly.",
+                "completed_at": now_iso(),
+            })
+            await log_activity(user_id, user_name, "workflow_generate_failed", "ai_workflow",
+                               details=f"{country}-{service_type} · job={job_id} · {';'.join(last_quality_issues)[:200]}")
+        # Enrich and sanitize workflow to ensure 100% English and official statutory standards
+        from services.statutory_document_standards import sanitize_workflow_to_english
+        if workflow_data:
+            workflow_data = sanitize_workflow_to_english(
+                workflow_data,
+                country,
+                service_type,
+            )
 
-        # Sanitize workflow_data
-        if not isinstance(workflow_data.get("steps"), list):
-            workflow_data["steps"] = []
-        for i, s in enumerate(workflow_data["steps"], 1):
-            s["step_order"] = s.get("step_order") or i
-            if not s.get("step_name"):
-                s["step_name"] = f"Step {i}"
-            if not isinstance(s.get("required_documents"), list):
-                s["required_documents"] = []
-            for di, doc in enumerate(s["required_documents"]):
-                if isinstance(doc, str):
-                    s["required_documents"][di] = {
-                        "name": doc,
-                        "description": "",
-                        "mandatory": True,
-                        "typical_validity_days": 365,
-                    }
-                elif isinstance(doc, dict):
-                    if not doc.get("name"):
-                        doc["name"] = f"Document {di+1}"
-                    if "mandatory" not in doc and "is_mandatory" in doc:
-                        doc["mandatory"] = doc["is_mandatory"]
+        # Attach metadata and populate official URLs
+        from services.country_regulatory_authorities import get_country_authority_info
+        auth_data = get_country_authority_info(country)
+        official_portal_url = auth_data["official_portal_url"] if auth_data else ""
+        authority_name = auth_data["authority_name"] if auth_data else ""
+        vfs_portal_url = vfs_url or (auth_data.get("vfs_url") if auth_data else "")
 
-        # Attach metadata
+        for s in workflow_data.get("steps", []):
+            if not s.get("official_source_url") or "..." in s.get("official_source_url", ""):
+                s["official_source_url"] = official_portal_url
+            if not s.get("vfsglobal_url") or "..." in s.get("vfsglobal_url", ""):
+                s["vfsglobal_url"] = vfs_portal_url
+
         workflow_data["_meta"] = {
             "model_used": model_used,
             "country_key": country_key,
             "service_key": service_key,
-            "vfsglobal_url": vfs_url,
+            "vfsglobal_url": vfs_portal_url,
+            "official_source_url": official_portal_url,
+            "authority_name": authority_name,
             "skill_assessment_url": sa_url,
             "is_skill_assessment_required": (country_key in ("australia", "new_zealand") and service_key == "pr"),
             "quality_issues": last_quality_issues,
@@ -888,7 +970,7 @@ async def generate_workflow(
     # Sweep B.1 — Check for VERIFIED seeded workflow first; skips AI entirely if found
     try:
         from routers.country_workflows import find_verified_workflow
-        verified = await find_verified_workflow(country, service_type)
+        verified = await find_verified_workflow(country, service_type, getattr(request, "subclass_id", None))
         if verified:
             # Build a flat document_checklist (with doc_id) and a lookup map for nested step docs
             flat_doc_checklist = verified.get("document_checklist", []) or []
@@ -951,26 +1033,33 @@ async def generate_workflow(
                     "common_rejection_reasons": verified.get("common_rejection_reasons", []),
                     # Sweep B.2 — Surface flat document_checklist with doc_id for downstream consumers
                     "document_checklist": flat_doc_checklist,
-                    "steps": [
-                        {
-                            "step_name": s.get("title", ""),
-                            "step_order": s.get("step_number", i + 1),
-                            "description": s.get("description", ""),
-                            "duration_days": s.get("estimated_days", 0),
-                            "required_documents": [
-                                _resolve_step_doc(
-                                    d,
-                                    fallback_id=f"{verified.get('country_code','??')}-{verified.get('subclass_id','??')}-STEP{s.get('step_number', i+1):02d}-DOC-{di+1:02d}",
-                                )
-                                for di, d in enumerate(s.get("documents_needed", []) or [])
+                    "steps": (lambda: (
+                        __import__("services.statutory_document_standards", fromlist=["enrich_workflow_steps"]).enrich_workflow_steps(
+                            verified.get("country_name", country),
+                            [
+                                {
+                                    "step_name": s.get("title", ""),
+                                    "step_order": s.get("step_number", i + 1),
+                                    "description": s.get("description", ""),
+                                    "duration_days": s.get("estimated_days", 0),
+                                    "required_documents": [
+                                        _resolve_step_doc(
+                                            d,
+                                            fallback_id=f"{verified.get('country_code','??')}-{verified.get('subclass_id','??')}-STEP{s.get('step_number', i+1):02d}-DOC-{di+1:02d}",
+                                        )
+                                        for di, d in enumerate(s.get("documents_needed", []) or [])
+                                    ],
+                                    "important_notes": "; ".join(s.get("tips", []) or []),
+                                    "government_fees": "",
+                                    "official_source_url": verified.get("official_url", ""),
+                                    "vfsglobal_url": verified.get("vfs_url", ""),
+                                }
+                                for i, s in enumerate(verified.get("step_by_step", []) or [])
                             ],
-                            "important_notes": "; ".join(s.get("tips", []) or []),
-                            "government_fees": "",
-                            "official_source_url": verified.get("official_url", ""),
-                            "vfsglobal_url": verified.get("vfs_url", ""),
-                        }
-                        for i, s in enumerate(verified.get("step_by_step", []) or [])
-                    ],
+                            service_type,
+                            verified.get("subclass_id")
+                        )
+                    ))(),
                     "_meta": {
                         "model_used": "verified_seed",
                         "source": "country_visa_workflows",
@@ -986,19 +1075,16 @@ async def generate_workflow(
 
     # Cache lookup: most recent successful job for same country+service in last hour
     cache_cutoff = datetime.now(timezone.utc) - timedelta(minutes=JOB_CACHE_TTL_MINUTES)
-    cache_filter: dict = {
-        "status": "complete",
-        "completed_at": {"$gte": cache_cutoff.isoformat()},
-        "country": {"$regex": f"^{country.strip()}$", "$options": "i"},
-        "service_type": {"$regex": f"^{service_type.strip()}$", "$options": "i"},
-    }
-    if request.custom_instructions:
-        cache_filter["user_id"] = user_id
-        cache_filter["custom_instructions"] = request.custom_instructions
-    else:
-        cache_filter["$or"] = [{"custom_instructions": ""}, {"custom_instructions": {"$exists": False}}]
-
-    cached = await ai_workflow_jobs_col.find_one(cache_filter, sort=[("completed_at", -1)])
+    cached = await ai_workflow_jobs_col.find_one(
+        {
+            "user_id": user_id,
+            "country": country,
+            "service_type": service_type,
+            "status": "complete",
+            "completed_at": {"$gte": cache_cutoff.isoformat()},
+        },
+        sort=[("completed_at", -1)],
+    )
     if cached and cached.get("result"):
         cached_job = _serialize_job(cached)
         return {
@@ -1011,17 +1097,6 @@ async def generate_workflow(
             "model_used": cached_job.get("model_used"),
             "completed_at": cached_job.get("completed_at"),
         }
-
-    # Auto-expire stale jobs older than 5 min stuck in queued/running
-    stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
-    await ai_workflow_jobs_col.update_many(
-        {
-            "user_id": user_id,
-            "status": {"$in": ["queued", "running"]},
-            "created_at": {"$lt": stale_cutoff.isoformat()},
-        },
-        {"$set": {"status": "failed", "error": "Job timed out", "current_step": "timeout"}},
-    )
 
     # Concurrency cap: max N simultaneous jobs per user
     active_count = await ai_workflow_jobs_col.count_documents({
@@ -1075,21 +1150,8 @@ async def generate_workflow(
                     "completed_at": datetime.now(timezone.utc).isoformat(),
                 }},
             )
-        except Exception as e:
-            logger.exception(f"AI workflow runner crashed for job {job_id}: {e}")
-            await ai_workflow_jobs_col.update_one(
-                {"job_id": job_id},
-                {"$set": {
-                    "status": "failed",
-                    "current_step": "failed",
-                    "error": f"Generation failed: {str(e)}",
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
-                }},
-            )
 
-    task = asyncio.create_task(_runner())
-    _background_job_tasks.add(task)
-    task.add_done_callback(_background_job_tasks.discard)
+    asyncio.create_task(_runner())
 
     return {
         "job_id": job_id,
@@ -1200,59 +1262,61 @@ async def generate_workflow_sync_legacy(
     )
 
     system_msg = (
-        "You are an expert immigration consultant AI with deep knowledge of global immigration processes. "
-        "You generate accurate, step-by-step immigration workflows based on OFFICIAL government requirements "
-        "and VFSglobal application centre procedures (for Indian applicants). "
-        "You must return ONLY valid JSON, no markdown, no extra text. "
-        "Every step MUST have at least 3 required documents. Include all documents that an applicant would need."
+        "You are a Senior Licensed Immigration Attorney and International Regulatory Expert. "
+        "You generate authoritative, legally accurate immigration workflows strictly reflecting current OFFICIAL government immigration laws and procedures. "
+        "Output STRICT JSON only — no markdown wrapping, no extra conversational preamble or text.\n\n"
+        "STRICT LANGUAGE MANDATE:\n"
+        "ALL OUTPUT (product_name, description, step names, descriptions, required_documents names and descriptions, success_tips, common_rejection_reasons, fees) MUST BE 100% IN THE ENGLISH LANGUAGE FOR EVERY COUNTRY WITHOUT EXCEPTION. "
+        "Even if the destination country is Argentina, Spain, France, Germany, Italy, Japan, etc., you MUST write EVERY document title and description in English (e.g. 'National Criminal Record Police Clearance Certificate (Apostilled with Certified Sworn Translation)', NEVER 'Certificado de Antecedentes Penales'; 'Valid National Biometric Passport', NEVER 'Pasaporte válido y vigente'; 'Official Electronic Residence Application Form (RADEX)', NEVER 'Solicitud de residencia correspondiente'; 'Evidentiary Documentation of Professional / Employment Activity', NEVER 'Documentación acreditativa de la actividad laboral'). NEVER output non-English text.\n\n"
+        "MANDATE FOR DOCUMENT PRECISION AND ACCURACY (OFFICIAL GOVERNMENT STANDARDS):\n"
+        "1. PRECISE OFFICIAL NOMENCLATURE: Use the exact statutory form code and official government document title in English (e.g. 'Form 80 - Personal Particulars for Assessment', 'IMM 5406 - Additional Family Information', 'Form DS-160 Online Nonimmigrant Visa Application Confirmation', 'National Police Clearance Certificate (Apostilled with Sworn Translation)', 'RADEX Online Residence Application Confirmation'). NEVER output generic terms like 'Identity Document', 'Proof of Funds', 'Application Form', 'Police Certificate', or 'Medical Report'.\n"
+        "2. EXHAUSTIVE DOCUMENT SPECIFICATIONS: Every required document's 'description' MUST clearly specify in English: (a) Issuing authority/ministry, (b) Legalization standard (Hague Apostille Convention or Consular Legalization), (c) Translation requirement (must specify sworn certified translation into the official language by an accredited translator where applicable), (d) Specific validity duration (e.g. issued within 90 days, 180 days, or valid 6+ months beyond stay with 2 blank pages), and (e) Specific evidential benchmarks (e.g. 6 consecutive months stamped bank statements with bank branch seal, biometric photo 4x4cm on white background).\n"
+        "3. ACCURATE STATUTORY FEES & PROCESSING TIMES: Provide realistic government processing times and current official fees in local statutory currency (e.g. AUD, USD, CAD, EUR, GBP, ARS) with estimated INR/USD equivalents."
     )
 
-    base_prompt = f"""Generate a COMPREHENSIVE immigration workflow for: {request.country} - {request.service_type}
+    base_prompt = f"""Generate a HIGHLY PRECISE, REGULATORY-ACCURATE immigration workflow for: {request.country} - {request.service_type}
 
 {enrichment_block}
 {f"Additional Instructions: {request.custom_instructions}" if request.custom_instructions else ""}
 
-CRITICAL RULES:
-1. At least 5 steps. Every step MUST have at least 3 required_documents.
-2. Include specific document names as used by the government (e.g., "Form 80 - Personal Particulars")
-3. Include ALL fees in local currency based on current official government fee schedules
-4. Reference only official government websites (.gov / official portals) AND VFSglobal for application submission step
-5. Be thorough — passport, photos, police clearances, medical exams, financial evidence, biometrics, etc.
-6. For AU/NZ PR ONLY: include "Skills Assessment" as first or second step (mandatory). For all OTHER workflows, DO NOT include a skills assessment step.
+CRITICAL REGULATORY COMPLIANCE RULES:
+1. STRICT ENGLISH MANDATE: ALL OUTPUT MUST BE 100% IN ENGLISH FOR EVERY COUNTRY WITHOUT EXCEPTION. Even for non-English speaking countries, all step names, descriptions, and document titles must be strictly in English.
+2. OFFICIAL STATUTORY FORM NAMES: Every required document MUST state its exact official form number and title in English as published on the destination country's government immigration website.
+3. APOSTILLE & SWORN TRANSLATION: For all documents originating outside the destination country, explicitly state whether Hague Apostille authentication (e.g. from MEA India) and certified sworn translation (Traductor Público / NAATI / Sworn Court Translator) are mandatory.
+4. EXHAUSTIVE SPECIFICATIONS: Each document's 'description' must specify in English the issuing agency, required format (original with physical seal vs certified copy), validity window, and financial or evidential thresholds.
+5. OFFICIAL GOVERNMENT SOURCES: Reference only real .gov / official ministerial portals and VFSglobal/authorized centers.
+6. WORKFLOW COMPLETENESS: Include 5-8 chronological stages (e.g., Eligibility & Legalization, Assessment/Testing, Official Application Submission, Biometrics & Panel Medicals, Grant & Activation). EVERY step must have 3-6 thoroughly specified required_documents.
 
 Return a JSON object with this EXACT structure:
 {{
-  "product_name": "Country - Visa Type with Subclass Number",
-  "description": "Brief description of this immigration pathway",
+  "product_name": "Official Country - Visa Pathway with Subclass / Category",
+  "description": "Authoritative overview of this statutory immigration pathway, legal basis, and eligibility criteria",
   "category": "immigration",
   "estimated_total_duration_days": 180,
-  "estimated_government_fees": "Complete fee breakdown in local currency (application fee + biometrics + medical + skills assessment + language test)",
-  "success_tips": ["tip1", "tip2", "tip3"],
-  "common_rejection_reasons": ["reason1", "reason2"],
+  "estimated_government_fees": "Detailed breakdown of all official government statutory fees in local currency",
+  "success_tips": ["Actionable compliance tip 1", "Actionable compliance tip 2", "Actionable compliance tip 3"],
+  "common_rejection_reasons": ["Specific statutory refusal ground 1", "Specific statutory refusal ground 2"],
   "steps": [
     {{
-      "step_name": "Step Name",
+      "step_name": "Official Step Name",
       "step_order": 1,
-      "description": "Detailed description of what happens in this step",
+      "description": "Detailed explanation of this step per official government guidelines",
       "duration_days": 30,
-      "official_source_url": "https://...gov... (specific page URL)",
-      "vfsglobal_url": "https://visa.vfsglobal.com/... (if applicable to this step)",
+      "official_source_url": "https://...official .gov link...",
+      "vfsglobal_url": "https://visa.vfsglobal.com/... (if applicable)",
       "required_documents": [
         {{
-          "name": "Official Document Name",
-          "description": "What this document is, where to get it, and any specific requirements",
+          "name": "Exact Statutory Document Name with Form Code",
+          "description": "Specific issuing authority, Hague apostille/legalization rules, certified sworn translation standard, and exact validity window",
           "mandatory": true,
-          "typical_validity_days": 365
+          "typical_validity_days": 180
         }}
       ],
-      "important_notes": "Critical information for this step",
-      "government_fees": "Specific fees for this step in local currency"
+      "important_notes": "Statutory advice, procedural caveats, or embassy guidelines for this step",
+      "government_fees": "Specific fee for this step in local currency"
     }}
   ]
-}}
-
-Include 5-8 steps covering: preparation, assessment/testing, application submission, documentation, biometrics/medical, processing, and grant.
-EVERY step must have 3-6 required_documents with detailed descriptions."""
+}}"""
 
     workflow_data: dict = None
     model_used = "unknown"
@@ -1309,6 +1373,16 @@ EVERY step must have 3-6 required_documents with detailed descriptions."""
         raise HTTPException(
             status_code=503,
             detail="AI workflow generation temporarily unavailable. No verified template exists for this country/visa combo. Please try a different category or retry in a minute.",
+        )
+
+    # Enrich and sanitize workflow to ensure 100% English and official statutory standards
+    from services.statutory_document_standards import sanitize_workflow_to_english
+    if workflow_data:
+        workflow_data = sanitize_workflow_to_english(
+            workflow_data,
+            request.country,
+            request.service_type,
+            getattr(request, "subclass_id", None)
         )
 
     # Phase 20.1 — attach metadata for audit

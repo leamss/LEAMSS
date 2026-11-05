@@ -1983,7 +1983,22 @@ GOVERNMENT_FORMS = {
 
 @router.get("/government-forms/{country}")
 async def get_government_forms(country: str, current_user: dict = Depends(get_current_user)):
-    """Get all official government forms for a country"""
+    """Get all official government forms for a country from regulatory authorities directory or fallback database."""
+    try:
+        from services.country_regulatory_authorities import get_country_authority_info
+        auth_data = get_country_authority_info(country)
+        if auth_data and auth_data.get("official_forms"):
+            return {
+                "country": auth_data["country_name"],
+                "country_code": auth_data.get("country_code", ""),
+                "authority": auth_data["authority_name"],
+                "base_url": auth_data["official_portal_url"],
+                "vfs_url": auth_data.get("vfs_url", ""),
+                "forms": auth_data["official_forms"],
+            }
+    except Exception as e:
+        logger.warning(f"Error checking country_regulatory_authorities for {country}: {e}")
+
     country_key = country.lower().replace(" ", "_")
     
     # Try direct match
@@ -1997,12 +2012,13 @@ async def get_government_forms(country: str, current_user: dict = Depends(get_cu
                 break
     
     if not forms_data:
-        return {"country": country, "authority": "", "forms": [], "message": "No forms available for this country yet"}
+        return {"country": country, "authority": "", "forms": [], "message": f"No forms available for {country} yet"}
     
     return {
         "country": forms_data["country"],
         "authority": forms_data["authority"],
         "base_url": forms_data["base_url"],
+        "vfs_url": "",
         "forms": forms_data["forms"],
     }
 
@@ -2010,6 +2026,23 @@ async def get_government_forms(country: str, current_user: dict = Depends(get_cu
 @router.get("/government-forms/{country}/{visa_type}")
 async def get_government_forms_by_visa(country: str, visa_type: str, current_user: dict = Depends(get_current_user)):
     """Get official government forms filtered by visa type"""
+    try:
+        from services.country_regulatory_authorities import get_country_authority_info, get_country_official_forms
+        auth_data = get_country_authority_info(country)
+        if auth_data and auth_data.get("official_forms"):
+            filtered_forms = get_country_official_forms(country, visa_type)
+            return {
+                "country": auth_data["country_name"],
+                "country_code": auth_data.get("country_code", ""),
+                "authority": auth_data["authority_name"],
+                "base_url": auth_data["official_portal_url"],
+                "vfs_url": auth_data.get("vfs_url", ""),
+                "visa_type": visa_type,
+                "forms": filtered_forms,
+            }
+    except Exception as e:
+        logger.warning(f"Error checking country_regulatory_authorities for {country}/{visa_type}: {e}")
+
     country_key = country.lower().replace(" ", "_")
     visa_lower = visa_type.lower().replace(" ", "_").replace("-", "_")
     
@@ -2041,13 +2074,39 @@ async def get_government_forms_by_visa(country: str, visa_type: str, current_use
 @router.get("/government-forms")
 async def get_all_government_forms_countries(current_user: dict = Depends(get_current_user)):
     """Get list of countries that have government forms available"""
+    seen_countries = set()
     countries = []
+
+    # 1. First add from country_regulatory_authorities
+    try:
+        from services.country_regulatory_authorities import get_all_country_authorities_list
+        for c in get_all_country_authorities_list():
+            seen_countries.add(c["id"])
+            seen_countries.add(c["country"].lower())
+            countries.append({
+                "id": c["id"],
+                "country": c["country"],
+                "country_code": c.get("country_code", ""),
+                "authority": c["authority"],
+                "total_forms": c["total_forms"],
+                "base_url": c["official_portal_url"],
+                "vfs_url": c.get("vfs_url", ""),
+            })
+    except Exception as e:
+        logger.warning(f"Error loading country_regulatory_authorities list: {e}")
+
+    # 2. Add any remaining from legacy GOVERNMENT_FORMS
     for key, data in GOVERNMENT_FORMS.items():
-        countries.append({
-            "id": key,
-            "country": data["country"],
-            "authority": data["authority"],
-            "total_forms": len(data["forms"]),
-            "base_url": data["base_url"],
-        })
+        if key not in seen_countries and data["country"].lower() not in seen_countries:
+            countries.append({
+                "id": key,
+                "country": data["country"],
+                "authority": data["authority"],
+                "total_forms": len(data["forms"]),
+                "base_url": data["base_url"],
+                "vfs_url": "",
+            })
+            seen_countries.add(key)
+
+    countries.sort(key=lambda x: x["country"])
     return {"countries": countries}

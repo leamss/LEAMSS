@@ -345,64 +345,95 @@ async def _execute_ai_draft(job_id: str, req: AiDraftRequest, user_id: str, user
 
     try:
         system_msg = (
-            "You are an expert immigration consultant. Output STRICT JSON only — no markdown, no preamble. "
-            "Your task: generate a comprehensive, verified-quality immigration workflow for the requested country+visa subclass. "
-            "Reference ONLY official .gov / regulatory sources. Be specific with fees (in local currency for Feb 2026) and processing times."
+            "You are a Senior Licensed Immigration Attorney and Regulatory Specialist. Output STRICT JSON only — no markdown, no preamble.\n"
+            "STRICT LANGUAGE MANDATE:\n"
+            "ALL OUTPUT (description, step titles, descriptions, documents_needed, document_checklist, tips, rejection reasons) MUST BE 100% IN ENGLISH FOR EVERY COUNTRY WITHOUT EXCEPTION. "
+            "Even if the country is Spanish, French, German, or Italian speaking (e.g. Argentina, Germany, France, Spain), all document names and steps MUST be written in English (e.g. 'National Criminal Record Certificate (Apostilled with Sworn Translation)', NEVER 'Certificado de Antecedentes Penales'; 'Valid National Biometric Passport', NEVER 'Pasaporte válido y vigente'; 'RADEX Online Submission Receipt', NEVER 'Solicitud de residencia'). NEVER output foreign non-English words.\n"
+            "MANDATE FOR OFFICIAL REGULATORY ACCURACY:\n"
+            "1. DOCUMENT ACCURACY: Every document in 'documents_needed' and 'document_checklist' MUST be accurate and precise according to official government websites (.gov / official immigration ministries). Use exact statutory document titles and official form numbers in English (e.g. 'Form 80 - Personal Particulars', 'IMM 5406 - Additional Family Info', 'DS-160 Confirmation', 'RADEX Online Submission Receipt', 'National Police Clearance Certificate with Hague Apostille & Certified Sworn Translation'). NEVER use generic placeholder names.\n"
+            "2. SPECIFIC NOTES: In 'document_checklist', every item's 'notes' must state in English: issuing authority, legalization/apostille standard, certified translation requirement, and validity window.\n"
+            "3. ACCURATE OFFICIAL FEES: Reference current official government fee schedules in local currency and realistic processing times."
         )
 
-        prompt = f"""Generate a complete, verified-quality immigration workflow for:
+        from services.country_regulatory_authorities import get_country_authority_info
+        auth_info = get_country_authority_info(req.country_name)
+        official_portal = auth_info["official_portal_url"] if auth_info else "https://...official government immigration portal..."
+        vfs_portal = (auth_info.get("vfs_url") if auth_info else None) or "https://visa.vfsglobal.com/..."
+        authority_title = auth_info["authority_name"] if auth_info else "Official Government Immigration Ministry"
+
+        anti_au_rule = ""
+        if req.country_name.lower() not in ("australia", "au"):
+            anti_au_rule = (
+                f"\nCRITICAL REGULATORY RULE:\n"
+                f"- This workflow is for {req.country_name}. DO NOT include Australian DHA forms (Form 80, Form 1221), "
+                f"Australian assessing bodies (VETASSESS, ACS, EA), or Australian subclasses (189, 190, 491, 482).\n"
+                f"- Strictly use {req.country_name}'s official government ministries ({authority_title}), official statutory forms, and VFS centre."
+            )
+
+        prompt = f"""Generate an AUTHORITATIVE, VERIFIED-QUALITY immigration workflow strictly based on official government immigration regulations for:
 Country: {req.country_name} ({req.country_code})
+Official Authority: {authority_title}
+Official Government Portal: {official_portal}
+VFS Global Centre: {vfs_portal}
 Visa subclass: {req.subclass_id} {req.subclass_name}
 Service type: {req.service_type}
 {f"Additional context: {req.custom_instructions}" if req.custom_instructions else ""}
+{anti_au_rule}
+
+CRITICAL RULES:
+1. Every document in step_by_step and document_checklist MUST use exact official statutory form names and codes published by {authority_title} in 100% English.
+2. In document_checklist, 'notes' must explicitly state issuing body, apostille/legalization, translation requirements, and validity.
+3. Fees must reflect official government fee schedules in local currency and estimated INR.
+4. Set official_url to "{official_portal}" (or exact visa page on that domain) and vfs_url to "{vfs_portal}".
 
 Return a JSON object with this EXACT structure:
 {{
-  "description": "2-3 paragraph rich overview of this visa pathway",
+  "description": "2-3 paragraph rich overview of this visa pathway with official legal basis",
   "eligibility_summary": "Concise eligibility summary in 1 paragraph",
   "eligibility_criteria": [
     {{"label": "Age", "value": "18-45", "notes": "Points reduce after 40"}},
-    {{"label": "English", "value": "IELTS 6.0+ overall", "notes": ""}},
-    {{"label": "Points", "value": "Minimum 65 for invitation", "notes": ""}}
+    {{"label": "Language", "value": "Proficiency benchmark", "notes": "Official certified test score"}},
+    {{"label": "Financial / Job Criteria", "value": "Official statutory criteria", "notes": "Per government regulations"}}
   ],
-  "fees_local_currency_code": "AUD",
-  "fees_local_currency_amount": 4640,
-  "fees_inr_approx": 256000,
+  "fees_local_currency_code": "EUR",
+  "fees_local_currency_amount": 100,
+  "fees_inr_approx": 9000,
   "fees_breakdown": [
-    {{"component": "Visa Application Charge - Primary", "amount": 4640, "currency": "AUD"}},
-    {{"component": "Biometric collection (VFS)", "amount": 2200, "currency": "INR"}}
+    {{"component": "Statutory Visa Application Fee", "amount": 100, "currency": "EUR"}},
+    {{"component": "Biometric / VFS Service Fee", "amount": 2200, "currency": "INR"}}
   ],
-  "processing_time_days_min": 90,
-  "processing_time_days_max": 365,
+  "processing_time_days_min": 30,
+  "processing_time_days_max": 90,
   "step_by_step": [
-    {{"step_number": 1, "title": "Skills Assessment", "description": "Get your occupation assessed by relevant authority", "estimated_days": 30,
-      "documents_needed": ["Passport", "Resume", "Degree certificate", "Transcripts", "Employment letters"],
-      "tips": ["Apply early as queues fluctuate", "Use exact occupation name from ANZSCO list"]}}
+    {{"step_number": 1, "title": "Official Step Title", "description": "Specific regulatory procedure per government website", "estimated_days": 30,
+      "documents_needed": ["Exact Statutory Document Name with Form Code", "Apostilled National Police Clearance Certificate", "Original Bank Statements Stamped"],
+      "tips": ["Official government submission guidance", "Caveat on common mistakes"]}}
   ],
   "document_checklist": [
-    {{"name": "Passport (current + old)", "mandatory": true, "notes": "Must be valid for 6+ months"}},
-    {{"name": "IELTS / PTE score report", "mandatory": true, "notes": "Within 3 years"}},
-    {{"name": "Skills assessment outcome letter", "mandatory": true, "notes": ""}},
-    {{"name": "Form 80 - Personal Particulars", "mandatory": true, "notes": ""}}
+    {{"name": "Valid National Biometric Passport", "mandatory": true, "notes": "Minimum 6 months validity from travel date, 2 blank visa pages, notarized color copy of all pages"}},
+    {{"name": "Official Statutory Visa Application Form (Signed)", "mandatory": true, "notes": "Completed and signed for all applicants"}},
+    {{"name": "Apostilled National Police Clearance Certificate (PCC)", "mandatory": true, "notes": "Issued by national authority within last 6 months with Hague Apostille; certified sworn translation if non-English"}},
+    {{"name": "Certified Sworn Translation of Civil Documents", "mandatory": true, "notes": "Birth/Marriage certificates translated by an accredited sworn translator"}}
   ],
   "common_rejection_reasons": [
-    "Insufficient English proficiency",
-    "Skills assessment occupation mismatch",
-    "Health/character requirements not met"
+    "Incomplete documentation or unverified translation",
+    "Insufficient statutory financial capacity proof",
+    "Failure to satisfy official regulatory criteria"
   ],
   "success_tips": [
-    "Submit complete biometrics within 14 days of invitation",
-    "Keep all original documents ready for verification"
+    "Submit complete biometrics within stipulated timeframe",
+    "Keep all original documents ready for consular verification"
   ],
   "faqs": [
-    {{"q": "Can my spouse join me on this visa?", "a": "Yes, on dependent visa stream..."}}
+    {{"q": "Can dependents join on this visa stream?", "a": "Yes, subject to official dependent visa regulations..."}}
   ],
-  "official_url": "https://immi.homeaffairs.gov.au/...",
-  "vfs_url": "https://visa.vfsglobal.com/...",
-  "source_urls": ["https://...", "https://..."]
+  "official_url": "{official_portal}",
+  "vfs_url": "{vfs_portal}",
+  "source_urls": ["{official_portal}", "{vfs_portal}"]
 }}
 
 Be comprehensive. At least 5 steps. At least 6 documents in checklist. At least 3 eligibility criteria, 3 rejection reasons, 3 tips, 2 FAQs."""
+
 
         await _update({"progress": 35, "current_step": "generating"})
 
@@ -461,7 +492,11 @@ Be comprehensive. At least 5 steps. At least 6 documents in checklist. At least 
             "subclass_name": req.subclass_name or req.subclass_id,
             "service_type": req.service_type,
             "category": "immigration",
-            "description": parsed.get("description", ""),
+            "description": (
+                f"Official statutory immigration pathway for {req.country_name}. "
+                f"Governed strictly by destination immigration regulations, requiring verified legal documentation, "
+                f"statutory form submissions, Hague Apostille authentication, and accredited sworn translations."
+            ) if __import__("services.statutory_document_standards", fromlist=["is_foreign_text"]).is_foreign_text(parsed.get("description", "")) else parsed.get("description", ""),
             "eligibility_summary": parsed.get("eligibility_summary", ""),
             "eligibility_criteria": parsed.get("eligibility_criteria", []) or [],
             "fees_local_currency_code": parsed.get("fees_local_currency_code", ""),
@@ -470,8 +505,38 @@ Be comprehensive. At least 5 steps. At least 6 documents in checklist. At least 
             "fees_breakdown": parsed.get("fees_breakdown", []) or [],
             "processing_time_days_min": parsed.get("processing_time_days_min", 0) or 0,
             "processing_time_days_max": parsed.get("processing_time_days_max", 0) or 0,
-            "step_by_step": parsed.get("step_by_step", []) or [],
-            "document_checklist": parsed.get("document_checklist", []) or [],
+            "step_by_step": (lambda: [
+                (lambda st, sd: {
+                    **s,
+                    "title": st,
+                    "description": sd,
+                    "documents_needed": [
+                        __import__("services.statutory_document_standards", fromlist=["enrich_step_document"]).enrich_step_document(req.country_name, d, st)["name"]
+                        for d in (s.get("documents_needed", []) or [])
+                    ]
+                })(
+                    (lambda raw_t: (
+                        "Application Lodgement & Official Electronic Submission" if any(k in raw_t.lower() for k in ["solicitud", "demande", "antrag", "radex"])
+                        else "Document Legalization, Sworn Translation & Evidentiary Dossier" if any(k in raw_t.lower() for k in ["documentaci", "legalizaci", "apostil", "traducc"])
+                        else "Biometric Appointment & Consular Verification" if any(k in raw_t.lower() for k in ["biom", "huella", "visado", "cita", "turno"])
+                        else "Entry to Destination & Arrival Formalities" if any(k in raw_t.lower() for k in ["entrada", "llegada", "arribo"])
+                        else "Residence Permit Grant & National ID Registration" if any(k in raw_t.lower() for k in ["dni", "tarjeta", "permiso"])
+                        else raw_t
+                    ) if __import__("services.statutory_document_standards", fromlist=["is_foreign_text"]).is_foreign_text(raw_t) else raw_t)(s.get("title", "")),
+                    "Complete all statutory requirements per official destination immigration regulations." if __import__("services.statutory_document_standards", fromlist=["is_foreign_text"]).is_foreign_text(s.get("description", "")) else s.get("description", "")
+                )
+                for s in (parsed.get("step_by_step", []) or [])
+            ])(),
+            "document_checklist": (lambda: [
+                (lambda ed: {
+                    "doc_id": d.get("doc_id") if isinstance(d, dict) else None,
+                    "name": ed["name"],
+                    "mandatory": ed["mandatory"],
+                    "notes": ed["description"],
+                    "sample_url": d.get("sample_url", "") if isinstance(d, dict) else ""
+                })(__import__("services.statutory_document_standards", fromlist=["enrich_step_document"]).enrich_step_document(req.country_name, d))
+                for d in (parsed.get("document_checklist", []) or [])
+            ])(),
             "common_rejection_reasons": parsed.get("common_rejection_reasons", []) or [],
             "success_tips": parsed.get("success_tips", []) or [],
             "faqs": parsed.get("faqs", []) or [],
@@ -655,38 +720,52 @@ def _normalise_service_type(service_type: str) -> Optional[str]:
 
 
 async def find_verified_workflow(country_name: str, service_type: str, subclass_id: Optional[str] = None) -> Optional[dict]:
-    """Returns first verified workflow matching country + service_type.
+    """Returns first verified workflow matching country + service_type / subclass.
 
     Liberal input acceptance:
       - country: full name ("Australia"), ISO code ("AU"), or common alias ("UK"/"GB")
-      - service_type: canonical token ("pr") OR title-cased ("Pr") OR synonym ("family"→"partner")
-
-    If subclass_id given, prefers exact match; otherwise returns any verified for
-    country+service. Returns None if no verified entry exists OR if service_type
-    isn't a canonical immigration category (AI path will handle).
+      - service_type: canonical token ("pr") OR subclass number ("491") OR synonym ("family"→"partner")
+      - subclass_id: exact subclass identifier ("491", "189", etc.)
     """
     country_resolved = _normalise_country(country_name)
     canonical_svc = _normalise_service_type(service_type)
 
-    if not canonical_svc:
-        # Unrecognised service_type — let AI path handle it
-        return None
+    # Resolve target subclass ID if passed or present in service_type string (e.g. "491", "Subclass 189")
+    target_subclass = (subclass_id or "").strip()
+    if not target_subclass and service_type:
+        st_clean = service_type.strip()
+        m = re.search(r'\b(\d{3,4})\b', st_clean)
+        if m:
+            target_subclass = m.group(1)
+        elif st_clean.lower().startswith("subclass"):
+            parts = st_clean.split()
+            if len(parts) > 1:
+                target_subclass = parts[1]
 
-    base_q: Dict[str, Any] = {
-        "status": "verified",
-        "service_type": canonical_svc,
-    }
+    country_q: Dict[str, Any] = {"status": "verified"}
     if country_resolved["code"]:
-        # Strong match via ISO code (canonical)
-        base_q["country_code"] = country_resolved["code"]
+        country_q["country_code"] = country_resolved["code"]
     else:
-        # Fallback: case-insensitive country_name regex
-        base_q["country_name"] = {"$regex": f"^{country_resolved['name_regex']}$", "$options": "i"}
+        country_q["country_name"] = {"$regex": f"^{country_resolved['name_regex']}$", "$options": "i"}
 
-    if subclass_id:
-        q = {**base_q, "subclass_id": subclass_id}
-        doc = await workflows_col.find_one(q, {"_id": 0})
+    # 1. Direct subclass_id match (highest priority, e.g. "491", "189")
+    if target_subclass:
+        doc = await workflows_col.find_one({**country_q, "subclass_id": target_subclass}, {"_id": 0})
         if doc:
             return doc
-        # Fallback: drop subclass filter to return any verified for country+service
-    return await workflows_col.find_one(base_q, {"_id": 0})
+
+    # 2. Direct subclass_name regex match
+    if service_type and len(service_type.strip()) >= 3:
+        doc = await workflows_col.find_one(
+            {**country_q, "subclass_name": {"$regex": re.escape(service_type.strip()), "$options": "i"}},
+            {"_id": 0}
+        )
+        if doc:
+            return doc
+
+    # 3. Canonical service type match (e.g. "pr", "work", "student")
+    if canonical_svc:
+        base_q = {**country_q, "service_type": canonical_svc}
+        return await workflows_col.find_one(base_q, {"_id": 0})
+
+    return None

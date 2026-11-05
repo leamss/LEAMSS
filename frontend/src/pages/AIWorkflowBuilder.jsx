@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -53,6 +53,9 @@ const AIWorkflowBuilder = () => {
   const [editingDoc, setEditingDoc] = useState(null);
   const [newDocForm, setNewDocForm] = useState({ stepIdx: null, name: '', description: '', mandatory: true, is_locked_until_paid: false });
   const [govForms, setGovForms] = useState([]);
+  const [govAuthority, setGovAuthority] = useState('');
+  const [govBaseUrl, setGovBaseUrl] = useState('');
+  const [govVfsUrl, setGovVfsUrl] = useState('');
   const [verified, setVerified] = useState(false);
   const [workflowSource, setWorkflowSource] = useState('');
   // Sweep A.2 — Background-job progress state
@@ -78,27 +81,24 @@ const AIWorkflowBuilder = () => {
   }, []);
 
   const loadGovForms = async (countryName) => {
-    try { const r = await axios.get(`${API}/step-documents/government-forms/${encodeURIComponent(countryName)}`, auth()); setGovForms(r.data.forms || []); } catch { setGovForms([]); }
+    try {
+      const r = await axios.get(`${API}/step-documents/government-forms/${encodeURIComponent(countryName)}`, auth());
+      setGovForms(r.data.forms || []);
+      setGovAuthority(r.data.authority || '');
+      setGovBaseUrl(r.data.base_url || '');
+      setGovVfsUrl(r.data.vfs_url || '');
+    } catch {
+      setGovForms([]);
+      setGovAuthority('');
+      setGovBaseUrl('');
+      setGovVfsUrl('');
+    }
   };
 
-  const categoriesCacheRef = useRef({});
 
   const selectCountry = async (country) => {
-    setSelectedCountry(country); setSelectedVisa(null); setView('pick-visa');
-    if (categoriesCacheRef.current[country.name]) {
-      setVisaCategories(categoriesCacheRef.current[country.name]);
-      setLoadingVisa(false);
-      return;
-    }
-    setVisaCategories([]); setLoadingVisa(true);
-    try {
-      const r = await axios.post(`${API}/ai-workflow/visa-categories`, { country: country.name }, auth());
-      const cats = r.data.categories || [];
-      categoriesCacheRef.current[country.name] = cats;
-      setVisaCategories(cats);
-    } catch {
-      toast.error('Failed to load visa categories');
-    }
+    setSelectedCountry(country); setVisaCategories([]); setSelectedVisa(null); setLoadingVisa(true); setView('pick-visa');
+    try { const r = await axios.post(`${API}/ai-workflow/visa-categories`, { country: country.name }, auth()); setVisaCategories(r.data.categories || []); } catch { toast.error('Failed to load visa categories'); }
     setLoadingVisa(false);
   };
 
@@ -107,10 +107,31 @@ const AIWorkflowBuilder = () => {
     // poll /generate/status/{job_id} until status=complete|failed.
     // B.2 HOTFIX (Feb 27) — visaSelection may be an object (preferred, from visa card)
     // OR a string (legacy / custom instruction path). Prefer canonical service_type.
-    const visaName = (visaSelection && typeof visaSelection === 'object')
+    let visaName = (visaSelection && typeof visaSelection === 'object')
       ? (visaSelection.service_type || visaSelection.category || visaSelection.name || '')
       : (visaSelection || '');
-    const visaSubclassId = (visaSelection && typeof visaSelection === 'object') ? (visaSelection.subclass_id || '') : '';
+    let visaSubclassId = (visaSelection && typeof visaSelection === 'object') ? (visaSelection.subclass_id || '') : '';
+
+    // If string selection (e.g. custom input "491" or "subclass 189"), resolve subclass_id and card details
+    if (!visaSubclassId && typeof visaSelection === 'string') {
+      const trimmed = visaSelection.trim();
+      const numMatch = trimmed.match(/\b(\d{3,4})\b/);
+      if (numMatch) {
+        visaSubclassId = numMatch[1];
+      }
+      const matchedCard = visaCategories.find(c =>
+        (c.subclass_id && c.subclass_id === visaSubclassId) ||
+        (c.name && c.name.toLowerCase().includes(trimmed.toLowerCase())) ||
+        (c.id && c.id.toLowerCase() === trimmed.toLowerCase())
+      );
+      if (matchedCard) {
+        visaName = matchedCard.service_type || matchedCard.category || matchedCard.name || visaName;
+        if (!visaSubclassId && matchedCard.subclass_id) {
+          visaSubclassId = matchedCard.subclass_id;
+        }
+      }
+    }
+
     setGenerating(true); setView('review'); setJobError(''); setCachedHit(false); setJobProgress(0); setJobStep('queued'); setWorkflow(null);
     let pollTimer = null;
     let cancelled = false;
@@ -140,12 +161,16 @@ const AIWorkflowBuilder = () => {
         return;
       }
 
-      // Immediate failure
-      if (r.data.status === 'failed') {
-        setJobError(r.data.error || 'Generation failed');
-        toast.error(r.data.error || 'Workflow generation failed');
+      // Cache hit (legacy code path)
+      if (r.data.cached && r.data.result) {
+        setWorkflow(r.data.result);
+        const exp = {}; (r.data.result.steps || []).forEach((_, i) => { exp[i] = true; }); setExpandedSteps(exp);
+        setCachedHit(true);
+        setJobProgress(100); setJobStep('done');
+        toast.success('Loaded from cache — instant ⚡');
+        setWorkflowSource('ai'); setVerified(false);
+        if (selectedCountry?.name) loadGovForms(selectedCountry.name);
         setGenerating(false);
-        setView('pick-visa');
         return;
       }
 
@@ -180,15 +205,15 @@ const AIWorkflowBuilder = () => {
             setView('pick-visa');
             return;
           }
-          // Still queued/running — re-poll in 1s for snappy UI updates
-          pollTimer = setTimeout(poll, 1000);
+          // Still queued/running — re-poll in 2.5s
+          pollTimer = setTimeout(poll, 2500);
         } catch (e) {
           // Network blip — keep retrying for a while
           console.warn('Workflow status poll failed', e);
-          pollTimer = setTimeout(poll, 2500);
+          pollTimer = setTimeout(poll, 4000);
         }
       };
-      pollTimer = setTimeout(poll, 800);
+      pollTimer = setTimeout(poll, 1500);
     } catch (e) {
       const detail = e.response?.data?.detail || 'Generation failed';
       toast.error(detail);
@@ -405,12 +430,20 @@ const AIWorkflowBuilder = () => {
                         <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-[#2a777a]" />
                       </div>
                     </div>
-                    {vc.official_url && (
-                      <a href={vc.official_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#2a777a] hover:underline mt-2.5 flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                        <ExternalLink className="h-2.5 w-2.5" />Official Source
-                      </a>
-                    )}
+                    <div className="flex flex-wrap items-center gap-3 mt-3 pt-2 border-t border-slate-100">
+                      {vc.official_url && (
+                        <a href={vc.official_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#2a777a] hover:underline font-semibold flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          <ExternalLink className="h-2.5 w-2.5" />Official Portal
+                        </a>
+                      )}
+                      {vc.vfs_url && (
+                        <a href={vc.vfs_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-amber-700 hover:underline font-semibold flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          <ExternalLink className="h-2.5 w-2.5" />VFS Global Centre
+                        </a>
+                      )}
+                    </div>
                   </div>
+
                 ))}
               </div>
 
@@ -446,7 +479,7 @@ const AIWorkflowBuilder = () => {
                 <p className="text-sm text-slate-500 mt-1" data-testid="ai-workflow-current-step">
                   {jobStep === 'queued' && 'Job queued — kicking off background generation'}
                   {jobStep === 'analyzing' && 'Analyzing visa category and resolving authoritative sources'}
-                  {jobStep === 'generating' && 'AI generating step-by-step workflow and official requirements'}
+                  {jobStep === 'generating' && 'Calling Claude Sonnet 4.5 for step-by-step workflow'}
                   {jobStep === 'regenerating' && 'Re-prompting AI to meet our quality bar (≥5 steps, ≥3 docs/step)'}
                   {jobStep === 'formatting' && 'Formatting and validating the workflow output'}
                   {!['queued','analyzing','generating','regenerating','formatting'].includes(jobStep) && 'Working on it…'}
@@ -501,13 +534,18 @@ const AIWorkflowBuilder = () => {
                     <div className="flex-1">
                       <h4 className="font-bold text-amber-900" style={{fontFamily:'Manrope,sans-serif'}}>AI Generated - Verification Required</h4>
                       <p className="text-xs text-amber-700 mt-1 leading-relaxed">Fees, documents, and requirements may not reflect the latest policies. Please verify from the official government website before saving.</p>
-                      <div className="flex items-center gap-4 mt-3">
-                        {selectedVisa?.official_url && (
-                          <a href={selectedVisa.official_url} target="_blank" rel="noopener noreferrer" className="text-xs bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-semibold flex items-center gap-1.5 transition-colors">
-                            <ExternalLink className="h-3.5 w-3.5" />Verify on Official Website
+                      <div className="flex flex-wrap items-center gap-3 mt-3">
+                        {(selectedVisa?.official_url || workflow?._meta?.official_source_url || govBaseUrl) && (
+                          <a href={selectedVisa?.official_url || workflow?._meta?.official_source_url || govBaseUrl} target="_blank" rel="noopener noreferrer" className="text-xs bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-semibold flex items-center gap-1.5 transition-colors">
+                            <ExternalLink className="h-3.5 w-3.5" />Verify on Official Government Portal
                           </a>
                         )}
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                        {(selectedVisa?.vfs_url || workflow?._meta?.vfsglobal_url || govVfsUrl) && (
+                          <a href={selectedVisa?.vfs_url || workflow?._meta?.vfsglobal_url || govVfsUrl} target="_blank" rel="noopener noreferrer" className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 font-semibold flex items-center gap-1.5 transition-colors">
+                            <ExternalLink className="h-3.5 w-3.5" />VFS Global Centre & Checklist
+                          </a>
+                        )}
+                        <label className="flex items-center gap-2 cursor-pointer select-none sm:ml-auto">
                           <input type="checkbox" checked={verified} onChange={e => handleVerifyToggle(e.target.checked)} className="rounded border-amber-400 h-4 w-4 text-amber-600" data-testid="verify-checkbox" />
                           <span className="text-xs font-semibold text-amber-800">I have verified this information</span>
                         </label>
@@ -516,6 +554,7 @@ const AIWorkflowBuilder = () => {
                   </div>
                 </div>
               )}
+
               {workflowSource === 'template' && !verified && (
                 <div className="p-4 bg-[#2a777a]/5 border border-[#2a777a]/20 rounded-xl flex items-center gap-3" data-testid="template-verify-notice">
                   <ShieldCheck className="h-5 w-5 text-[#2a777a] flex-shrink-0" />
@@ -571,7 +610,18 @@ const AIWorkflowBuilder = () => {
               {/* Government Forms */}
               {govForms.length > 0 && (
                 <Card className="p-5 border-l-4 border-l-leamss-teal bg-leamss-teal_50/30 rounded-xl" data-testid="gov-forms-section">
-                  <h4 className="font-bold text-sm text-leamss-teal mb-3 flex items-center gap-1.5" style={{fontFamily:'Manrope,sans-serif'}}><Download className="h-4 w-4" /> Official Government Forms ({govForms.length})</h4>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h4 className="font-bold text-sm text-leamss-teal flex items-center gap-1.5" style={{fontFamily:'Manrope,sans-serif'}}>
+                      <Download className="h-4 w-4" /> Official Government Forms ({govForms.length})
+                      {govAuthority && <Badge className="text-[10px] bg-teal-100 text-teal-800 font-medium ml-2">{govAuthority}</Badge>}
+                    </h4>
+                    {govBaseUrl && (
+                      <a href={govBaseUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-teal-700 hover:underline flex items-center gap-1">
+                        <ExternalLink className="h-3 w-3" />Official Portal
+                      </a>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {govForms.map((form, fi) => (
                       <a key={fi} href={form.url} target="_blank" rel="noopener noreferrer"
@@ -614,36 +664,59 @@ const AIWorkflowBuilder = () => {
                     {expandedSteps[si] && (
                       <div className="px-4 pb-4 border-t border-slate-100 space-y-3 pt-3">
                         <Textarea value={s.description||''} onChange={e => updateStep(si,'description',e.target.value)} rows={1} className="text-xs rounded-lg" placeholder="Step description..." />
-                        {s.government_fees && <div className="flex items-center gap-2"><Label className="text-[10px] text-slate-500 flex-shrink-0">Fees:</Label><Input value={s.government_fees} onChange={e => updateStep(si,'government_fees',e.target.value)} className="h-8 text-xs flex-1 rounded-lg" /></div>}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          {s.government_fees && <div className="flex items-center gap-2"><Label className="text-[10px] text-slate-500 flex-shrink-0">Fees:</Label><Input value={s.government_fees} onChange={e => updateStep(si,'government_fees',e.target.value)} className="h-8 text-xs flex-1 rounded-lg" /></div>}
+                          <div className="flex items-center gap-3 ml-auto">
+                            {s.official_source_url && (
+                              <a href={s.official_source_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#2a777a] hover:underline flex items-center gap-1">
+                                <ExternalLink className="h-2.5 w-2.5" />Official Source
+                              </a>
+                            )}
+                            {s.vfsglobal_url && (
+                              <a href={s.vfsglobal_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-amber-700 hover:underline flex items-center gap-1">
+                                <ExternalLink className="h-2.5 w-2.5" />VFS Checklist
+                              </a>
+                            )}
+                          </div>
+                        </div>
+
                         
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2" style={{fontFamily:'Manrope,sans-serif'}}>Documents ({(s.required_documents||[]).length})</p>
                           <div className="space-y-1.5">
                             {(s.required_documents||[]).map((doc, di) => (
-                              <div key={di} className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-lg text-xs group hover:bg-slate-100 transition-colors" data-testid={`doc-${si}-${di}`}>
-                                <FileText className="h-3.5 w-3.5 text-[#2a777a] mt-0.5 flex-shrink-0" />
+                              <div key={di} className="flex items-start gap-2.5 p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 text-xs group hover:bg-white hover:border-[#2a777a]/30 hover:shadow-sm transition-all" data-testid={`doc-${si}-${di}`}>
+                                <FileText className="h-4 w-4 text-[#2a777a] mt-0.5 flex-shrink-0" />
                                 <div className="flex-1 min-w-0 space-y-1">
                                   {editingDoc?.stepIdx===si && editingDoc?.docIdx===di ? (
-                                    <><Input value={doc.name||doc.doc_name||''} onChange={e => updateDoc(si,di,doc.name!==undefined?'name':'doc_name',e.target.value)} className="h-7 text-xs rounded-lg font-semibold" />
-                                    <Input value={doc.description||''} onChange={e => updateDoc(si,di,'description',e.target.value)} className="h-7 text-[10px] rounded-lg" placeholder="Description" />
+                                    <><Input value={doc.name||doc.doc_name||''} onChange={e => updateDoc(si,di,doc.name!==undefined?'name':'doc_name',e.target.value)} className="h-8 text-xs rounded-lg font-semibold" />
+                                    <Textarea value={doc.description||doc.notes||''} onChange={e => updateDoc(si,di,'description',e.target.value)} rows={2} className="text-[11px] rounded-lg" placeholder="Official description, issuing authority, Apostille, translation..." />
                                     <div className="flex items-center gap-3 flex-wrap pt-0.5">
-                                      <label className="flex items-center gap-1 text-[10px]"><input type="checkbox" checked={doc.mandatory||doc.is_mandatory} onChange={e => updateDoc(si,di,doc.mandatory!==undefined?'mandatory':'is_mandatory',e.target.checked)} className="rounded h-3 w-3" />Mandatory</label>
+                                      <label className="flex items-center gap-1 text-[10px] cursor-pointer"><input type="checkbox" checked={doc.mandatory||doc.is_mandatory} onChange={e => updateDoc(si,di,doc.mandatory!==undefined?'mandatory':'is_mandatory',e.target.checked)} className="rounded h-3 w-3" />Mandatory</label>
                                       <label className="flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 cursor-pointer">
                                         <input type="checkbox" checked={Boolean(doc.is_locked_until_paid)} onChange={e => updateDoc(si,di,'is_locked_until_paid',e.target.checked)} className="rounded h-3 w-3 text-amber-600" />
                                         🔒 Locked until full payment
                                       </label>
-                                      <Button size="sm" variant="ghost" className="h-5 text-[10px] text-emerald-600" onClick={() => setEditingDoc(null)}>Done</Button>
+                                      <Button size="sm" variant="ghost" className="h-6 text-[10px] text-emerald-600 font-semibold" onClick={() => setEditingDoc(null)}>Done</Button>
                                     </div></>
                                   ) : (
-                                    <><p className="font-semibold text-slate-800">{doc.name||doc.doc_name||''}</p>
-                                    {doc.description && <p className="text-[10px] text-slate-500">{doc.description}</p>}</>
+                                    <>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <p className="font-semibold text-slate-900 text-xs">{doc.name||doc.doc_name||''}</p>
+                                        {doc.doc_id && <span className="text-[9px] font-mono font-medium text-slate-500 bg-slate-200/60 px-1.5 py-0.5 rounded">{doc.doc_id}</span>}
+                                        {doc.typical_validity_days && <span className="text-[9px] text-[#2a777a] bg-[#2a777a]/10 px-1.5 py-0.5 rounded font-medium">{doc.typical_validity_days}d validity</span>}
+                                      </div>
+                                      {(doc.description || doc.notes) && (
+                                        <p className="text-[11px] text-slate-600 leading-relaxed mt-0.5">{doc.description || doc.notes}</p>
+                                      )}
+                                    </>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1 flex-shrink-0">
+                                <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
                                   {doc.is_locked_until_paid && (
                                     <Badge className="text-[8px] bg-amber-100 text-amber-800 border border-amber-200">🔒 Locked</Badge>
                                   )}
-                                  <Badge className={`text-[8px] ${(doc.mandatory||doc.is_mandatory)?'bg-red-100 text-red-700':'bg-slate-100 text-slate-500'}`}>{(doc.mandatory||doc.is_mandatory)?'Required':'Optional'}</Badge>
+                                  <Badge className={`text-[8px] ${(doc.mandatory||doc.is_mandatory)?'bg-red-100 text-red-700 border-0':'bg-slate-100 text-slate-500 border-0'}`}>{(doc.mandatory||doc.is_mandatory)?'Required':'Optional'}</Badge>
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 rounded-lg" onClick={() => setEditingDoc({stepIdx:si,docIdx:di})}><Edit3 className="h-3 w-3 text-slate-400" /></Button>
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 rounded-lg" onClick={() => removeDoc(si,di)}><X className="h-3 w-3 text-red-400" /></Button>
                                 </div>
