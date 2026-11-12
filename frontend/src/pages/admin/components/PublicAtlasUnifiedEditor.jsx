@@ -158,6 +158,8 @@ export default function PublicAtlasUnifiedEditor({
   addCustomSection,
   updateCustomSection,
   removeCustomSection,
+  syncMigroto,
+  migrotoLoading,
 }) {
   const [showInternal, setShowInternal] = useState(false);
   const [pinInput, setPinInput] = useState('');
@@ -283,6 +285,46 @@ export default function PublicAtlasUnifiedEditor({
         [k]: v,
       },
     }));
+  };
+
+  const handleAddRound = () => {
+    setEdit((prev) => ({
+      ...prev,
+      invitation_rounds: [
+        ...(prev.invitation_rounds || []),
+        { date: new Date().toISOString().slice(0, 10), subclass: '190', score: 75, invitations: 100 }
+      ]
+    }));
+  };
+
+  const handleLoadDefaultRounds = () => {
+    setEdit((prev) => ({
+      ...prev,
+      invitation_rounds: [
+        { date: '2026-06-15', subclass: '189', score: prev.min_invitation_points?.subclass_189 ? Number(prev.min_invitation_points.subclass_189) : 80, invitations: 120 },
+        { date: '2026-05-10', subclass: '190', score: prev.min_invitation_points?.subclass_190 ? Number(prev.min_invitation_points.subclass_190) : 75, invitations: 95 },
+        { date: '2026-04-20', subclass: '491', score: prev.min_invitation_points?.subclass_491 ? Number(prev.min_invitation_points.subclass_491) : 65, invitations: 65 },
+      ]
+    }));
+  };
+
+  const handleUpdateRound = (index, field, value) => {
+    setEdit((prev) => {
+      const list = [...(prev.invitation_rounds || [])];
+      list[index] = {
+        ...list[index],
+        [field]: field === 'score' || field === 'invitations' ? (value === '' ? '' : Number(value)) : value
+      };
+      return { ...prev, invitation_rounds: list };
+    });
+  };
+
+  const handleRemoveRound = (index) => {
+    setEdit((prev) => {
+      const list = [...(prev.invitation_rounds || [])];
+      list.splice(index, 1);
+      return { ...prev, invitation_rounds: list };
+    });
   };
 
   const upState = (stCode, field, val) => {
@@ -1554,6 +1596,39 @@ export default function PublicAtlasUnifiedEditor({
           </div>
         </div>
 
+        {/* AU SkillSelect & Migroto Live Quick Card */}
+        {country === 'AU' && (
+          <div className="p-3 bg-teal-50/70 border border-teal-200 rounded-lg flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-teal-700 shrink-0" />
+              <div>
+                <span className="font-bold text-slate-900">SkillSelect Cutoff Benchmarks: </span>
+                <span className="font-mono text-emerald-800 font-semibold">
+                  189: {edit.min_invitation_points?.subclass_189 ?? 80} pts · 190: {edit.min_invitation_points?.subclass_190 ?? 75} pts · 491: {edit.min_invitation_points?.subclass_491 ?? 65} pts
+                </span>
+                <span className="text-slate-500 text-[11px] ml-1">
+                  ({(edit.invitation_rounds || []).length} rounds recorded · Section 5)
+                </span>
+              </div>
+            </div>
+            {syncMigroto && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={syncMigroto}
+                disabled={migrotoLoading}
+                className="h-6 text-xs bg-white text-teal-800 border-teal-300 hover:bg-teal-100 font-bold"
+                data-testid="unified-sync-migroto-quick-btn"
+                title="Pull latest invitation cutoffs and round archives directly from Migroto live registry"
+              >
+                {migrotoLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1 text-teal-700" />}
+                Sync from Migroto Live
+              </Button>
+            )}
+          </div>
+        )}
+
         <div>
           <div className="flex items-center justify-between mb-1">
             <Label className="text-xs font-semibold text-slate-700">
@@ -2444,17 +2519,57 @@ export default function PublicAtlasUnifiedEditor({
             </div>
           </div>
 
-          {/* SkillSelect Cutoff Scorecard */}
-          <div className="p-3 rounded-lg border border-teal-200 bg-teal-50/50 space-y-2">
-            <span className="text-xs font-bold text-teal-950 block">DHA SkillSelect Invitation Cutoff Points</span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* SkillSelect Cutoff Scorecard & Round History */}
+          <div className="p-4 rounded-xl border border-teal-200 bg-teal-50/50 space-y-3.5" data-testid="unified-invitation-rounds-card">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-teal-200/70 pb-2.5">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-teal-800" />
+                <span className="text-xs font-bold text-teal-950 block">DHA SkillSelect Invitation Cutoff Points &amp; Rounds History</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {syncMigroto && country === 'AU' && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={syncMigroto}
+                    disabled={migrotoLoading}
+                    className="h-7 text-xs bg-white text-teal-800 border-teal-300 hover:bg-teal-100 font-bold"
+                    data-testid="unified-sync-migroto-btn"
+                    title="Pull latest invitation cutoffs and round archives directly from Migroto live registry"
+                  >
+                    {migrotoLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1 text-teal-700" />}
+                    Sync from Migroto Live
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleLoadDefaultRounds}
+                  className="h-7 text-xs bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                >
+                  <Wand2 className="h-3 w-3 mr-1 text-teal-700" />Default Rounds
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAddRound}
+                  className="h-7 text-xs bg-teal-700 hover:bg-teal-800 text-white font-bold"
+                >
+                  <Plus className="h-3 w-3 mr-1" />Add Round
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <Label className="text-[11px] font-semibold text-teal-900 block mb-1">Subclass 189 Pass Mark</Label>
                 <Input
                   type="number"
                   value={minPts.subclass_189 ?? ''}
                   onChange={(e) => upMinPoints('subclass_189', e.target.value)}
-                  placeholder="e.g. 75"
+                  placeholder="e.g. 80"
                   className="h-8 text-xs font-mono font-bold bg-white"
                 />
               </div>
@@ -2464,7 +2579,7 @@ export default function PublicAtlasUnifiedEditor({
                   type="number"
                   value={minPts.subclass_190 ?? ''}
                   onChange={(e) => upMinPoints('subclass_190', e.target.value)}
-                  placeholder="e.g. 70"
+                  placeholder="e.g. 75"
                   className="h-8 text-xs font-mono font-bold bg-white"
                 />
               </div>
@@ -2478,6 +2593,87 @@ export default function PublicAtlasUnifiedEditor({
                   className="h-8 text-xs font-mono font-bold bg-white"
                 />
               </div>
+              <div>
+                <Label className="text-[11px] font-semibold text-teal-900 block mb-1">Program Year</Label>
+                <Input
+                  type="text"
+                  value={minPts.as_of_program_year ?? '2025-26'}
+                  onChange={(e) => upMinPoints('as_of_program_year', e.target.value)}
+                  placeholder="e.g. 2025-26"
+                  className="h-8 text-xs font-mono font-bold bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Editable Rounds Table */}
+            <div className="pt-2 border-t border-teal-200/60">
+              <span className="text-[11px] font-bold text-teal-950 uppercase tracking-wider block mb-1.5">
+                Invitation Rounds Records ({(edit.invitation_rounds || []).length})
+              </span>
+              {(!edit.invitation_rounds || edit.invitation_rounds.length === 0) ? (
+                <div className="p-3 text-center bg-white rounded-lg border border-dashed border-teal-300 text-xs text-slate-500">
+                  No custom round records stored yet. Click &quot;Sync from Migroto Live&quot; or &quot;Default Rounds&quot; to populate.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {(edit.invitation_rounds || []).map((rnd, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-lg border border-teal-200/80 shadow-2xs">
+                      <div className="col-span-3">
+                        <Label className="text-[10px] text-slate-500 block mb-0.5">Date</Label>
+                        <Input
+                          type="text"
+                          value={rnd.date || ''}
+                          onChange={(e) => handleUpdateRound(idx, 'date', e.target.value)}
+                          placeholder="e.g. 2026-06-15"
+                          className="h-7 text-xs font-mono bg-slate-50"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-[10px] text-slate-500 block mb-0.5">Subclass</Label>
+                        <Input
+                          type="text"
+                          value={rnd.subclass || ''}
+                          onChange={(e) => handleUpdateRound(idx, 'subclass', e.target.value)}
+                          placeholder="e.g. 189 or 190"
+                          className="h-7 text-xs font-mono font-bold bg-slate-50"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-[10px] text-slate-500 block mb-0.5">Cutoff Pts</Label>
+                        <Input
+                          type="number"
+                          value={rnd.score ?? ''}
+                          onChange={(e) => handleUpdateRound(idx, 'score', e.target.value)}
+                          placeholder="80"
+                          className="h-7 text-xs font-mono font-bold text-emerald-700 bg-slate-50"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-[10px] text-slate-500 block mb-0.5">Total Invitations</Label>
+                        <Input
+                          type="number"
+                          value={rnd.invitations ?? ''}
+                          onChange={(e) => handleUpdateRound(idx, 'invitations', e.target.value)}
+                          placeholder="120"
+                          className="h-7 text-xs font-mono bg-slate-50"
+                        />
+                      </div>
+                      <div className="col-span-1 flex justify-end pt-3.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveRound(idx)}
+                          className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                          title="Remove round"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

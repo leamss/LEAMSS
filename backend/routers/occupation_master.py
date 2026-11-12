@@ -229,6 +229,8 @@ class OccupationUpdate(BaseModel):
     aewv_eligibility: Optional[dict] = None
     smc_points_breakdown: Optional[dict] = None
     seo_meta: Optional[dict] = None
+    invitation_rounds: Optional[List[dict]] = None
+    eoi_backlog: Optional[dict] = None
 
 
 class VerifyRequest(BaseModel):
@@ -282,6 +284,8 @@ class VerifyRequest(BaseModel):
     aewv_eligibility: Optional[dict] = None
     smc_points_breakdown: Optional[dict] = None
     seo_meta: Optional[dict] = None
+    invitation_rounds: Optional[List[dict]] = None
+    eoi_backlog: Optional[dict] = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -299,6 +303,7 @@ _SNAPSHOT_FIELDS = (
     "anzsco_profile", "abs_data", "jsa_data",
     "ee_eligibility", "teer_category", "nz_green_list_tier",
     "aewv_eligibility", "smc_points_breakdown", "seo_meta",
+    "invitation_rounds", "eoi_backlog",
 )
 
 

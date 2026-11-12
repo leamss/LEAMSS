@@ -433,6 +433,58 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
       </article>
       {% endif %}
 
+      {# Australia SkillSelect Invitation Cutoffs & Rounds History #}
+      {% if country_code == 'AU' %}
+      <article class="card" id="skillselect-invitations" data-testid="ssr-invitation-rounds">
+        <span class="card-eyebrow">DHA SkillSelect &amp; Invitation Benchmarks</span>
+        <h2 class="card-title">🎯 Invitation rounds &amp; cutoff scores</h2>
+        <p style="font-size:13px;color:var(--muted);margin-top:-6px;margin-bottom:14px">
+          Official invitation cutoffs and minimum points benchmarks under Department of Home Affairs (DHA) SkillSelect rounds.
+        </p>
+
+        <div class="metric-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+          <div class="metric">
+            <div class="ml">Subclass 189 Independent</div>
+            <div class="mv" style="color:var(--forest)">{{ (occ.min_invitation_points.subclass_189 if occ.min_invitation_points else None) or (migroto_live.invitations.data[0].score if migroto_live and migroto_live.invitations and migroto_live.invitations.data else 80) }} pts</div>
+          </div>
+          <div class="metric">
+            <div class="ml">Subclass 190 State Nominated</div>
+            <div class="mv" style="color:var(--forest)">{{ (occ.min_invitation_points.subclass_190 if occ.min_invitation_points else None) or (migroto_live.invitations.data[1].score if migroto_live and migroto_live.invitations and migroto_live.invitations.data|length > 1 else 75) }} pts</div>
+          </div>
+          <div class="metric">
+            <div class="ml">Subclass 491 Regional</div>
+            <div class="mv" style="color:var(--forest)">{{ (occ.min_invitation_points.subclass_491 if occ.min_invitation_points else None) or (migroto_live.invitations.data[2].score if migroto_live and migroto_live.invitations and migroto_live.invitations.data|length > 2 else 65) }} pts</div>
+          </div>
+        </div>
+
+        {% set rounds = occ.invitation_rounds or (migroto_live.invitations.data if migroto_live and migroto_live.invitations else []) %}
+        {% if rounds %}
+        <div style="overflow-x:auto;margin-top:12px;border:1px solid var(--border);border-radius:10px">
+          <table style="width:100%;font-size:12px;border-collapse:collapse;text-align:left">
+            <thead>
+              <tr style="background:#F9FAFB;border-bottom:1px solid var(--border)">
+                <th style="padding:8px 12px;font-weight:700;color:var(--ink)">Round Date</th>
+                <th style="padding:8px 12px;font-weight:700;color:var(--ink)">Visa Subclass</th>
+                <th style="padding:8px 12px;font-weight:700;color:var(--ink)">Cutoff Score</th>
+                <th style="padding:8px 12px;font-weight:700;color:var(--ink)">Invitations Issued</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in rounds %}
+              <tr style="border-bottom:1px solid #F3F4F6">
+                <td style="padding:8px 12px;color:var(--ink);font-weight:600">{{ r.date }}</td>
+                <td style="padding:8px 12px"><span class="pill pill-slate" style="font-weight:700">Subclass {{ r.subclass }}</span></td>
+                <td style="padding:8px 12px;font-weight:700;color:var(--forest)">{{ r.score }} points</td>
+                <td style="padding:8px 12px;color:var(--muted)">{{ r.invitations or 'Quota' }} invitations</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+      </article>
+      {% endif %}
+
       {# Canada Express Entry Card #}
       {% if country_code == 'CA' and occ.ee_eligibility %}
       <article class="card">

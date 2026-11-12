@@ -487,6 +487,10 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
         const details = await axios.get(`${API}/migroto/occupation/${item.code}`, { headers });
         const insight = details.data?.data;
         if (insight) {
+          const invRounds = insight.invitations?.data || [];
+          const s189 = invRounds.find(i => String(i.subclass) === '189');
+          const s190 = invRounds.find(i => String(i.subclass) === '190');
+          const s491 = invRounds.find(i => String(i.subclass) === '491');
           setEdit((s) => ({
             ...s,
             classification_version: insight.occupation?.version || r.data.migroto_info?.classification_version || s.classification_version,
@@ -494,6 +498,15 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
             typical_tasks: insight.occupation?.essential_tasks ? insight.occupation.essential_tasks.split('\n').filter(Boolean) : s.typical_tasks,
             migroto_synced: true,
             migroto_last_update: insight.eoi_backlog_last_update,
+            invitation_rounds: invRounds.length > 0 ? invRounds : s.invitation_rounds,
+            eoi_backlog: insight.eoi_backlog || s.eoi_backlog,
+            min_invitation_points: {
+              ...(s.min_invitation_points || {}),
+              subclass_189: s189?.score ?? s.min_invitation_points?.subclass_189 ?? 80,
+              subclass_190: s190?.score ?? s.min_invitation_points?.subclass_190 ?? 75,
+              subclass_491: s491?.score ?? s.min_invitation_points?.subclass_491 ?? 65,
+              as_of_program_year: s.min_invitation_points?.as_of_program_year || '2025-26',
+            },
           }));
         }
         toast.success('✓ Synced with Migroto Skilled Migration Registry', {
@@ -531,6 +544,8 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
         as_of_program_year: edit.min_invitation_points?.as_of_program_year || '2025-26',
         notes: edit.min_invitation_points?.notes || '',
       },
+      invitation_rounds: Array.isArray(edit.invitation_rounds) ? edit.invitation_rounds : [],
+      eoi_backlog: edit.eoi_backlog || null,
       visa_pathways: Array.isArray(edit.visa_pathways)
         ? {
             visa_eligibility: edit.visa_pathways,
@@ -878,6 +893,8 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
         addSampleCase={addSampleCase}
         updateSampleCase={updateSampleCase}
         removeSampleCase={removeSampleCase}
+        syncMigroto={syncMigroto}
+        migrotoLoading={migrotoLoading}
         addCustomSection={addCustomSection}
         updateCustomSection={updateCustomSection}
         removeCustomSection={removeCustomSection}

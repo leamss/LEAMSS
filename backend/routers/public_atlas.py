@@ -1134,6 +1134,24 @@ async def get_single_occupation(country: str, code: str):
         except Exception:
             pass
 
+        if migroto_live and d.get("invitation_rounds"):
+            migroto_live["invitations"] = {
+                **(migroto_live.get("invitations") or {}),
+                "data": d.get("invitation_rounds"),
+            }
+        if migroto_live and not safe.get("min_invitation_points"):
+            inv_data = migroto_live.get("invitations", {}).get("data") or []
+            s189 = next((i.get("score") for i in inv_data if str(i.get("subclass")) == "189"), 80)
+            s190 = next((i.get("score") for i in inv_data if str(i.get("subclass")) == "190"), 75)
+            s491 = next((i.get("score") for i in inv_data if str(i.get("subclass")) == "491"), 65)
+            safe["min_invitation_points"] = {
+                "subclass_189": s189,
+                "subclass_190": s190,
+                "subclass_491": s491,
+                "as_of_program_year": "2025-26",
+            }
+        safe["invitation_rounds"] = d.get("invitation_rounds") or (migroto_live.get("invitations", {}).get("data") if migroto_live else [])
+
     return {
         "country": country,
         "country_meta": cm,

@@ -777,6 +777,22 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
                 f"Assessed by {occ_aa.get('name', 'designated authority')} under {pathway} and Core Skills migration streams."
             )
 
+    migroto_live = None
+    if cc == "AU":
+        try:
+            from services.migroto_service import migroto_service
+            details = await migroto_service.get_occupation_details(code)
+            if details.get("status") == "success":
+                migroto_live = details.get("data")
+        except Exception:
+            pass
+    if migroto_live and occ.get("invitation_rounds"):
+        migroto_live["invitations"] = {
+            **(migroto_live.get("invitations") or {}),
+            "data": occ.get("invitation_rounds"),
+        }
+    occ["migroto_live"] = migroto_live
+
     tmpl = _env.get_template("atlas_occupation_ssr.html")
     return tmpl.render(
         occ=occ,
