@@ -64,6 +64,8 @@ async def _require_admin(user: dict):
 # ─────────────────────────────────────────────────────────────────────────────
 class AssessingAuthority(BaseModel):
     body_id: Optional[str] = None
+    code: Optional[str] = ""
+    short_name: Optional[str] = ""
     name: Optional[str] = ""
     full_name: Optional[str] = ""
     website: Optional[str] = ""
@@ -108,7 +110,7 @@ class SampleCase(BaseModel):
     client_age: Optional[int] = Field(None, ge=18, le=70)
     profile_summary: Optional[str] = Field("", max_length=500)
     visa_subclass: Optional[str] = Field("", max_length=40)
-    outcome: Optional[str] = Field("", max_length=40)
+    outcome: Optional[str] = Field("", max_length=120)
     timeline_months: Optional[int] = Field(None, ge=0, le=48)
     notes: Optional[str] = Field("", max_length=1000)
 
@@ -185,9 +187,19 @@ class OccupationUpdate(BaseModel):
     typical_tasks: Optional[List[str]] = None
     skill_level: Optional[int] = None
     assessing_authority: Optional[AssessingAuthority] = None
+    assessing_authority_id: Optional[str] = None
+    skillselect_tier: Optional[str] = None
+    min_invitation_points: Optional[Any] = None
+    caveats: Optional[Any] = None
+    dama_eligibility: Optional[Any] = None
+    ila_eligibility: Optional[Any] = None
     skill_assessment_details: Optional[dict] = None
     visa_pathways: Optional[dict] = None
-    state_territory_eligibility: Optional[list] = None
+    state_territory_eligibility: Optional[Any] = None
+    state_demand: Optional[dict] = None
+    custom_msa_fee_aud: Optional[int] = None
+    custom_processing_days_min: Optional[int] = None
+    custom_processing_days_max: Optional[int] = None
     status: Optional[str] = None
     linked_product_id: Optional[str] = None
     # Phase 18.1 — workspace expansion fields
@@ -197,6 +209,26 @@ class OccupationUpdate(BaseModel):
     recommended_visa_subclass: Optional[Dict[str, str]] = None  # MERGE per-country
     sample_cases: Optional[List[SampleCase]] = None
     custom_sections: Optional[List[CustomSection]] = None
+    # Public Atlas fields
+    pathway_list: Optional[str] = None
+    pathway_lists: Optional[List[str]] = None
+    anzsco_profile: Optional[dict] = None
+    abs_data: Optional[dict] = None
+    jsa_data: Optional[dict] = None
+    abs_labour_market: Optional[dict] = None
+    demand_rationale: Optional[str] = None
+    national_shortage_status: Optional[str] = None
+    state_distribution: Optional[dict] = None
+    industries_ranked: Optional[List[Any]] = None
+    faqs: Optional[List[dict]] = None
+    strong_regions: Optional[List[Any]] = None
+    state_ratings: Optional[dict] = None
+    ee_eligibility: Optional[dict] = None
+    teer_category: Optional[int] = None
+    nz_green_list_tier: Optional[int] = None
+    aewv_eligibility: Optional[dict] = None
+    smc_points_breakdown: Optional[dict] = None
+    seo_meta: Optional[dict] = None
 
 
 class VerifyRequest(BaseModel):
@@ -211,12 +243,45 @@ class VerifyRequest(BaseModel):
     typical_tasks: Optional[List[str]] = None
     qualification_rules: Optional[str] = None
     alternative_titles: Optional[List[str]] = None
+    specialisations: Optional[List[str]] = None
+    skill_level: Optional[int] = None
     assessing_authority: Optional[AssessingAuthority] = None
+    assessing_authority_id: Optional[str] = None
+    skillselect_tier: Optional[str] = None
+    min_invitation_points: Optional[Any] = None
+    caveats: Optional[Any] = None
+    skill_assessment_details: Optional[dict] = None
+    visa_pathways: Optional[dict] = None
+    state_territory_eligibility: Optional[Any] = None
+    state_demand: Optional[dict] = None
+    state_ratings: Optional[dict] = None
     required_documents: Optional[List[RequiredDocument]] = None
     similar_codes_override: Optional[List[str]] = None
     recommended_visa_subclass: Optional[Dict[str, str]] = None
     sample_cases: Optional[List[SampleCase]] = None
     custom_sections: Optional[List[CustomSection]] = None
+    classification_type: Optional[str] = None
+    classification_version: Optional[str] = None
+    hierarchy: Optional[HierarchyModel] = None
+    # Public Atlas fields
+    pathway_list: Optional[str] = None
+    pathway_lists: Optional[List[str]] = None
+    anzsco_profile: Optional[dict] = None
+    abs_data: Optional[dict] = None
+    jsa_data: Optional[dict] = None
+    abs_labour_market: Optional[dict] = None
+    demand_rationale: Optional[str] = None
+    national_shortage_status: Optional[str] = None
+    state_distribution: Optional[dict] = None
+    industries_ranked: Optional[List[Any]] = None
+    faqs: Optional[List[dict]] = None
+    strong_regions: Optional[List[Any]] = None
+    ee_eligibility: Optional[dict] = None
+    teer_category: Optional[int] = None
+    nz_green_list_tier: Optional[int] = None
+    aewv_eligibility: Optional[dict] = None
+    smc_points_breakdown: Optional[dict] = None
+    seo_meta: Optional[dict] = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -227,6 +292,13 @@ _SNAPSHOT_FIELDS = (
     "alternative_titles", "assessing_authority", "required_documents",
     "similar_codes_override", "recommended_visa_subclass",
     "sample_cases", "custom_sections",
+    "skill_level", "classification_type", "classification_version",
+    "specialisations", "hierarchy",
+    "pathway_list", "pathway_lists", "min_invitation_points", "visa_pathways",
+    "state_territory_eligibility", "state_demand", "state_ratings",
+    "anzsco_profile", "abs_data", "jsa_data",
+    "ee_eligibility", "teer_category", "nz_green_list_tier",
+    "aewv_eligibility", "smc_points_breakdown", "seo_meta",
 )
 
 
@@ -490,6 +562,17 @@ async def update_occupation(occupation_id: str, req: OccupationUpdate, current_u
     update_set["updated_at"] = datetime.now(timezone.utc)
     await OCCUPATION_MASTER.update_one({"occupation_id": real_id}, {"$set": update_set})
     refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": real_id}, {"_id": 0})
+
+    # Trigger SSG regeneration so changes appear immediately on public atlas
+    try:
+        from routers.seo_ssg import on_verified_hook
+        cc = refreshed.get("country_code") if refreshed else None
+        code = refreshed.get("code") if refreshed else None
+        if cc and code:
+            await on_verified_hook(cc, str(code))
+    except Exception:
+        pass
+
     return _strip(refreshed)
 
 

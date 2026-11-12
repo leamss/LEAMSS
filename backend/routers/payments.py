@@ -932,7 +932,7 @@ async def get_payment_history(sale_id: str, current_user: dict = Depends(get_cur
     return transactions
 
 
-RECEIPTS_DIR = "/app/uploads/receipts"
+RECEIPTS_DIR = os.environ.get("RECEIPTS_DIR") or ("/app/uploads/receipts" if os.path.exists("/app") and os.access("/app", os.W_OK) else os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "receipts"))
 os.makedirs(RECEIPTS_DIR, exist_ok=True)
 
 

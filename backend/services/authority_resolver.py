@@ -45,6 +45,7 @@ Countries:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Dict, Optional
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -84,15 +85,25 @@ def _merge_authority_into_occupation_shape(
     New keys added under simple names: processing, fees, documents_required,
     methodology_summary, validity_period_months, _id, _status, _aliases.
     """
-    # Back-compat top-level
-    short = auth_doc.get("code") or ""
-    full = auth_doc.get("full_name") or ""
-    site = auth_doc.get("website") or ""
+    aa_custom = occ.get("assessing_authority") or {}
+    sad_custom = occ.get("skill_assessment_details") or {}
+
+    # Back-compat top-level with custom overrides priority
+    short = aa_custom.get("code") or aa_custom.get("short_name") or auth_doc.get("code") or ""
+    full = aa_custom.get("full_name") or aa_custom.get("name") or auth_doc.get("full_name") or ""
+    site = aa_custom.get("website") or aa_custom.get("url") or sad_custom.get("website") or auth_doc.get("website") or ""
 
     # Compute effective processing (override > default)
     eff_processing = dict(auth_doc.get("processing") or {})
-    override_proc_min = occ.get("custom_processing_days_min")
-    override_proc_max = occ.get("custom_processing_days_max")
+    override_proc_min = occ.get("custom_processing_days_min") or sad_custom.get("priority_days_min")
+    override_proc_max = occ.get("custom_processing_days_max") or sad_custom.get("priority_days_max")
+    if aa_custom.get("processing_time_weeks"):
+        try:
+            w = int(str(aa_custom["processing_time_weeks"]).split()[0])
+            eff_processing["standard_days_max"] = w * 7
+            eff_processing["standard_days_min"] = max(14, (w - 4) * 7)
+        except (ValueError, TypeError, IndexError):
+            pass
     if override_proc_min is not None:
         eff_processing["standard_days_min"] = override_proc_min
         eff_processing["_override_min"] = True
@@ -102,16 +113,13 @@ def _merge_authority_into_occupation_shape(
 
     # Compute effective fees (override > default)
     eff_fees = dict(auth_doc.get("fees") or {})
-    override_msa = occ.get("custom_msa_fee_aud")
+    override_msa = occ.get("custom_msa_fee_aud") or aa_custom.get("fee_native") or sad_custom.get("msa_fee_aud") or sad_custom.get("fee_native")
     if override_msa is not None:
-        eff_fees["msa_fee_aud"] = override_msa
-        eff_fees["_override_msa"] = True
-    print("=" * 60)
-    print("MERGED FEES")
-    print(eff_fees)
-    print("MERGED PROCESSING")
-    print(eff_processing)
-    print("=" * 60)
+        try:
+            eff_fees["msa_fee_aud"] = float(override_msa)
+            eff_fees["_override_msa"] = True
+        except (ValueError, TypeError):
+            pass
     return {
         # Back-compat trio
         "short_name": short,
@@ -126,7 +134,15 @@ def _merge_authority_into_occupation_shape(
         "website": site,
         "processing": eff_processing,
         "fees": eff_fees,
+        "fee_native": eff_fees.get("msa_fee_aud") or aa_custom.get("fee_native") or sad_custom.get("fee_native"),
+        "processing_time_weeks": (
+            str(round(eff_processing.get("standard_days_max", 70) / 7))
+            if eff_processing.get("standard_days_max")
+            else aa_custom.get("processing_time_weeks")
+        ),
+        "documents_required": sad_custom.get("documents_required") or auth_doc.get("documents_required_common") or [],
         "documents_required_common": auth_doc.get("documents_required_common") or [],
+        "pathways": sad_custom.get("pathways") or [],
         "methodology_summary": auth_doc.get("methodology_summary"),
         "validity_period_months": auth_doc.get("validity_period_months"),
         "appeal_process": auth_doc.get("appeal_process"),
@@ -153,12 +169,16 @@ async def resolve_authority(
     if cc != "AU":
         # NZ / CA / other — pass through existing dict shape unchanged.
         if isinstance(aa_raw, dict) and aa_raw:
+            code_val = aa_raw.get("code") or aa_raw.get("short_name") or aa_raw.get("name") or ""
             return {
-                "short_name": aa_raw.get("short_name") or aa_raw.get("name") or "",
-                "name": aa_raw.get("full_name") or aa_raw.get("name") or "",
+                "code": code_val,
+                "short_name": code_val,
+                "name": aa_raw.get("full_name") or aa_raw.get("name") or code_val,
+                "full_name": aa_raw.get("full_name") or aa_raw.get("name") or code_val,
                 "url": aa_raw.get("website") or aa_raw.get("url") or aa_raw.get("body_url") or "",
+                "website": aa_raw.get("website") or aa_raw.get("url") or aa_raw.get("body_url") or "",
                 # Pass through inline NZ/CA fee data unchanged
-                **{k: v for k, v in aa_raw.items() if k not in {"short_name", "name", "url"}},
+                **{k: v for k, v in aa_raw.items() if k not in {"short_name", "name", "url", "code", "full_name", "website"}},
                 "_country_legacy_pass_through": True,
             }
         return _empty_back_compat()
@@ -171,6 +191,20 @@ async def resolve_authority(
             return _merge_authority_into_occupation_shape(auth, occ)
         logger.warning("Authority FK %s not found in collection for occ %s",
                        authority_id, occ.get("occupation_id"))
+
+    # Match by code or name from assessing_authority dict
+    if isinstance(aa_raw, dict) and aa_raw:
+        code_token = aa_raw.get("code") or aa_raw.get("short_name") or aa_raw.get("name")
+        if code_token:
+            auth = await db[AUTHORITY_COLLECTION].find_one({
+                "$or": [
+                    {"code": {"$regex": f"^{re.escape(str(code_token).strip())}$", "$options": "i"}},
+                    {"aliases": {"$regex": f"^{re.escape(str(code_token).strip())}$", "$options": "i"}},
+                    {"full_name": {"$regex": f"^{re.escape(str(code_token).strip())}$", "$options": "i"}},
+                ]
+            })
+            if auth:
+                return _merge_authority_into_occupation_shape(auth, occ)
 
     # Fallback: legacy dict still present from pre-migration
     if isinstance(aa_raw, dict) and aa_raw and (aa_raw.get("short_name") or aa_raw.get("name")):
@@ -193,11 +227,15 @@ def resolve_authority_sync(
 
     if cc != "AU":
         if isinstance(aa_raw, dict) and aa_raw:
+            code_val = aa_raw.get("code") or aa_raw.get("short_name") or aa_raw.get("name") or ""
             return {
-                "short_name": aa_raw.get("short_name") or aa_raw.get("name") or "",
-                "name": aa_raw.get("full_name") or aa_raw.get("name") or "",
+                "code": code_val,
+                "short_name": code_val,
+                "name": aa_raw.get("full_name") or aa_raw.get("name") or code_val,
+                "full_name": aa_raw.get("full_name") or aa_raw.get("name") or code_val,
                 "url": aa_raw.get("website") or aa_raw.get("url") or aa_raw.get("body_url") or "",
-                **{k: v for k, v in aa_raw.items() if k not in {"short_name", "name", "url"}},
+                "website": aa_raw.get("website") or aa_raw.get("url") or aa_raw.get("body_url") or "",
+                **{k: v for k, v in aa_raw.items() if k not in {"short_name", "name", "url", "code", "full_name", "website"}},
                 "_country_legacy_pass_through": True,
             }
         return _empty_back_compat()
@@ -207,6 +245,19 @@ def resolve_authority_sync(
         auth = db_sync[AUTHORITY_COLLECTION].find_one({"id": authority_id})
         if auth:
             return _merge_authority_into_occupation_shape(auth, occ)
+
+    if isinstance(aa_raw, dict) and aa_raw:
+        code_token = aa_raw.get("code") or aa_raw.get("short_name") or aa_raw.get("name")
+        if code_token:
+            auth = db_sync[AUTHORITY_COLLECTION].find_one({
+                "$or": [
+                    {"code": {"$regex": f"^{re.escape(str(code_token).strip())}$", "$options": "i"}},
+                    {"aliases": {"$regex": f"^{re.escape(str(code_token).strip())}$", "$options": "i"}},
+                    {"full_name": {"$regex": f"^{re.escape(str(code_token).strip())}$", "$options": "i"}},
+                ]
+            })
+            if auth:
+                return _merge_authority_into_occupation_shape(auth, occ)
 
     if isinstance(aa_raw, dict) and aa_raw and (aa_raw.get("short_name") or aa_raw.get("name")):
         return _normalise_legacy_au_dict(aa_raw)

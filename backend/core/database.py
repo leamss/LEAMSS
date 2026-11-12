@@ -1,10 +1,34 @@
 """MongoDB Database Connection"""
 import os
+import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "leamss")
 # client = AsyncIOMotorClient(MONGO_URL)
+def _dynamic_get_io_loop(self=None):
+    try:
+        loop = asyncio.get_running_loop()
+        if not loop.is_closed():
+            if self is not None:
+                self._io_loop = loop
+            return loop
+    except RuntimeError:
+        pass
+    loop = getattr(self, "_io_loop", None) if self is not None else None
+    if loop is None or loop.is_closed():
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        if self is not None:
+            self._io_loop = loop
+    return loop
+
+AsyncIOMotorClient.get_io_loop = _dynamic_get_io_loop
+AsyncIOMotorClient.io_loop = property(_dynamic_get_io_loop)
+
 client = AsyncIOMotorClient(MONGO_URL, tz_aware=True)
 db = client[DB_NAME]
 

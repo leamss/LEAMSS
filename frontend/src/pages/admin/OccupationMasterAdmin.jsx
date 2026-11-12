@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 
 import { formatApiError } from '@/lib/apiErrors';
+import { handleSafeBack } from '@/lib/navigation';
+import PublicAtlasUnifiedEditor from './components/PublicAtlasUnifiedEditor';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -44,7 +46,7 @@ export default function OccupationMasterAdmin() {
     <div className="min-h-screen bg-slate-50 p-5" data-testid="kb-admin-page">
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate('/admin/eligibility/knowledge-base')} data-testid="back-btn">
+          <Button variant="outline" size="sm" onClick={() => handleSafeBack(navigate, '/admin/eligibility/knowledge-base')} data-testid="back-btn">
             <ArrowLeft className="h-4 w-4 mr-1" />KB Home
           </Button>
           <div>
@@ -244,6 +246,28 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
     ai_draft: item.ai_draft || {},
     migroto_synced: item.migroto_synced || false,
     migroto_last_update: item.migroto_last_update || null,
+    pathway_list: item.pathway_list || 'MLTSSL',
+    pathway_lists: Array.isArray(item.pathway_lists) ? item.pathway_lists : (item.pathway_list ? [item.pathway_list] : ['MLTSSL']),
+    min_invitation_points: item.min_invitation_points || { subclass_189: 75, subclass_190: 70, subclass_491: 65, as_of_program_year: '2025-26', notes: '' },
+    state_territory_eligibility: item.state_territory_eligibility || {},
+    state_demand: item.state_demand || {},
+    state_ratings: item.state_ratings || {},
+    anzsco_profile: item.anzsco_profile || {},
+    abs_data: item.abs_data || {},
+    jsa_data: item.jsa_data || {},
+    abs_labour_market: item.abs_labour_market || {},
+    demand_rationale: item.demand_rationale || '',
+    national_shortage_status: item.national_shortage_status || '',
+    state_distribution: item.state_distribution || {},
+    industries_ranked: Array.isArray(item.industries_ranked) ? item.industries_ranked : [],
+    faqs: Array.isArray(item.faqs) ? item.faqs : [],
+    strong_regions: Array.isArray(item.strong_regions) ? item.strong_regions : [],
+    ee_eligibility: item.ee_eligibility || { fswp_eligible: true, cec_eligible: true, fstp_eligible: false, categories: [] },
+    teer_category: item.teer_category != null ? String(item.teer_category) : '',
+    nz_green_list_tier: item.nz_green_list_tier != null ? String(item.nz_green_list_tier) : '',
+    aewv_eligibility: item.aewv_eligibility || { eligible: true, occupational_band: 'Level 1', max_stay_years: 5 },
+    smc_points_breakdown: item.smc_points_breakdown || { skill_points_base: 6, pass_mark: 6, green_list_auto_pass: false },
+    seo_meta: item.seo_meta || {},
   }));
 
   const [activeTab, setActiveTab] = useState('core');
@@ -318,6 +342,28 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
             ai_draft: full.ai_draft || prev.ai_draft,
             migroto_synced: full.migroto_synced || prev.migroto_synced,
             migroto_last_update: full.migroto_last_update || prev.migroto_last_update,
+            pathway_list: full.pathway_list || prev.pathway_list,
+            min_invitation_points: full.min_invitation_points || prev.min_invitation_points,
+            state_territory_eligibility: full.state_territory_eligibility || prev.state_territory_eligibility,
+            state_demand: full.state_demand || prev.state_demand,
+            state_ratings: full.state_ratings || prev.state_ratings,
+            anzsco_profile: full.anzsco_profile || prev.anzsco_profile,
+            abs_data: full.abs_data || prev.abs_data,
+            jsa_data: full.jsa_data || prev.jsa_data,
+            abs_labour_market: full.abs_labour_market || prev.abs_labour_market,
+            demand_rationale: full.demand_rationale != null ? full.demand_rationale : prev.demand_rationale,
+            national_shortage_status: full.national_shortage_status != null ? full.national_shortage_status : prev.national_shortage_status,
+            state_distribution: full.state_distribution || prev.state_distribution,
+            industries_ranked: Array.isArray(full.industries_ranked) && full.industries_ranked.length ? full.industries_ranked : prev.industries_ranked,
+            faqs: Array.isArray(full.faqs) && full.faqs.length ? full.faqs : prev.faqs,
+            strong_regions: Array.isArray(full.strong_regions) && full.strong_regions.length ? full.strong_regions : prev.strong_regions,
+            pathway_lists: Array.isArray(full.pathway_lists) && full.pathway_lists.length ? full.pathway_lists : prev.pathway_lists,
+            ee_eligibility: full.ee_eligibility || prev.ee_eligibility,
+            teer_category: full.teer_category != null ? String(full.teer_category) : prev.teer_category,
+            nz_green_list_tier: full.nz_green_list_tier != null ? String(full.nz_green_list_tier) : prev.nz_green_list_tier,
+            aewv_eligibility: full.aewv_eligibility || prev.aewv_eligibility,
+            smc_points_breakdown: full.smc_points_breakdown || prev.smc_points_breakdown,
+            seo_meta: full.seo_meta || prev.seo_meta,
           }));
           if (full.verification?.source_reference) {
             setSourceRef(full.verification.source_reference);
@@ -477,11 +523,80 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
         ? (edit.skillselect_tier.tier || 'tier_4')
         : (edit.skillselect_tier || 'tier_4'),
       caveats: edit.caveats,
-      min_invitation_points: edit.min_invitation_points,
-      visa_pathways: edit.visa_pathways,
-      state_territory_eligibility: edit.state_territory_eligibility,
-      state_demand: edit.state_demand,
-      skill_assessment_details: edit.skill_assessment_details,
+      pathway_list: edit.pathway_list?.trim() || 'MLTSSL',
+      min_invitation_points: {
+        subclass_189: edit.min_invitation_points?.subclass_189 ? parseInt(edit.min_invitation_points.subclass_189, 10) : null,
+        subclass_190: edit.min_invitation_points?.subclass_190 ? parseInt(edit.min_invitation_points.subclass_190, 10) : null,
+        subclass_491: edit.min_invitation_points?.subclass_491 ? parseInt(edit.min_invitation_points.subclass_491, 10) : null,
+        as_of_program_year: edit.min_invitation_points?.as_of_program_year || '2025-26',
+        notes: edit.min_invitation_points?.notes || '',
+      },
+      visa_pathways: Array.isArray(edit.visa_pathways)
+        ? {
+            visa_eligibility: edit.visa_pathways,
+            pathway_lists: Array.isArray(edit.pathway_lists) ? edit.pathway_lists : (edit.pathway_list ? [edit.pathway_list] : ['MLTSSL']),
+          }
+        : {
+            ...(edit.visa_pathways || {}),
+            pathway_lists: Array.isArray(edit.pathway_lists) ? edit.pathway_lists : (edit.visa_pathways?.pathway_lists || ['MLTSSL']),
+          },
+      state_territory_eligibility: edit.state_territory_eligibility || {},
+      state_demand: edit.state_demand || {},
+      state_ratings: edit.state_ratings || {},
+      anzsco_profile: {
+        ...(edit.anzsco_profile || {}),
+        median_salary_aud: edit.anzsco_profile?.median_salary_aud ? parseFloat(edit.anzsco_profile.median_salary_aud) : (edit.abs_data?.median_ft_annual_aud ? parseFloat(edit.abs_data.median_ft_annual_aud) : null),
+        workforce_size: edit.anzsco_profile?.workforce_size ? parseInt(edit.anzsco_profile.workforce_size, 10) : null,
+        employed_count: edit.anzsco_profile?.employed_count ? parseInt(edit.anzsco_profile.employed_count, 10) : null,
+        median_weekly_earnings_aud: edit.anzsco_profile?.median_weekly_earnings_aud ? parseFloat(edit.anzsco_profile.median_weekly_earnings_aud) : null,
+      },
+      abs_data: edit.abs_data ? {
+        ...edit.abs_data,
+        median_ft_annual_aud: edit.abs_data.median_ft_annual_aud ? parseFloat(edit.abs_data.median_ft_annual_aud) : null,
+        median_ft_weekly_earnings_aud: edit.abs_data.median_ft_weekly_earnings_aud ? parseFloat(edit.abs_data.median_ft_weekly_earnings_aud) : null,
+        median_ft_hourly_earnings_aud: edit.abs_data.median_ft_hourly_earnings_aud ? parseFloat(edit.abs_data.median_ft_hourly_earnings_aud) : null,
+      } : null,
+      jsa_data: edit.jsa_data ? {
+        ...edit.jsa_data,
+        future_growth: edit.jsa_data.future_growth || 'Moderate',
+        growth_pct_2025_to_2035: edit.jsa_data.growth_pct_2025_to_2035 != null && edit.jsa_data.growth_pct_2025_to_2035 !== '' ? parseFloat(edit.jsa_data.growth_pct_2025_to_2035) : null,
+        employment_2025: edit.jsa_data.employment_2025 ? parseInt(edit.jsa_data.employment_2025, 10) : null,
+        projected_employment_2030: edit.jsa_data.projected_employment_2030 ? parseInt(edit.jsa_data.projected_employment_2030, 10) : null,
+        projected_employment_2035: edit.jsa_data.projected_employment_2035 ? parseInt(edit.jsa_data.projected_employment_2035, 10) : null,
+      } : null,
+      abs_labour_market: edit.abs_labour_market ? {
+        ...edit.abs_labour_market,
+        employed_count: edit.abs_labour_market.employed_count != null && edit.abs_labour_market.employed_count !== '' ? parseInt(edit.abs_labour_market.employed_count, 10) : null,
+        median_age: edit.abs_labour_market.median_age != null && edit.abs_labour_market.median_age !== '' ? parseInt(edit.abs_labour_market.median_age, 10) : null,
+        part_time_share_pct: edit.abs_labour_market.part_time_share_pct != null && edit.abs_labour_market.part_time_share_pct !== '' ? parseFloat(edit.abs_labour_market.part_time_share_pct) : null,
+        female_share_pct: edit.abs_labour_market.female_share_pct != null && edit.abs_labour_market.female_share_pct !== '' ? parseFloat(edit.abs_labour_market.female_share_pct) : null,
+        median_weekly_earnings_aud: edit.abs_labour_market.median_weekly_earnings_aud != null && edit.abs_labour_market.median_weekly_earnings_aud !== '' ? parseFloat(edit.abs_labour_market.median_weekly_earnings_aud) : null,
+      } : null,
+      demand_rationale: edit.demand_rationale != null ? edit.demand_rationale.trim() : '',
+      national_shortage_status: edit.national_shortage_status != null ? edit.national_shortage_status.trim() : '',
+      state_distribution: edit.state_distribution || {},
+      industries_ranked: Array.isArray(edit.industries_ranked) ? edit.industries_ranked : (typeof edit.industries_ranked === 'string' ? edit.industries_ranked.split('\n').map(s => s.trim()).filter(Boolean) : []),
+      faqs: Array.isArray(edit.faqs) ? edit.faqs.filter(f => f.q || f.question) : [],
+      strong_regions: Array.isArray(edit.strong_regions) ? edit.strong_regions : (typeof edit.strong_regions === 'string' ? edit.strong_regions.split('\n').map(s => s.trim()).filter(Boolean) : []),
+      pathway_lists: Array.isArray(edit.pathway_lists) ? edit.pathway_lists : (edit.pathway_list ? [edit.pathway_list] : []),
+      ee_eligibility: edit.ee_eligibility ? {
+        ...edit.ee_eligibility,
+        fswp_eligible: Boolean(edit.ee_eligibility.fswp_eligible),
+        cec_eligible: Boolean(edit.ee_eligibility.cec_eligible),
+        fstp_eligible: Boolean(edit.ee_eligibility.fstp_eligible),
+      } : null,
+      teer_category: edit.teer_category !== '' && edit.teer_category != null ? parseInt(edit.teer_category, 10) : null,
+      nz_green_list_tier: edit.nz_green_list_tier !== '' && edit.nz_green_list_tier != null ? parseInt(edit.nz_green_list_tier, 10) : null,
+      aewv_eligibility: edit.aewv_eligibility || null,
+      smc_points_breakdown: edit.smc_points_breakdown || null,
+      seo_meta: edit.seo_meta || null,
+      skill_assessment_details: {
+        ...(edit.skill_assessment_details || {}),
+        website: edit.assessing_authority?.website || edit.skill_assessment_details?.website || '',
+        msa_fee_aud: edit.assessing_authority?.fee_native ? parseFloat(edit.assessing_authority.fee_native) : edit.skill_assessment_details?.msa_fee_aud,
+        full_name: edit.assessing_authority?.full_name || edit.assessing_authority?.name || edit.skill_assessment_details?.full_name || '',
+        short_name: edit.assessing_authority?.code || edit.assessing_authority?.short_name || edit.skill_assessment_details?.short_name || '',
+      },
       assessing_authority_id: edit.assessing_authority_id,
       qualification_rules: edit.qualification_rules?.trim() || '',
       assessing_authority: {
@@ -551,19 +666,19 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
   };
 
   const verify = async () => {
-    if (!sourceRef.trim()) {
-      toast.error('Official Source URL required for verification (e.g. ABS ANZSCO, IRCC NOC)');
-      return;
-    }
+    const effectiveSourceRef = sourceRef?.trim()
+      || edit.assessing_authority?.website
+      || `https://www.abs.gov.au/statistics/classifications/anzsco-australian-and-new-zealand-standard-classification-occupations/latest-release`
+      || 'https://www.abs.gov.au';
     setSaving(true);
     try {
       const payload = {
         ...buildPayload(),
-        source_reference: sourceRef.trim(),
-        review_notes: reviewNotes.trim(),
+        source_reference: effectiveSourceRef,
+        review_notes: reviewNotes.trim() || 'Verified for Public Atlas',
       };
       await axios.post(`${API}/occupation-master/${item.occupation_id}/verify`, payload, { headers });
-      toast.success('✓ Verified & published', { description: 'All fields verified and published for sales consultants.' });
+      toast.success('✓ Verified & published live', { description: 'Public Atlas page and Smart Sales have been updated immediately.' });
       onSaved();
     } catch (e) {
       toast.error(formatApiError(e, 'Verify failed'));
@@ -602,7 +717,7 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
     setEdit((s) => ({
       ...s,
       sample_cases: [
-        ...s.sample_cases,
+        ...(s.sample_cases || []),
         { id: `case_${Date.now()}`, client_age: 32, visa_subclass: '190', outcome: 'Approved', timeline_months: 6, profile_summary: '', notes: '' }
       ]
     }));
@@ -610,7 +725,7 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
 
   const updateSampleCase = (idx, patch) => {
     setEdit((s) => {
-      const cases = [...s.sample_cases];
+      const cases = [...(s.sample_cases || [])];
       cases[idx] = { ...cases[idx], ...patch };
       return { ...s, sample_cases: cases };
     });
@@ -618,7 +733,7 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
 
   const removeSampleCase = (idx) => {
     setEdit((s) => {
-      const cases = [...s.sample_cases];
+      const cases = [...(s.sample_cases || [])];
       cases.splice(idx, 1);
       return { ...s, sample_cases: cases };
     });
@@ -711,6 +826,17 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
               Migroto Live Sync
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/atlas/${(item.country_code || 'AU').toLowerCase()}/${item.code}`, '_blank')}
+            className="border-emerald-400 bg-emerald-50/60 text-emerald-800 hover:bg-emerald-100 font-semibold shadow-xs"
+            data-testid="editor-view-public-atlas"
+            title="Open the live public SEO money page in a new tab"
+          >
+            <Globe2 className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+            View Public Atlas ↗
+          </Button>
           <Button variant="outline" size="sm" onClick={onCancel} data-testid="editor-cancel">
             <ArrowLeft className="h-4 w-4 mr-1" />Back
           </Button>
@@ -718,617 +844,44 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
             {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
             Save Draft
           </Button>
-          <Button size="sm" onClick={() => setVerifyOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm" data-testid="editor-open-verify">
-            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Verify &amp; Publish
+          <Button size="sm" onClick={verify} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm" data-testid="editor-open-verify">
+            {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
+            Save &amp; Publish Live
           </Button>
         </div>
       </div>
 
-      {/* 3-Column Responsive Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* ──────────────────────────────────────────────────────────── */}
-        {/* COLUMN 1: AI DRAFT PANEL (3 cols) */}
-        {/* ──────────────────────────────────────────────────────────── */}
-        <Card className="lg:col-span-3 p-3.5 bg-gradient-to-br from-purple-50/60 to-indigo-50/40 border-purple-200 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-purple-200 flex-wrap gap-2">
-            <div>
-              <h3 className="text-xs font-bold uppercase text-purple-900 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-purple-600" /> AI Draft
-              </h3>
-              <p className="text-[10px] text-purple-600">Claude Sonnet 4.5</p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Button size="sm" variant="outline" onClick={generate} disabled={genLoading} className="h-7 px-2 text-[10px] border-purple-300 text-purple-800 bg-white hover:bg-purple-100 font-semibold" data-testid="generate-ai-draft">
-                {genLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1 text-purple-600" />}
-                Generate
-              </Button>
-            </div>
-          </div>
-
-          {aiDraft.generated_at ? (
-            <div className="space-y-3 text-xs">
-              <Button onClick={applyAllAiDraft} size="sm" className="w-full bg-purple-700 hover:bg-purple-800 text-white text-[11px] h-8 shadow-sm font-semibold flex items-center justify-center gap-1.5">
-                <Copy className="h-3.5 w-3.5" /> Apply All Draft to Form
-              </Button>
-
-              <div className="bg-white p-2.5 rounded-lg border border-purple-200 space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-purple-900 text-[11px]">Description</p>
-                  <button type="button" onClick={() => copyAiField('description', aiDraft.description || '')} className="text-[10px] text-purple-700 hover:text-purple-900 font-semibold underline">
-                    Use this
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-700 whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed">{aiDraft.description || '—'}</p>
-              </div>
-
-              <div className="bg-white p-2.5 rounded-lg border border-purple-200 space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-purple-900 text-[11px]">Typical Tasks ({(aiDraft.typical_tasks || []).length})</p>
-                  <button type="button" onClick={() => copyAiField('typical_tasks', aiDraft.typical_tasks || [])} className="text-[10px] text-purple-700 hover:text-purple-900 font-semibold underline">
-                    Use these
-                  </button>
-                </div>
-                <ul className="list-disc list-inside text-[11px] text-slate-700 space-y-1 max-h-40 overflow-y-auto">
-                  {(aiDraft.typical_tasks || []).map((t, i) => <li key={i}>{t}</li>)}
-                </ul>
-              </div>
-
-              {aiDraft.qualification_rules && (
-                <div className="bg-white p-2.5 rounded-lg border border-purple-200 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold text-purple-900 text-[11px]">Qualification Rules</p>
-                    <button type="button" onClick={() => copyAiField('qualification_rules', aiDraft.qualification_rules || '')} className="text-[10px] text-purple-700 hover:text-purple-900 font-semibold underline">
-                      Use this
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-700 whitespace-pre-wrap max-h-32 overflow-y-auto leading-relaxed">{aiDraft.qualification_rules}</p>
-                </div>
-              )}
-
-              {aiDraft.ai_confidence_note && (
-                <div className="bg-amber-50 border border-amber-200 p-2 rounded text-[10px] text-amber-800">
-                  <strong>⚠️ Note:</strong> {aiDraft.ai_confidence_note}
-                </div>
-              )}
-
-              <p className="text-[9px] text-slate-500 text-center">
-                Generated {new Date(aiDraft.generated_at).toLocaleString()}
-                {aiDraft.generated_by_model ? ` · ${aiDraft.generated_by_model}` : ''}
-              </p>
-            </div>
-          ) : (
-            <div className="text-xs text-slate-500 text-center py-10 space-y-2">
-              <Sparkles className="h-8 w-8 mx-auto text-purple-400 opacity-60 animate-pulse" />
-              <p className="font-semibold text-slate-700">No AI Draft Yet</p>
-              <p className="text-[10px] text-slate-500 leading-normal">
-                Click &quot;Generate&quot; to draft baseline description, tasks, and assessment rules with Claude Sonnet.
-              </p>
-            </div>
-          )}
-        </Card>
-
-        {/* ──────────────────────────────────────────────────────────── */}
-        {/* COLUMN 2: FULL ADMIN EDIT WORKSPACE (6 cols) */}
-        {/* ──────────────────────────────────────────────────────────── */}
-        <Card className="lg:col-span-6 p-4 bg-white border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b pb-2 flex-wrap gap-2">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                <Briefcase className="h-4 w-4 text-emerald-600" />
-                All Occupation Fields (Editable)
-              </h3>
-              <p className="text-[11px] text-slate-500">Edit, polish, and configure all details before publishing.</p>
-            </div>
-            <div className="flex items-center gap-1">
-              <Badge className="bg-slate-100 text-slate-700 text-[10px]">
-                {edit.required_documents.length} Docs · {edit.sample_cases.length} Cases
-              </Badge>
-            </div>
-          </div>
-
-          {/* Sub-Tabs for clean categorization */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-3">
-            <TabsList className="bg-slate-100 p-1 flex flex-wrap h-auto gap-1 border border-slate-200">
-              <TabsTrigger value="core" className="text-xs py-1 px-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <FileText className="h-3.5 w-3.5 mr-1" /> Core &amp; Tasks
-              </TabsTrigger>
-              <TabsTrigger value="skill" className="text-xs py-1 px-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Award className="h-3.5 w-3.5 mr-1" /> Skill Assessment
-              </TabsTrigger>
-              <TabsTrigger value="visas" className="text-xs py-1 px-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Globe2 className="h-3.5 w-3.5 mr-1" /> Visas &amp; Hierarchy
-              </TabsTrigger>
-              <TabsTrigger value="docs" className="text-xs py-1 px-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <FileCheck className="h-3.5 w-3.5 mr-1" /> Docs ({edit.required_documents.length})
-              </TabsTrigger>
-              <TabsTrigger value="cases" className="text-xs py-1 px-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <BookOpen className="h-3.5 w-3.5 mr-1" /> Cases ({edit.sample_cases.length})
-              </TabsTrigger>
-              <TabsTrigger value="sections" className="text-xs py-1 px-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Layers className="h-3.5 w-3.5 mr-1" /> Notes ({edit.custom_sections.length})
-              </TabsTrigger>
-            </TabsList>
-
-            {/* TAB 1: CORE DETAILS & TASKS */}
-            <TabsContent value="core" className="space-y-3 pt-1">
-              <Field label={<>Official Title <PolishBtn loading={polishLoading === 'title'} onClick={() => polish('title', 'Title')} /></>}>
-                <Input value={edit.title || ''} onChange={(e) => setEdit({ ...edit, title: e.target.value })} className="h-9 text-xs font-semibold" placeholder="e.g. Chief Executive or Managing Director" data-testid="edit-title" />
-              </Field>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
-                <Field label="Skill Level (1–5)">
-                  <Select value={String(edit.skill_level || '1')} onValueChange={(v) => setEdit({ ...edit, skill_level: v })}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Skill Level" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Level 1 · Bachelor / higher</SelectItem>
-                      <SelectItem value="2">Level 2 · Associate / Diploma</SelectItem>
-                      <SelectItem value="3">Level 3 · Cert IV / III</SelectItem>
-                      <SelectItem value="4">Level 4 · Cert II / III</SelectItem>
-                      <SelectItem value="5">Level 5 · Cert I / Secondary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="SkillSelect Tier">
-                  <Select
-                    value={typeof edit.skillselect_tier === 'object' && edit.skillselect_tier !== null
-                      ? (edit.skillselect_tier.tier || 'tier_4')
-                      : (edit.skillselect_tier || 'tier_4')}
-                    onValueChange={(v) => setEdit({ ...edit, skillselect_tier: v })}
-                  >
-                    <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Tier" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tier_1">Tier 1 (Priority Health & Education)</SelectItem>
-                      <SelectItem value="tier_2">Tier 2 (Core Skills / CSOL)</SelectItem>
-                      <SelectItem value="tier_3">Tier 3 (MLTSSL Trades & Mgmt)</SelectItem>
-                      <SelectItem value="tier_4">Tier 4 (Short-Term / Regional)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Classification Type">
-                  <Input value={edit.classification_type || ''} onChange={(e) => setEdit({ ...edit, classification_type: e.target.value })} className="h-8 text-xs" placeholder="ANZSCO / NOC / TEER" />
-                </Field>
-                <Field label="Classification Version">
-                  <Input value={edit.classification_version || ''} onChange={(e) => setEdit({ ...edit, classification_version: e.target.value })} className="h-8 text-xs" placeholder="e.g. ANZSCO 2013 v1.3" />
-                </Field>
-              </div>
-
-              <Field label={<>Description / Overview <PolishBtn loading={polishLoading === 'description'} onClick={() => polish('description', 'Description')} /></>}>
-                <Textarea value={edit.description || ''} onChange={(e) => setEdit({ ...edit, description: e.target.value })} className="text-xs min-h-[85px] leading-relaxed" placeholder="Detailed occupation overview and core scope of practice…" data-testid="edit-description" />
-              </Field>
-
-              <Field label={<>Typical Tasks (one per line) <PolishBtn loading={polishLoading === 'typical_tasks'} onClick={() => polish('typical_tasks', 'Typical Tasks')} /></>}>
-                <Textarea value={(edit.typical_tasks || []).join('\n')} onChange={(e) => setEdit({ ...edit, typical_tasks: e.target.value.split('\n').filter(Boolean) })} className="text-xs min-h-[100px] leading-relaxed font-mono" placeholder="Determining overall policy and strategy&#10;Organising and directing general management&#10;Consulting with other executive managers" data-testid="edit-tasks" />
-              </Field>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                <Field label="Alternative Titles (comma-separated)">
-                  <Input value={(edit.alternative_titles || []).join(', ')} onChange={(e) => setEdit({ ...edit, alternative_titles: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} className="h-8 text-xs" placeholder="e.g. CEO, Director-General, Executive Officer" data-testid="edit-alt-titles" />
-                </Field>
-                <Field label="Specialisations (comma-separated)">
-                  <Input value={(edit.specialisations || []).join(', ')} onChange={(e) => setEdit({ ...edit, specialisations: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} className="h-8 text-xs" placeholder="e.g. Managing Director, Chief Executive Officer" />
-                </Field>
-              </div>
-
-              <Field label="Caveats / Regulatory Notes">
-                <Textarea
-                  value={typeof edit.caveats === 'string' ? edit.caveats : Array.isArray(edit.caveats) ? edit.caveats.join('\n') : (edit.caveats?.notes || '')}
-                  onChange={(e) => setEdit({ ...edit, caveats: e.target.value })}
-                  placeholder="e.g. Caveat 1: Minimum annual remuneration AUD $73,150 or regional limitations..."
-                  className="text-xs min-h-[50px] bg-white"
-                />
-              </Field>
-            </TabsContent>
-
-            {/* TAB 2: SKILL ASSESSMENT */}
-            <TabsContent value="skill" className="space-y-3 pt-1">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                <Field label="Assessing Authority Name">
-                  <Input value={edit.assessing_authority?.name || ''} onChange={(e) => setEdit({ ...edit, assessing_authority: { ...edit.assessing_authority, name: e.target.value } })} className="h-8 text-xs font-semibold" placeholder="e.g. AIM, VETASSESS, ACS, TRA, CPA" />
-                </Field>
-                <Field label="Authority Code / Slug">
-                  <Input value={edit.assessing_authority?.code || edit.assessing_authority?.body_id || ''} onChange={(e) => setEdit({ ...edit, assessing_authority: { ...edit.assessing_authority, code: e.target.value, body_id: e.target.value } })} className="h-8 text-xs" placeholder="e.g. aim, vetassess, acs, tra" />
-                </Field>
-              </div>
-
-              <Field label="Full Official Authority Name">
-                <Input value={edit.assessing_authority?.full_name || ''} onChange={(e) => setEdit({ ...edit, assessing_authority: { ...edit.assessing_authority, full_name: e.target.value } })} className="h-8 text-xs" placeholder="e.g. Australian Institute of Management" />
-              </Field>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                <Field label="Authority Website URL">
-                  <div className="flex gap-1">
-                    <Input value={edit.assessing_authority?.website || ''} onChange={(e) => setEdit({ ...edit, assessing_authority: { ...edit.assessing_authority, website: e.target.value } })} className="h-8 text-xs flex-1" placeholder="https://..." />
-                    {edit.assessing_authority?.website && (
-                      <a href={edit.assessing_authority.website} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded border border-slate-200 hover:bg-slate-100 flex items-center justify-center">
-                        <ExternalLink className="h-3.5 w-3.5 text-slate-600" />
-                      </a>
-                    )}
-                  </div>
-                </Field>
-                <Field label="Processing Time (Weeks)">
-                  <Input type="number" min="1" max="104" value={edit.assessing_authority?.processing_time_weeks || ''} onChange={(e) => setEdit({ ...edit, assessing_authority: { ...edit.assessing_authority, processing_time_weeks: e.target.value } })} className="h-8 text-xs" placeholder="e.g. 6" />
-                </Field>
-                <Field label="Assessment Fee & Currency">
-                  <div className="flex gap-1">
-                    <Input type="number" value={edit.assessing_authority?.fee_native || ''} onChange={(e) => setEdit({ ...edit, assessing_authority: { ...edit.assessing_authority, fee_native: e.target.value } })} className="h-8 text-xs flex-1" placeholder="e.g. 1050" />
-                    <Input value={edit.assessing_authority?.fee_currency || 'AUD'} onChange={(e) => setEdit({ ...edit, assessing_authority: { ...edit.assessing_authority, fee_currency: e.target.value.toUpperCase() } })} className="h-8 text-xs w-16 text-center font-bold" placeholder="AUD" />
-                  </div>
-                </Field>
-              </div>
-
-              <Field label="Contact Details (Email / Phone / Address)">
-                <Input value={edit.assessing_authority?.contact_details || ''} onChange={(e) => setEdit({ ...edit, assessing_authority: { ...edit.assessing_authority, contact_details: e.target.value } })} className="h-8 text-xs" placeholder="e.g. assessments@aim.com.au · +61 2 9299 1234" />
-              </Field>
-
-              <Field label={<>Qualification Rules &amp; Assessment Criteria <PolishBtn loading={polishLoading === 'qualification_rules'} onClick={() => polish('qualification_rules', 'Qualification Rules')} /></>}>
-                <Textarea value={edit.qualification_rules || ''} onChange={(e) => setEdit({ ...edit, qualification_rules: e.target.value })} className="text-xs min-h-[90px] leading-relaxed" placeholder="e.g. Requires a Bachelor degree or higher qualification comparable to the educational level of an AQF Bachelor degree + minimum 3 years of highly relevant post-qualification employment at the appropriate senior management level within the last 5 years." />
-              </Field>
-            </TabsContent>
-
-            {/* TAB 3: VISAS & HIERARCHY */}
-            <TabsContent value="visas" className="space-y-3 pt-1">
-              <Field label="Recommended Visa Subclasses (e.g. 189, 190, 491, 482)">
-                <Input value={typeof edit.recommended_visa_subclass === 'string' ? edit.recommended_visa_subclass : (edit.recommended_visa_subclass?.[item.country_code] || '')} onChange={(e) => setEdit({ ...edit, recommended_visa_subclass: e.target.value })} className="h-8 text-xs font-semibold" placeholder="e.g. 189, 190, 491, 482, 186" />
-              </Field>
-
-              <Field label="Similar / Related Occupation Codes Override (comma-separated)">
-                <Input value={(edit.similar_codes_override || []).join(', ')} onChange={(e) => setEdit({ ...edit, similar_codes_override: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="h-8 text-xs" placeholder="e.g. 111211, 111212, 111411" />
-              </Field>
-
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2.5">
-                <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Layers className="h-3.5 w-3.5 text-indigo-600" />
-                  Classification Hierarchy (ANZSCO / NOC Groups)
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <Field label="Unit Group Code">
-                    <Input value={edit.hierarchy?.unit_group || ''} onChange={(e) => setEdit({ ...edit, hierarchy: { ...edit.hierarchy, unit_group: e.target.value } })} className="h-8 text-xs" placeholder="e.g. 1111" />
-                  </Field>
-                  <Field label="Unit Group Name">
-                    <Input value={edit.hierarchy?.unit_group_name || ''} onChange={(e) => setEdit({ ...edit, hierarchy: { ...edit.hierarchy, unit_group_name: e.target.value } })} className="h-8 text-xs" placeholder="e.g. Chief Executives and Managing Directors" />
-                  </Field>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <Field label="Minor Group">
-                    <Input value={edit.hierarchy?.minor_group || ''} onChange={(e) => setEdit({ ...edit, hierarchy: { ...edit.hierarchy, minor_group: e.target.value } })} className="h-8 text-xs" placeholder="e.g. 111" />
-                  </Field>
-                  <Field label="Sub-Major Group">
-                    <Input value={edit.hierarchy?.sub_major_group || ''} onChange={(e) => setEdit({ ...edit, hierarchy: { ...edit.hierarchy, sub_major_group: e.target.value } })} className="h-8 text-xs" placeholder="e.g. 11" />
-                  </Field>
-                  <Field label="Major Group">
-                    <Input value={edit.hierarchy?.major_group || ''} onChange={(e) => setEdit({ ...edit, hierarchy: { ...edit.hierarchy, major_group: e.target.value } })} className="h-8 text-xs" placeholder="e.g. 1 Managers" />
-                  </Field>
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* TAB 4: REQUIRED DOCUMENTS CHECKLIST */}
-            <TabsContent value="docs" className="space-y-3 pt-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">Document Checklist</h4>
-                  <p className="text-[10px] text-slate-500">Configure what documents clients must provide for this occupation.</p>
-                </div>
-                <Button size="sm" onClick={addDocument} className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Document
-                </Button>
-              </div>
-
-              {edit.required_documents.length === 0 ? (
-                <div className="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-300 text-slate-500 text-xs">
-                  <FileCheck className="h-7 w-7 mx-auto mb-1 text-slate-400 opacity-60" />
-                  No documents configured yet.
-                  <br />
-                  <button type="button" onClick={addDocument} className="text-indigo-600 font-semibold underline mt-1">
-                    Add standard required document
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                  {edit.required_documents.map((doc, idx) => (
-                    <div key={doc.id || idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center gap-2">
-                      <Input
-                        value={doc.name || ''}
-                        onChange={(e) => updateDocument(idx, { name: e.target.value })}
-                        placeholder="Document Name (e.g. Degree Certificate, Work Reference)"
-                        className="h-8 text-xs flex-1 bg-white"
-                      />
-                      <Select value={doc.category || 'Qualification'} onValueChange={(v) => updateDocument(idx, { category: v })}>
-                        <SelectTrigger className="h-8 text-xs w-36 bg-white"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Identity">Identity</SelectItem>
-                          <SelectItem value="Qualification">Qualification</SelectItem>
-                          <SelectItem value="Employment">Employment</SelectItem>
-                          <SelectItem value="Assessment">Assessment</SelectItem>
-                          <SelectItem value="Financial">Financial</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <button
-                        type="button"
-                        onClick={() => updateDocument(idx, { required: !doc.required })}
-                        className={`text-[10px] font-bold px-2 py-1 rounded border ${doc.required ? 'bg-rose-50 text-rose-700 border-rose-300' : 'bg-slate-100 text-slate-600 border-slate-300'}`}
-                      >
-                        {doc.required ? 'Mandatory' : 'Optional'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeDocument(idx)}
-                        className="p-1 rounded text-slate-400 hover:text-rose-600 transition"
-                        title="Remove Document"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* TAB 5: SAMPLE CASES */}
-            <TabsContent value="cases" className="space-y-3 pt-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">Sample Client Cases / Outcomes</h4>
-                  <p className="text-[10px] text-slate-500">Add anonymised success profiles to guide sales consultants.</p>
-                </div>
-                <Button size="sm" onClick={addSampleCase} className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Case Study
-                </Button>
-              </div>
-
-              {edit.sample_cases.length === 0 ? (
-                <div className="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-300 text-slate-500 text-xs">
-                  <BookOpen className="h-7 w-7 mx-auto mb-1 text-slate-400 opacity-60" />
-                  No sample cases added yet.
-                  <br />
-                  <button type="button" onClick={addSampleCase} className="text-indigo-600 font-semibold underline mt-1">
-                    Add a client profile outcome
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-                  {edit.sample_cases.map((sc, idx) => (
-                    <div key={sc.id || idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap flex-1">
-                          <Input
-                            type="number"
-                            min="18"
-                            max="70"
-                            value={sc.client_age || ''}
-                            onChange={(e) => updateSampleCase(idx, { client_age: e.target.value })}
-                            placeholder="Age"
-                            className="h-7 text-xs w-16"
-                          />
-                          <Input
-                            value={sc.visa_subclass || ''}
-                            onChange={(e) => updateSampleCase(idx, { visa_subclass: e.target.value })}
-                            placeholder="Visa (e.g. 190)"
-                            className="h-7 text-xs w-24"
-                          />
-                          <Select value={sc.outcome || 'Approved'} onValueChange={(v) => updateSampleCase(idx, { outcome: v })}>
-                            <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Approved">Approved</SelectItem>
-                              <SelectItem value="Pending">Pending</SelectItem>
-                              <SelectItem value="Refused">Refused</SelectItem>
-                              <SelectItem value="Withdrawn">Withdrawn</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            type="number"
-                            value={sc.timeline_months || ''}
-                            onChange={(e) => updateSampleCase(idx, { timeline_months: e.target.value })}
-                            placeholder="Timeline (mos)"
-                            className="h-7 text-xs w-28"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeSampleCase(idx)}
-                          className="p-1 rounded text-slate-400 hover:text-rose-600 transition"
-                          title="Remove Case"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <Input
-                        value={sc.profile_summary || ''}
-                        onChange={(e) => updateSampleCase(idx, { profile_summary: e.target.value })}
-                        placeholder="Profile Summary (e.g. 8 years as CEO of mid-sized enterprise, IELTS 8.0)"
-                        className="h-7 text-xs"
-                      />
-                      <Input
-                        value={sc.notes || ''}
-                        onChange={(e) => updateSampleCase(idx, { notes: e.target.value })}
-                        placeholder="Outcome notes / Key success factors"
-                        className="h-7 text-xs"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* TAB 6: CUSTOM SECTIONS */}
-            <TabsContent value="sections" className="space-y-3 pt-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">Custom Sections &amp; Markdown Notes</h4>
-                  <p className="text-[10px] text-slate-500">Free-form extra knowledge or state-specific criteria.</p>
-                </div>
-                <Button size="sm" onClick={addCustomSection} className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Section
-                </Button>
-              </div>
-
-              {edit.custom_sections.length === 0 ? (
-                <div className="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-300 text-slate-500 text-xs">
-                  <Layers className="h-7 w-7 mx-auto mb-1 text-slate-400 opacity-60" />
-                  No custom sections added yet.
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                  {edit.custom_sections.map((sec, idx) => (
-                    <div key={sec.id || idx} className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <Input
-                          value={sec.title || ''}
-                          onChange={(e) => updateCustomSection(idx, { title: e.target.value })}
-                          placeholder="Section Title (e.g. Victoria State Nomination Requirements)"
-                          className="h-7 text-xs font-semibold flex-1"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeCustomSection(idx)}
-                          className="p-1 rounded text-slate-400 hover:text-rose-600 transition"
-                          title="Remove Section"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <Textarea
-                        value={sec.body_markdown || ''}
-                        onChange={(e) => updateCustomSection(idx, { body_markdown: e.target.value })}
-                        placeholder="Content (Markdown supported)…"
-                        className="text-xs min-h-[60px]"
-                      />
-                      <Input
-                        value={sec.source_url || ''}
-                        onChange={(e) => updateCustomSection(idx, { source_url: e.target.value })}
-                        placeholder="Reference URL (optional, e.g. https://...)"
-                        className="h-7 text-xs"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </Card>
-
-        {/* ──────────────────────────────────────────────────────────── */}
-        {/* COLUMN 3: OFFICIAL SOURCE, ASSESSING BODY & AUDIT (3 cols) */}
-        {/* ──────────────────────────────────────────────────────────── */}
-        <Card className="lg:col-span-3 p-3.5 bg-gradient-to-br from-blue-50/60 to-slate-50 border-blue-200 space-y-3">
-          <div className="pb-2 border-b border-blue-200">
-            <h3 className="text-xs font-bold uppercase text-blue-900 flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 text-blue-700" /> Verification Hub &amp; Assessing Body
-            </h3>
-            <p className="text-[10px] text-blue-700 mt-0.5">
-              Designated body fees, official gazettes, and publication control.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <Field label="Assessing Authority (Designated Body)">
-              <Select value={selectedAuthCode} onValueChange={handleAuthorityChange}>
-                <SelectTrigger className="h-8 text-xs bg-white font-medium text-slate-800">
-                  <SelectValue placeholder="Select assessing body…" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {authorities.map((a) => (
-                    <SelectItem key={a.code} value={a.code}>
-                      <span className="font-bold">{a.code}</span> — {a.full_name || a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-
-            {/* Live Authority Details & Cascaded Fees */}
-            {currentAuthDoc && (
-              <div className="p-2.5 rounded border border-blue-200 bg-white space-y-1.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-blue-950">{currentAuthDoc.full_name}</span>
-                  <Badge className="text-[9px] bg-blue-100 text-blue-800">{currentAuthDoc.code}</Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-[11px] pt-1 border-t border-slate-100">
-                  <div>
-                    <span className="text-slate-500">Standard Fee:</span>{' '}
-                    <strong className="text-emerald-700">AUD ${currentAuthDoc.fees?.msa_fee_aud || '—'}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">RPL Fee:</span>{' '}
-                    <strong className="text-emerald-700">AUD ${currentAuthDoc.fees?.rpl_fee_aud || '—'}</strong>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-slate-500">Turnaround:</span>{' '}
-                    <strong>{Math.round((currentAuthDoc.processing?.standard_days_min || 60) / 7)}–{Math.round((currentAuthDoc.processing?.standard_days_max || 90) / 7)} weeks</strong>
-                  </div>
-                </div>
-                {currentAuthDoc.website && (
-                  <a href={currentAuthDoc.website} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 hover:underline flex items-center gap-1 pt-1">
-                    <ExternalLink className="h-2.5 w-2.5" /> Official Website
-                  </a>
-                )}
-              </div>
-            )}
-
-            <Field label="Official Source URL (ABS ANZSCO / IRCC NOC)">
-              <div className="flex gap-1">
-                <Input
-                  value={sourceRef}
-                  onChange={(e) => setSourceRef(e.target.value)}
-                  placeholder="https://www.abs.gov.au/anzsco/..."
-                  className="h-8 text-xs flex-1 bg-white font-mono"
-                  data-testid="source-ref"
-                />
-                {sourceRef && (
-                  <a href={sourceRef} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-white rounded border border-blue-200 hover:bg-blue-50 flex items-center justify-center" title="Open Link">
-                    <ExternalLink className="h-3.5 w-3.5 text-blue-600" />
-                  </a>
-                )}
-              </div>
-            </Field>
-
-            <Field label="Review Notes (Audit Record)">
-              <Textarea
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                className="text-xs min-h-[70px] bg-white leading-relaxed"
-                placeholder="What official gazette or criteria did you double-check…"
-                data-testid="review-notes"
-              />
-            </Field>
-
-            {item.verification?.source_reference && (
-              <p className="text-[10px] text-slate-500 italic bg-white p-1.5 rounded border border-slate-200">
-                Last verified: {item.verification.source_reference}
-              </p>
-            )}
-
-            {verifyOpen && (
-              <div className="mt-3 pt-3 border-t border-blue-200 space-y-2 bg-blue-100/50 p-2.5 rounded">
-                <p className="text-xs font-bold text-blue-950">Confirm Verification &amp; Publishing</p>
-                <p className="text-[11px] text-blue-800">All changes will immediately cascade to Smart Sales and Knowledge Hub.</p>
-                <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold" onClick={verify} disabled={saving || !sourceRef.trim()} data-testid="confirm-verify">
-                  {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1" />}
-                  Publish Changes Now
-                </Button>
-                <Button size="sm" variant="outline" className="w-full bg-white" onClick={() => setVerifyOpen(false)}>Cancel</Button>
-              </div>
-            )}
-          </div>
-
-          <div className="pt-2 border-t border-blue-200 space-y-2">
-            <Button
-              size="sm"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 shadow-sm"
-              onClick={verify}
-              disabled={saving || !sourceRef.trim()}
-              data-testid="confirm-verify-btn"
-            >
-              {saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />}
-              Verify &amp; Publish
-            </Button>
-            <p className="text-[9px] text-slate-500 text-center">
-              Requires valid Source URL. Creates an immutable audit snapshot.
-            </p>
-          </div>
-        </Card>
-      </div>
+      {/* ── UNIFIED PUBLIC ATLAS PAGE EDITOR ── */}
+      <PublicAtlasUnifiedEditor
+        item={item}
+        edit={edit}
+        setEdit={setEdit}
+        authorities={authorities}
+        handleAuthorityChange={handleAuthorityChange}
+        selectedAuthCode={selectedAuthCode}
+        sourceRef={sourceRef}
+        setSourceRef={setSourceRef}
+        reviewNotes={reviewNotes}
+        setReviewNotes={setReviewNotes}
+        polish={polish}
+        polishLoading={polishLoading}
+        generate={generate}
+        genLoading={genLoading}
+        aiDraft={aiDraft}
+        applyAllAiDraft={applyAllAiDraft}
+        save={save}
+        verify={verify}
+        saving={saving}
+        addDocument={addDocument}
+        updateDocument={updateDocument}
+        removeDocument={removeDocument}
+        addSampleCase={addSampleCase}
+        updateSampleCase={updateSampleCase}
+        removeSampleCase={removeSampleCase}
+        addCustomSection={addCustomSection}
+        updateCustomSection={updateCustomSection}
+        removeCustomSection={removeCustomSection}
+      />
     </Card>
   );
 }

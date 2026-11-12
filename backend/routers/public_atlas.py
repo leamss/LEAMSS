@@ -31,8 +31,8 @@ from pydantic import BaseModel, EmailStr, Field
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # ─── DB ─────────────────────────────────────────────────────────────────────
-_mongo_url = os.environ["MONGO_URL"]
-_db_name = os.environ["DB_NAME"]
+_mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+_db_name = os.environ.get("DB_NAME", "leamss")
 db = AsyncIOMotorClient(_mongo_url)[_db_name]
 
 router = APIRouter(prefix="/public-atlas", tags=["public-atlas"])
@@ -576,12 +576,10 @@ def _build_meta_description(country: str, doc: Dict[str, Any], code: str, title:
 
 
 def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
-    """Build SEO meta + JSON-LD structured data for one occupation."""
+    """Build SEO meta + JSON-LD structured data for one occupation with full override support."""
     cm = _country_meta(country)
     code = doc.get("code") or ""
     title = doc.get("title") or "Occupation"
-    # Use the country's official classification name (NOT the doc-stored version
-    # which may include sync timestamps like "Legacy migration · 2026-05-22").
     classification = cm["classification"]
     salary_min = (doc.get("anzsco_profile") or {}).get("median_salary_aud")
     body = (doc.get("assessing_authority") or {}).get("name")
@@ -591,10 +589,9 @@ def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, 
     )
 
     page_title = f"{title} ({code}) — {cm['name']} {classification} Migration Guide | LEAMSS"
-    # Phase 16.7: data-driven country-aware meta description (replaces boilerplate).
     meta_desc = _build_meta_description(country, doc, code, title, cm["name"])
 
-    # Occupation-specific keywords for long-tail organic search.
+    # Base occupation keywords
     kw = [
         title, code, f"{title} {cm['name']}", f"{cm['name']} PR",
         f"{classification} {code}", f"migrate to {cm['name']} as {title}",
@@ -610,14 +607,37 @@ def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, 
     kw += ["immigration consultant India", "MARA registered agent", "LEAMSS"]
     keywords = ", ".join(kw)
 
-    # Build absolute URLs — required by Open Graph + Google's canonical spec.
+    # Base canonical & og
     base = _public_site_url()
     canonical = f"{base}/atlas/{country.lower()}/{code}"
     og_image = LOGO_IMG
 
+    # Apply overrides from doc.seo_meta if configured by admin
+    custom_seo = doc.get("seo_meta") or {}
+    if custom_seo.get("meta_title") or custom_seo.get("page_title"):
+        page_title = str(custom_seo.get("meta_title") or custom_seo.get("page_title")).strip()
+    if custom_seo.get("meta_description"):
+        meta_desc = str(custom_seo.get("meta_description")).strip()
+    if custom_seo.get("keywords"):
+        keywords = str(custom_seo.get("keywords")).strip()
+    if custom_seo.get("canonical_url"):
+        canonical = str(custom_seo.get("canonical_url")).strip()
+
+    og_title = str(custom_seo.get("og_title") or page_title).strip()
+    og_description = str(custom_seo.get("og_description") or meta_desc).strip()
+    og_image = str(custom_seo.get("og_image") or og_image).strip()
+    og_locale = str(custom_seo.get("og_locale") or ("en_AU" if country == "AU" else "en_CA" if country == "CA" else "en_NZ" if country == "NZ" else "en_IN")).strip()
+    meta_robots = str(custom_seo.get("meta_robots") or custom_seo.get("robots") or "index, follow, max-image-preview:large, max-snippet:-1").strip()
+    twitter_card = str(custom_seo.get("twitter_card") or "summary_large_image").strip()
+    twitter_title = str(custom_seo.get("twitter_title") or og_title).strip()
+    twitter_description = str(custom_seo.get("twitter_description") or og_description).strip()
+    twitter_image = str(custom_seo.get("twitter_image") or og_image).strip()
+    focus_keyword = str(custom_seo.get("focus_keyword") or "").strip()
+    schema_type = str(custom_seo.get("schema_type") or "Occupation").strip()
+
     # JSON-LD structured data — @graph with Occupation + BreadcrumbList + FAQPage + Organization
     occupation_node = {
-        "@type": "Occupation",
+        "@type": schema_type if schema_type in ("Occupation", "Course", "Article") else "Occupation",
         "@id": f"{canonical}#occupation",
         "name": title,
         "occupationLocation": {"@type": "Country", "name": cm["name"]},
@@ -652,17 +672,43 @@ def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, 
                 for f in faqs
             ],
         })
+
+    # Optional custom JSON-LD schema snippet injection
+    if custom_seo.get("custom_json_ld"):
+        c_ld = custom_seo.get("custom_json_ld")
+        if isinstance(c_ld, str) and c_ld.strip():
+            try:
+                import json
+                parsed_c_ld = json.loads(c_ld)
+                if isinstance(parsed_c_ld, dict):
+                    graph.append(parsed_c_ld)
+                elif isinstance(parsed_c_ld, list):
+                    graph.extend(parsed_c_ld)
+            except Exception:
+                pass
+        elif isinstance(c_ld, dict):
+            graph.append(c_ld)
+
     json_ld = {"@context": "https://schema.org", "@graph": graph}
 
     return {
         "page_title": page_title,
+        "meta_title": page_title,
         "meta_description": meta_desc,
         "keywords": keywords,
+        "focus_keyword": focus_keyword,
         "canonical_url": canonical,
-        "og_title": page_title,
-        "og_description": meta_desc,
+        "meta_robots": meta_robots,
+        "og_title": og_title,
+        "og_description": og_description,
         "og_image": og_image,
         "og_url": canonical,
+        "og_locale": og_locale,
+        "twitter_card": twitter_card,
+        "twitter_title": twitter_title,
+        "twitter_description": twitter_description,
+        "twitter_image": twitter_image,
+        "schema_type": schema_type,
         "json_ld": json_ld,
     }
 
@@ -670,18 +716,30 @@ def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, 
 def _shape_for_card(d: Dict[str, Any]) -> Dict[str, Any]:
     """Compact shape for list / featured cards (smaller payload)."""
     aa = d.get("assessing_authority") or {}
-    aa_name = aa.get("name") or aa.get("code") or ""
-    pw = d.get("visa_pathways") or {}
-    rec_visa = pw.get("recommended_visa") or ""
-    abs_d = d.get("abs_data") or {}
-    jsa_d = d.get("jsa_data") or {}
-    annual = abs_d.get("median_ft_annual_aud")
-    salary_chip = f"${round(annual / 1000)}k/yr" if annual else None
-    growth_val = jsa_d.get("future_growth")
-    growth_chip = (
-        f"{growth_val} Growth" if growth_val and growth_val not in ("Unknown", "None") and not str(growth_val).endswith("Growth")
-        else (growth_val if growth_val not in (None, "Unknown") else None)
+    aa_name = aa.get("name") or aa.get("short_name") or aa.get("code") or ""
+    rvs = d.get("recommended_visa_subclass") or d.get("visa_pathways") or {}
+    cc = d.get("country_code") or "AU"
+    rec_visa = rvs.get(cc) if isinstance(rvs, dict) else (rvs.get("recommended_visa") if isinstance(rvs, dict) and "recommended_visa" in rvs else (rvs if isinstance(rvs, str) else ""))
+
+    salary_chip = None
+    annual = (
+        (d.get("abs_data") or {}).get("median_ft_annual_aud")
+        or ((d.get("anzsco_profile") or {}).get("median_annual_earnings_aud"))
+        or ((d.get("abs_labour_market") or {}).get("median_annual_earnings_aud"))
+        or ((d.get("abs_labour_market") or {}).get("median_salary_aud"))
     )
+    if annual:
+        try:
+            salary_chip = f"${round(float(annual) / 1000)}k/yr"
+        except (ValueError, TypeError):
+            pass
+
+    growth_val = (d.get("jsa_data") or {}).get("future_growth") or (d.get("employment_projections_2035") or {}).get("projected_growth_category")
+    growth_chip = (
+        f"{growth_val} Growth" if growth_val and growth_val not in ("Unknown", "None", "") and not str(growth_val).endswith("Growth")
+        else (growth_val if growth_val not in (None, "Unknown", "") else None)
+    )
+
     return {
         "country_code": d.get("country_code"),
         "code": d.get("code"),
@@ -690,12 +748,78 @@ def _shape_for_card(d: Dict[str, Any]) -> Dict[str, Any]:
         "teer_category": d.get("teer_category"),
         "nz_green_list_tier": d.get("nz_green_list_tier"),
         "hierarchy": (d.get("hierarchy") or {}).get("unit_group_name"),
-        "assessing_authority_name": aa_name,
-        "recommended_visa": rec_visa,
+        "assessing_authority_name": aa_name[:36] if aa_name else None,
+        "recommended_visa": rec_visa or None,
         "salary_chip": salary_chip,
         "growth_chip": growth_chip,
         "verified": (d.get("status") or "") == "verified",
     }
+
+
+# ─── Typeahead ─────────────────────────────────────────────────────────────
+@router.get("/{country}/typeahead")
+async def typeahead_country(
+    country: str,
+    q: str = Query(..., min_length=1, max_length=100),
+    limit: int = Query(6, ge=1, le=20),
+):
+    """Fast typeahead for the search bar (suggests occupations while typing)."""
+    country = _code_path_country(country)
+    if country not in {"AU", "CA", "NZ"}:
+        raise HTTPException(404, "Unknown country")
+
+    q_clean = q.strip()
+    if not q_clean:
+        return {"country": country, "items": []}
+
+    tokens = [re.escape(t) for t in q_clean.split() if t]
+    token_filters = []
+    for t in tokens:
+        token_filters.append({
+            "$or": [
+                {"code": {"$regex": f"^{t}", "$options": "i"} if t.isdigit() else {"code": {"$regex": t, "$options": "i"}}},
+                {"title": {"$regex": t, "$options": "i"}},
+                {"alternative_titles": {"$regex": t, "$options": "i"}},
+                {"specialisations": {"$regex": t, "$options": "i"}},
+            ]
+        })
+
+    match: Dict[str, Any] = {
+        "country_code": country,
+        "status": "verified",
+        "$and": token_filters,
+    }
+
+    proj = {
+        "_id": 0, "code": 1, "title": 1, "country_code": 1,
+        "assessing_authority": 1, "pathway_list": 1, "status": 1
+    }
+    cursor = db["occupation_master"].find(match, proj).sort("code", 1).limit(limit)
+
+    items = []
+    async for d in cursor:
+        code_str = str(d.get("code", "")).strip()
+        title_str = d.get("title", "—")
+        aa = (d.get("assessing_authority") or {}).get("name") or (d.get("assessing_authority") or {}).get("short_name") or ""
+        pw = d.get("pathway_list") or ""
+
+        # Score relevance: higher if exact code prefix or exact title match
+        score = 90
+        if code_str.lower().startswith(q_clean.lower()):
+            score = 98
+        elif q_clean.lower() in title_str.lower():
+            score = 95
+
+        items.append({
+            "country_code": d.get("country_code", country),
+            "code": code_str,
+            "title": title_str,
+            "assessing_body": aa[:32],
+            "pathway": pw,
+            "score": score,
+        })
+
+    return {"country": country, "query": q, "items": items}
 
 
 # ─── Featured ───────────────────────────────────────────────────────────────
@@ -713,7 +837,7 @@ async def get_featured():
     return {
         "items": items,
         "countries": [
-            {"code": "AU", **_country_meta("AU"), "total": await db["occupation_master"].count_documents({"country_code": "AU", "status": "verified"})},
+            {"code": "AU", **_country_meta("AU"), "total": (await db["anzsco_4digit_master"].count_documents({})) or 1236},
             {"code": "CA", **_country_meta("CA"), "total": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified"})},
             {"code": "NZ", **_country_meta("NZ"), "total": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified"})},
         ],
@@ -791,163 +915,6 @@ async def get_au_state(state_code_or_slug: str):
     return {"country": "AU", "state": state}
 
 
-# ─── Public Typeahead (Autocomplete) ─────────────────────────────────────────
-def _score_occupation(query_l: str, code: str, title: str, alt_titles: List[str], group: str, body: str, pathway: str, industries: List[str]) -> float:
-    # Exact code match
-    if query_l == code:
-        return 100.0
-    if code.startswith(query_l):
-        return 95.0 + min(4.0, (len(query_l) / max(len(code), 1)) * 4.0)
-    if query_l in code:
-        return 90.0
-
-    title_l = (title or "").lower()
-    if query_l == title_l:
-        return 100.0
-    if title_l.startswith(query_l):
-        return 92.0 + min(4.0, (len(query_l) / max(len(title_l), 1)) * 4.0)
-    if f" {query_l}" in title_l or query_l in title_l:
-        return 88.0
-
-    # Alt titles
-    for alt in alt_titles:
-        alt_l = (alt or "").lower()
-        if query_l == alt_l:
-            return 95.0
-        if alt_l.startswith(query_l):
-            return 90.0
-        if query_l in alt_l:
-            return 86.0
-
-    # Assessing body / Pathway
-    if body and query_l == body.lower():
-        return 90.0
-    if pathway and query_l in pathway.lower():
-        return 88.0
-
-    # Unit group / industry
-    if group and query_l in group.lower():
-        return 85.0
-    for ind in industries:
-        if ind and query_l in str(ind).lower():
-            return 82.0
-
-    # Rapidfuzz fallback
-    try:
-        from rapidfuzz import fuzz
-        blob = f"{code} {title} {' '.join(alt_titles)} {group} {body} {pathway} {' '.join(industries)}".lower()
-        return float(fuzz.WRatio(query_l, blob))
-    except Exception:
-        return 50.0
-
-
-@router.get("/typeahead")
-@router.get("/{country}/typeahead")
-async def public_atlas_typeahead(
-    q: str = Query(..., min_length=1),
-    country: Optional[str] = None,
-    limit: int = Query(8, ge=1, le=20),
-):
-    """Fast public typeahead search across code, title, alternative titles, industry & pathways."""
-    q_clean = q.strip()
-    if not q_clean:
-        return {"items": []}
-
-    query_l = q_clean.lower()
-    s = re.escape(q_clean)
-
-    match: Dict[str, Any] = {"status": {"$ne": "superseded"}}
-    if country:
-        c_upper = country.upper()
-        if c_upper in {"AU", "CA", "NZ"}:
-            match["country_code"] = c_upper
-
-    match["$or"] = [
-        {"code": {"$regex": s, "$options": "i"}},
-        {"title": {"$regex": s, "$options": "i"}},
-        {"alternative_titles": {"$regex": s, "$options": "i"}},
-        {"specialisations": {"$regex": s, "$options": "i"}},
-        {"hierarchy.unit_group_name": {"$regex": s, "$options": "i"}},
-        {"hierarchy.unit_group": {"$regex": s, "$options": "i"}},
-        {"industries_ranked": {"$regex": s, "$options": "i"}},
-        {"assessing_authority.name": {"$regex": s, "$options": "i"}},
-        {"assessing_authority.short_name": {"$regex": s, "$options": "i"}},
-        {"assessing_authority.code": {"$regex": s, "$options": "i"}},
-        {"assessing_body": {"$regex": s, "$options": "i"}},
-        {"skill_body": {"$regex": s, "$options": "i"}},
-        {"pathway_list": {"$regex": s, "$options": "i"}},
-        {"visa_pathways.pathway_lists": {"$regex": s, "$options": "i"}},
-        {"visa_pathways.visa_eligibility.visa_subclass": {"$regex": s, "$options": "i"}},
-    ]
-
-    proj = {
-        "_id": 0, "code": 1, "title": 1, "country_code": 1,
-        "alternative_titles": 1, "specialisations": 1,
-        "hierarchy": 1, "assessing_authority": 1, "assessing_body": 1,
-        "skill_body": 1, "visa_pathways": 1, "pathway_list": 1,
-        "skill_level": 1, "teer_category": 1, "nz_green_list_tier": 1,
-        "industries_ranked": 1,
-    }
-
-    candidates = []
-    async for doc in db["occupation_master"].find(match, proj).limit(60):
-        code = str(doc.get("code") or "")
-        title = str(doc.get("title") or "")
-        c_code = str(doc.get("country_code") or "").upper()
-        alt_titles = doc.get("alternative_titles") or []
-        if isinstance(alt_titles, str):
-            alt_titles = [alt_titles]
-        group = (doc.get("hierarchy") or {}).get("unit_group_name") or ""
-
-        aa = doc.get("assessing_authority") or {}
-        resolved_body = None
-        if isinstance(aa, dict):
-            resolved_body = aa.get("short_name") or aa.get("code") or aa.get("name")
-        elif isinstance(aa, str):
-            resolved_body = aa
-        if not resolved_body:
-            resolved_body = doc.get("assessing_body") or doc.get("skill_body")
-        if not resolved_body:
-            if c_code == "AU": resolved_body = "VETASSESS"
-            elif c_code == "CA": resolved_body = "WES"
-            elif c_code == "NZ": resolved_body = "NZQA"
-
-        pw = doc.get("visa_pathways") or {}
-        pathway_lists = pw.get("pathway_lists") or []
-        pathway_str = None
-        if pathway_lists:
-            pathway_str = pathway_lists[0]
-        elif doc.get("pathway_list"):
-            pathway_str = str(doc.get("pathway_list"))
-        elif pw.get("recommended_visa"):
-            pathway_str = f"Visa {pw.get('recommended_visa')}"
-        elif doc.get("nz_green_list_tier"):
-            pathway_str = f"Green List T{doc.get('nz_green_list_tier')}"
-        elif doc.get("teer_category") is not None:
-            pathway_str = f"TEER {doc.get('teer_category')}"
-
-        industries = doc.get("industries_ranked") or []
-        if not isinstance(industries, list):
-            industries = [str(industries)]
-
-        score = _score_occupation(query_l, code, title, alt_titles, group, resolved_body or "", pathway_str or "", industries)
-
-        candidates.append({
-            "country_code": c_code,
-            "code": code,
-            "title": title,
-            "assessing_body": resolved_body,
-            "pathway": pathway_str,
-            "skill_level": doc.get("skill_level"),
-            "teer_category": doc.get("teer_category"),
-            "nz_green_list_tier": doc.get("nz_green_list_tier"),
-            "score": round(score),
-        })
-
-    candidates.sort(key=lambda x: -x["score"])
-    return {"items": candidates[:limit]}
-
-
 # ─── Country list ───────────────────────────────────────────────────────────
 @router.get("/{country}/list")
 async def list_country(
@@ -965,30 +932,33 @@ async def list_country(
     if verified_only:
         match["status"] = "verified"
     if search:
-        # Escape regex special chars
-        s = re.escape(search.strip())
-        match["$or"] = [
-            {"code": {"$regex": s, "$options": "i"}},
-            {"title": {"$regex": s, "$options": "i"}},
-            {"alternative_titles": {"$regex": s, "$options": "i"}},
-            {"specialisations": {"$regex": s, "$options": "i"}},
-            {"hierarchy.unit_group_name": {"$regex": s, "$options": "i"}},
-            {"hierarchy.unit_group": {"$regex": s, "$options": "i"}},
-            {"industries_ranked": {"$regex": s, "$options": "i"}},
-            {"assessing_authority.name": {"$regex": s, "$options": "i"}},
-            {"assessing_authority.short_name": {"$regex": s, "$options": "i"}},
-            {"assessing_authority.code": {"$regex": s, "$options": "i"}},
-            {"assessing_body": {"$regex": s, "$options": "i"}},
-            {"skill_body": {"$regex": s, "$options": "i"}},
-            {"pathway_list": {"$regex": s, "$options": "i"}},
-            {"visa_pathways.pathway_lists": {"$regex": s, "$options": "i"}},
-            {"visa_pathways.visa_eligibility.visa_subclass": {"$regex": s, "$options": "i"}},
-        ]
+        s_clean = search.strip()
+        tokens = [re.escape(t) for t in s_clean.split() if t]
+        if tokens:
+            token_conditions = []
+            for t in tokens:
+                token_conditions.append({
+                    "$or": [
+                        {"code": {"$regex": f"^{t}", "$options": "i"} if t.isdigit() else {"code": {"$regex": t, "$options": "i"}}},
+                        {"title": {"$regex": t, "$options": "i"}},
+                        {"alternative_titles": {"$regex": t, "$options": "i"}},
+                        {"specialisations": {"$regex": t, "$options": "i"}},
+                        {"hierarchy.unit_group_name": {"$regex": t, "$options": "i"}},
+                        {"assessing_authority.name": {"$regex": t, "$options": "i"}},
+                        {"assessing_authority.short_name": {"$regex": t, "$options": "i"}},
+                    ]
+                })
+            match["$and"] = token_conditions
 
+    if country == "AU" and not search:
+        match["is_official_catalog"] = True
     total = await db["occupation_master"].count_documents(match)
-    proj = {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
-            "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
-            "assessing_authority": 1, "visa_pathways": 1, "abs_data": 1, "jsa_data": 1}
+    proj = {
+        "_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
+        "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
+        "assessing_authority": 1, "visa_pathways": 1, "recommended_visa_subclass": 1, "abs_data": 1,
+        "anzsco_profile": 1, "abs_labour_market": 1, "jsa_data": 1, "employment_projections_2035": 1
+    }
     cursor = db["occupation_master"].find(match, proj).sort("code", 1).skip(offset).limit(limit)
     items = [_shape_for_card(d) async for d in cursor]
 
@@ -1044,19 +1014,21 @@ async def get_single_occupation(country: str, code: str):
         {"country_code": country, "code": code, "status": "verified"},
         {"_id": 0},
     )
-    if not d and country == "AU" and len(code) == 6:
-        d = await db["occupation_master"].find_one(
-            {"country_code": country, "code": code[:4], "status": "verified"},
-            {"_id": 0},
-        )
+    if not d and country == "AU":
+        d = await db["anzsco_4digit_master"].find_one({"code": code}, {"_id": 0})
         if d:
-            d = dict(d)
-            d["code"] = code
-    if not d and country == "AU" and len(code) == 4:
-        d = await db["occupation_master"].find_one(
-            {"country_code": country, "code": {"$regex": f"^{code}"}, "status": "verified"},
-            {"_id": 0},
-        )
+            d["country_code"] = "AU"
+            d["status"] = "verified"
+            children = await db["occupation_master"].find(
+                {"country_code": "AU", "code": {"$regex": f"^{code}"}},
+                {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1, "pathway_list": 1, "recommended_visa_subclass": 1}
+            ).to_list(20)
+            if children:
+                d["assessing_authority"] = children[0].get("assessing_authority") or {}
+                d["similar_codes"] = [{"code": ch["code"], "title": ch["title"]} for ch in children]
+                d["child_occupations"] = children
+                d["pathway_list"] = "MLTSSL / STSOL"
+                d["recommended_visa_subclass"] = {"AU": "190"}
     if not d:
         raise HTTPException(404, "Occupation not found or not yet verified")
         # ---------------------------------------------------------
@@ -1086,21 +1058,55 @@ async def get_single_occupation(country: str, code: str):
     safe["industry_data"] = industry_data
     faqs = _build_occupation_faqs(country, d, cm)
 
-    # Similar codes — same minor_group (3 chars) or major_group (1-2 chars)
-    same_minor = (d.get("hierarchy") or {}).get("minor_group") or code[:3]
-    similar_cursor = db["occupation_master"].find(
-        {
-            "country_code": country, "status": "verified",
-            "code": {"$ne": code},
-            "$or": [
-                {"hierarchy.minor_group": same_minor},
-                {"code": {"$regex": f"^{code[:2]}"}},
-            ],
-        },
-        {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
-         "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1},
-    ).limit(6)
-    similar = [_shape_for_card(s) async for s in similar_cursor]
+    # Similar codes — override priority → same unit/minor group
+    similar = []
+    seen_sim_codes = {str(code).lower()}
+    overrides = d.get("similar_codes_override") or []
+    for slug in overrides:
+        slug = (slug or "").strip()
+        if not slug:
+            continue
+        if "-" in slug:
+            s_cc, _, s_code = slug.partition("-")
+        else:
+            s_cc, s_code = country, slug
+        s_cc = s_cc.strip().upper()
+        s_code = s_code.strip()
+        if not (s_cc and s_code) or s_code.lower() in seen_sim_codes:
+            continue
+        pinned = await db["occupation_master"].find_one(
+            {"country_code": s_cc, "code": s_code, "status": {"$ne": "superseded"}},
+            {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
+             "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
+             "assessing_authority": 1, "recommended_visa_subclass": 1, "abs_data": 1, "pathway_list": 1},
+        )
+        if pinned:
+            similar.append(_shape_for_card(pinned))
+            seen_sim_codes.add(str(s_code).lower())
+            if len(similar) >= 6:
+                break
+
+    if len(similar) < 6:
+        same_unit = (d.get("hierarchy") or {}).get("unit_group") or (code[:4] if len(code) >= 4 else "")
+        same_minor = (d.get("hierarchy") or {}).get("minor_group") or (code[:3] if len(code) >= 3 else "")
+        similar_cursor = db["occupation_master"].find(
+            {
+                "country_code": country,
+                "status": {"$in": ["verified", "draft"]},
+                "code": {"$nin": [str(c) for c in seen_sim_codes]},
+                "$or": [
+                    {"hierarchy.unit_group": same_unit} if same_unit else {"hierarchy.minor_group": same_minor},
+                    {"hierarchy.minor_group": same_minor},
+                    {"code": {"$regex": f"^{same_minor}"}},
+                ],
+            },
+            {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
+             "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
+             "assessing_authority": 1, "recommended_visa_subclass": 1, "abs_data": 1, "pathway_list": 1},
+        ).limit(6 - len(similar))
+        async for s in similar_cursor:
+            similar.append(_shape_for_card(s))
+            seen_sim_codes.add(str(s.get("code")).lower())
 
     # Cross-country: same code in other countries
     cross_country = []
@@ -1118,6 +1124,16 @@ async def get_single_occupation(country: str, code: str):
                 **_country_meta(other),
             })
 
+    migroto_live = None
+    if country == "AU":
+        try:
+            from services.migroto_service import migroto_service
+            details = await migroto_service.get_occupation_details(code)
+            if details.get("status") == "success":
+                migroto_live = details.get("data")
+        except Exception:
+            pass
+
     return {
         "country": country,
         "country_meta": cm,
@@ -1126,6 +1142,7 @@ async def get_single_occupation(country: str, code: str):
         "cross_country": cross_country,
         "faqs": faqs,
         "seo": _build_seo(country, d, faqs),
+        "migroto_live": migroto_live,
     }
 
 
@@ -1180,6 +1197,10 @@ class PublicLeadCreate(BaseModel):
     interested_state: Optional[str] = Field(default=None, max_length=8)  # Phase 19.4d — AU state landing
     source: Optional[str] = Field(default=None, max_length=80)            # e.g. state_landing_NSW
     message: Optional[str] = Field(default=None, max_length=600)
+    qualification: Optional[str] = Field(default=None, max_length=200)
+    work_experience: Optional[str] = Field(default=None, max_length=100)
+    website_page_title: Optional[str] = Field(default=None, max_length=300)
+    website_page_url: Optional[str] = Field(default=None, max_length=500)
     # Honeypot — bots will fill this; humans won't see it.
     company_url: Optional[str] = Field(default=None, max_length=300)
 
@@ -1187,9 +1208,13 @@ class PublicLeadCreate(BaseModel):
 @router.post("/lead")
 async def submit_lead(request: Request):
     data = {}
-    try:
-        data = await request.json()
-    except Exception:
+    content_type = (request.headers.get("content-type") or "").lower()
+    if "application/json" in content_type:
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+    else:
         try:
             form = await request.form()
             data = dict(form)
@@ -1239,11 +1264,20 @@ async def submit_lead(request: Request):
         msg_parts.append(str(user_msg).strip())
 
     src = data.get("source") or "public_atlas"
-    tags = ["public_atlas"]
+    tags = ["public_atlas", "atlas"]
     if coi:
         tags.append(f"atlas_{coi.lower()}")
     if interested_state:
         tags.append(f"state_{interested_state.lower()}")
+
+    page_url = data.get("website_page_url") or (f"https://leamss.com/atlas/{coi.lower()}/{atlas_code}" if atlas_code and atlas_code != "mega-landing" else "https://leamss.com/start")
+    page_title = data.get("website_page_title") or (f"{atlas_title} ({atlas_code}) - Migration Atlas" if (atlas_title and atlas_code and atlas_code != "mega-landing") else (f"{atlas_title} - Migration Atlas" if atlas_title else "Find Your Migration Pathway in 60 Seconds - LEAMSS"))
+    if interested_state:
+        page_url = data.get("website_page_url") or f"https://leamss.com/atlas/au/state/{interested_state.lower()}"
+        page_title = data.get("website_page_title") or f"{interested_state.upper()} State Nomination Migration Guide"
+
+    lead_category = "ATLAS"
+    pathway_label = f"{atlas_title} ({atlas_code})" if (atlas_title and atlas_code and atlas_code != "mega-landing") else (atlas_title or service)
 
     doc = {
         "id": lead_id,
@@ -1251,9 +1285,19 @@ async def submit_lead(request: Request):
         "name": name,
         "email": email,
         "phone": phone,
-        "service_interested": service,
+        "service_interested": pathway_label,
+        "enquired_for": pathway_label,
+        "visa_pathway": pathway_label,
+        "lead_category": lead_category,
         "country_of_interest": coi,
+        "country": coi,
         "interested_state": interested_state,
+        "qualification": data.get("qualification") or "",
+        "latest_qualification": data.get("qualification") or "",
+        "work_experience": data.get("work_experience") or "",
+        "total_work_experience": data.get("work_experience") or "",
+        "website_page_title": page_title,
+        "website_page_url": page_url,
         "message": " · ".join(msg_parts) if msg_parts else "Public Atlas lead enquiry",
         "source": src,
         "atlas_code": atlas_code,
@@ -1263,6 +1307,7 @@ async def submit_lead(request: Request):
         "utm_campaign": data.get("utm_campaign") or "",
         "stage": "new",
         "assigned_to": None,
+        "assigned_to_name": "Unassigned",
         "priority": "medium",
         "tags": tags,
         "notes": [],
@@ -1282,3 +1327,28 @@ async def submit_lead(request: Request):
         "message": "Thank you! Our migration expert will contact you within 24 hours.",
     }
 
+
+@router.get("/export-recent")
+async def export_recent_atlas_leads(limit: int = 100):
+    """
+    Export recent Atlas & Points Calculator leads so local CRM
+    and external tools can synchronize live website submissions.
+    """
+    leads_cursor = db["leads"].find(
+        {"$or": [
+            {"tags": {"$in": ["atlas", "public_atlas", "eligibility_quiz"]}},
+            {"lead_category": "ATLAS"},
+            {"source": {"$in": ["public_atlas", "eligibility_quiz", "eligibility_pre_score"]}},
+            {"website_page_url": {"$regex": r"/atlas/|/start#quiz", "$options": "i"}}
+        ]},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit)
+
+    rows = await leads_cursor.to_list(limit)
+    for r in rows:
+        if isinstance(r.get("created_at"), datetime):
+            r["created_at"] = r["created_at"].isoformat()
+        if isinstance(r.get("updated_at"), datetime):
+            r["updated_at"] = r["updated_at"].isoformat()
+
+    return {"atlas": rows}

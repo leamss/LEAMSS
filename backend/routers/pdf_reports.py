@@ -10,7 +10,7 @@ import uuid
 
 router = APIRouter(prefix="/reports/export", tags=["Reports Export"])
 
-REPORTS_DIR = "/app/uploads/reports"
+REPORTS_DIR = os.environ.get("REPORTS_DIR") or ("/app/uploads/reports" if os.path.exists("/app") and os.access("/app", os.W_OK) else os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "reports"))
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 

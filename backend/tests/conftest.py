@@ -14,10 +14,20 @@ import pathlib
 
 import pytest
 
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
 # ── Env auto-load (idempotent) ────────────────────────────────────────────────
 # Backend .env (MONGO_URL, DB_NAME, JWT_SECRET, etc.)
-for _envp in (pathlib.Path("/app/backend/.env"),
-              pathlib.Path("/app/frontend/.env")):
+_this_dir = pathlib.Path(__file__).resolve().parent
+for _envp in (
+    pathlib.Path("/app/backend/.env"),
+    pathlib.Path("/app/frontend/.env"),
+    _this_dir.parent / ".env",
+    _this_dir.parent.parent / "backend" / ".env",
+):
     if _envp.exists():
         for _line in _envp.read_text().splitlines():
             if "=" in _line and not _line.startswith("#"):
@@ -25,6 +35,13 @@ for _envp in (pathlib.Path("/app/backend/.env"),
                 _k, _v = _k.strip(), _v.strip()
                 if _k and _v and _k not in os.environ:
                     os.environ[_k] = _v
+
+os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
+os.environ.setdefault("DB_NAME", "leamss_test")
+os.environ.setdefault("JWT_SECRET", "test_jwt_secret_must_be_at_least_32_characters_long_for_security!")
+os.environ.setdefault("DATA_IMPORT_STORAGE", str(_this_dir.parent / "storage" / "jsa_imports"))
+os.environ.setdefault("STATE_NOM_STORAGE", str(_this_dir.parent / "storage" / "state_nominations"))
+os.environ.setdefault("UPLOAD_DIR", str(_this_dir.parent / "uploads"))
 
 
 # ── Session-scoped event loop (one per pytest run) ────────────────────────────

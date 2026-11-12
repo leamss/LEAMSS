@@ -48,8 +48,8 @@ pa_col = db["pre_assessments"]
 notifications_col = db["notifications"]
 signatures_col = db["pa_signatures"]
 
-AGREEMENT_PDF_DIR = "/app/uploads/agreements"
-SIG_DIR = "/app/uploads/signatures"
+AGREEMENT_PDF_DIR = os.environ.get("AGREEMENT_PDF_DIR") or ("/app/uploads/agreements" if os.path.exists("/app") and os.access("/app", os.W_OK) else os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "agreements"))
+SIG_DIR = os.environ.get("SIG_DIR") or ("/app/uploads/signatures" if os.path.exists("/app") and os.access("/app", os.W_OK) else os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "signatures"))
 os.makedirs(AGREEMENT_PDF_DIR, exist_ok=True)
 
 jinja_env = Environment(autoescape=False)  # templates are admin-controlled HTML

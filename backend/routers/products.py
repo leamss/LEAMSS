@@ -419,7 +419,7 @@ async def delete_workflow_step(product_id: str, step_order: int, current_user: d
 # Package Info Document Upload (PDF) — admin uploads a document
 # describing a specific package (e.g. Standard/Smart/Premium/custom)
 # ──────────────────────────────────────────────────────────────
-PACKAGE_DOCS_DIR = "/app/uploads/product_packages"
+PACKAGE_DOCS_DIR = os.environ.get("PACKAGE_DOCS_DIR") or ("/app/uploads/product_packages" if os.path.exists("/app") and os.access("/app", os.W_OK) else os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "product_packages"))
 os.makedirs(PACKAGE_DOCS_DIR, exist_ok=True)
 
 
