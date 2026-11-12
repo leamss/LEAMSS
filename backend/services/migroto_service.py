@@ -174,23 +174,25 @@ class MigrotoService:
         inv_subclass: Optional[str] = None,
         eoi_subclass: Optional[str] = None,
         trend_year_range: Optional[str] = None,
+        force_refresh: bool = False,
     ) -> Dict[str, Any]:
         """Fetch full migration insight for an occupation with intelligent caching and local enrichment fallback."""
         cleaned_code = str(code).strip()
         meta_col = db["migroto_occupations_cache"]
 
-        # Check cache first
+        # Check cache first (bypass when force_refresh=True)
         cache_key = f"{cleaned_code}_{inv_subclass or 'all'}_{eoi_subclass or 'all'}"
-        cached = await _safe_db_call(meta_col.find_one({"_id": cache_key}), default=None)
-        if cached and cached.get("cached_at"):
-            age = (datetime.now(timezone.utc) - cached["cached_at"].replace(tzinfo=timezone.utc)).total_seconds()
-            if age < 43200:  # 12 hours
-                cached.pop("_id", None)
-                return {"status": "success", "data": cached.get("data", {}), "cached": True}
+        if not force_refresh:
+            cached = await _safe_db_call(meta_col.find_one({"_id": cache_key}), default=None)
+            if cached and cached.get("cached_at"):
+                age = (datetime.now(timezone.utc) - cached["cached_at"].replace(tzinfo=timezone.utc)).total_seconds()
+                if age < 43200:  # 12 hours
+                    cached.pop("_id", None)
+                    return {"status": "success", "data": cached.get("data", {}), "cached": True}
 
         # Check circuit breaker
         if _is_upstream_rate_limited():
-            return await self._synthesize_occupation_insight(cleaned_code)
+            return await self._synthesize_occupation_insight(cleaned_code, force_fresh=force_refresh)
 
         # If occupation_id not passed, search first to get UUID
         if not occupation_id:
@@ -239,7 +241,7 @@ class MigrotoService:
         # Fallback: synthesize insight from LEAMSS internal database (Occupation Master, EOI Backlog, State Nomination lists)
         return await self._synthesize_occupation_insight(cleaned_code)
 
-    async def _synthesize_occupation_insight(self, code: str) -> Dict[str, Any]:
+    async def _synthesize_occupation_insight(self, code: str, force_fresh: bool = False) -> Dict[str, Any]:
         """Synthesizes comprehensive migration insights matching the live Migroto SkillSelect API feed
         when upstream Parse worker returns 429/502 or is unavailable.
         Maintains strict separation between the live API feed and LEAMSS internal local DHA archives."""
@@ -447,9 +449,9 @@ class MigrotoService:
                 "offshore": offshore
             })
 
-        # Use admin-edited rounds if saved in MongoDB; otherwise authentic code-wise rounds
+        # Use fresh benchmarks if force_fresh (e.g. during sync); otherwise preserve admin rounds
         stored_rounds = occ_doc.get("invitation_rounds")
-        if stored_rounds and isinstance(stored_rounds, list) and len(stored_rounds) > 0:
+        if not force_fresh and stored_rounds and isinstance(stored_rounds, list) and len(stored_rounds) > 0:
             invitations_data = stored_rounds
         else:
             invitations_data = benchmarks.get("invitation_rounds", [])
@@ -463,7 +465,7 @@ class MigrotoService:
                 "id": occ_doc.get("id") or code,
                 "code": code,
                 "title": title,
-                "tier": occ_doc.get("skillselect_tier") or benchmarks.get("skillselect_tier", "Tier 2"),
+                "tier": (benchmarks.get("skillselect_tier") if force_fresh else None) or occ_doc.get("skillselect_tier") or benchmarks.get("skillselect_tier", "Tier 2"),
                 "assessment_tips": occ_doc.get("skill_assessment_details", {}).get("tips") or "Standard assessment applies with verified qualification and relevant employment in field.",
                 "essential_tasks": "\n".join(occ_doc.get("typical_tasks", [])) if occ_doc.get("typical_tasks") else "Analyzes requirements, designs specifications, develops code, and conducts testing for enterprise systems.",
                 "assessing_authorities": [
@@ -479,7 +481,7 @@ class MigrotoService:
                     {"subclass_number": "491", "label": "Skilled Work Regional 491"}
                 ]
             },
-            "min_invitation_points": min_pts if (min_pts and min_pts.get("as_of_program_year")) else calc_pts,
+            "min_invitation_points": calc_pts if force_fresh else (min_pts if (min_pts and min_pts.get("as_of_program_year")) else calc_pts),
             "eoi_backlog": {
                 "data": pool_data,
                 "as_at_month": snapshot_label,
@@ -519,12 +521,21 @@ class MigrotoService:
                 break
 
         if not match:
-            return {
-                "code": cleaned_code,
-                "verified": False,
-                "reason": "Code not found in official Migroto Australian Skilled Migration registry",
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
+            # Fallback to local verified ANZSCO occupation master when upstream Parse worker is unavailable or rate-limited
+            local_doc = await _safe_db_call(db["occupation_master"].find_one({"code": cleaned_code, "country_code": "AU"}), default=None)
+            if local_doc:
+                match = {
+                    "id": local_doc.get("migroto_id") or f"anzsco-{cleaned_code}",
+                    "title": local_doc.get("title") or "Skilled Occupation",
+                    "version": local_doc.get("classification_version") or "v1.3, v2022"
+                }
+            else:
+                return {
+                    "code": cleaned_code,
+                    "verified": False,
+                    "reason": "Code not found in official Migroto Australian Skilled Migration registry",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
 
         official_title = match.get("title", "")
         version = match.get("version", "")
@@ -543,9 +554,9 @@ class MigrotoService:
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
-    async def enrich_occupation_master(self, code: str) -> Dict[str, Any]:
+    async def enrich_occupation_master(self, code: str, force_refresh: bool = True) -> Dict[str, Any]:
         """Merges live Migroto intelligence into LEAMSS occupation_master.
-        Does not overwrite custom fields; updates registry status, version, and adds live migration intelligence."""
+        Updates registry status, version, latest cutoff points, invitation rounds, and live migration intelligence."""
         cleaned_code = str(code).strip()
         occ_col = db["occupation_master"]
         doc = await _safe_db_call(occ_col.find_one({"code": cleaned_code, "country_code": "AU"}), default=None)
@@ -556,8 +567,8 @@ class MigrotoService:
         if not verify_res.get("verified"):
             return {"status": "error", "error": verify_res.get("reason")}
 
-        # 2. Get details
-        details_res = await self.get_occupation_details(cleaned_code, occupation_id=verify_res.get("migroto_id"))
+        # 2. Get details with force_refresh to ensure latest rounds and cutoffs
+        details_res = await self.get_occupation_details(cleaned_code, occupation_id=verify_res.get("migroto_id"), force_refresh=force_refresh)
         data = details_res.get("data", {})
         meta = data.get("occupation", {})
 
@@ -571,7 +582,7 @@ class MigrotoService:
             "classification_version": verify_res.get("classification_version") or (doc.get("classification_version") if doc else "v1.3, v2022"),
         }
 
-        if meta.get("tier") and (not doc or not doc.get("skillselect_tier")):
+        if meta.get("tier"):
             update_fields["skillselect_tier"] = meta.get("tier")
 
         if meta.get("assessment_tips"):
@@ -586,11 +597,14 @@ class MigrotoService:
         if data.get("invitations_last_update"):
             update_fields["migroto_invitations_last_update"] = data.get("invitations_last_update")
 
-        if data.get("invitations", {}).get("data") and (not doc or not doc.get("invitation_rounds")):
+        if data.get("invitations", {}).get("data"):
             update_fields["invitation_rounds"] = data.get("invitations", {}).get("data")
 
-        if data.get("min_invitation_points") and (not doc or not doc.get("min_invitation_points")):
+        if data.get("min_invitation_points"):
             update_fields["min_invitation_points"] = data.get("min_invitation_points")
+
+        if data.get("eoi_backlog"):
+            update_fields["eoi_backlog"] = data.get("eoi_backlog")
 
         # Save to DB safely
         await _safe_db_call(occ_col.update_one({"code": cleaned_code, "country_code": "AU"}, {"$set": update_fields}, upsert=True))

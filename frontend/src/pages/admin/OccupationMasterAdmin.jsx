@@ -488,6 +488,7 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
         const insight = details.data?.data;
         if (insight) {
           const invRounds = insight.invitations?.data || [];
+          const minPts = insight.min_invitation_points || {};
           const s189 = invRounds.find(i => String(i.subclass) === '189');
           const s190 = invRounds.find(i => String(i.subclass) === '190');
           const s491 = invRounds.find(i => String(i.subclass) === '491');
@@ -502,15 +503,16 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
             eoi_backlog: insight.eoi_backlog || s.eoi_backlog,
             min_invitation_points: {
               ...(s.min_invitation_points || {}),
-              subclass_189: s189?.score ?? s.min_invitation_points?.subclass_189 ?? 80,
-              subclass_190: s190?.score ?? s.min_invitation_points?.subclass_190 ?? 75,
-              subclass_491: s491?.score ?? s.min_invitation_points?.subclass_491 ?? 65,
-              as_of_program_year: s.min_invitation_points?.as_of_program_year || '2025-26',
+              subclass_189: minPts.subclass_189 !== undefined ? minPts.subclass_189 : (s189 ? s189.score : null),
+              subclass_190: minPts.subclass_190 ?? s190?.score ?? s.min_invitation_points?.subclass_190 ?? 75,
+              subclass_491: minPts.subclass_491 ?? s491?.score ?? s.min_invitation_points?.subclass_491 ?? 65,
+              as_of_program_year: minPts.as_of_program_year || s.min_invitation_points?.as_of_program_year || '2026-27',
+              notes: minPts.notes || s.min_invitation_points?.notes,
             },
           }));
         }
         toast.success('✓ Synced with Migroto Skilled Migration Registry', {
-          description: `Verified ANZSCO code ${item.code} (${r.data.migroto_info?.classification_version || 'v1.3, v2022'}). Tier & backlog updated.`
+          description: `Verified ANZSCO code ${item.code} (${r.data.migroto_info?.classification_version || 'v1.3, v2022'}). Latest cutoffs, invitation rounds & backlog updated.`
         });
       } else {
         toast.error(r.data.error || 'Migroto sync failed');

@@ -128,3 +128,31 @@ async def test_codewise_differentiation_and_oct_2026_rounds():
 
         # 3. Verify STSOL rounds only have 190 and 491 (no 189)
         assert all(str(r.get("subclass")) in ("190", "491") for r in mkt_rounds), "STSOL should only have 190/491 rounds"
+
+
+@pytest.mark.asyncio
+async def test_migroto_sync_updates_cutoffs_and_rounds_for_future_updates():
+    """Verify that calling POST /api/migroto/sync/{code} updates occupation_master
+    with the latest cutoff benchmarks and invitation rounds, and auto-regenerates the public page."""
+    app.dependency_overrides[get_current_user] = lambda: {
+        "email": "admin@leamss.com",
+        "role": "admin",
+        "permissions": ["*"],
+    }
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Sync Software Engineer (261313)
+        res = await client.post("/api/migroto/sync/261313")
+        assert res.status_code == 200, f"Sync failed: {res.text}"
+        data = res.json()
+        assert data.get("status") == "success"
+        assert "min_invitation_points" in data.get("enriched_fields", [])
+        assert "invitation_rounds" in data.get("enriched_fields", [])
+
+        # Verify DB doc was updated
+        doc = await db["occupation_master"].find_one({"country_code": "AU", "code": "261313"})
+        assert doc is not None
+        assert doc.get("migroto_synced") is True
+        assert doc.get("min_invitation_points", {}).get("subclass_189") == 85
+        assert len(doc.get("invitation_rounds", [])) >= 6
+        assert any("2026-10" in r.get("date", "") for r in doc.get("invitation_rounds", []))
