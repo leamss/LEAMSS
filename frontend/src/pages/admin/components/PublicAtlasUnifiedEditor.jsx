@@ -295,6 +295,7 @@ export default function PublicAtlasUnifiedEditor({
         {
           date: '2026-10-18',
           subclass: prev.min_invitation_points?.subclass_189 ? '189' : '190',
+          state: prev.min_invitation_points?.subclass_189 ? 'Federal (DHA)' : 'NSW / VIC Nominated',
           score: prev.min_invitation_points?.subclass_189 ? Number(prev.min_invitation_points.subclass_189) : (prev.min_invitation_points?.subclass_190 ? Number(prev.min_invitation_points.subclass_190) : 75),
           invitations: 150
         }
@@ -309,20 +310,20 @@ export default function PublicAtlasUnifiedEditor({
       const s491 = prev.min_invitation_points?.subclass_491 ? Number(prev.min_invitation_points.subclass_491) : 65;
 
       const rounds = s189 !== null ? [
-        { date: '2026-10-18', subclass: '189', score: s189, invitations: 220 },
-        { date: '2026-10-04', subclass: '190', score: s190, invitations: 185 },
-        { date: '2026-08-22', subclass: '190', score: s190, invitations: 160 },
-        { date: '2026-08-15', subclass: '491', score: s491, invitations: 120 },
-        { date: '2026-06-15', subclass: '189', score: s189, invitations: 190 },
-        { date: '2026-05-10', subclass: '190', score: s190, invitations: 150 },
-        { date: '2026-04-12', subclass: '491', score: s491, invitations: 100 },
+        { date: '2026-10-18', subclass: '189', state: 'Federal (DHA)', score: s189, invitations: 220 },
+        { date: '2026-10-04', subclass: '190', state: 'NSW Nominated', score: s190, invitations: 185 },
+        { date: '2026-08-22', subclass: '190', state: 'VIC Nominated', score: s190, invitations: 160 },
+        { date: '2026-08-15', subclass: '491', state: 'Regional States (SA/TAS)', score: s491, invitations: 120 },
+        { date: '2026-06-15', subclass: '189', state: 'Federal (DHA)', score: s189, invitations: 190 },
+        { date: '2026-05-10', subclass: '190', state: 'QLD / WA Nominated', score: s190, invitations: 150 },
+        { date: '2026-04-12', subclass: '491', state: 'Regional States (NT/ACT)', score: s491, invitations: 100 },
       ] : [
-        { date: '2026-10-12', subclass: '190', score: s190, invitations: 140 },
-        { date: '2026-09-20', subclass: '491', score: s491, invitations: 110 },
-        { date: '2026-08-22', subclass: '190', score: s190, invitations: 125 },
-        { date: '2026-06-25', subclass: '491', score: s491, invitations: 95 },
-        { date: '2026-05-10', subclass: '190', score: s190, invitations: 115 },
-        { date: '2026-04-12', subclass: '491', score: s491, invitations: 80 },
+        { date: '2026-10-12', subclass: '190', state: 'NSW Nominated', score: s190, invitations: 140 },
+        { date: '2026-09-20', subclass: '491', state: 'Regional States (SA/TAS)', score: s491, invitations: 110 },
+        { date: '2026-08-22', subclass: '190', state: 'VIC Nominated', score: s190, invitations: 125 },
+        { date: '2026-06-25', subclass: '491', state: 'Regional States (WA/QLD)', score: s491, invitations: 95 },
+        { date: '2026-05-10', subclass: '190', state: 'QLD Nominated', score: s190, invitations: 115 },
+        { date: '2026-04-12', subclass: '491', state: 'Regional States (NT/ACT)', score: s491, invitations: 80 },
       ];
 
       return {
@@ -2646,7 +2647,7 @@ export default function PublicAtlasUnifiedEditor({
                 <div className="space-y-2">
                   {(edit.invitation_rounds || []).map((rnd, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-lg border border-teal-200/80 shadow-2xs">
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         <Label className="text-[10px] text-slate-500 block mb-0.5">Date</Label>
                         <Input
                           type="text"
@@ -2656,7 +2657,7 @@ export default function PublicAtlasUnifiedEditor({
                           className="h-7 text-xs font-mono bg-slate-50"
                         />
                       </div>
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         <Label className="text-[10px] text-slate-500 block mb-0.5">Subclass</Label>
                         <Input
                           type="text"
@@ -2664,6 +2665,16 @@ export default function PublicAtlasUnifiedEditor({
                           onChange={(e) => handleUpdateRound(idx, 'subclass', e.target.value)}
                           placeholder="e.g. 189 or 190"
                           className="h-7 text-xs font-mono font-bold bg-slate-50"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-[10px] text-slate-500 block mb-0.5">State / Jurisdiction</Label>
+                        <Input
+                          type="text"
+                          value={rnd.state || ''}
+                          onChange={(e) => handleUpdateRound(idx, 'state', e.target.value)}
+                          placeholder="e.g. Federal / NSW / VIC"
+                          className="h-7 text-xs font-mono font-medium text-slate-800 bg-slate-50"
                         />
                       </div>
                       <div className="col-span-2">
@@ -2676,8 +2687,8 @@ export default function PublicAtlasUnifiedEditor({
                           className="h-7 text-xs font-mono font-bold text-emerald-700 bg-slate-50"
                         />
                       </div>
-                      <div className="col-span-3">
-                        <Label className="text-[10px] text-slate-500 block mb-0.5">Total Invitations</Label>
+                      <div className="col-span-2">
+                        <Label className="text-[10px] text-slate-500 block mb-0.5">Invitations</Label>
                         <Input
                           type="number"
                           value={rnd.invitations ?? ''}

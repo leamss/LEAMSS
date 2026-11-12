@@ -667,9 +667,14 @@ export default function OccupationDetail() {
 
                   {invRounds.length > 0 && (
                     <div className="pt-2 border-t border-slate-200/80">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-xs font-bold text-slate-800">Recent DHA Invitation Rounds &amp; Quotas</h4>
-                        <span className="text-[10px] text-slate-400 font-mono">Official SkillSelect Records</span>
+                      <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-800">Recent DHA &amp; State Invitation Rounds &amp; Quotas</h4>
+                          <p className="text-[10px] text-slate-500">Official cutoffs under Federal SkillSelect &amp; State Migration Programs (NSW, VIC, QLD, WA, SA, TAS, ACT, NT)</p>
+                        </div>
+                        <span className="text-[10px] text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full font-bold font-mono">
+                          Source: DHA &amp; State Govts (Migroto Feed)
+                        </span>
                       </div>
                       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
                         <table className="w-full text-xs text-left">
@@ -677,6 +682,7 @@ export default function OccupationDetail() {
                             <tr>
                               <th className="py-2 px-3">Round Date</th>
                               <th className="py-2 px-3">Visa Subclass</th>
+                              <th className="py-2 px-3">State / Jurisdiction</th>
                               <th className="py-2 px-3">Cutoff Score</th>
                               <th className="py-2 px-3">Invitations Issued</th>
                             </tr>
@@ -688,6 +694,11 @@ export default function OccupationDetail() {
                                 <td className="py-2 px-3">
                                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 font-mono">
                                     Subclass {r.subclass}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
+                                    {r.state || (String(r.subclass) === '189' ? 'Federal (DHA)' : (String(r.subclass) === '190' ? 'State Nominated' : 'Regional States'))}
                                   </span>
                                 </td>
                                 <td className="py-2 px-3 font-bold text-emerald-700">{r.score} points</td>

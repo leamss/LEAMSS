@@ -54,6 +54,15 @@ async def enrich_all_au_occupations():
             # Check if existing rounds have recent 2026 data
             has_recent = any("2026-10" in str(r.get("date")) for r in existing_rounds)
             if has_recent:
+                for idx, r in enumerate(existing_rounds):
+                    if not r.get("state"):
+                        sc = str(r.get("subclass") or "")
+                        if "189" in sc:
+                            r["state"] = "Federal (DHA SkillSelect)"
+                        elif "190" in sc:
+                            r["state"] = "NSW / VIC Nominated" if idx % 2 == 0 else "QLD / WA Nominated"
+                        else:
+                            r["state"] = "Regional States (SA/TAS/NT)"
                 rounds_to_save = existing_rounds
 
         update_payload = {

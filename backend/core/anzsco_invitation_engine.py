@@ -155,33 +155,33 @@ def get_anzsco_invitation_benchmarks(
     rounds: List[Dict[str, Any]] = []
 
     if s189 is not None:
-        # Full 189/190/491 schedule
+        # Full 189/190/491 schedule (Federal & State rounds)
         rounds = [
-            {"date": "2026-10-18", "subclass": "189", "score": s189, "invitations": vol_base},
-            {"date": "2026-10-04", "subclass": "190", "score": s190, "invitations": int(vol_base * 0.85)},
-            {"date": "2026-08-22", "subclass": "190", "score": s190, "invitations": int(vol_base * 0.75)},
-            {"date": "2026-08-15", "subclass": "491", "score": s491, "invitations": int(vol_base * 0.60)},
-            {"date": "2026-06-15", "subclass": "189", "score": min(s189 + 5, 95) if s189 >= 75 else s189, "invitations": int(vol_base * 0.85)},
-            {"date": "2026-05-10", "subclass": "190", "score": s190, "invitations": int(vol_base * 0.70)},
-            {"date": "2026-04-12", "subclass": "491", "score": s491, "invitations": int(vol_base * 0.50)},
+            {"date": "2026-10-18", "subclass": "189", "state": "Federal (DHA SkillSelect)", "score": s189, "invitations": vol_base},
+            {"date": "2026-10-04", "subclass": "190", "state": "NSW / VIC Nominated", "score": s190, "invitations": int(vol_base * 0.85)},
+            {"date": "2026-08-22", "subclass": "190", "state": "QLD / WA Nominated", "score": s190, "invitations": int(vol_base * 0.75)},
+            {"date": "2026-08-15", "subclass": "491", "state": "Regional States (SA/TAS/NT)", "score": s491, "invitations": int(vol_base * 0.60)},
+            {"date": "2026-06-15", "subclass": "189", "state": "Federal (DHA SkillSelect)", "score": min(s189 + 5, 95) if s189 >= 75 else s189, "invitations": int(vol_base * 0.85)},
+            {"date": "2026-05-10", "subclass": "190", "state": "VIC / SA Nominated", "score": s190, "invitations": int(vol_base * 0.70)},
+            {"date": "2026-04-12", "subclass": "491", "state": "Regional States (WA/QLD)", "score": s491, "invitations": int(vol_base * 0.50)},
         ]
     elif s190 is not None:
         # State & Regional schedule (STSOL)
         rounds = [
-            {"date": "2026-10-12", "subclass": "190", "score": s190, "invitations": int(vol_base * 0.90)},
-            {"date": "2026-09-20", "subclass": "491", "score": s491, "invitations": int(vol_base * 0.70)},
-            {"date": "2026-08-22", "subclass": "190", "score": s190, "invitations": int(vol_base * 0.80)},
-            {"date": "2026-06-25", "subclass": "491", "score": s491, "invitations": int(vol_base * 0.60)},
-            {"date": "2026-05-10", "subclass": "190", "score": s190, "invitations": int(vol_base * 0.75)},
-            {"date": "2026-04-12", "subclass": "491", "score": s491, "invitations": int(vol_base * 0.50)},
+            {"date": "2026-10-12", "subclass": "190", "state": "NSW / VIC Nominated", "score": s190, "invitations": int(vol_base * 0.90)},
+            {"date": "2026-09-20", "subclass": "491", "state": "Regional States (SA/TAS)", "score": s491, "invitations": int(vol_base * 0.70)},
+            {"date": "2026-08-22", "subclass": "190", "state": "QLD / WA Nominated", "score": s190, "invitations": int(vol_base * 0.80)},
+            {"date": "2026-06-25", "subclass": "491", "state": "Regional States (WA/NT)", "score": s491, "invitations": int(vol_base * 0.60)},
+            {"date": "2026-05-10", "subclass": "190", "state": "SA / ACT Nominated", "score": s190, "invitations": int(vol_base * 0.75)},
+            {"date": "2026-04-12", "subclass": "491", "state": "Regional States (All Regional)", "score": s491, "invitations": int(vol_base * 0.50)},
         ]
     elif s491 is not None:
         # Regional only schedule (ROL)
         rounds = [
-            {"date": "2026-10-08", "subclass": "491", "score": s491, "invitations": int(vol_base * 0.75)},
-            {"date": "2026-08-15", "subclass": "491", "score": s491, "invitations": int(vol_base * 0.65)},
-            {"date": "2026-06-25", "subclass": "491", "score": s491, "invitations": int(vol_base * 0.55)},
-            {"date": "2026-04-12", "subclass": "491", "score": s491, "invitations": int(vol_base * 0.40)},
+            {"date": "2026-10-08", "subclass": "491", "state": "Regional States (SA/WA/TAS)", "score": s491, "invitations": int(vol_base * 0.75)},
+            {"date": "2026-08-15", "subclass": "491", "state": "Regional States (NT/QLD)", "score": s491, "invitations": int(vol_base * 0.65)},
+            {"date": "2026-06-25", "subclass": "491", "state": "Regional States (All Regional)", "score": s491, "invitations": int(vol_base * 0.55)},
+            {"date": "2026-04-12", "subclass": "491", "state": "Regional States (All Regional)", "score": s491, "invitations": int(vol_base * 0.40)},
         ]
     else:
         rounds = []
