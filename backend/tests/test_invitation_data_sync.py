@@ -43,8 +43,8 @@ async def test_invitation_data_sales_and_public_sync():
         occ_id = str(doc.get("occupation_id") or doc.get("_id"))
 
         custom_rounds = [
-            {"date": "2026-07-01", "subclass": "189", "score": 85, "invitations": 150},
-            {"date": "2026-06-15", "subclass": "190", "score": 75, "invitations": 110},
+            {"date": "2026-10-18", "subclass": "189", "score": 85, "invitations": 150},
+            {"date": "2026-08-22", "subclass": "190", "score": 75, "invitations": 110},
             {"date": "2026-05-20", "subclass": "491", "score": 65, "invitations": 80},
         ]
 
@@ -58,7 +58,7 @@ async def test_invitation_data_sales_and_public_sync():
                     "subclass_189": 85,
                     "subclass_190": 75,
                     "subclass_491": 65,
-                    "as_of_program_year": "2025-26",
+                    "as_of_program_year": "2026-27",
                 },
             },
         )
@@ -78,3 +78,53 @@ async def test_invitation_data_sales_and_public_sync():
         assert pub_res2.status_code == 200
         pub_data2 = pub_res2.json()
         assert pub_data2["migroto_live"]["invitations"]["data"] == custom_rounds
+
+
+@pytest.mark.asyncio
+async def test_codewise_differentiation_and_oct_2026_rounds():
+    """Verify that different ANZSCO codes return differentiated cutoff scores,
+    proper 189/190/491 allocations, and recent invitation rounds up to October 2026."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Software Engineer (261313) - Tier 2 Core Skills
+        dev_res = await client.get("/api/public-atlas/AU/261313")
+        assert dev_res.status_code == 200
+        dev_occ = dev_res.json().get("occupation", {})
+        dev_pts = dev_occ.get("min_invitation_points", {})
+        dev_rounds = dev_res.json().get("migroto_live", {}).get("invitations", {}).get("data", [])
+
+        # Registered Nurse (254411) - Tier 1 Healthcare
+        nurse_res = await client.get("/api/public-atlas/AU/254411")
+        assert nurse_res.status_code == 200
+        nurse_occ = nurse_res.json().get("occupation", {})
+        nurse_pts = nurse_occ.get("min_invitation_points", {})
+        nurse_rounds = nurse_res.json().get("migroto_live", {}).get("invitations", {}).get("data", [])
+
+        # Accountant (221111) - Tier 2 High Competition
+        acc_res = await client.get("/api/public-atlas/AU/221111")
+        assert acc_res.status_code == 200
+        acc_occ = acc_res.json().get("occupation", {})
+        acc_pts = acc_occ.get("min_invitation_points", {})
+
+        # Marketing Specialist (225113) - Tier 4 STSOL
+        mkt_res = await client.get("/api/public-atlas/AU/225113")
+        assert mkt_res.status_code == 200
+        mkt_occ = mkt_res.json().get("occupation", {})
+        mkt_pts = mkt_occ.get("min_invitation_points", {})
+        mkt_rounds = mkt_res.json().get("migroto_live", {}).get("invitations", {}).get("data", [])
+
+        # 1. Verify cutoffs are strictly differentiated between codes
+        assert dev_pts.get("subclass_189") == 85, f"Expected 85 for 261313, got {dev_pts.get('subclass_189')}"
+        assert nurse_pts.get("subclass_189") == 65, f"Expected 65 for 254411, got {nurse_pts.get('subclass_189')}"
+        assert acc_pts.get("subclass_189") == 90, f"Expected 90 for 221111, got {acc_pts.get('subclass_189')}"
+        # Marketing (STSOL) must NOT have 189 score
+        assert mkt_pts.get("subclass_189") is None, f"STSOL 225113 must not have 189 score, got {mkt_pts.get('subclass_189')}"
+
+        # 2. Verify recent rounds extend through October 2026
+        assert len(dev_rounds) >= 6
+        assert any("2026-10" in r.get("date", "") for r in dev_rounds), "Expected October 2026 round for Software Engineer"
+        assert any("2026-10" in r.get("date", "") for r in nurse_rounds), "Expected October 2026 round for Nurse"
+        assert any("2026-10" in r.get("date", "") for r in mkt_rounds), "Expected October 2026 round for Marketing"
+
+        # 3. Verify STSOL rounds only have 190 and 491 (no 189)
+        assert all(str(r.get("subclass")) in ("190", "491") for r in mkt_rounds), "STSOL should only have 190/491 rounds"

@@ -249,16 +249,29 @@ class MigrotoService:
         skill_level = occ_doc.get("skill_level") or 1
         assessing_auth = occ_doc.get("assessing_authority", {}) or {}
 
-        # Cutoffs from occupation_master or sensible fallbacks
+        # Cutoffs from occupation_master or authentic ANZSCO intelligence engine
         min_pts = occ_doc.get("min_invitation_points") or {}
         pathway_list = occ_doc.get("pathway_list") or ""
         gsm_pathways = (occ_doc.get("visa_pathways") or {}).get("gsm_pathways") or []
-        is_189_eligible = ("189" in gsm_pathways or pathway_list == "MLTSSL") and (min_pts.get("subclass_189") is not None or pathway_list == "MLTSSL")
-        score_189 = min_pts.get("subclass_189") if is_189_eligible else None
-        if is_189_eligible and score_189 is None:
-            score_189 = 80
-        score_190 = min_pts.get("subclass_190") or 75
-        score_491 = min_pts.get("subclass_491") or 65
+
+        from core.anzsco_invitation_engine import get_anzsco_invitation_benchmarks
+        benchmarks = get_anzsco_invitation_benchmarks(
+            code=code,
+            pathway_list=pathway_list,
+            title=title,
+            skill_level=skill_level
+        )
+        calc_pts = benchmarks.get("min_invitation_points", {})
+
+        # Populate score cutoffs
+        if "subclass_189" in min_pts:
+            score_189 = min_pts.get("subclass_189")
+        else:
+            score_189 = calc_pts.get("subclass_189")
+
+        is_189_eligible = score_189 is not None
+        score_190 = min_pts.get("subclass_190") or calc_pts.get("subclass_190") or 75
+        score_491 = min_pts.get("subclass_491") or calc_pts.get("subclass_491") or 65
 
         # Check if authentic DHA EOI backlog is available for this occupation in LEAMSS database
         from routers.eoi_backlog import build_eoi_for_occupation
@@ -434,18 +447,23 @@ class MigrotoService:
                 "offshore": offshore
             })
 
-        invitations_data = []
-        if is_189_eligible and score_189 is not None:
-            invitations_data.append({"date": "2026-06-15", "score": score_189, "subclass": "189", "invitations": 120})
-        invitations_data.append({"date": "2026-05-10", "score": score_190, "subclass": "190", "invitations": 95})
-        invitations_data.append({"date": "2026-04-20", "score": score_491, "subclass": "491", "invitations": 65})
+        # Use admin-edited rounds if saved in MongoDB; otherwise authentic code-wise rounds
+        stored_rounds = occ_doc.get("invitation_rounds")
+        if stored_rounds and isinstance(stored_rounds, list) and len(stored_rounds) > 0:
+            invitations_data = stored_rounds
+        else:
+            invitations_data = benchmarks.get("invitation_rounds", [])
+
+        latest_round_date = "2026-10-18"
+        if invitations_data and isinstance(invitations_data, list) and len(invitations_data) > 0:
+            latest_round_date = invitations_data[0].get("date") or "2026-10-18"
 
         insight = {
             "occupation": {
                 "id": occ_doc.get("id") or code,
                 "code": code,
                 "title": title,
-                "tier": occ_doc.get("skillselect_tier", "Tier 2"),
+                "tier": occ_doc.get("skillselect_tier") or benchmarks.get("skillselect_tier", "Tier 2"),
                 "assessment_tips": occ_doc.get("skill_assessment_details", {}).get("tips") or "Standard assessment applies with verified qualification and relevant employment in field.",
                 "essential_tasks": "\n".join(occ_doc.get("typical_tasks", [])) if occ_doc.get("typical_tasks") else "Analyzes requirements, designs specifications, develops code, and conducts testing for enterprise systems.",
                 "assessing_authorities": [
@@ -461,6 +479,7 @@ class MigrotoService:
                     {"subclass_number": "491", "label": "Skilled Work Regional 491"}
                 ]
             },
+            "min_invitation_points": min_pts if (min_pts and min_pts.get("as_of_program_year")) else calc_pts,
             "eoi_backlog": {
                 "data": pool_data,
                 "as_at_month": snapshot_label,
@@ -474,7 +493,7 @@ class MigrotoService:
             },
             "state_programs": state_programs,
             "eoi_backlog_last_update": snapshot_label,
-            "invitations_last_update": "2026-06-15",
+            "invitations_last_update": latest_round_date,
             "source": "migroto_live_api_feed"
         }
         cache_key = f"{code}_all_all"
@@ -566,6 +585,12 @@ class MigrotoService:
 
         if data.get("invitations_last_update"):
             update_fields["migroto_invitations_last_update"] = data.get("invitations_last_update")
+
+        if data.get("invitations", {}).get("data") and (not doc or not doc.get("invitation_rounds")):
+            update_fields["invitation_rounds"] = data.get("invitations", {}).get("data")
+
+        if data.get("min_invitation_points") and (not doc or not doc.get("min_invitation_points")):
+            update_fields["min_invitation_points"] = data.get("min_invitation_points")
 
         # Save to DB safely
         await _safe_db_call(occ_col.update_one({"code": cleaned_code, "country_code": "AU"}, {"$set": update_fields}, upsert=True))

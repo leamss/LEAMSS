@@ -292,20 +292,48 @@ export default function PublicAtlasUnifiedEditor({
       ...prev,
       invitation_rounds: [
         ...(prev.invitation_rounds || []),
-        { date: new Date().toISOString().slice(0, 10), subclass: '190', score: 75, invitations: 100 }
+        {
+          date: '2026-10-18',
+          subclass: prev.min_invitation_points?.subclass_189 ? '189' : '190',
+          score: prev.min_invitation_points?.subclass_189 ? Number(prev.min_invitation_points.subclass_189) : (prev.min_invitation_points?.subclass_190 ? Number(prev.min_invitation_points.subclass_190) : 75),
+          invitations: 150
+        }
       ]
     }));
   };
 
   const handleLoadDefaultRounds = () => {
-    setEdit((prev) => ({
-      ...prev,
-      invitation_rounds: [
-        { date: '2026-06-15', subclass: '189', score: prev.min_invitation_points?.subclass_189 ? Number(prev.min_invitation_points.subclass_189) : 80, invitations: 120 },
-        { date: '2026-05-10', subclass: '190', score: prev.min_invitation_points?.subclass_190 ? Number(prev.min_invitation_points.subclass_190) : 75, invitations: 95 },
-        { date: '2026-04-20', subclass: '491', score: prev.min_invitation_points?.subclass_491 ? Number(prev.min_invitation_points.subclass_491) : 65, invitations: 65 },
-      ]
-    }));
+    setEdit((prev) => {
+      const s189 = prev.min_invitation_points?.subclass_189 ? Number(prev.min_invitation_points.subclass_189) : null;
+      const s190 = prev.min_invitation_points?.subclass_190 ? Number(prev.min_invitation_points.subclass_190) : 75;
+      const s491 = prev.min_invitation_points?.subclass_491 ? Number(prev.min_invitation_points.subclass_491) : 65;
+
+      const rounds = s189 !== null ? [
+        { date: '2026-10-18', subclass: '189', score: s189, invitations: 220 },
+        { date: '2026-10-04', subclass: '190', score: s190, invitations: 185 },
+        { date: '2026-08-22', subclass: '190', score: s190, invitations: 160 },
+        { date: '2026-08-15', subclass: '491', score: s491, invitations: 120 },
+        { date: '2026-06-15', subclass: '189', score: s189, invitations: 190 },
+        { date: '2026-05-10', subclass: '190', score: s190, invitations: 150 },
+        { date: '2026-04-12', subclass: '491', score: s491, invitations: 100 },
+      ] : [
+        { date: '2026-10-12', subclass: '190', score: s190, invitations: 140 },
+        { date: '2026-09-20', subclass: '491', score: s491, invitations: 110 },
+        { date: '2026-08-22', subclass: '190', score: s190, invitations: 125 },
+        { date: '2026-06-25', subclass: '491', score: s491, invitations: 95 },
+        { date: '2026-05-10', subclass: '190', score: s190, invitations: 115 },
+        { date: '2026-04-12', subclass: '491', score: s491, invitations: 80 },
+      ];
+
+      return {
+        ...prev,
+        min_invitation_points: {
+          ...(prev.min_invitation_points || {}),
+          as_of_program_year: prev.min_invitation_points?.as_of_program_year || '2026-27'
+        },
+        invitation_rounds: rounds
+      };
+    });
   };
 
   const handleUpdateRound = (index, field, value) => {
@@ -2597,9 +2625,9 @@ export default function PublicAtlasUnifiedEditor({
                 <Label className="text-[11px] font-semibold text-teal-900 block mb-1">Program Year</Label>
                 <Input
                   type="text"
-                  value={minPts.as_of_program_year ?? '2025-26'}
+                  value={minPts.as_of_program_year ?? '2026-27'}
                   onChange={(e) => upMinPoints('as_of_program_year', e.target.value)}
-                  placeholder="e.g. 2025-26"
+                  placeholder="e.g. 2026-27"
                   className="h-8 text-xs font-mono font-bold bg-white"
                 />
               </div>

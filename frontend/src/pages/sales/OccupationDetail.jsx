@@ -256,7 +256,7 @@ export default function OccupationDetail() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className="bg-teal-100 text-teal-900 border-teal-300 font-mono text-[10px] font-bold">
-                        Program Year {minPts.as_of_program_year || '2025-26'}
+                        Program Year {minPts.as_of_program_year || '2026-27'}
                       </Badge>
                       <button
                         type="button"
@@ -627,9 +627,13 @@ export default function OccupationDetail() {
                 : ((overview.invitation_rounds && overview.invitation_rounds.length > 0)
                   ? overview.invitation_rounds
                   : (data.migroto_live?.invitations?.data || [
-                      { date: '15 Jun 2026', subclass: '189', score: minPts.subclass_189 || 80, invitations: 120 },
-                      { date: '10 May 2026', subclass: '190', score: minPts.subclass_190 || 75, invitations: 95 },
-                      { date: '20 Apr 2026', subclass: '491', score: minPts.subclass_491 || 65, invitations: 65 },
+                      { date: '18 Oct 2026', subclass: minPts.subclass_189 ? '189' : '190', score: minPts.subclass_189 || minPts.subclass_190 || 75, invitations: 180 },
+                      { date: '04 Oct 2026', subclass: '190', score: minPts.subclass_190 || 75, invitations: 145 },
+                      { date: '22 Aug 2026', subclass: '190', score: minPts.subclass_190 || 75, invitations: 130 },
+                      { date: '15 Aug 2026', subclass: '491', score: minPts.subclass_491 || 65, invitations: 95 },
+                      { date: '15 Jun 2026', subclass: minPts.subclass_189 ? '189' : '190', score: minPts.subclass_189 || minPts.subclass_190 || 75, invitations: 160 },
+                      { date: '10 May 2026', subclass: '190', score: minPts.subclass_190 || 75, invitations: 120 },
+                      { date: '12 Apr 2026', subclass: '491', score: minPts.subclass_491 || 65, invitations: 80 },
                     ]));
               return (
                 <Card className="p-5 bg-gradient-to-r from-teal-50/50 via-slate-50/40 to-white border border-teal-200 rounded-xl shadow-xs" data-testid="sales-skillselect-invitations-card">

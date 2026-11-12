@@ -445,15 +445,15 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
         <div class="metric-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
           <div class="metric">
             <div class="ml">Subclass 189 Independent</div>
-            <div class="mv" style="color:var(--forest)">{{ (occ.min_invitation_points.subclass_189 if occ.min_invitation_points else None) or (migroto_live.invitations.data[0].score if migroto_live and migroto_live.invitations and migroto_live.invitations.data else 80) }} pts</div>
+            <div class="mv" style="color:var(--forest)">{% if occ.min_invitation_points and occ.min_invitation_points.subclass_189 %}{{ occ.min_invitation_points.subclass_189 }} pts{% elif (not occ.min_invitation_points or occ.min_invitation_points.subclass_189 is not none) and migroto_live and migroto_live.invitations and migroto_live.invitations.data and migroto_live.invitations.data[0].subclass == '189' %}{{ migroto_live.invitations.data[0].score }} pts{% else %}N/A (State/Regional Only){% endif %}</div>
           </div>
           <div class="metric">
             <div class="ml">Subclass 190 State Nominated</div>
-            <div class="mv" style="color:var(--forest)">{{ (occ.min_invitation_points.subclass_190 if occ.min_invitation_points else None) or (migroto_live.invitations.data[1].score if migroto_live and migroto_live.invitations and migroto_live.invitations.data|length > 1 else 75) }} pts</div>
+            <div class="mv" style="color:var(--forest)">{% if occ.min_invitation_points and occ.min_invitation_points.subclass_190 %}{{ occ.min_invitation_points.subclass_190 }} pts{% elif migroto_live and migroto_live.invitations and migroto_live.invitations.data %}{% set s190 = (migroto_live.invitations.data | selectattr('subclass', 'equalto', '190') | list) %}{{ s190[0].score if s190 else 75 }} pts{% else %}75 pts{% endif %}</div>
           </div>
           <div class="metric">
             <div class="ml">Subclass 491 Regional</div>
-            <div class="mv" style="color:var(--forest)">{{ (occ.min_invitation_points.subclass_491 if occ.min_invitation_points else None) or (migroto_live.invitations.data[2].score if migroto_live and migroto_live.invitations and migroto_live.invitations.data|length > 2 else 65) }} pts</div>
+            <div class="mv" style="color:var(--forest)">{% if occ.min_invitation_points and occ.min_invitation_points.subclass_491 %}{{ occ.min_invitation_points.subclass_491 }} pts{% elif migroto_live and migroto_live.invitations and migroto_live.invitations.data %}{% set s491 = (migroto_live.invitations.data | selectattr('subclass', 'equalto', '491') | list) %}{{ s491[0].score if s491 else 65 }} pts{% else %}65 pts{% endif %}</div>
           </div>
         </div>
 

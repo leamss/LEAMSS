@@ -949,9 +949,13 @@ function AuChancesScorecard({ occ, migrotoLive }) {
           const rounds = (occ.invitation_rounds && occ.invitation_rounds.length > 0)
             ? occ.invitation_rounds
             : (invData && invData.length > 0 ? invData : [
-                { date: '15 Jun 2026', subclass: '189', score: cutoff189 || 80, invitations: 120 },
-                { date: '10 May 2026', subclass: '190', score: cutoff190 || 75, invitations: 95 },
-                { date: '20 Apr 2026', subclass: '491', score: cutoff491 || 65, invitations: 65 },
+                { date: '18 Oct 2026', subclass: is189Eligible ? '189' : '190', score: (is189Eligible ? cutoff189 : cutoff190) || 75, invitations: 180 },
+                { date: '04 Oct 2026', subclass: '190', score: cutoff190 || 75, invitations: 145 },
+                { date: '22 Aug 2026', subclass: '190', score: cutoff190 || 75, invitations: 130 },
+                { date: '15 Aug 2026', subclass: '491', score: cutoff491 || 65, invitations: 95 },
+                { date: '15 Jun 2026', subclass: is189Eligible ? '189' : '190', score: (is189Eligible ? cutoff189 : cutoff190) || 75, invitations: 160 },
+                { date: '10 May 2026', subclass: '190', score: cutoff190 || 75, invitations: 120 },
+                { date: '12 Apr 2026', subclass: '491', score: cutoff491 || 65, invitations: 80 },
               ]);
           return (
             <div className="pt-2 border-t border-slate-100">

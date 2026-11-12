@@ -1044,11 +1044,16 @@ async def get_occupation_detail(
         "as_of_program_year": mip_raw.get("as_of_program_year", "2025-26"),
     }
 
-    inv_rounds = occ_master.get("invitation_rounds") or (migroto_live.get("invitations", {}).get("data") if migroto_live else []) or [
-        {"date": "2026-06-15", "subclass": "189", "score": s189 or 80, "invitations": 120},
-        {"date": "2026-05-10", "subclass": "190", "score": s190 or 75, "invitations": 95},
-        {"date": "2026-04-20", "subclass": "491", "score": s491 or 65, "invitations": 65},
-    ]
+    inv_rounds = occ_master.get("invitation_rounds") or (migroto_live.get("invitations", {}).get("data") if migroto_live else [])
+    if not inv_rounds:
+        from core.anzsco_invitation_engine import get_anzsco_invitation_benchmarks
+        inv_bm = get_anzsco_invitation_benchmarks(
+            code=str(occ_master.get("code") or ""),
+            pathway_list=primary_pathway,
+            title=str(occ_master.get("title") or ""),
+            skill_level=occ_master.get("skill_level") or 1
+        )
+        inv_rounds = inv_bm.get("invitation_rounds", [])
     eoi_backlog = occ_master.get("eoi_backlog") or (migroto_live.get("eoi_backlog") if migroto_live else {}) or {}
 
     overview = {
