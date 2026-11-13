@@ -49,11 +49,11 @@ def _norm_cc(c: Optional[str]) -> str:
     s = str(c or "").strip().upper()
     return COUNTRY_NAME_TO_CODE.get(s, s or "AU")
 
-# Phase 8 — premium HTML→PDF renderer is used when WeasyPrint native libraries are present.
-# Defaults to ReportLab if WeasyPrint is unavailable or if USE_REPORT_V2=false.
+# Phase 8 — premium HTML→PDF renderer (WeasyPrint / Headless Chrome).
+# Defaults to render_pdf_v2 which seamlessly uses Chrome/WeasyPrint and falls back to ReportLab.
 import os as _os
-from core.report_v2.renderer import HTML as _WP_HTML
-_default_v2 = "true" if _WP_HTML is not None else "false"
+from core.report_v2.renderer import HTML as _WP_HTML, _find_browser_executable
+_default_v2 = "true" if (_WP_HTML is not None or _find_browser_executable() is not None) else "false"
 _USE_V2 = _os.environ.get("USE_REPORT_V2", _default_v2).lower() != "false"
 render_pdf = render_pdf_v2 if _USE_V2 else render_pdf_v1
 
@@ -144,6 +144,158 @@ async def _skill_body_fee(body_token: Optional[str]) -> Optional[Dict[str, Any]]
     }
 
 
+def _generate_code_why_we_chose(
+    occ: Dict[str, Any],
+    assessment: Dict[str, Any],
+    occ_doc: Optional[Dict[str, Any]] = None,
+    evaluated_sa: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Build a client-friendly, plain language rationale for why this code was selected,
+    including role & resume alignment, core duties matched, assessing deduction rule,
+    and net claimable experience & GSM points."""
+    prof_snap = assessment.get("profile_snapshot") or {}
+    prim_app = prof_snap.get("primary_applicant") or {}
+    prof_obj = prim_app.get("professional") or {}
+    edu_obj = prim_app.get("education") or {}
+
+    cand_prof = (
+        assessment.get("current_profession")
+        or prof_obj.get("current_profession")
+        or assessment.get("occupation_title")
+        or "Skilled Professional"
+    )
+    cand_exp = float(
+        assessment.get("raw_years_experience_total")
+        or assessment.get("years_experience_total")
+        or prof_obj.get("raw_years_experience_total")
+        or prof_obj.get("years_experience_total")
+        or 5.0
+    )
+    cand_qual = (
+        assessment.get("qualification")
+        or edu_obj.get("highest_qualification")
+        or "Bachelor's Degree"
+    )
+    cand_field = (
+        assessment.get("field_of_study")
+        or edu_obj.get("field_of_study")
+        or prof_snap.get("field_of_study")
+        or ""
+    )
+    cand_employer = (
+        assessment.get("employer_name")
+        or prof_obj.get("employer_name")
+        or ""
+    )
+    cand_nature = (
+        assessment.get("employer_nature")
+        or prof_obj.get("employer_nature")
+        or ""
+    )
+
+    code = str(occ.get("code") or "").strip()
+    title = occ.get("title") or (occ_doc or {}).get("title") or "Nominated Occupation"
+    body = occ.get("assessing_body") or (occ_doc or {}).get("assessing_body") or "Assessing Authority"
+
+    # Evaluate SA if not already evaluated
+    sa = evaluated_sa
+    if not sa or not sa.get("authority_code"):
+        try:
+            from core.skills_assessment_engine import evaluate_skills_assessment
+            cand_profile = {
+                "name": assessment.get("client_name"),
+                "education": cand_qual,
+                "field_of_study": cand_field,
+                "years_experience_total": cand_exp,
+                "raw_years_experience_total": cand_exp,
+                "primary_applicant": prim_app,
+            }
+            sa = evaluate_skills_assessment({"code": code, "title": title, "assessing_body": body}, cand_profile)
+        except Exception:
+            sa = {}
+
+    auth_name = sa.get("authority_name") or body or "Assessing Authority"
+    deducted_years = float(sa.get("deducted_years") or 0.0)
+    claimable_years = float(sa.get("points_claimable_years") or max(0.0, cand_exp - deducted_years))
+    claimable_points = int(sa.get("points_claimable_points") or 0)
+    if claimable_points == 0 and claimable_years >= 3.0:
+        if claimable_years >= 8.0:
+            claimable_points = 15
+        elif claimable_years >= 5.0:
+            claimable_points = 10
+        elif claimable_years >= 3.0:
+            claimable_points = 5
+
+    # Duties text
+    cand_duties = assessment.get("roles_and_responsibilities") or prof_obj.get("roles_and_responsibilities") or ""
+    if not cand_duties:
+        duty_bullets = assessment.get("duty_bullets") or prof_obj.get("duty_bullets") or []
+        cand_duties = "; ".join(duty_bullets) if isinstance(duty_bullets, list) else str(duty_bullets)
+    if not cand_duties:
+        cand_duties = cand_prof
+
+    occ_tasks = (occ_doc or {}).get("tasks") or (occ_doc or {}).get("typical_tasks") or []
+    try:
+        from routers.sales_ai_helpers import calculate_duty_alignment, calculate_company_alignment
+        duty_pct, matched_tasks, _ = calculate_duty_alignment(cand_duties, occ_tasks, str(code))
+        matched_task_texts = [m[0] for m in matched_tasks] if matched_tasks else occ_tasks[:3]
+        is_comp_matched, matched_ind, comp_summary = calculate_company_alignment(cand_nature, (occ_doc or {}).get("industries_ranked") or [])
+    except Exception:
+        duty_pct = 100.0 if occ_tasks else 0.0
+        matched_task_texts = occ_tasks[:3]
+        is_comp_matched = False
+        matched_ind = ""
+        comp_summary = ""
+
+    role_alignment_summary = (
+        f"Matches candidate's career role as {cand_prof}" + (f" at {cand_employer}" if cand_employer else "") + f". "
+        f"Duties align strongly with official ABS ANZSCO unit group tasks" + (f" ({duty_pct:.0f}% match across core tasks)." if duty_pct > 0 else ".")
+    )
+
+    employer_sector_fit = (
+        comp_summary if comp_summary else
+        (f"Employer sector '{cand_nature}' aligns with professional industry standards." if cand_nature else "")
+    )
+
+    deduction_explanation = (
+        f"Under {auth_name} General Skills criteria, your qualification ({cand_qual}" + (f" in {cand_field}" if cand_field else "") + f") "
+        f"requires a {deducted_years:.1f}-year qualifying period (Requirement Met Date) to meet skills suitability. "
+        f"These {deducted_years:.1f} years are deducted from your total experience of {cand_exp:.1f} years, leaving {claimable_years:.1f} years "
+        f"fully claimable for +{claimable_points} GSM migration points."
+        if deducted_years > 0 else
+        f"Under {auth_name} criteria, your qualification ({cand_qual}" + (f" in {cand_field}" if cand_field else "") + f") "
+        f"satisfies skills suitability with 0.0 qualifying deduction. All {claimable_years:.1f} years are points-claimable (+{claimable_points} GSM points)."
+    )
+
+    why_we_chose_summary = (
+        f"We selected nominated occupation {code} ({title}) because your career background as {cand_prof} "
+        f"directly aligns with its core official duties. After applying the official {deducted_years:.1f}-year suitability deduction "
+        f"under {auth_name}, you secure {claimable_years:.1f} years of points-claimable experience (+{claimable_points} GSM Points)."
+    )
+
+    vp = (occ_doc or {}).get("visa_pathways") or {}
+    subclasses = [str(ve["visa_subclass"]) for ve in (vp.get("visa_eligibility") or []) if ve.get("eligible") and ve.get("visa_subclass")]
+    if not subclasses:
+        subclasses = ["189", "190", "491", "482", "186"]
+
+    return {
+        "why_we_chose_summary": why_we_chose_summary,
+        "role_alignment_text": role_alignment_summary,
+        "duty_match_percentage": duty_pct,
+        "matched_tasks": matched_task_texts[:4],
+        "employer_sector_fit": employer_sector_fit,
+        "deduction_explanation": deduction_explanation,
+        "deducted_years": deducted_years,
+        "claimable_years": claimable_years,
+        "claimable_points": claimable_points,
+        "assessment_outcome": sa.get("assessment_outcome") or "Likely Positive Assessment",
+        "assessing_authority_name": auth_name,
+        "total_experience": cand_exp,
+        "eligible_visas": subclasses,
+        "eligible_visas_text": ", ".join(f"Subclass {s}" for s in subclasses),
+    }
+
+
 async def _build_occupation_comparison(
     assessment: Dict[str, Any], results: List[Dict[str, Any]],
 ) -> Optional[Dict[str, Any]]:
@@ -176,7 +328,21 @@ async def _build_occupation_comparison(
                 c_str = ao.strip()
                 if c_str not in seen_codes:
                     seen_codes.add(c_str)
-                    occ_list.append({"code": c_str, "is_primary": False})
+                    occ_list.append({"code": c_str, "title": c_str, "is_primary": False})
+    if len(occ_list) < 2 and primary and primary.get("code"):
+        pcode = str(primary.get("code")).strip()
+        pcc = (primary.get("country_code") or "AU").upper()
+        if pcc == "AU" and len(pcode) >= 4:
+            parent_unit = pcode[:4]
+            alts_cursor = OCCUPATION_MASTER.find(
+                {"country_code": "AU", "code": {"$regex": f"^{parent_unit}", "$ne": pcode}},
+                {"_id": 0, "code": 1, "title": 1, "country_code": 1, "assessing_body": 1, "pathway": 1}
+            ).limit(2)
+            alts = await alts_cursor.to_list(2)
+            for a in alts:
+                if a.get("code") and a["code"] not in seen_codes:
+                    seen_codes.add(a["code"])
+                    occ_list.append({**a, "is_primary": False})
 
     if len(occ_list) < 2:
         return None
@@ -224,13 +390,15 @@ async def _build_occupation_comparison(
         if cc == "AU":
             eoi_189 = await eoi_pool_total(code, "189")
 
+        why_we_chose = _generate_code_why_we_chose(occ, assessment, full)
+
         items.append({
             "is_primary": occ.get("is_primary", False),
             "country_code": cc,
             "code": code,
             "title": occ.get("title") or full.get("title"),
             "assessing_body": body_token,
-            "assessing_authority_name": auth_name,
+            "assessing_authority_name": auth_name or why_we_chose.get("assessing_authority_name"),
             "skill_assessment_fee": fee,
             "visa_subclasses": subclasses,
             "pathway": occ.get("pathway"),
@@ -240,6 +408,17 @@ async def _build_occupation_comparison(
             "pass_mark": pass_mark,
             "eligible": eligible,
             "eoi_189": eoi_189,
+            "why_we_chose": why_we_chose,
+            "why_we_chose_summary": why_we_chose.get("why_we_chose_summary"),
+            "role_alignment_summary": why_we_chose.get("role_alignment_text"),
+            "duty_alignment_summary": why_we_chose.get("role_alignment_text"),
+            "matched_tasks": why_we_chose.get("matched_tasks"),
+            "employer_sector_fit": why_we_chose.get("employer_sector_fit"),
+            "deduction_rule_summary": why_we_chose.get("deduction_explanation"),
+            "deducted_years": why_we_chose.get("deducted_years"),
+            "claimable_years": why_we_chose.get("claimable_years"),
+            "claimable_points": why_we_chose.get("claimable_points"),
+            "eligible_visas_text": why_we_chose.get("eligible_visas_text"),
         })
 
     return {"occupations": items}
@@ -284,12 +463,16 @@ async def _build_au_subclass_points(
     pass_mark = (ve.get("189") or {}).get("min_required") or 65
 
     open_map = {"189": None, "190": None, "491": None}
-    occ_code = primary_occ.get("code")
-    occ_title = primary_occ.get("title")
-    if occ_code and (primary_occ.get("country_code") or "").upper() == "AU":
+    occ_code = primary_occ.get("code") if isinstance(primary_occ, dict) else str(primary_occ or "")
+    occ_title = primary_occ.get("title") if isinstance(primary_occ, dict) else None
+    if occ_code:
         occ_doc = await OCCUPATION_MASTER.find_one(
             {"country_code": "AU", "code": occ_code}, {"_id": 0, "visa_pathways": 1, "title": 1},
         )
+        if not occ_doc:
+            occ_doc = await OCCUPATION_MASTER.find_one(
+                {"code": occ_code}, {"_id": 0, "visa_pathways": 1, "title": 1},
+            )
         if occ_doc:
             open_map = _occupation_open_map(occ_doc)
             occ_title = occ_title or occ_doc.get("title")
@@ -372,10 +555,15 @@ async def _build_snapshot(
 
         occ_doc: Optional[Dict[str, Any]] = None
         occ_block = assessment.get("occupation") or {}
-        if occ_block and _norm_cc(occ_block.get("country_code")) == cc:
+        occ_code = str(occ_block.get("code") if isinstance(occ_block, dict) else (occ_block or "")).strip()
+        if occ_code:
             full = await OCCUPATION_MASTER.find_one(
-                {"country_code": cc, "code": occ_block.get("code")}, {"_id": 0}
+                {"country_code": cc, "code": occ_code}, {"_id": 0}
             )
+            if not full and cc == "AU":
+                full = await OCCUPATION_MASTER.find_one(
+                    {"code": occ_code}, {"_id": 0}
+                )
             if full:
                 if full.get("status") != "verified" and not include_unverified:
                     warnings.append(
@@ -384,9 +572,16 @@ async def _build_snapshot(
                     )
                 occ_doc = full
             else:
-                occ_doc = occ_block
+                occ_doc = occ_block if isinstance(occ_block, dict) else {"code": occ_code}
         elif occ_block:
-            occ_doc = occ_block
+            occ_doc = occ_block if isinstance(occ_block, dict) else {"code": str(occ_block)}
+
+        if cc == "AU" and occ_doc and isinstance(occ_doc, dict):
+            from core.report_v2.renderer import _normalize_state_territory_eligibility
+            norm_ste = _normalize_state_territory_eligibility(
+                occ_doc.get("state_territory_eligibility"), clean_code=occ_code, occ_doc=occ_doc
+            )
+            occ_doc["state_territory_eligibility"] = norm_ste
 
         countries_data.append({
             "country_code": cc,
@@ -641,6 +836,73 @@ async def _build_snapshot(
     if best:
         best["status"] = assessment.get("status") or "verified"
 
+    # 5) Skills Assessment & Experience Deduction Analysis (Phase 21)
+    skills_assessment = assessment.get("skills_assessment")
+    if not skills_assessment and results:
+        for r in results:
+            if r.get("skills_assessment"):
+                skills_assessment = r["skills_assessment"]
+                break
+    if not skills_assessment:
+        try:
+            from core.skills_assessment_engine import evaluate_skills_assessment
+            occ_obj = primary_occ if isinstance(primary_occ, dict) else {"code": primary_code, "title": "Skilled Professional", "country_code": "AU"}
+            prof_snap = assessment.get("profile_snapshot") or {}
+            prim_app = prof_snap.get("primary_applicant") or {}
+            exp_val = (
+                prof_snap.get("raw_years_experience_total")
+                or (prim_app.get("professional", {}).get("raw_years_experience_total"))
+                or assessment.get("raw_years_experience_total")
+                or assessment.get("years_experience_total")
+                or (prim_app.get("professional", {}).get("years_experience_total"))
+                or prof_snap.get("years_experience_total")
+                or assessment.get("work_exp_years")
+                or 5
+            )
+            cand_profile = {
+                "name": assessment.get("client_name"),
+                "email": assessment.get("client_email"),
+                "phone": assessment.get("client_phone"),
+                "age": assessment.get("age") or (prim_app.get("personal", {}).get("age")),
+                "education": assessment.get("qualification") or (prim_app.get("education", {}).get("highest_qualification")),
+                "field_of_study": assessment.get("field_of_study") or (prim_app.get("education", {}).get("field_of_study")) or prof_snap.get("field_of_study"),
+                "work_exp_years": float(exp_val),
+            }
+            skills_assessment = evaluate_skills_assessment(occ_obj, cand_profile)
+        except Exception as sa_err:
+            logger.warning("Failed to evaluate skills_assessment for snapshot: %s", sa_err)
+
+    if skills_assessment:
+        prof_snap = assessment.get("profile_snapshot") or {}
+        prim_app = prof_snap.get("primary_applicant") or {}
+        tot_exp = float(
+            prof_snap.get("raw_years_experience_total")
+            or (prim_app.get("professional", {}).get("raw_years_experience_total"))
+            or assessment.get("raw_years_experience_total")
+            or assessment.get("years_experience_total")
+            or (prim_app.get("professional", {}).get("years_experience_total"))
+            or prof_snap.get("years_experience_total")
+            or 0.0
+        )
+        ded_exp = float(skills_assessment.get("deducted_years") or 0.0)
+        if (skills_assessment.get("points_claimable_years") is None or skills_assessment.get("points_claimable_years") == 0):
+            skills_assessment["points_claimable_years"] = tot_exp
+
+    # Build why_we_chose for primary occupation
+    primary_occ_doc = await OCCUPATION_MASTER.find_one({"code": primary_code, "country_code": "AU"}, {"_id": 0})
+    primary_why = _generate_code_why_we_chose(
+        primary_occ if isinstance(primary_occ, dict) else {"code": primary_code},
+        assessment,
+        primary_occ_doc,
+        skills_assessment,
+    )
+    if skills_assessment:
+        skills_assessment["why_we_chose"] = primary_why
+        if not skills_assessment.get("matched_tasks"):
+            skills_assessment["matched_tasks"] = primary_why.get("matched_tasks")
+    if isinstance(primary_occ, dict):
+        primary_occ["why_we_chose"] = primary_why
+
     snap_data = {
         "assessment_id": assessment.get("id"),
         "persona": persona,
@@ -653,6 +915,8 @@ async def _build_snapshot(
             "phone": assessment.get("client_phone"),
         },
         "profile_snapshot": assessment.get("profile_snapshot") or {},
+        "occupation": primary_occ,
+        "skills_assessment": skills_assessment,
         "countries": countries_data,
         "country_guides": country_guides_data,
         "best_country": best,

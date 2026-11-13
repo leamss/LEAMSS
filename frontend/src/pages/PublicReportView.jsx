@@ -71,12 +71,12 @@ export default function PublicReportView() {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between" data-testid="public-report-view">
       {/* Header banner */}
-      <header className="bg-blue-900 text-white p-4 shadow">
+      <header className="bg-[#0F766E] text-white p-4 shadow">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold tracking-tight">LEAMSS</h1>
-            <p className="text-[10px] text-amber-300">We Value Emotions</p>
-            <p className="text-[10px] text-blue-200">Ladhani Education &amp; Migration Services Pvt. Ltd.</p>
+            <p className="text-[10px] text-amber-300">We Value Emotions ❤️</p>
+            <p className="text-[10px] text-teal-100">Ladhani Education &amp; Migration Services Pvt. Ltd.</p>
           </div>
           <Badge className="bg-emerald-600 text-white text-xs">
             <ShieldCheck className="h-3.5 w-3.5 mr-1 inline" />Verified Snapshot
@@ -86,7 +86,7 @@ export default function PublicReportView() {
 
       <div className="max-w-4xl mx-auto w-full p-4 space-y-4 my-4 flex-1">
         {/* Title card */}
-        <Card className="p-6 border-l-4 border-l-amber-500 shadow-sm">
+        <Card className="p-6 border-l-4 border-l-[#0F766E] shadow-sm">
           <p className="text-[10px] uppercase font-bold text-slate-400">
             Report Reference: {meta?.snapshot_id || meta?.assessment_id}
           </p>
@@ -116,7 +116,7 @@ export default function PublicReportView() {
               </div>
               <div className="text-right">
                 <p className="text-[10px] uppercase font-bold text-slate-500">Indicative Score</p>
-                <p className="text-5xl font-bold text-blue-800">{best.total}</p>
+                <p className="text-5xl font-bold text-[#0F766E]">{best.total}</p>
                 <p className="text-xs text-slate-600">pass mark {best.pass_mark}</p>
               </div>
             </div>
@@ -124,20 +124,20 @@ export default function PublicReportView() {
         )}
 
         {/* Download CTA */}
-        <Card className="p-5 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+        <Card className="p-5 bg-gradient-to-r from-teal-50 to-emerald-50 border-teal-200">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h3 className="text-base font-bold flex items-center gap-2">
-                <Globe2 className="h-5 w-5 text-amber-700" />Full Branded Report
+              <h3 className="text-base font-bold flex items-center gap-2 text-teal-900">
+                <Globe2 className="h-5 w-5 text-teal-700" />Full Branded Report
               </h3>
               <p className="text-xs text-slate-600 mt-1">
-                Download the complete professional PDF with all sections (Cover · Client Profile · Per-Country Details ·
-                Visa Pathways · Points Breakdown · Cost &amp; Process · Indicative Checklist · Disclaimer).
+                Download the complete professional PDF with all sections (Cover · Client Profile · Skills Assessment &amp; Deduction · ANZSCO Deep-Dive ·
+                Subclass Points · Visa Pathways · EOI Backlog · Cost &amp; Packages · 100% Refund Guarantee · Indicative Checklist).
               </p>
             </div>
             <Button
               size="lg"
-              className="bg-blue-800 hover:bg-blue-900 text-white"
+              className="bg-[#0F766E] hover:bg-[#115E59] text-white"
               onClick={handleDownloadPdf}
               disabled={downloading}
               data-testid="download-pdf-btn"
@@ -160,14 +160,14 @@ export default function PublicReportView() {
         </Card>
 
         {/* Contact */}
-        <Card className="p-5 bg-blue-900 text-white">
+        <Card className="p-5 bg-[#0F766E] text-white">
           <h3 className="text-base font-bold mb-2 flex items-center gap-2">
             <Mail className="h-5 w-5 text-amber-300" />Have questions?
           </h3>
-          <p className="text-xs text-blue-100 mb-2">
+          <p className="text-xs text-teal-100 mb-2">
             Get in touch with your dedicated LEAMSS counsellor:
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-teal-50">
             <div><strong>Website:</strong> www.leamss.com</div>
             <div><strong>Email:</strong> rohit@leamss.com</div>
             <div><strong>Phone:</strong> 1800-210-2427</div>

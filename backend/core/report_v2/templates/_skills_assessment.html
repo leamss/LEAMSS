@@ -1,0 +1,171 @@
+{# SKILLS ASSESSMENT & EXPERIENCE DEDUCTION ANALYSIS (Phase 21) #}
+{% set sa = snap.skills_assessment %}
+{% set client = snap.client or {} %}
+{% set occ = snap.occupation or {} %}
+{% if sa %}
+<div class="page" style="page-break-inside:avoid;break-inside:avoid;">
+  <div class="section-header" style="margin-bottom:8pt;">
+    <span class="eyebrow" style="color:var(--teal-700);">Section 03b · Skills Assessment &amp; Deduction</span>
+    <h1 style="color:var(--teal-800);margin:2pt 0 4pt 0;">Skills Assessment &amp; Experience Deduction</h1>
+    <span class="rule" style="background:var(--teal-600);height:2pt;margin-bottom:6pt;"></span>
+    <p class="lead" style="font-size:8.5pt;margin-bottom:4pt;line-height:1.4;color:var(--slate-600);">
+      Official assessing body suitability analysis and qualifying work experience deduction per Australian GSM &amp; Skills Assessment guidelines.
+    </p>
+  </div>
+
+  <div style="background:#f8fafc;border:1.5pt solid {% if sa.is_positive %}#10b981{% else %}#f59e0b{% endif %};border-radius:8pt;padding:12pt;margin:8pt 0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8pt;">
+      <div>
+        <span style="font-size:7.5pt;text-transform:uppercase;font-weight:700;color:var(--slate-500);letter-spacing:0.5pt;">Assessing Authority &amp; Pathway</span>
+        <div style="font-size:13pt;font-weight:800;color:var(--teal-800);margin-top:2pt;">
+          {{ sa.authority_name or occ.assessing_body or "Assessing Authority" }}
+          {% if sa.vetassess_group %}<span class="pill" style="background:#e0e7ff;color:#3730a3;margin-left:6pt;font-size:7.5pt;">Group {{ sa.vetassess_group }}</span>{% endif %}
+          {% if sa.rpl_required %}<span class="pill" style="background:#fef3c7;color:#92400e;margin-left:6pt;font-size:7.5pt;">RPL Pathway Required</span>{% endif %}
+        </div>
+      </div>
+      <div>
+        {% if sa.assessment_outcome == "Positive via RPL Pathway" %}
+          <span class="pill" style="background:#dcfce7;color:#065f46;font-size:8.5pt;padding:3pt 8pt;font-weight:700;">✓ POSITIVE VIA RPL PATHWAY</span>
+        {% elif sa.is_positive %}
+          <span class="pill" style="background:#dcfce7;color:#065f46;font-size:8.5pt;padding:3pt 8pt;font-weight:700;">✓ LIKELY POSITIVE ASSESSMENT</span>
+        {% else %}
+          <span class="pill" style="background:#fef3c7;color:#92400e;font-size:8.5pt;padding:3pt 8pt;font-weight:700;">⚠ {{ (sa.assessment_outcome or "REVIEW REQUIRED")|upper }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <table class="kv" style="width:100%;font-size:8pt;border-collapse:collapse;margin:4pt 0;">
+      <tbody>
+        <tr>
+          <td style="width:30%;color:var(--slate-500);padding:4pt 6pt;font-weight:600;">Assessment Pathway</td>
+          <td style="padding:4pt 6pt;"><b>{{ sa.pathway_name or "General Skills Assessment" }}</b></td>
+        </tr>
+        <tr>
+          <td style="color:var(--slate-500);padding:4pt 6pt;font-weight:600;">Qualification Mapping</td>
+          <td style="padding:4pt 6pt;">
+            <b>{{ client.education or client.qualification or "Tertiary Qualification" }}</b>
+            {% if client.field_of_study %} in <i>{{ client.field_of_study }}</i>{% endif %}
+            {% if sa.qualification_bucket %} · <span class="pill" style="background:{% if sa.qualification_bucket == 'IT Major' %}#dcfce7;color:#065f46{% elif sa.qualification_bucket == 'IT Minor' %}#e0e7ff;color:#3730a3{% else %}#fef3c7;color:#92400e{% endif %};font-size:7pt;padding:1.5pt 5pt;">{{ sa.qualification_bucket }}</span>{% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td style="color:var(--slate-500);padding:4pt 6pt;font-weight:600;">Qualifying Experience Deduction</td>
+          <td style="padding:4pt 6pt;">
+            <b style="color:#b91c1c;font-size:9pt;">-{{ "%.1f"|format(sa.deducted_years or 0) }} years</b>
+            <span class="tiny" style="color:var(--slate-500);margin-left:4pt;">(consumed to establish skills suitability / Requirement Met Date)</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="color:var(--slate-500);padding:4pt 6pt;font-weight:600;">Points-Claimable Work Experience</td>
+          <td style="padding:4pt 6pt;">
+            <b style="color:#047857;font-size:9pt;">{{ "%.1f"|format(sa.points_claimable_years or 0) }} years</b>
+            &nbsp;·&nbsp;
+            <span class="pill" style="background:#e0e7ff;color:#3730a3;font-size:7pt;padding:1.5pt 5pt;">{{ sa.points_description or ((sa.points_claimable_points|string ~ " GSM Points") if sa.points_claimable_points is not none else "Eligible for GSM points") }}</span>
+          </td>
+        </tr>
+        {% if sa.rpl_required and sa.rpl_details %}
+        <tr>
+          <td style="color:var(--slate-500);padding:4pt 6pt;font-weight:600;">RPL Documentation Required</td>
+          <td style="padding:4pt 6pt;">
+            <b>{{ sa.rpl_details.reports_needed or 2 }} Formal Project Reports</b> in official template ({{ sa.rpl_details.report_timeline or "within last 5 years" }})
+            {% if sa.rpl_details.acs_rpl_review_fee_aud %}<br><span class="tiny" style="color:var(--slate-500);">RPL Review Fee: AUD ${{ sa.rpl_details.acs_rpl_review_fee_aud }}</span>{% endif %}
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  {# ─── WHY WE CHOSE THIS OCCUPATION (Role Alignment & Suitability Analysis) ─── #}
+  {% set why = sa.why_we_chose or occ.why_we_chose or {} %}
+  <div style="background:#f0fdf4;border:1.5pt solid #86efac;border-radius:8pt;padding:10pt 12pt;margin:8pt 0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4pt;">
+      <div style="display:flex;align-items:center;gap:6pt;">
+        <span style="display:inline-block;background:#15803d;color:#ffffff;font-size:7pt;font-weight:800;padding:1.5pt 6pt;border-radius:4pt;letter-spacing:0.5pt;">WHY WE CHOSE THIS OCCUPATION</span>
+        <span style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:#166534;">
+          {{ occ.code or sa.occupation_code }} · {{ occ.title or sa.occupation_title }}
+        </span>
+      </div>
+      <span style="font-size:7.5pt;font-weight:700;color:#15803d;">{{ sa.authority_name or occ.assessing_body or "Assessing Authority" }}</span>
+    </div>
+
+    <p style="font-size:8pt;color:#14532d;margin:2pt 0 6pt 0;line-height:1.45;">
+      {{ why.why_we_chose_summary or ("We selected nominated occupation " ~ (occ.code or "") ~ " (" ~ (occ.title or "") ~ ") because your career background as " ~ (client.current_profession or client.profession or "a skilled specialist") ~ " directly aligns with its core official duties. After applying the official " ~ ("%.1f"|format(sa.deducted_years or 0)) ~ "-year suitability deduction under " ~ (sa.authority_name or occ.assessing_body or "the assessing body") ~ ", you secure " ~ ("%.1f"|format(sa.points_claimable_years or 0)) ~ " years of points-claimable experience (+" ~ (sa.points_claimable_points or 0) ~ " GSM Points).") }}
+    </p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8pt;margin-top:6pt;">
+      {# Col 1: Role & Duty Alignment #}
+      <div style="background:#ffffff;border:1pt solid #bbf7d0;border-radius:6pt;padding:8pt;">
+        <div style="font-size:7.5pt;text-transform:uppercase;font-weight:800;color:#15803d;margin-bottom:3pt;">
+          ✓ Role &amp; Core Duty Alignment
+        </div>
+        <p style="font-size:7.5pt;color:#334155;margin:0 0 4pt 0;line-height:1.4;">
+          {{ why.role_alignment_text or ("Matches candidate's career role as " ~ (client.current_profession or "professional") ~ ". Duties align with official ABS ANZSCO unit group tasks.") }}
+        </p>
+        {% if why.employer_sector_fit %}
+        <p style="font-size:7pt;color:#0f766e;margin:0 0 4pt 0;font-weight:600;">
+          🏢 {{ why.employer_sector_fit }}
+        </p>
+        {% endif %}
+        {% if why.matched_tasks or sa.matched_tasks %}
+        <div style="font-size:7.5pt;font-weight:700;color:#0f766e;margin-top:3pt;">Matched Official ANZSCO Tasks:</div>
+        <ul style="margin:2pt 0 0 10pt;padding:0;font-size:7pt;color:#475569;line-height:1.35;">
+          {% for t in (why.matched_tasks or sa.matched_tasks)[:3] %}
+            <li>✓ {{ t }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+
+      {# Col 2: Assessing Criteria & Claimable Experience #}
+      <div style="background:#ffffff;border:1pt solid #bbf7d0;border-radius:6pt;padding:8pt;">
+        <div style="font-size:7.5pt;text-transform:uppercase;font-weight:800;color:#15803d;margin-bottom:3pt;">
+          ⚖️ Deduction Rule &amp; Points Claim
+        </div>
+        <p style="font-size:7.5pt;color:#334155;margin:0 0 4pt 0;line-height:1.4;">
+          {{ why.deduction_explanation or ("Assessing authority: " ~ (sa.authority_name or occ.assessing_body or "ACS") ~ ". " ~ ("%.1f"|format(sa.deducted_years or 0)) ~ " yr(s) deducted as the qualifying period (Requirement Met Date) to satisfy skills suitability.") }}
+        </p>
+        <div style="background:#f8fafc;border-radius:4pt;padding:4pt 6pt;margin-top:4pt;font-size:7pt;color:#1e293b;line-height:1.4;">
+          <div><b>Total Experience:</b> {{ "%.1f"|format(client.work_exp_years or client.raw_years_experience_total or client.years_experience_total or why.total_experience or 0) }} yrs</div>
+          <div><b>Qualifying Deduction:</b> -{{ "%.1f"|format(sa.deducted_years or 0) }} yrs</div>
+          <div style="color:#047857;font-weight:700;"><b>Net Claimable Experience:</b> {{ "%.1f"|format(sa.points_claimable_years or 0) }} yrs &rarr; +{{ sa.points_claimable_points or 0 }} GSM Points</div>
+          {% if why.eligible_visas_text %}
+          <div style="color:#1d4ed8;margin-top:2pt;"><b>Eligible Visas:</b> {{ why.eligible_visas_text }}</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if sa.justification %}
+  <div style="background:#fffbeb;border-left:3pt solid #f59e0b;padding:8pt 10pt;margin:6pt 0;font-size:8pt;line-height:1.45;border-radius:0 4pt 4pt 0;">
+    <b style="color:#92400e;text-transform:uppercase;font-size:7.5pt;letter-spacing:0.5pt;display:block;margin-bottom:3pt;">
+      Adviser Screening Rationale &amp; Client Justification
+    </b>
+    <div style="color:#78350f;white-space:pre-line;">{{ sa.justification }}</div>
+  </div>
+  {% endif %}
+
+  {% if sa.required_documents %}
+  <div style="margin-top:6pt;">
+    <h3 style="font-size:9.5pt;color:var(--teal-800);margin-bottom:3pt;">Mandatory Evidence to Screen Before Lodgement</h3>
+    <ul style="margin:2pt 0 4pt 14pt;padding:0;font-size:8pt;color:var(--slate-700);line-height:1.4;">
+      {% for doc in sa.required_documents %}
+        <li style="margin-bottom:2pt;"><b>{{ doc }}</b></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if sa.risk_warnings %}
+  <div style="background:#fef2f2;border:1pt solid #fecaca;border-radius:4pt;padding:5pt 8pt;margin-top:6pt;font-size:7.5pt;color:#991b1b;line-height:1.4;">
+    <b>Important Pre-Lodgement Precautions:</b>
+    <ul style="margin:2pt 0 0 12pt;padding:0;">
+      {% for w in sa.risk_warnings %}
+        <li>{{ w }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endif %}

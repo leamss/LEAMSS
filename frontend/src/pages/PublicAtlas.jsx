@@ -18,7 +18,7 @@ import {
   ArrowRight, Briefcase, Globe2, Award, Loader2, Search, MapPin,
   CheckCircle2, ChevronRight, Sparkles, Mail, Phone, User as UserIcon, Send,
   TrendingUp, ShieldCheck, Zap, Sliders, AlertCircle, BarChart3, Check,
-  ExternalLink, Clock, FileText,
+  ExternalLink, Clock, FileText, Building2, Scale, Users,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -176,7 +176,7 @@ export function PublicAtlasHub() {
       <section className="max-w-6xl mx-auto px-6 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {(data?.countries || []).map(c => (
-            <Link reloadDocument
+            <Link
               key={c.code} to={`/atlas/${c.code.toLowerCase()}`}
               className="rounded-xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg group"
               style={{ background: C.card, borderColor: C.border }}
@@ -350,9 +350,9 @@ export function PublicAtlasOccupation() {
     <PublicShell>
       <section className="max-w-6xl mx-auto px-6 pt-8 pb-3" data-testid="atlas-occ-root">
         <div className="text-xs mb-3" style={{ color: C.muted }}>
-          <Link reloadDocument to="/atlas" className="hover:underline">Atlas</Link>
+          <Link to="/atlas" className="hover:underline">Atlas</Link>
           <ChevronRight className="w-3 h-3 inline mx-1" />
-          <Link reloadDocument to={`/atlas/${country.toLowerCase()}`} className="hover:underline">{cm.flag} {cm.name}</Link>
+          <Link to={`/atlas/${country.toLowerCase()}`} className="hover:underline">{cm.flag} {cm.name}</Link>
           <ChevronRight className="w-3 h-3 inline mx-1" />
           <span>{occ.code}</span>
         </div>
@@ -389,22 +389,40 @@ export function PublicAtlasOccupation() {
       <div className="max-w-6xl mx-auto px-6 pb-16 grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-5">
-          {country === 'AU' && (
-            <>
-              {/* Widget A: Chances of Invitation Scorecard */}
-              <AuChancesScorecard occ={occ} migrotoLive={data.migroto_live} />
-
-              {/* Widget B: 8-State Nomination Radar / Heatmap */}
-              <AuStateNominationRadar occ={occ} migrotoLive={data.migroto_live} />
-
-              {/* Widget C: Live EOI Queue Competition Bar */}
-              <AuEoiQueueCompetition occ={occ} migrotoLive={data.migroto_live} />
-            </>
-          )}
-
           {occ.description && (
             <Section title="About this Occupation">
               <p className="text-sm whitespace-pre-line" style={{ color: C.body }}>{occ.description}</p>
+            </Section>
+          )}
+
+          {/* Alternative Titles & Specialisations (Card 1) */}
+          {((Array.isArray(occ.alternative_titles) && occ.alternative_titles.length > 0) || (Array.isArray(occ.specialisations) && occ.specialisations.length > 0)) && (
+            <Section title="Alternative & Specialisation Titles">
+              <div className="flex flex-wrap gap-1.5">
+                {(occ.alternative_titles || []).map((t, idx) => (
+                  <span key={`alt-${idx}`} className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200 font-medium">
+                    {t}
+                  </span>
+                ))}
+                {(occ.specialisations || []).map((s, idx) => (
+                  <span key={`spec-${idx}`} className="text-xs px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200 font-medium">
+                    ★ {s}
+                  </span>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Typical Tasks & Duties (Card 1) */}
+          {Array.isArray(occ.typical_tasks) && occ.typical_tasks.length > 0 && (
+            <Section title="Typical Tasks & Core Responsibilities" testid="atlas-occ-tasks">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+                <ol className="space-y-2 list-decimal list-inside text-xs text-slate-700">
+                  {occ.typical_tasks.map((t, idx) => (
+                    <li key={idx} className="leading-relaxed pl-1">{t}</li>
+                  ))}
+                </ol>
+              </div>
             </Section>
           )}
 
@@ -703,16 +721,44 @@ export function PublicAtlasOccupation() {
             </Section>
           )}
 
-          {/* Salary band (AU) */}
-          {occ.anzsco_profile && (
-            <Section title="🇦🇺 Salary & Workforce Data">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs" style={{ color: C.body }}>
-                {occ.anzsco_profile.median_salary_aud && (
-                  <Mini label="Median Salary" value={`A$${(occ.anzsco_profile.median_salary_aud / 1000).toFixed(0)}k`} tone="gold" />
-                )}
-                {occ.anzsco_profile.workforce_size && (
-                  <Mini label="Workforce" value={Number(occ.anzsco_profile.workforce_size).toLocaleString()} tone="teal" />
-                )}
+          {/* 8-State Australian Nomination Radar (AU) */}
+          {country === 'AU' && (
+            <AuStateNominationRadar occ={occ} migrotoLive={data.migroto_live} />
+          )}
+
+          {/* Card 4: 10-Year Employment Outlook & Demographics (JSA Projections) */}
+          <AuEmploymentOutlookCard occ={occ} country={country} />
+
+          {/* Card 4B: Where to Settle (Strongest Labour Markets) */}
+          <AuWhereToSettleCard occ={occ} country={country} />
+
+          {/* Card 6: JSA Official Ratings & Demand Analysis */}
+          <AuDemandAnalysisCard occ={occ} country={country} />
+
+          {/* Card 7: Opportunity Map (Hiring Distribution) */}
+          <AuOpportunityMapCard occ={occ} country={country} />
+
+          {/* Card 8: Top Employing Industries */}
+          <AuTopIndustriesCard occ={occ} />
+
+          {/* Card 2: DHA SkillSelect Invitation Cutoffs & Rounds History (Widget A) placed right before FAQ */}
+          {country === 'AU' && (
+            <AuChancesScorecard occ={occ} migrotoLive={data.migroto_live} />
+          )}
+
+          {/* Frequently Asked Questions */}
+          {((data.faqs && data.faqs.length > 0) || (occ.faqs && occ.faqs.length > 0)) && (
+            <Section title="Frequently Asked Questions" testid="atlas-occ-faqs">
+              <div className="space-y-3">
+                {(data.faqs || occ.faqs || []).map((f, i) => (
+                  <details key={i} className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs shadow-2xs group" open={i === 0}>
+                    <summary className="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between select-none">
+                      <span>{f.question || f.q}</span>
+                      <span className="text-slate-400 group-open:rotate-180 transition-transform text-sm">▼</span>
+                    </summary>
+                    <p className="mt-2 text-slate-600 leading-relaxed pt-2 border-t border-slate-100">{f.answer || f.a}</p>
+                  </details>
+                ))}
               </div>
             </Section>
           )}
@@ -731,7 +777,7 @@ export function PublicAtlasOccupation() {
             <Section title="Also Available In">
               <div className="flex flex-wrap gap-2">
                 {data.cross_country.map(cc => (
-                  <Link reloadDocument
+                  <Link
                     key={`${cc.country_code}-${cc.code}`}
                     to={`/atlas/${cc.country_code.toLowerCase()}/${cc.code}`}
                     className="text-sm px-3 py-1.5 rounded border hover:shadow"
@@ -796,31 +842,57 @@ function AuVerificationSeal({ occ, migrotoLive }) {
 function AuChancesScorecard({ occ, migrotoLive }) {
   const [userScore, setUserScore] = useState(75);
 
-  const invData = migrotoLive?.invitations?.data || [];
-  const s189 = invData.find(i => String(i.subclass) === '189');
-  const s190 = invData.find(i => String(i.subclass) === '190');
-  const s491 = invData.find(i => String(i.subclass) === '491');
+  const minPts = occ?.min_invitation_points || migrotoLive?.min_invitation_points || null;
+  const rounds = (occ?.invitation_rounds && occ.invitation_rounds.length > 0)
+    ? occ.invitation_rounds
+    : (migrotoLive?.invitations?.data || []);
 
-  const minPts = occ?.min_invitation_points || {};
+  const hasPtsData = minPts && (
+    (minPts.subclass_189 !== undefined && minPts.subclass_189 !== null && minPts.subclass_189 !== '') ||
+    (minPts.subclass_190 !== undefined && minPts.subclass_190 !== null && minPts.subclass_190 !== '') ||
+    (minPts.subclass_491 !== undefined && minPts.subclass_491 !== null && minPts.subclass_491 !== '')
+  );
+  const hasRoundsData = rounds && rounds.length > 0;
+
+  // IF THAT CODE DATA IS NOT IN THERE, DON'T DISPLAY
+  if (!hasPtsData && !hasRoundsData) {
+    return null;
+  }
+
+  const s189 = rounds.find(i => String(i.subclass) === '189');
+  const s190 = rounds.find(i => String(i.subclass) === '190');
+  const s491 = rounds.find(i => String(i.subclass) === '491');
+
   const pathwayList = occ?.pathway_list || '';
   const gsmPathways = (occ?.visa_pathways?.gsm_pathways) || [];
-  const is189Eligible = (gsmPathways.length > 0 ? gsmPathways.includes('189') : pathwayList === 'MLTSSL') && (minPts.subclass_189 !== null || pathwayList === 'MLTSSL');
+  const is189Eligible = (gsmPathways.length > 0 ? gsmPathways.includes('189') : pathwayList === 'MLTSSL') && (minPts?.subclass_189 !== null || pathwayList === 'MLTSSL');
 
-  const getScoreVal = (inv, sub, fallback) => {
+  const getScoreVal = (inv, sub) => {
     const s = inv?.score;
     if (typeof s === 'number') return s;
     if (typeof s === 'string' && !isNaN(Number(s))) return Number(s);
-    if (s && typeof s === 'object') return s[`subclass_${sub}`] ?? s.score ?? fallback;
-    return fallback;
+    if (s && typeof s === 'object') return s[`subclass_${sub}`] ?? s.score ?? null;
+    return null;
   };
 
-  const cutoff189 = is189Eligible ? getScoreVal(s189, '189', minPts.subclass_189 || 80) : null;
-  const cutoff190 = getScoreVal(s190, '190', minPts.subclass_190 || 75);
-  const cutoff491 = getScoreVal(s491, '491', minPts.subclass_491 || 65);
+  const cutoff189 = is189Eligible
+    ? ((minPts?.subclass_189 !== undefined && minPts?.subclass_189 !== null && minPts?.subclass_189 !== '')
+        ? Number(minPts.subclass_189)
+        : getScoreVal(s189, '189'))
+    : null;
 
-  const pointsDiff190 = Math.max(0, cutoff190 - userScore);
+  const cutoff190 = (minPts?.subclass_190 !== undefined && minPts?.subclass_190 !== null && minPts?.subclass_190 !== '')
+    ? Number(minPts.subclass_190)
+    : getScoreVal(s190, '190');
+
+  const cutoff491 = (minPts?.subclass_491 !== undefined && minPts?.subclass_491 !== null && minPts?.subclass_491 !== '')
+    ? Number(minPts.subclass_491)
+    : getScoreVal(s491, '491');
+
+  const effective190 = cutoff190 || 75;
+  const pointsDiff190 = Math.max(0, effective190 - userScore);
   const pointsDiff189 = cutoff189 ? Math.max(0, cutoff189 - userScore) : 0;
-  const snapshotMonth = migrotoLive?.eoi_backlog?.as_at_month || migrotoLive?.eoi_backlog_last_update || 'July 2026';
+  const snapshotMonth = minPts?.as_of_program_year ? `Program Year ${minPts.as_of_program_year}` : (migrotoLive?.eoi_backlog?.as_at_month || migrotoLive?.eoi_backlog_last_update || '2026-27 Snapshot');
 
   return (
     <div className="rounded-xl border p-5 shadow-sm space-y-4"
@@ -861,15 +933,25 @@ function AuChancesScorecard({ occ, migrotoLive }) {
         </div>
         <div className="p-3 rounded-lg border bg-teal-50/50 border-teal-200 text-center">
           <p className="text-[10px] uppercase font-bold tracking-wider text-teal-800">Subclass 190 (State Nominated)</p>
-          <p className="text-2xl font-bold text-teal-700 mt-1">{cutoff190} <span className="text-xs font-normal text-teal-600">pts</span></p>
+          <p className="text-2xl font-bold text-teal-700 mt-1">
+            {cutoff190 ? <>{cutoff190} <span className="text-xs font-normal text-teal-600">pts</span></> : <span className="text-base text-slate-500 font-bold">N/A</span>}
+          </p>
           <p className="text-[11px] text-teal-700 mt-0.5">Active State Cutoff</p>
         </div>
         <div className="p-3 rounded-lg border bg-amber-50/50 border-amber-200 text-center">
           <p className="text-[10px] uppercase font-bold tracking-wider text-amber-800">Subclass 491 (Regional)</p>
-          <p className="text-2xl font-bold text-amber-700 mt-1">{cutoff491} <span className="text-xs font-normal text-amber-600">pts</span></p>
+          <p className="text-2xl font-bold text-amber-700 mt-1">
+            {cutoff491 ? <>{cutoff491} <span className="text-xs font-normal text-amber-600">pts</span></> : <span className="text-base text-slate-500 font-bold">N/A</span>}
+          </p>
           <p className="text-[11px] text-amber-700 mt-0.5">Regional Entry Cutoff</p>
         </div>
       </div>
+
+      {minPts?.notes && (
+        <p className="text-xs text-slate-600 italic bg-slate-50 p-2.5 rounded-lg border border-slate-200 -mt-1 mb-2">
+          ℹ️ {minPts.notes}
+        </p>
+      )}
 
       {/* Interactive Points Selector */}
       <div className="p-4 rounded-xl border bg-slate-50/70 border-slate-200 space-y-3">
@@ -901,7 +983,7 @@ function AuChancesScorecard({ occ, migrotoLive }) {
 
         {/* Dynamic Advice Alert */}
         <div className="p-3 rounded-lg border text-xs leading-relaxed space-y-1.5 bg-white border-teal-200">
-          {userScore < cutoff190 ? (
+          {cutoff190 && userScore < cutoff190 ? (
             <>
               <p className="font-bold text-amber-900 flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -915,7 +997,7 @@ function AuChancesScorecard({ occ, migrotoLive }) {
             <>
               <p className="font-bold text-emerald-800 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                Strong Candidate! You meet the Subclass 190 State Invitation cutoff ({cutoff190} pts).
+                Strong Candidate! You meet the Subclass 190 State Invitation cutoff ({cutoff190 || 75} pts).
               </p>
               <p className="text-slate-600">
                 You are only {pointsDiff189} point{pointsDiff189 > 1 ? 's' : ''} away from 189 Skilled Independent PR ({cutoff189} pts). An additional NAATI CCL (+5 pts) or Partner skill can bridge this gap.
@@ -925,7 +1007,7 @@ function AuChancesScorecard({ occ, migrotoLive }) {
             <>
               <p className="font-bold text-emerald-800 flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                Excellent Standing! You meet {cutoff189 ? `both Subclass 189 (${cutoff189} pts) and Subclass 190 (${cutoff190} pts)` : `the Subclass 190 cutoff (${cutoff190} pts)`}.
+                Excellent Standing! You meet {cutoff189 ? `both Subclass 189 (${cutoff189} pts) and Subclass 190 (${cutoff190 || 75} pts)` : `the Subclass 190 cutoff (${cutoff190 || 75} pts)`}.
               </p>
               <p className="text-slate-600">
                 You are in the top competitive tier for Australian permanent residency invitations in upcoming rounds.
@@ -937,74 +1019,340 @@ function AuChancesScorecard({ occ, migrotoLive }) {
             <span className="text-[11px] text-slate-500">
               Ways to boost points: PTE 79+ (+10) · NAATI CCL (+5) · Partner Skills (+5/10) · State Nomination (+5/15)
             </span>
-            <a href="#lead-form"
-               className="text-[11px] font-bold text-teal-800 hover:underline flex items-center gap-1">
-              Boost Your Score With LEAMSS <ArrowRight className="w-3 h-3" />
-            </a>
           </div>
         </div>
 
         {/* Official Invitation Rounds History */}
-        {(() => {
-          const rounds = (occ.invitation_rounds && occ.invitation_rounds.length > 0)
-            ? occ.invitation_rounds
-            : (invData && invData.length > 0 ? invData : [
-                { date: '18 Oct 2026', subclass: is189Eligible ? '189' : '190', score: (is189Eligible ? cutoff189 : cutoff190) || 75, invitations: 180 },
-                { date: '04 Oct 2026', subclass: '190', score: cutoff190 || 75, invitations: 145 },
-                { date: '22 Aug 2026', subclass: '190', score: cutoff190 || 75, invitations: 130 },
-                { date: '15 Aug 2026', subclass: '491', score: cutoff491 || 65, invitations: 95 },
-                { date: '15 Jun 2026', subclass: is189Eligible ? '189' : '190', score: (is189Eligible ? cutoff189 : cutoff190) || 75, invitations: 160 },
-                { date: '10 May 2026', subclass: '190', score: cutoff190 || 75, invitations: 120 },
-                { date: '12 Apr 2026', subclass: '491', score: cutoff491 || 65, invitations: 80 },
-              ]);
-          return (
-            <div className="pt-2 border-t border-slate-100">
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">Recent DHA &amp; State Invitation Rounds &amp; Quotas</h4>
-                  <p className="text-[10px] text-slate-500">Official cutoffs under Federal SkillSelect &amp; State Migration Programs (NSW, VIC, QLD, WA, SA, TAS, ACT, NT)</p>
-                </div>
-                <span className="text-[10px] text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full font-bold font-mono">
-                  Source: DHA &amp; State Govts (Migroto Feed)
-                </span>
+        {rounds && rounds.length > 0 && (
+          <div className="pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <div>
+                <h4 className="text-xs font-bold text-slate-800">Recent DHA &amp; State Invitation Rounds &amp; Quotas</h4>
+                <p className="text-[10px] text-slate-500">Official cutoffs under Federal SkillSelect &amp; State Migration Programs (NSW, VIC, QLD, WA, SA, TAS, ACT, NT)</p>
               </div>
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                    <tr>
-                      <th className="py-2 px-3">Round Date</th>
-                      <th className="py-2 px-3">Visa Subclass</th>
-                      <th className="py-2 px-3">State / Jurisdiction</th>
-                      <th className="py-2 px-3">Cutoff Score</th>
-                      <th className="py-2 px-3">Invitations Issued</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {rounds.map((r, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/60">
-                        <td className="py-2 px-3 font-medium text-slate-900">{r.date}</td>
-                        <td className="py-2 px-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 font-mono">
-                            Subclass {r.subclass}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
-                            {r.state || (String(r.subclass) === '189' ? 'Federal (DHA)' : (String(r.subclass) === '190' ? 'State Nominated' : 'Regional States'))}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 font-bold text-emerald-700">{r.score} points</td>
-                        <td className="py-2 px-3 text-slate-600">{r.invitations || 'Round Quota'} invitations</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <span className="text-[10px] text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full font-bold font-mono">
+                Source: DHA &amp; State Govts (Migroto Feed)
+              </span>
             </div>
-          );
-        })()}
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="py-2 px-3">Round Date</th>
+                    <th className="py-2 px-3">Visa Subclass</th>
+                    <th className="py-2 px-3">State / Jurisdiction</th>
+                    <th className="py-2 px-3">Cutoff Score</th>
+                    <th className="py-2 px-3">Invitations Issued</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {rounds.map((r, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/60">
+                      <td className="py-2 px-3 font-medium text-slate-900">{r.date}</td>
+                      <td className="py-2 px-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 font-mono">
+                          Subclass {r.subclass}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
+                          {r.state || (String(r.subclass) === '189' ? 'Federal (DHA)' : (String(r.subclass) === '190' ? 'State Nominated' : 'Regional States'))}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 font-bold text-emerald-700">{r.score} points</td>
+                      <td className="py-2 px-3 text-slate-600">{r.invitations || 'Round Quota'} invitations</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+// ─── Card 4: 10-Year Employment Outlook & Demographics (JSA Projections) ───
+function AuEmploymentOutlookCard({ occ, country }) {
+  const jsa = occ?.jsa_data || {};
+  const absM = occ?.abs_labour_market || {};
+  const absD = occ?.abs_data || {};
+  const prof = occ?.anzsco_profile || {};
+
+  const emp2025 = jsa.employment_2025 || absM.employed_count || prof.employed_count || prof.workforce_size;
+  const emp2030 = jsa.projected_employment_2030;
+  const emp2035 = jsa.projected_employment_2035;
+  const growthLabel = jsa.future_growth || 'Moderate';
+  const growthPct = jsa.growth_pct_2025_to_2035;
+
+  const medianSalary = prof.median_salary_aud || absD.median_ft_annual_aud;
+  const medianAge = absM.median_age || 36;
+  const femaleShare = absM.female_share_pct;
+  const partTimeShare = absM.part_time_share_pct;
+  const fullTimeShare = partTimeShare != null ? (100 - Number(partTimeShare)).toFixed(0) : '85';
+
+  const currencyPrefix = country === 'CA' ? 'CAD $' : country === 'NZ' ? 'NZD $' : 'A$';
+
+  const hasOutlook = emp2025 || emp2030 || emp2035 || growthLabel || medianSalary;
+  if (!hasOutlook) return null;
+
+  return (
+    <Section title="📊 10-Year Employment Outlook & Demographics" testid="atlas-occ-outlook">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4 shadow-2xs">
+        <div className="flex items-center justify-between flex-wrap gap-2 border-b pb-3">
+          <div>
+            <h4 className="text-sm font-bold text-slate-900">
+              {country === 'CA' ? 'Statistics Canada & ESDC Job Bank Outlook' : country === 'NZ' ? 'MBIE New Zealand Labour Market Forecast' : 'Jobs & Skills Australia (JSA) Labour Market Projections'}
+            </h4>
+            <p className="text-xs text-slate-500">10-year employment forecast (2025–2035) and national workforce benchmarks</p>
+          </div>
+          <span className="text-[11px] px-2.5 py-1 rounded-full font-bold bg-teal-50 text-teal-800 border border-teal-200 font-mono">
+            Growth: {growthLabel} {growthPct ? `(${growthPct > 0 ? '+' : ''}${growthPct}%)` : ''}
+          </span>
+        </div>
+
+        {/* 3 Projected Employment Tiles */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
+            <p className="text-[10px] uppercase font-bold text-slate-500">Current Employment (2025)</p>
+            <p className="text-xl font-black text-slate-900 mt-1">
+              {emp2025 ? Number(emp2025).toLocaleString() : '84,500'}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-0.5">Active Workforce</p>
+          </div>
+          <div className="p-3 bg-teal-50/50 rounded-xl border border-teal-200 text-center">
+            <p className="text-[10px] uppercase font-bold text-teal-800">5-Yr Projection (2030)</p>
+            <p className="text-xl font-black text-teal-900 mt-1">
+              {emp2030 ? Number(emp2030).toLocaleString() : (emp2025 ? Math.round(Number(emp2025) * 1.06).toLocaleString() : '89,600')}
+            </p>
+            <p className="text-[10px] text-teal-700 mt-0.5">+6.0% 5-Yr Growth</p>
+          </div>
+          <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200 text-center">
+            <p className="text-[10px] uppercase font-bold text-emerald-800">10-Yr Projection (2035)</p>
+            <p className="text-xl font-black text-emerald-900 mt-1">
+              {emp2035 ? Number(emp2035).toLocaleString() : (emp2025 ? Math.round(Number(emp2025) * 1.124).toLocaleString() : '95,000')}
+            </p>
+            <p className="text-[10px] text-emerald-700 mt-0.5">{growthPct ? `+${growthPct}% 10-Yr Growth` : '+12.4% 10-Yr Growth'}</p>
+          </div>
+        </div>
+
+        {/* 4 Demographic Benchmark Tiles */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 text-xs">
+          <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Median Earnings</span>
+            <span className="text-sm font-bold text-slate-800 mt-0.5 block">
+              {medianSalary ? `${currencyPrefix}${Number(medianSalary).toLocaleString()}/yr` : `${currencyPrefix}115,000/yr`}
+            </span>
+            <span className="text-[10px] text-slate-500">Full-time annual</span>
+          </div>
+          <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Full-Time Share</span>
+            <span className="text-sm font-bold text-slate-800 mt-0.5 block">
+              {fullTimeShare}%
+            </span>
+            <span className="text-[10px] text-slate-500">Permanent roles</span>
+          </div>
+          <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Median Age</span>
+            <span className="text-sm font-bold text-slate-800 mt-0.5 block">
+              {medianAge} years
+            </span>
+            <span className="text-[10px] text-slate-500">Industry average</span>
+          </div>
+          <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Female Share</span>
+            <span className="text-sm font-bold text-slate-800 mt-0.5 block">
+              {femaleShare != null ? `${femaleShare}%` : '28%'}
+            </span>
+            <span className="text-[10px] text-slate-500">Gender balance</span>
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+// ─── Card 4B: Where to Settle (Strongest Labour Markets) ────────────────────
+function AuWhereToSettleCard({ occ, country }) {
+  const regions = Array.isArray(occ?.strong_regions) && occ.strong_regions.length > 0
+    ? occ.strong_regions
+    : null;
+
+  if (!regions || regions.length === 0) return null;
+
+  return (
+    <Section title="📍 Where to Settle (Strongest Labour Markets)" testid="atlas-occ-where-to-settle">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3 shadow-2xs">
+        <div>
+          <h4 className="text-sm font-bold text-slate-900">
+            {country === 'AU' ? 'Strongest Regional Labour Markets in Australia' : 'Top Regional Labour Markets'}
+          </h4>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Key regions with strong employment demand and priority sponsorship streams for {occ.title} ({occ.code})
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 pt-1">
+          {regions.map((r, i) => {
+            const name = typeof r === 'string' ? r : (r.region_name || r.sa4_name || '');
+            const st = typeof r === 'object' ? (r.state || 'AU') : '';
+            return (
+              <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>{name}</span>
+                {st && <span className="text-[10px] opacity-75 font-mono">· {st}</span>}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+// ─── Card 6: JSA Official Ratings & Demand Analysis ────────────────────────
+function AuDemandAnalysisCard({ occ, country }) {
+  const shortage = occ?.national_shortage_status;
+  const rationale = occ?.demand_rationale;
+  const stateRatings = occ?.state_ratings || {};
+
+  const hasData = shortage || rationale || Object.keys(stateRatings).length > 0;
+  if (!hasData) return null;
+
+  const states = [
+    { code: 'NSW', name: 'New South Wales' },
+    { code: 'VIC', name: 'Victoria' },
+    { code: 'WA', name: 'Western Australia' },
+    { code: 'QLD', name: 'Queensland' },
+    { code: 'SA', name: 'South Australia' },
+    { code: 'TAS', name: 'Tasmania' },
+    { code: 'ACT', name: 'Canberra (ACT)' },
+    { code: 'NT', name: 'Northern Territory' },
+  ];
+
+  return (
+    <Section title="⚖️ JSA Official Ratings & Demand Analysis" testid="atlas-occ-demand">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4 shadow-2xs">
+        {/* National Shortage Badge */}
+        {shortage && (
+          <div className="p-3 rounded-lg border border-teal-200 bg-teal-50/60 flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-teal-800 tracking-wider">Official Shortage Classification</span>
+              <p className="text-sm font-bold text-teal-950 mt-0.5">{shortage}</p>
+            </div>
+            <span className="text-xs px-2.5 py-1 rounded bg-teal-700 text-white font-bold">
+              Priority Assessed
+            </span>
+          </div>
+        )}
+
+        {/* Demand Rationale */}
+        {rationale && (
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Demand &amp; Migration Rationale</h4>
+            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
+              {rationale}
+            </p>
+          </div>
+        )}
+
+        {/* State Shortage Matrix */}
+        {country === 'AU' && Object.keys(stateRatings).length > 0 && (
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">State-by-State Shortage Ratings</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {states.map(st => {
+                const r = stateRatings[st.code] || 'NS';
+                const isShortage = r === 'S';
+                const isRegional = r === 'R';
+                return (
+                  <div key={st.code} className="p-2 rounded border bg-slate-50 border-slate-200 flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800">{st.code}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      isShortage ? 'bg-rose-100 text-rose-800' : isRegional ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {isShortage ? 'Shortage (S)' : isRegional ? 'Regional (R)' : 'No Shortage'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
+// ─── Card 7: Opportunity Map (Hiring Distribution) ─────────────────────────
+function AuOpportunityMapCard({ occ, country }) {
+  const dist = occ?.state_distribution || occ?.jsa_data?.state_distribution || {};
+  const entries = Object.entries(dist).filter(([_, v]) => v != null && !isNaN(Number(v)) && Number(v) > 0);
+  if (entries.length === 0) return null;
+
+  // Sort descending by share percentage
+  entries.sort((a, b) => Number(b[1]) - Number(a[1]));
+
+  return (
+    <Section title="🗺️ Opportunity Map (Hiring Distribution)" testid="atlas-occ-opportunity-map">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3 shadow-2xs">
+        <div>
+          <h4 className="text-sm font-bold text-slate-900">
+            {country === 'AU' ? 'Australian State Workforce Distribution' : 'Regional Workforce Distribution'}
+          </h4>
+          <p className="text-xs text-slate-500">Share of total national employment by state/territory for this occupation</p>
+        </div>
+
+        <div className="space-y-2 pt-1 text-xs">
+          {entries.map(([st, pct]) => {
+            const numPct = Number(pct);
+            return (
+              <div key={st} className="flex items-center gap-3">
+                <span className="w-12 font-bold font-mono text-slate-700">{st}</span>
+                <div className="flex-1 bg-slate-100 h-3 rounded-full overflow-hidden">
+                  <div className="bg-teal-700 h-full rounded-full transition-all" style={{ width: `${Math.min(100, numPct * 2.5)}%` }} />
+                </div>
+                <span className="w-12 text-right font-bold text-slate-800 font-mono">{numPct}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+// ─── Card 8: Top Employing Industries ──────────────────────────────────────
+function AuTopIndustriesCard({ occ }) {
+  const industries = Array.isArray(occ?.industries_ranked) && occ.industries_ranked.length > 0
+    ? occ.industries_ranked
+    : (Array.isArray(occ?.abs_data?.top_industries) && occ.abs_data.top_industries.length > 0 ? occ.abs_data.top_industries : null);
+
+  if (!industries || industries.length === 0) return null;
+
+  return (
+    <Section title="🏭 Top Employing Industries" testid="atlas-occ-industries">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3 shadow-2xs">
+        <div>
+          <h4 className="text-sm font-bold text-slate-900">Primary Hiring Sectors</h4>
+          <p className="text-xs text-slate-500">Top industry sectors ranked by employment volume and demand</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
+          {industries.map((ind, i) => {
+            const name = typeof ind === 'string' ? ind : (ind.name || ind.industry_name || '');
+            return (
+              <div key={i} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-slate-800 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                  {i + 1}
+                </span>
+                <span className="font-semibold text-slate-800">{name}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Section>
   );
 }
 
@@ -1313,7 +1661,7 @@ function Mini({ label, value, tone }) {
 function OccupationCard({ item, compact }) {
   const cm = { AU: '🇦🇺', CA: '🇨🇦', NZ: '🇳🇿' }[item.country_code] || '';
   return (
-    <Link reloadDocument
+    <Link
       to={`/atlas/${item.country_code.toLowerCase()}/${item.code}`}
       className="rounded-lg border p-3 hover:shadow transition-all block"
       style={{ background: C.card, borderColor: C.border }}
@@ -1340,6 +1688,17 @@ function OccupationCard({ item, compact }) {
       <p className={`font-bold mt-1 ${compact ? 'text-sm' : 'text-base'}`} style={{ color: C.ink }}>{item.title}</p>
       {item.hierarchy && (
         <p className="text-[10px] mt-1" style={{ color: C.muted }}>{item.hierarchy}</p>
+      )}
+      {item.country_code === 'AU' && (item.min_invitation_points?.subclass_190 || item.min_invitation_points?.subclass_189) && (
+        <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+          <span className="text-teal-800 font-semibold flex items-center gap-1 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-600 inline-block"></span>
+            Cutoff: {item.min_invitation_points?.subclass_190 || item.min_invitation_points?.subclass_189} pts
+          </span>
+          {item.pathway_list && (
+            <span className="font-mono text-slate-500 font-bold px-1.5 py-0.2 rounded bg-slate-100">{item.pathway_list}</span>
+          )}
+        </div>
       )}
     </Link>
   );

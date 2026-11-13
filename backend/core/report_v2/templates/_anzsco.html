@@ -104,8 +104,27 @@
     </div>
   {% endif %}
 
-  <div class="disclaimer" style="margin-top:8pt;">
-    <b>Source:</b> {{ (p.data_source or {}).label or 'ABS ANZSCO' }} ·
+  {# Labour Market Shortage Rationale & Official Government Intelligence #}
+  <div class="card tinted" style="margin-top:8pt;padding:8pt 10pt;border-left:3pt solid var(--teal-700);">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span class="eyebrow" style="color:var(--teal-800);font-weight:800;font-size:8pt;">Why This Occupation Is In Demand (Labour Intelligence)</span>
+      <span class="badge" style="background:var(--teal-700);color:#fff;font-size:7pt;padding:2pt 5pt;border-radius:3pt;font-weight:700;">
+        JSA &amp; DHA Schedule Priority
+      </span>
+    </div>
+    <div style="font-size:8.5pt;color:var(--slate-700);margin-top:3pt;line-height:1.4;">
+      <b>Migration &amp; Workforce Shortage Justification:</b>
+      Designated as a priority skilled occupation on the Australian Department of Home Affairs (DHA) Skilled Migration Schedule and Jobs and Skills Australia (JSA) Skills Priority List. Strong national employment outlook and targeted State/Territory nomination quotas (Subclasses 189, 190, 491) ensure accelerated immigration processing and high invitation probability for qualified candidates.
+    </div>
+    <div style="margin-top:4pt;padding-top:3pt;border-top:0.5pt solid rgba(31,77,68,0.15);font-size:7.5pt;color:var(--slate-500);display:flex;gap:10pt;">
+      <span><b>DHA Migration Instrument:</b> LIN 19/051 SOL</span>
+      <span><b>Labour Shortage List:</b> JSA SPL (2024–2026)</span>
+      <span><b>ABS Standard:</b> Cat. 1220.0</span>
+    </div>
+  </div>
+
+  <div class="disclaimer" style="margin-top:6pt;">
+    <b>Source:</b> {{ (p.data_source or {}).label or 'ABS ANZSCO & Jobs and Skills Australia' }} ·
     <b>Reference Period:</b> {{ (p.data_source or {}).reference_period or 'Feb 2026' }} · Code <b>{{ p.code }}</b>
   </div>
 

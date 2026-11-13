@@ -118,6 +118,18 @@ def _org_node() -> Dict[str, Any]:
 def _build_occupation_faqs(country: str, doc: Dict[str, Any], cm: Dict[str, str]) -> List[Dict[str, str]]:
     """Deterministic, occupation-specific FAQ pairs — rendered on the page AND
     emitted as FAQPage JSON-LD so the page is eligible for Google rich results."""
+    # Priority 1: Admin-configured code-wise custom FAQs from Card 9
+    custom_faqs = doc.get("faqs")
+    if custom_faqs and isinstance(custom_faqs, list) and len(custom_faqs) > 0:
+        cleaned = []
+        for f in custom_faqs:
+            q = (f.get("question") or f.get("q") or "").strip()
+            a = (f.get("answer") or f.get("a") or "").strip()
+            if q and a:
+                cleaned.append({"q": q, "a": a})
+        if cleaned:
+            return cleaned
+
     code = doc.get("code") or ""
     title = doc.get("title") or "this occupation"
     classification = cm["classification"]
@@ -753,6 +765,8 @@ def _shape_for_card(d: Dict[str, Any]) -> Dict[str, Any]:
         "salary_chip": salary_chip,
         "growth_chip": growth_chip,
         "verified": (d.get("status") or "") == "verified",
+        "min_invitation_points": d.get("min_invitation_points"),
+        "pathway_list": d.get("pathway_list"),
     }
 
 
@@ -1134,23 +1148,53 @@ async def get_single_occupation(country: str, code: str):
         except Exception:
             pass
 
-        if migroto_live and d.get("invitation_rounds"):
-            migroto_live["invitations"] = {
-                **(migroto_live.get("invitations") or {}),
-                "data": d.get("invitation_rounds"),
-            }
-        if migroto_live and not safe.get("min_invitation_points"):
-            inv_data = migroto_live.get("invitations", {}).get("data") or []
-            s189 = next((i.get("score") for i in inv_data if str(i.get("subclass")) == "189"), 80)
-            s190 = next((i.get("score") for i in inv_data if str(i.get("subclass")) == "190"), 75)
-            s491 = next((i.get("score") for i in inv_data if str(i.get("subclass")) == "491"), 65)
-            safe["min_invitation_points"] = {
-                "subclass_189": s189,
-                "subclass_190": s190,
-                "subclass_491": s491,
-                "as_of_program_year": "2025-26",
-            }
-        safe["invitation_rounds"] = d.get("invitation_rounds") or (migroto_live.get("invitations", {}).get("data") if migroto_live else [])
+        # 1. Resolve Invitation Rounds (Priority 1: Admin stored, Priority 2: Migroto Live, Priority 3: Authentic Benchmarks)
+        if d.get("invitation_rounds") and isinstance(d.get("invitation_rounds"), list) and len(d.get("invitation_rounds")) > 0:
+            safe["invitation_rounds"] = d["invitation_rounds"]
+            if migroto_live:
+                migroto_live["invitations"] = {
+                    **(migroto_live.get("invitations") or {}),
+                    "data": d["invitation_rounds"],
+                }
+        elif migroto_live and migroto_live.get("invitations", {}).get("data"):
+            safe["invitation_rounds"] = migroto_live["invitations"]["data"]
+        elif len(str(code).strip()) == 6:
+            from core.anzsco_invitation_engine import get_anzsco_invitation_benchmarks
+            benchmarks = get_anzsco_invitation_benchmarks(
+                code=code,
+                pathway_list=d.get("pathway_list") or "",
+                title=d.get("title") or "",
+                skill_level=d.get("skill_level") or 1,
+            )
+            safe["invitation_rounds"] = benchmarks.get("invitation_rounds", [])
+            if migroto_live:
+                migroto_live["invitations"] = {
+                    **(migroto_live.get("invitations") or {}),
+                    "data": safe["invitation_rounds"],
+                }
+        else:
+            safe["invitation_rounds"] = []
+
+        # 2. Resolve Min Invitation Points (Priority 1: Admin stored, Priority 2: Migroto Live, Priority 3: Authentic Benchmarks)
+        if d.get("min_invitation_points") and any(d["min_invitation_points"].values()):
+            safe["min_invitation_points"] = d["min_invitation_points"]
+            if migroto_live:
+                migroto_live["min_invitation_points"] = d["min_invitation_points"]
+        elif migroto_live and migroto_live.get("min_invitation_points"):
+            safe["min_invitation_points"] = migroto_live["min_invitation_points"]
+        elif len(str(code).strip()) == 6:
+            from core.anzsco_invitation_engine import get_anzsco_invitation_benchmarks
+            benchmarks = get_anzsco_invitation_benchmarks(
+                code=code,
+                pathway_list=d.get("pathway_list") or "",
+                title=d.get("title") or "",
+                skill_level=d.get("skill_level") or 1,
+            )
+            safe["min_invitation_points"] = benchmarks.get("min_invitation_points", {})
+            if migroto_live:
+                migroto_live["min_invitation_points"] = safe["min_invitation_points"]
+        else:
+            safe["min_invitation_points"] = None
 
     return {
         "country": country,

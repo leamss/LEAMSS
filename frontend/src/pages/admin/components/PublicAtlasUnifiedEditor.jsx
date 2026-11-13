@@ -165,9 +165,12 @@ export default function PublicAtlasUnifiedEditor({
   const [pinInput, setPinInput] = useState('');
   const [seoTab, setSeoTab] = useState('serp');
   const [copiedKey, setCopiedKey] = useState(null);
+  const [editorCategory, setEditorCategory] = useState('atlas'); // 'atlas' | 'sales' | 'all'
   const country = (item.country_code || 'AU').toUpperCase();
   const countryCfg = COUNTRY_VISA_CONFIG[country] || COUNTRY_VISA_CONFIG.AU;
   const publicUrl = `/atlas/${country.toLowerCase()}/${item.code}`;
+  const isAtlas = editorCategory === 'atlas' || editorCategory === 'all';
+  const isSales = editorCategory === 'sales' || editorCategory === 'all';
 
   const handleAddSampleCase = () => {
     if (typeof addSampleCase === 'function') {
@@ -1434,57 +1437,262 @@ export default function PublicAtlasUnifiedEditor({
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12" data-testid="public-atlas-unified-editor">
-      {/* ── TOP LIVE PREVIEW & PUBLISH BANNER ── */}
-      <div className="rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-4 shadow-sm flex items-center justify-between flex-wrap gap-3 sticky top-2 z-30">
+      {/* ── TOP LIVE PREVIEW & STATUS BANNER ── */}
+      <div className="rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-3.5 shadow-xs flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow shrink-0 font-bold">
+          <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow shrink-0 font-bold">
             <Globe2 className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-emerald-950">Public Atlas Live Page Editor</span>
-              <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-mono text-xs">
+              <span className="text-sm font-bold text-emerald-950">Occupation Master Editor</span>
+              <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 font-mono text-xs font-bold">
                 {country} · {item.code}
               </Badge>
-              <span className="text-xs text-slate-500 font-mono bg-white px-2 py-0.5 rounded border">
+              <a
+                href={publicUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-emerald-700 hover:text-emerald-900 underline font-mono flex items-center gap-1 font-semibold bg-white/80 px-2 py-0.5 rounded border border-emerald-200"
+                title="View live public page in new tab"
+              >
                 {publicUrl}
-              </span>
+                <ExternalLink className="w-3 h-3 inline" />
+              </a>
             </div>
-            <p className="text-xs text-emerald-800 mt-1">
-              Every section displayed on the client-facing Public Atlas page is editable here. Changes update the public site when you click <strong>"Save &amp; Publish Live"</strong>.
+            <p className="text-xs text-emerald-800 mt-0.5">
+              Select a category below to edit client-facing Public Atlas content or internal Smart Sales consultation tools.
             </p>
           </div>
         </div>
+      </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => window.open(publicUrl, '_blank')}
-            className="border-emerald-600 text-emerald-800 hover:bg-emerald-100 font-semibold text-xs h-9 bg-white"
-            data-testid="unified-open-public-btn"
-          >
-            <ExternalLink className="w-4 h-4 mr-1.5 text-emerald-600" />
-            View Public Page ↗
-          </Button>
+      {/* ── TWO-CATEGORY SWITCHER: PUBLIC ATLAS PAGE vs SMART SALES HELPER ── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-xs space-y-2" data-testid="editor-category-switcher">
+        <div className="flex items-center justify-between px-1 flex-wrap gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Choose What You Want To Edit:
+          </span>
+          <span className="text-xs">
+            {editorCategory === 'atlas' ? (
+              <span className="text-emerald-700 font-bold flex items-center gap-1">
+                <Globe2 className="w-3.5 h-3.5 inline" /> Editing Public Atlas Page (Client-Facing Website)
+              </span>
+            ) : editorCategory === 'sales' ? (
+              <span className="text-indigo-700 font-bold flex items-center gap-1">
+                <Briefcase className="w-3.5 h-3.5 inline" /> Editing Smart Sales Helper (Internal Sales Tool)
+              </span>
+            ) : (
+              <span className="text-slate-700 font-bold">Showing All 16 Sections (Unified View)</span>
+            )}
+          </span>
+        </div>
 
-          <Button
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {/* Category 1: Public Atlas Page */}
+          <button
             type="button"
-            size="sm"
-            onClick={verify}
-            disabled={saving}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 shadow-sm px-4"
-            data-testid="unified-publish-top-btn"
+            onClick={() => setEditorCategory('atlas')}
+            className={`p-3 rounded-lg border text-left transition-all flex items-start gap-3 cursor-pointer ${
+              editorCategory === 'atlas'
+                ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/80'
+            }`}
+            data-testid="tab-category-atlas"
           >
-            {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1.5" />}
-            Save &amp; Publish Live
-          </Button>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
+              editorCategory === 'atlas' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'
+            }`}>
+              <Globe2 className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold ${editorCategory === 'atlas' ? 'text-emerald-950' : 'text-slate-800'}`}>
+                  1. Public Atlas Page
+                </span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  editorCategory === 'atlas' ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  Client-Facing
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                Cutoff scores &amp; rounds, overview, tasks, JSA outlook, settle regions, FAQ &amp; SEO.
+              </p>
+            </div>
+          </button>
+
+          {/* Category 2: Smart Sales Helper */}
+          <button
+            type="button"
+            onClick={() => setEditorCategory('sales')}
+            className={`p-3 rounded-lg border text-left transition-all flex items-start gap-3 cursor-pointer ${
+              editorCategory === 'sales'
+                ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'
+                : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/80'
+            }`}
+            data-testid="tab-category-sales"
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
+              editorCategory === 'sales' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-200 text-slate-600'
+            }`}>
+              <Briefcase className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold ${editorCategory === 'sales' ? 'text-indigo-950' : 'text-slate-800'}`}>
+                  2. Smart Sales Helper
+                </span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  editorCategory === 'sales' ? 'bg-indigo-200 text-indigo-900' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  Internal CRM
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                Visa pathways, parallel subclass rules, sample cases, caveats &amp; cross-pitch codes.
+              </p>
+            </div>
+          </button>
+
+          {/* Category 3: All Sections */}
+          <button
+            type="button"
+            onClick={() => setEditorCategory('all')}
+            className={`p-3 rounded-lg border text-left transition-all flex items-start gap-3 cursor-pointer ${
+              editorCategory === 'all'
+                ? 'bg-slate-100 border-slate-500 ring-2 ring-slate-500/20 shadow-xs'
+                : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/80'
+            }`}
+            data-testid="tab-category-all"
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
+              editorCategory === 'all' ? 'bg-slate-700 text-white shadow-xs' : 'bg-slate-200 text-slate-600'
+            }`}>
+              <Layers className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold ${editorCategory === 'all' ? 'text-slate-950' : 'text-slate-800'}`}>
+                  All Sections (Unified)
+                </span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  editorCategory === 'all' ? 'bg-slate-300 text-slate-900' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  Complete
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                View and edit all 16 editor sections stacked sequentially on one page.
+              </p>
+            </div>
+          </button>
         </div>
       </div>
 
+      {/* ── DYNAMIC QUICK JUMP BAR ── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-2xs flex items-center gap-1.5 overflow-x-auto text-xs sticky top-20 z-20">
+        <span className="text-[10px] uppercase font-bold text-slate-400 px-2 shrink-0">Quick Jump:</span>
+        {isAtlas && (
+          <>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-invitation-rounds')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full font-bold bg-teal-100 text-teal-900 hover:bg-teal-200 border border-teal-300 flex items-center gap-1 shrink-0 transition"
+            >
+              <TrendingUp className="h-3.5 w-3.5 text-teal-700" />
+              <span>🎯 Cutoffs &amp; Rounds (Card 2)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-header')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              🏷️ 1. Header &amp; Overview
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-authority')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              🏛️ 3. Assessing Body
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-labour')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              📊 4. Labour Market
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-faqs')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              ❓ 9. FAQs
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-seo')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              🔍 12. SEO
+            </button>
+          </>
+        )}
+
+        {isSales && (
+          <>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-pathways')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full font-bold bg-indigo-100 text-indigo-900 hover:bg-indigo-200 border border-indigo-300 flex items-center gap-1 shrink-0 transition"
+            >
+              <Briefcase className="h-3.5 w-3.5 text-indigo-700" />
+              <span>🛂 5. Visa Pathways</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-states')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              🌐 10. State Radar
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-documents')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              📋 14. Document Checklist
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-cases')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              🏆 15. Sample Cases
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-similar')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              🔀 16. Similar Codes
+            </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById('section-audit')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-2.5 py-1 rounded-full text-slate-700 hover:bg-slate-100 border border-slate-200 shrink-0 transition"
+            >
+              🛡️ 13. Audit Notes
+            </button>
+          </>
+        )}
+      </div>
+
       {/* ── CARD 1: HEADER & OVERVIEW ── */}
-      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
+      {isAtlas && (
+      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-4" id="section-header">
         <div className="flex items-center justify-between border-b pb-2.5">
           <div className="flex items-center gap-2">
             <span className="text-base">🏷️</span>
@@ -1627,7 +1835,7 @@ export default function PublicAtlasUnifiedEditor({
 
         {/* AU SkillSelect & Migroto Live Quick Card */}
         {country === 'AU' && (
-          <div className="p-3 bg-teal-50/70 border border-teal-200 rounded-lg flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div className="p-3 bg-teal-50/80 border border-teal-200 rounded-lg flex items-center justify-between flex-wrap gap-2 text-xs">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-teal-700 shrink-0" />
               <div>
@@ -1636,25 +1844,35 @@ export default function PublicAtlasUnifiedEditor({
                   189: {edit.min_invitation_points?.subclass_189 ?? 80} pts · 190: {edit.min_invitation_points?.subclass_190 ?? 75} pts · 491: {edit.min_invitation_points?.subclass_491 ?? 65} pts
                 </span>
                 <span className="text-slate-500 text-[11px] ml-1">
-                  ({(edit.invitation_rounds || []).length} rounds recorded · Section 5)
+                  ({(edit.invitation_rounds || []).length} rounds recorded · Card 2 below)
                 </span>
               </div>
             </div>
-            {syncMigroto && (
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                onClick={syncMigroto}
-                disabled={migrotoLoading}
-                className="h-6 text-xs bg-white text-teal-800 border-teal-300 hover:bg-teal-100 font-bold"
-                data-testid="unified-sync-migroto-quick-btn"
-                title="Pull latest invitation cutoffs and round archives directly from Migroto live registry"
+                onClick={() => document.getElementById('section-invitation-rounds')?.scrollIntoView({ behavior: 'smooth' })}
+                className="h-7 text-xs bg-teal-700 hover:bg-teal-800 text-white font-bold"
               >
-                {migrotoLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1 text-teal-700" />}
-                Sync from Migroto Live
+                🎯 Jump to Cutoffs &amp; Rounds
               </Button>
-            )}
+              {syncMigroto && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={syncMigroto}
+                  disabled={migrotoLoading}
+                  className="h-7 text-xs bg-white text-teal-800 border-teal-300 hover:bg-teal-100 font-bold"
+                  data-testid="unified-sync-migroto-quick-btn"
+                  title="Pull latest invitation cutoffs and round archives directly from Migroto live registry"
+                >
+                  {migrotoLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1 text-teal-700" />}
+                  Sync from Migroto Live
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1721,16 +1939,236 @@ export default function PublicAtlasUnifiedEditor({
           </div>
         </div>
       </Card>
+      )}
 
-      {/* ── CARD 2: SKILL ASSESSMENT ESSENTIALS & CRITERIA ── */}
-      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-5" data-testid="card-skill-assessment-editor">
+      {/* ── CARD 2: INVITATION CUTOFFS & ROUND HISTORY (MIGROTO LIVE) ── */}
+      {isAtlas && (
+      <Card
+        id="section-invitation-rounds"
+        className="p-5 border-teal-300 bg-gradient-to-br from-teal-50/60 via-white to-emerald-50/40 shadow-xs space-y-4"
+        data-testid="unified-invitation-rounds-card"
+      >
+        <div className="flex items-center justify-between border-b border-teal-200/80 pb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-teal-700 text-white flex items-center justify-center font-bold text-base shadow-sm">
+              🎯
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-slate-900">
+                  2. {country === 'CA' ? 'IRCC Express Entry Cutoff Scores & Category Draw History' : country === 'NZ' ? 'INZ Skilled Migrant Category (SMC) & Green List Draws' : 'DHA SkillSelect Invitation Cutoffs & Rounds History (Migroto Live)'}
+                </h3>
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold">
+                  Live on Public Atlas Page
+                </Badge>
+                {(edit.migroto_synced || item.migroto_synced) && (
+                  <Badge className="bg-teal-700 text-white text-[10px]">
+                    Migroto Synced ✓
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                Directly governs Widget A (Chances of Invitation Scorecard), cutoff benchmarks (189 / 190 / 491), and the official invitation rounds archive table.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {syncMigroto && country === 'AU' && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={syncMigroto}
+                disabled={migrotoLoading}
+                className="h-8 text-xs bg-white text-teal-800 border-teal-300 hover:bg-teal-100 font-bold"
+                data-testid="unified-sync-migroto-btn"
+                title="Pull latest invitation cutoffs and round archives directly from Migroto live registry"
+              >
+                {migrotoLoading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1 text-teal-700" />}
+                Sync from Migroto Live
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleLoadDefaultRounds}
+              className="h-8 text-xs bg-white text-slate-700 border-slate-300 hover:bg-slate-100 font-medium"
+            >
+              <Wand2 className="h-3.5 w-3.5 mr-1 text-teal-700" />Default Rounds
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleAddRound}
+              className="h-8 text-xs bg-teal-700 hover:bg-teal-800 text-white font-bold"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />Add Round
+            </Button>
+          </div>
+        </div>
+
+        {/* 4-column Cutoffs Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div>
+            <Label className="text-[11px] font-semibold text-teal-900 block mb-1">
+              {country === 'CA' ? 'General CRS Cutoff' : country === 'NZ' ? 'SMC 6-Point Pass Mark' : 'Subclass 189 Pass Mark (Points)'}
+            </Label>
+            <Input
+              type="number"
+              value={minPts.subclass_189 ?? ''}
+              onChange={(e) => upMinPoints('subclass_189', e.target.value)}
+              placeholder={country === 'CA' ? 'e.g. 490' : country === 'NZ' ? 'e.g. 6' : 'e.g. 80'}
+              className="h-9 text-xs font-mono font-bold bg-white border-teal-200"
+            />
+          </div>
+          <div>
+            <Label className="text-[11px] font-semibold text-teal-900 block mb-1">
+              {country === 'CA' ? 'Category Cutoff (STEM/Health)' : country === 'NZ' ? 'Green List Straight to PR' : 'Subclass 190 Pass Mark (Points)'}
+            </Label>
+            <Input
+              type="number"
+              value={minPts.subclass_190 ?? ''}
+              onChange={(e) => upMinPoints('subclass_190', e.target.value)}
+              placeholder={country === 'CA' ? 'e.g. 450' : country === 'NZ' ? 'e.g. 6' : 'e.g. 75'}
+              className="h-9 text-xs font-mono font-bold bg-white border-teal-200"
+            />
+          </div>
+          <div>
+            <Label className="text-[11px] font-semibold text-teal-900 block mb-1">
+              {country === 'CA' ? 'PNP Stream Cutoff' : country === 'NZ' ? 'Work to Residence Benchmark' : 'Subclass 491 Pass Mark (Points)'}
+            </Label>
+            <Input
+              type="number"
+              value={minPts.subclass_491 ?? ''}
+              onChange={(e) => upMinPoints('subclass_491', e.target.value)}
+              placeholder={country === 'CA' ? 'e.g. 600' : country === 'NZ' ? 'e.g. 6' : 'e.g. 65'}
+              className="h-9 text-xs font-mono font-bold bg-white border-teal-200"
+            />
+          </div>
+          <div>
+            <Label className="text-[11px] font-semibold text-teal-900 block mb-1">Program Year</Label>
+            <Input
+              type="text"
+              value={minPts.as_of_program_year ?? '2026-27'}
+              onChange={(e) => upMinPoints('as_of_program_year', e.target.value)}
+              placeholder="e.g. 2026-27"
+              className="h-9 text-xs font-mono font-bold bg-white border-teal-200"
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-[11px] font-semibold text-teal-900 block mb-1">Scorecard Public Notes / Round Explanatory Text</Label>
+          <Input
+            type="text"
+            value={minPts.notes ?? ''}
+            onChange={(e) => upMinPoints('notes', e.target.value)}
+            placeholder="e.g. Priority healthcare & technology streams invited at minimum cutoff; state and regional quotas active."
+            className="h-9 text-xs bg-white border-teal-200"
+          />
+        </div>
+
+        {/* Editable Rounds Table */}
+        <div className="pt-2 border-t border-teal-200/60">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-teal-950 uppercase tracking-wider block">
+              Official Invitation Rounds Records ({(edit.invitation_rounds || []).length})
+            </span>
+            <span className="text-[10px] text-slate-500">
+              Each row displays in the Public Atlas table under Widget A
+            </span>
+          </div>
+
+          {(!edit.invitation_rounds || edit.invitation_rounds.length === 0) ? (
+            <div className="p-4 text-center bg-white rounded-lg border border-dashed border-teal-300 text-xs text-slate-500">
+              No custom round records stored yet. Click &quot;Sync from Migroto Live&quot; or &quot;Default Rounds&quot; to populate.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {(edit.invitation_rounds || []).map((rnd, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2.5 rounded-lg border border-teal-200 shadow-2xs hover:border-teal-300 transition">
+                  <div className="col-span-2">
+                    <Label className="text-[10px] text-slate-500 block mb-0.5">Round Date</Label>
+                    <Input
+                      type="text"
+                      value={rnd.date || ''}
+                      onChange={(e) => handleUpdateRound(idx, 'date', e.target.value)}
+                      placeholder="e.g. 2026-10-18"
+                      className="h-8 text-xs font-mono bg-slate-50"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-[10px] text-slate-500 block mb-0.5">Visa Subclass</Label>
+                    <Input
+                      type="text"
+                      value={rnd.subclass || ''}
+                      onChange={(e) => handleUpdateRound(idx, 'subclass', e.target.value)}
+                      placeholder="e.g. 189 or 190"
+                      className="h-8 text-xs font-mono font-bold bg-slate-50"
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <Label className="text-[10px] text-slate-500 block mb-0.5">State / Jurisdiction</Label>
+                    <Input
+                      type="text"
+                      value={rnd.state || ''}
+                      onChange={(e) => handleUpdateRound(idx, 'state', e.target.value)}
+                      placeholder="e.g. Federal / NSW / VIC"
+                      className="h-8 text-xs font-mono font-medium text-slate-800 bg-slate-50"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-[10px] text-slate-500 block mb-0.5">Cutoff Pts</Label>
+                    <Input
+                      type="number"
+                      value={rnd.score ?? ''}
+                      onChange={(e) => handleUpdateRound(idx, 'score', e.target.value)}
+                      placeholder="80"
+                      className="h-8 text-xs font-mono font-bold text-emerald-700 bg-slate-50"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-[10px] text-slate-500 block mb-0.5">Invitations Issued</Label>
+                    <Input
+                      type="number"
+                      value={rnd.invitations ?? ''}
+                      onChange={(e) => handleUpdateRound(idx, 'invitations', e.target.value)}
+                      placeholder="120"
+                      className="h-8 text-xs font-mono bg-slate-50"
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-end pt-3">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveRound(idx)}
+                      className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                      title="Remove round"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+      )}
+
+      {/* ── CARD 3: SKILL ASSESSMENT ESSENTIALS & CRITERIA ── */}
+      {(isAtlas || isSales) && (
+      <Card id="section-authority" className="p-5 border-slate-200 bg-white shadow-xs space-y-5" data-testid="card-skill-assessment-editor">
         <div className="flex items-center justify-between border-b pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm">
               🏛️
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">2. Skill Assessment Essentials &amp; Criteria</h3>
+              <h3 className="text-sm font-bold text-slate-900">3. Skill Assessment Essentials &amp; Criteria</h3>
               <p className="text-xs text-slate-500">Configures Assessment card on Public Atlas and Sales tabs: Assessing Body, Official Portal URL, Fees, Processing, Validity, Framework, Benchmarks, Pathways, and Required Documents Checklist.</p>
             </div>
           </div>
@@ -2235,9 +2673,11 @@ export default function PublicAtlasUnifiedEditor({
           </div>
         </div>
       </Card>
+      )}
 
-      {/* ── CARD 3: 10-YEAR EMPLOYMENT OUTLOOK & DEMOGRAPHICS (JSA & ABS) ── */}
-      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
+      {/* ── CARD 4: 10-YEAR EMPLOYMENT OUTLOOK & DEMOGRAPHICS (JSA & ABS) ── */}
+      {isAtlas && (
+      <Card id="section-labour" className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b pb-2.5">
           <div className="flex items-center gap-2">
             <span className="text-base">📈</span>
@@ -2422,8 +2862,10 @@ export default function PublicAtlasUnifiedEditor({
           </div>
         </div>
       </Card>
+      )}
 
-      {/* ── CARD 4: WHERE TO SETTLE (STRONGEST LABOUR MARKETS) ── */}
+      {/* ── CARD 4B: WHERE TO SETTLE (STRONGEST LABOUR MARKETS) ── */}
+      {isAtlas && (
       <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-3">
         <div className="flex items-center justify-between border-b pb-2.5">
           <div className="flex items-center gap-2">
@@ -2463,9 +2905,11 @@ export default function PublicAtlasUnifiedEditor({
           </p>
         </div>
       </Card>
+      )}
 
       {/* ── CARD 5: VISA PATHWAYS & SKILLED MIGRATION LISTS ── */}
-      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-5" data-testid="card-visa-pathways-editor">
+      {isSales && (
+      <Card id="section-pathways" className="p-5 border-slate-200 bg-white shadow-xs space-y-5" data-testid="card-visa-pathways-editor">
         <div className="flex items-center justify-between border-b pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-800 flex items-center justify-center font-bold text-sm">
@@ -2553,7 +2997,9 @@ export default function PublicAtlasUnifiedEditor({
             <div className="flex items-center justify-between flex-wrap gap-2 border-b border-teal-200/70 pb-2.5">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-teal-800" />
-                <span className="text-xs font-bold text-teal-950 block">DHA SkillSelect Invitation Cutoff Points &amp; Rounds History</span>
+                <span className="text-xs font-bold text-teal-950 block">
+                  {country === 'CA' ? 'IRCC Express Entry Cutoff Scores & Category Draw History' : country === 'NZ' ? 'INZ Skilled Migrant Category (SMC) & Green List Draws' : 'DHA SkillSelect Invitation Cutoff Points & Rounds History'}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 {syncMigroto && country === 'AU' && (
@@ -2593,32 +3039,38 @@ export default function PublicAtlasUnifiedEditor({
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
-                <Label className="text-[11px] font-semibold text-teal-900 block mb-1">Subclass 189 Pass Mark</Label>
+                <Label className="text-[11px] font-semibold text-teal-900 block mb-1">
+                  {country === 'CA' ? 'General CRS Cutoff' : country === 'NZ' ? 'SMC 6-Point Pass Mark' : 'Subclass 189 Pass Mark'}
+                </Label>
                 <Input
                   type="number"
                   value={minPts.subclass_189 ?? ''}
                   onChange={(e) => upMinPoints('subclass_189', e.target.value)}
-                  placeholder="e.g. 80"
+                  placeholder={country === 'CA' ? 'e.g. 490' : country === 'NZ' ? 'e.g. 6' : 'e.g. 80'}
                   className="h-8 text-xs font-mono font-bold bg-white"
                 />
               </div>
               <div>
-                <Label className="text-[11px] font-semibold text-teal-900 block mb-1">Subclass 190 Pass Mark</Label>
+                <Label className="text-[11px] font-semibold text-teal-900 block mb-1">
+                  {country === 'CA' ? 'Category Cutoff (STEM/Health)' : country === 'NZ' ? 'Green List Straight to PR' : 'Subclass 190 Pass Mark'}
+                </Label>
                 <Input
                   type="number"
                   value={minPts.subclass_190 ?? ''}
                   onChange={(e) => upMinPoints('subclass_190', e.target.value)}
-                  placeholder="e.g. 75"
+                  placeholder={country === 'CA' ? 'e.g. 450' : country === 'NZ' ? 'e.g. 6' : 'e.g. 75'}
                   className="h-8 text-xs font-mono font-bold bg-white"
                 />
               </div>
               <div>
-                <Label className="text-[11px] font-semibold text-teal-900 block mb-1">Subclass 491 Pass Mark</Label>
+                <Label className="text-[11px] font-semibold text-teal-900 block mb-1">
+                  {country === 'CA' ? 'PNP Stream Cutoff' : country === 'NZ' ? 'Work to Residence Benchmark' : 'Subclass 491 Pass Mark'}
+                </Label>
                 <Input
                   type="number"
                   value={minPts.subclass_491 ?? ''}
                   onChange={(e) => upMinPoints('subclass_491', e.target.value)}
-                  placeholder="e.g. 65"
+                  placeholder={country === 'CA' ? 'e.g. 600' : country === 'NZ' ? 'e.g. 6' : 'e.g. 65'}
                   className="h-8 text-xs font-mono font-bold bg-white"
                 />
               </div>
@@ -2632,6 +3084,17 @@ export default function PublicAtlasUnifiedEditor({
                   className="h-8 text-xs font-mono font-bold bg-white"
                 />
               </div>
+            </div>
+
+            <div>
+              <Label className="text-[11px] font-semibold text-teal-900 block mb-1">Scorecard Public Notes / Round Explanatory Text</Label>
+              <Input
+                type="text"
+                value={minPts.notes ?? ''}
+                onChange={(e) => upMinPoints('notes', e.target.value)}
+                placeholder="e.g. Priority healthcare stream invited at minimum cutoff; state and regional quotas active."
+                className="h-8 text-xs bg-white"
+              />
             </div>
 
             {/* Editable Rounds Table */}
@@ -2951,8 +3414,11 @@ export default function PublicAtlasUnifiedEditor({
           </div>
         </div>
       </Card>
+      )}
 
-      {/* ── CARD 6: OFFICIAL RATINGS & DEMAND RATIONALE ── */}
+      {/* ── CARDS 6-9: RATINGS, OPPORTUNITY MAP, INDUSTRIES & FAQS (PUBLIC ATLAS) ── */}
+      {isAtlas && (
+        <>
       <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b pb-2.5">
           <div className="flex items-center gap-2">
@@ -3110,7 +3576,7 @@ export default function PublicAtlasUnifiedEditor({
       </Card>
 
       {/* ── CARD 9: FREQUENTLY ASKED QUESTIONS (FAQ) ── */}
-      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
+      <Card id="section-faqs" className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b pb-2.5">
           <div className="flex items-center gap-2">
             <span className="text-base">❓</span>
@@ -3186,9 +3652,13 @@ export default function PublicAtlasUnifiedEditor({
           </div>
         )}
       </Card>
+      </>
+      )}
 
-      {/* ── CARD 10: 8-STATE / PROVINCE / REGIONAL NOMINATION RADAR ── */}
-      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
+      {/* ── CARDS 10-11: STATE NOMINATION RADAR & COUNTRY EQUIVALENCE (SMART SALES HELPER) ── */}
+      {isSales && (
+        <>
+      <Card id="section-states" className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b pb-2.5">
           <div className="flex items-center gap-2">
             <span className="text-base">🌐</span>
@@ -3486,9 +3956,12 @@ export default function PublicAtlasUnifiedEditor({
           </div>
         )}
       </Card>
+      </>
+      )}
 
-      {/* ── CARD 12: GOOGLE SEARCH & SEO META ATTRIBUTES ── */}
-      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
+      {/* ── CARD 12: GOOGLE SEARCH & SEO META ATTRIBUTES (PUBLIC ATLAS) ── */}
+      {isAtlas && (
+      <Card id="section-seo" className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center font-bold text-sm">
@@ -3948,9 +4421,12 @@ export default function PublicAtlasUnifiedEditor({
           </div>
         )}
       </Card>
+      )}
 
-      {/* ── CARD 13: GAZETTE REFERENCE & AUDIT NOTES ── */}
-      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-3">
+      {/* ── CARDS 13-16: AUDIT, DOCUMENTS, SAMPLE CASES & SIMILAR CODES (SMART SALES HELPER) ── */}
+      {isSales && (
+        <>
+      <Card id="section-audit" className="p-5 border-slate-200 bg-white shadow-xs space-y-3">
         <div className="flex items-center justify-between border-b pb-2">
           <div className="flex items-center gap-2">
             <span className="text-base">🛡️</span>
@@ -4006,7 +4482,7 @@ export default function PublicAtlasUnifiedEditor({
       </Card>
 
       {/* ── CARD 14: REQUIRED DOCUMENTS CHECKLIST (TAB 4 IN SALES & PUBLIC) ── */}
-      <Card className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
+      <Card id="section-documents" className="p-5 border-slate-200 bg-white shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b pb-2.5 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="text-base">📋</span>
@@ -4391,6 +4867,8 @@ export default function PublicAtlasUnifiedEditor({
           </p>
         </div>
       </Card>
+      </>
+      )}
 
       {/* ── STICKY BOTTOM ACTIONS BAR ── */}
       <div className="sticky bottom-4 z-30 rounded-xl border border-slate-300 bg-white p-3.5 shadow-xl flex items-center justify-between flex-wrap gap-2">

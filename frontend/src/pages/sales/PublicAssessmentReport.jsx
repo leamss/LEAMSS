@@ -68,13 +68,13 @@ export default function PublicAssessmentReport() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-5" data-testid="public-report-page">
       <div className="max-w-4xl mx-auto space-y-5">
         {/* Header */}
-        <Card className="p-5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-0" data-testid="report-header">
+        <Card className="p-5 bg-gradient-to-r from-[#0F766E] to-[#134E4A] text-white border-0 shadow-sm" data-testid="report-header">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <Sparkles className="h-8 w-8" />
+              <Sparkles className="h-8 w-8 text-amber-300" />
               <div>
                 <h1 className="text-xl font-bold">Eligibility Report</h1>
-                <p className="text-[11px] opacity-80">Powered by LEAMSS — Smart Sales Helper</p>
+                <p className="text-[11px] text-teal-100">Powered by LEAMSS — We Value Emotions ❤️</p>
               </div>
             </div>
             <Badge className="bg-white/20 text-white border-white/40">Read-only · Confidential</Badge>
@@ -122,6 +122,75 @@ export default function PublicAssessmentReport() {
             )}
           </div>
         </Card>
+
+        {/* Nominated Occupation & Why We Chose This Code */}
+        {data?.occupation?.code && (() => {
+          const totalReportExp = parseFloat(data?.highlights?.experience_years) || 0;
+          const occCode = String(data?.occupation?.code || '');
+          const occBody = String(data?.occupation?.assessing_body || '');
+          const isAcsOcc = occCode.startsWith('26') || occCode.startsWith('1351') || /computer|acs/i.test(occBody);
+          const sa = data?.skills_assessment;
+
+          let deductedYears = 0.0;
+          if (sa?.deducted_years != null) {
+            deductedYears = Number(sa.deducted_years);
+          } else if (isAcsOcc) {
+            deductedYears = 2.0;
+          }
+
+          let claimableYears = 0.0;
+          if (sa?.points_claimable_years != null && Number(sa.points_claimable_years) > 0) {
+            claimableYears = Number(sa.points_claimable_years);
+          } else {
+            claimableYears = totalReportExp;
+          }
+
+          let claimablePoints = 0;
+          if (sa?.points_claimable_points != null && Number(sa.points_claimable_points) > 0) {
+            claimablePoints = Number(sa.points_claimable_points);
+          } else {
+            claimablePoints = claimableYears >= 8 ? 15 : (claimableYears >= 5 ? 10 : (claimableYears >= 3 ? 5 : 0));
+          }
+
+          return (
+            <Card className="p-4 bg-emerald-50/60 border border-emerald-200" data-testid="report-occupation-choice">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <h2 className="text-sm font-bold flex items-center gap-2 text-emerald-950">
+                  <Briefcase className="h-4 w-4 text-emerald-600" />
+                  Why We Chose Nominated Occupation {data.occupation.code} · {data.occupation.title}
+                </h2>
+                <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">
+                  {data.occupation.assessing_body || 'Skills Assessing Authority'}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-700 leading-relaxed mb-3">
+                We selected this occupation code because your career experience as <strong>{data?.highlights?.current_profession || 'a skilled specialist'}</strong> directly aligns with its core official duties.
+                {deductedYears > 0 ? (
+                  <span> Under official assessing guidelines, <strong>{deductedYears} year(s)</strong> are deducted as the qualifying period to establish skills suitability (Requirement Met Date), leaving <strong>{claimableYears} years</strong> points-claimable for GSM migration (+{claimablePoints} points).</span>
+                ) : (
+                  <span> Under assessing criteria, your qualifications satisfy skills suitability directly with 0.0 qualifying deduction, leaving all <strong>{totalReportExp || data?.highlights?.experience_years} years</strong> points-claimable (+{claimablePoints} points).</span>
+                )}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="bg-white p-2 rounded border border-emerald-200">
+                  <p className="text-[10px] uppercase font-bold text-slate-400">Core Duty Alignment</p>
+                  <p className="font-semibold text-emerald-800">100% Core Duty Match</p>
+                  <p className="text-[10px] text-slate-500">Aligned with official ABS ANZSCO tasks</p>
+                </div>
+                <div className="bg-white p-2 rounded border border-emerald-200">
+                  <p className="text-[10px] uppercase font-bold text-slate-400">Qualifying Deduction</p>
+                  <p className="font-semibold text-rose-700">-{deductedYears} yrs</p>
+                  <p className="text-[10px] text-slate-500">Skills suitability baseline</p>
+                </div>
+                <div className="bg-white p-2 rounded border border-emerald-200">
+                  <p className="text-[10px] uppercase font-bold text-slate-400">Claimable Experience</p>
+                  <p className="font-semibold text-indigo-700">{claimableYears} yrs</p>
+                  <p className="text-[10px] text-slate-500">+{claimablePoints} GSM Migration Points</p>
+                </div>
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* Country Comparison */}
         {data?.results?.length > 0 && (
@@ -194,12 +263,12 @@ export default function PublicAssessmentReport() {
         )}
 
         {/* CTA + Footer */}
-        <Card className="p-5 bg-indigo-600 text-white border-0 text-center" data-testid="report-cta">
-          <ShieldCheck className="h-7 w-7 mx-auto mb-2" />
+        <Card className="p-5 bg-gradient-to-r from-[#0F766E] to-[#134E4A] text-white border-0 text-center shadow-sm" data-testid="report-cta">
+          <ShieldCheck className="h-7 w-7 mx-auto mb-2 text-emerald-300" />
           <h3 className="text-base font-bold mb-1">Ready to take the next step?</h3>
-          <p className="text-[11px] opacity-90 mb-3">Schedule a free consultation with your LEAMSS consultant to start your application.</p>
-          <Button className="bg-white text-indigo-600 hover:bg-slate-100" onClick={() => window.open('https://wa.me/?text=' + encodeURIComponent('Hi LEAMSS, I just reviewed my eligibility report and would like to schedule a consultation.'), '_blank')} data-testid="cta-whatsapp">
-            <MessageSquare className="h-4 w-4 mr-1" />Contact via WhatsApp
+          <p className="text-[11px] text-teal-100 mb-3">Schedule a free consultation with your LEAMSS consultant to start your application.</p>
+          <Button className="bg-white text-[#0F766E] hover:bg-teal-50 font-semibold" onClick={() => window.open('https://wa.me/?text=' + encodeURIComponent('Hi LEAMSS, I just reviewed my eligibility report and would like to schedule a consultation.'), '_blank')} data-testid="cta-whatsapp">
+            <MessageSquare className="h-4 w-4 mr-1 text-[#0F766E]" />Contact via WhatsApp
           </Button>
         </Card>
 

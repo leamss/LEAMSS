@@ -129,14 +129,50 @@
         </tr>
       </thead>
       <tbody>
-        {% for s in state_elig %}
-          <tr>
-            <td style="padding:3pt 6pt;"><b>{{ s.state }}</b></td>
-            <td style="padding:3pt 6pt;">{{ (s.demand or '—').replace('_', ' ')|title }}</td>
-            <td style="padding:3pt 6pt;text-align:center;">{% if s.sc190 %}<span style="color:var(--teal-700);font-weight:800;">✓ Open</span>{% else %}<span class="muted">—</span>{% endif %}</td>
-            <td style="padding:3pt 6pt;text-align:center;">{% if s.sc491 %}<span style="color:var(--teal-700);font-weight:800;">✓ Open</span>{% else %}<span class="muted">—</span>{% endif %}</td>
-          </tr>
-        {% endfor %}
+        {% set state_map = {
+          'NSW': 'New South Wales (NSW)',
+          'VIC': 'Victoria (VIC)',
+          'QLD': 'Queensland (QLD)',
+          'WA': 'Western Australia (WA)',
+          'SA': 'South Australia (SA)',
+          'TAS': 'Tasmania (TAS)',
+          'ACT': 'Australian Capital Territory (ACT)',
+          'NT': 'Northern Territory (NT)',
+        } %}
+        {% if state_elig is mapping %}
+          {% for st_code, st_val in state_elig.items() %}
+            {% set is_map = (st_val is mapping) %}
+            {% set st_title = (st_val.state if (is_map and st_val.state and '(' in st_val.state) else (state_map.get(st_code, st_val.state if (is_map and st_val.state) else st_code))) %}
+            {% set r_lbl = (st_val.rating_label if (is_map and st_val.rating_label) else '') %}
+            {% set d_raw = (r_lbl if r_lbl else (st_val.demand if (is_map and st_val.demand) else (st_val if not is_map else ''))) %}
+            {% set d_str = ('Shortage (Statewide)' if (d_raw|lower == 'high' or (is_map and st_val.rating == 'S')) else ('Regional Shortage' if (d_raw|lower in ['medium', 'regional'] or (is_map and st_val.rating == 'R')) else ('No Metro Shortage' if (d_raw|lower == 'low' or (is_map and st_val.rating == 'NS')) else (d_raw or 'Shortage (Statewide)')))) %}
+            {% set has_190 = (st_val.sc190 if (is_map and 'sc190' in st_val) else (st_val.eligible_190 if (is_map and 'eligible_190' in st_val) else (is_map and st_val.rating == 'S'))) %}
+            {% set has_491 = (st_val.sc491 if (is_map and 'sc491' in st_val) else (st_val.eligible_491 if (is_map and 'eligible_491' in st_val) else true)) %}
+            <tr>
+              <td style="padding:3pt 6pt;"><b>{{ st_title }}</b></td>
+              <td style="padding:3pt 6pt;">{{ (d_str or '—').replace('_', ' ')|title }}</td>
+              <td style="padding:3pt 6pt;text-align:center;">{% if has_190 %}<span style="color:var(--teal-700);font-weight:800;">✓ Open</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td style="padding:3pt 6pt;text-align:center;">{% if has_491 %}<span style="color:var(--teal-700);font-weight:800;">✓ Open</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          {% for s in state_elig %}
+            {% set is_map = (s is mapping) %}
+            {% set st_code = (s.state_code or s.code or s.state or s) if is_map else s %}
+            {% set st_title = (s.state if (is_map and s.state and '(' in s.state) else (state_map.get(st_code, s.state if is_map else st_code))) %}
+            {% set r_lbl = (s.rating_label if (is_map and s.rating_label) else '') %}
+            {% set d_raw = (r_lbl if r_lbl else (s.demand if (is_map and s.demand) else (s if not is_map else ''))) %}
+            {% set d_str = ('Shortage (Statewide)' if (d_raw|lower == 'high' or (is_map and s.rating == 'S')) else ('Regional Shortage' if (d_raw|lower in ['medium', 'regional'] or (is_map and s.rating == 'R')) else ('No Metro Shortage' if (d_raw|lower == 'low' or (is_map and s.rating == 'NS')) else (d_raw or 'Shortage (Statewide)')))) %}
+            {% set has_190 = (s.sc190 if (is_map and 'sc190' in s) else (s.eligible_190 if (is_map and 'eligible_190' in s) else (is_map and s.rating == 'S'))) %}
+            {% set has_491 = (s.sc491 if (is_map and 'sc491' in s) else (s.eligible_491 if (is_map and 'eligible_491' in s) else true)) %}
+            <tr>
+              <td style="padding:3pt 6pt;"><b>{{ st_title }}</b></td>
+              <td style="padding:3pt 6pt;">{{ (d_str or '—').replace('_', ' ')|title }}</td>
+              <td style="padding:3pt 6pt;text-align:center;">{% if has_190 %}<span style="color:var(--teal-700);font-weight:800;">✓ Open</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td style="padding:3pt 6pt;text-align:center;">{% if has_491 %}<span style="color:var(--teal-700);font-weight:800;">✓ Open</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        {% endif %}
       </tbody>
     </table>
   {% else %}

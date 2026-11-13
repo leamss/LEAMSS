@@ -27,11 +27,13 @@ import {
   CheckCircle2, AlertCircle, Loader2, Wand2, Save, RefreshCw, Trash2,
   ExternalLink, Plus, ShieldCheck, Award, Briefcase, BookOpen, Layers,
   Copy, Check, FileCheck, HelpCircle, ChevronRight, X, Clock, Landmark,
+  FileSpreadsheet, Download,
 } from 'lucide-react';
 
 import { formatApiError } from '@/lib/apiErrors';
 import { handleSafeBack } from '@/lib/navigation';
 import PublicAtlasUnifiedEditor from './components/PublicAtlasUnifiedEditor';
+import BulkSEOExcelAdmin from './components/BulkSEOExcelAdmin';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -69,16 +71,18 @@ export default function OccupationMasterAdmin() {
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setParams({ tab: v })}>
-          <TabsList className="bg-white border" data-testid="kb-tabs">
+          <TabsList className="bg-white border flex-wrap" data-testid="kb-tabs">
             <TabsTrigger value="browse" data-testid="tab-browse"><FileText className="h-4 w-4 mr-1" />Browse &amp; Verify</TabsTrigger>
             <TabsTrigger value="import" data-testid="tab-import"><Upload className="h-4 w-4 mr-1" />Bulk Import</TabsTrigger>
+            <TabsTrigger value="seo-bulk" data-testid="tab-seo-bulk"><FileSpreadsheet className="h-4 w-4 mr-1 text-emerald-600" />Bulk SEO Excel</TabsTrigger>
             <TabsTrigger value="templates" data-testid="tab-templates"><Globe2 className="h-4 w-4 mr-1" />Country Templates</TabsTrigger>
             <TabsTrigger value="classifications" data-testid="tab-classifications"><Layers className="h-4 w-4 mr-1" />AU Classification Versions</TabsTrigger>
             <TabsTrigger value="settings" data-testid="tab-settings"><Settings2 className="h-4 w-4 mr-1" />Status &amp; Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="browse"><BrowseAndVerify headers={headers} /></TabsContent>
-          <TabsContent value="import"><BulkImport headers={headers} /></TabsContent>
+          <TabsContent value="import"><BulkImport headers={headers} onOpenSeoBulk={() => setParams({ tab: 'seo-bulk' })} /></TabsContent>
+          <TabsContent value="seo-bulk"><BulkSEOExcelAdmin headers={headers} /></TabsContent>
           <TabsContent value="templates"><CountryTemplates headers={headers} /></TabsContent>
           <TabsContent value="classifications"><AUClassificationVersionsAdmin headers={headers} /></TabsContent>
           <TabsContent value="settings"><StatusSettings headers={headers} /></TabsContent>
@@ -543,10 +547,18 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
         subclass_189: edit.min_invitation_points?.subclass_189 ? parseInt(edit.min_invitation_points.subclass_189, 10) : null,
         subclass_190: edit.min_invitation_points?.subclass_190 ? parseInt(edit.min_invitation_points.subclass_190, 10) : null,
         subclass_491: edit.min_invitation_points?.subclass_491 ? parseInt(edit.min_invitation_points.subclass_491, 10) : null,
-        as_of_program_year: edit.min_invitation_points?.as_of_program_year || '2025-26',
+        as_of_program_year: edit.min_invitation_points?.as_of_program_year || '2026-27',
         notes: edit.min_invitation_points?.notes || '',
       },
-      invitation_rounds: Array.isArray(edit.invitation_rounds) ? edit.invitation_rounds : [],
+      invitation_rounds: Array.isArray(edit.invitation_rounds)
+        ? edit.invitation_rounds.map((r) => ({
+            date: r.date || '',
+            subclass: String(r.subclass || '190'),
+            state: r.state || '',
+            score: r.score !== '' && r.score !== null && !isNaN(Number(r.score)) ? Number(r.score) : 75,
+            invitations: r.invitations !== '' && r.invitations !== null && !isNaN(Number(r.invitations)) ? Number(r.invitations) : 100,
+          }))
+        : [],
       eoi_backlog: edit.eoi_backlog || null,
       visa_pathways: Array.isArray(edit.visa_pathways)
         ? {
@@ -792,7 +804,18 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
       {/* Top Header Bar */}
       <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              className="text-slate-700 hover:text-slate-900 border-slate-300 h-7 px-2.5 text-xs font-bold bg-white shadow-2xs"
+              data-testid="editor-cancel"
+              title="Return to occupations list"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 mr-1 text-slate-600" /> Back to Occupations
+            </Button>
+            <span className="text-slate-300">|</span>
             <span className="text-base">{countryFlag}</span>
             <p className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
               {item.country_code} · {item.code}
@@ -835,7 +858,7 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
               size="sm"
               onClick={syncMigroto}
               disabled={migrotoLoading}
-              className="border-teal-400 text-teal-700 hover:bg-teal-50"
+              className="border-teal-400 text-teal-700 hover:bg-teal-50 font-medium"
               data-testid="editor-migroto-sync"
               title="Pull latest ANZSCO version, SkillSelect tier, and invitation data from Migroto"
             >
@@ -847,21 +870,18 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
             variant="outline"
             size="sm"
             onClick={() => window.open(`/atlas/${(item.country_code || 'AU').toLowerCase()}/${item.code}`, '_blank')}
-            className="border-emerald-400 bg-emerald-50/60 text-emerald-800 hover:bg-emerald-100 font-semibold shadow-xs"
+            className="border-emerald-500 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100 font-bold shadow-xs"
             data-testid="editor-view-public-atlas"
             title="Open the live public SEO money page in a new tab"
           >
             <Globe2 className="h-3.5 w-3.5 mr-1 text-emerald-600" />
             View Public Atlas ↗
           </Button>
-          <Button variant="outline" size="sm" onClick={onCancel} data-testid="editor-cancel">
-            <ArrowLeft className="h-4 w-4 mr-1" />Back
-          </Button>
           <Button size="sm" onClick={save} disabled={saving} className="bg-slate-800 hover:bg-slate-900 text-white font-medium shadow-sm" data-testid="editor-save-draft">
             {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
             Save Draft
           </Button>
-          <Button size="sm" onClick={verify} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm" data-testid="editor-open-verify">
+          <Button size="sm" onClick={verify} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm px-3" data-testid="editor-open-verify">
             {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
             Save &amp; Publish Live
           </Button>
@@ -935,7 +955,7 @@ function PolishBtn({ onClick, loading }) {
 // ════════════════════════════════════════════════════════════════
 // 6.9.2 — Bulk Import
 // ════════════════════════════════════════════════════════════════
-function BulkImport({ headers }) {
+function BulkImport({ headers, onOpenSeoBulk }) {
   const [file, setFile] = useState(null);
   const [country, setCountry] = useState('AU');
   const [classification, setClassification] = useState('ANZSCO');
@@ -988,6 +1008,27 @@ function BulkImport({ headers }) {
 
   return (
     <div className="space-y-3">
+      {/* Quick link banner to Bulk SEO Excel */}
+      {typeof onOpenSeoBulk === 'function' && (
+        <div className="rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-3.5 shadow-2xs flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <FileSpreadsheet className="w-5 h-5 text-emerald-700 shrink-0" />
+            <div>
+              <h4 className="text-xs font-bold text-emerald-950">Looking to upload SEO attributes, Meta Titles &amp; Descriptions in bulk?</h4>
+              <p className="text-[11px] text-emerald-800">Download country-wise templates (AU, CA, NZ), edit in Excel, and update live on Public Atlas pages.</p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onOpenSeoBulk}
+            className="text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold h-8 shadow-2xs"
+          >
+            Open Bulk SEO Excel Tab →
+          </Button>
+        </div>
+      )}
+
       <Card className="p-4 space-y-3" data-testid="import-form">
         <h3 className="text-sm font-bold flex items-center gap-2"><Upload className="h-4 w-4" />Upload ANZSCO / NOC dataset</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

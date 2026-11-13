@@ -36,6 +36,11 @@
     {% include "_anzsco.html" %}
   {% endif %}
 
+  {# ─── Skills Assessment & Deduction Analysis (Phase 21) ─────────── #}
+  {% if snap.skills_assessment %}
+    {% include "_skills_assessment.html" %}
+  {% endif %}
+
   {# ─── Points across all AU subclasses (189/190/491) ──────────────── #}
   {% if snap.au_subclass_points and snap.au_subclass_points.rows %}
     {% include "_subclass_points.html" %}

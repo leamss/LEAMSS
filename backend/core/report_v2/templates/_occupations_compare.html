@@ -125,6 +125,62 @@
     Confirm each occupation's current status with your consultant before lodging.
   </div>
 
+  {# ─── CODE-WISE "WHY WE CHOSE THIS CODE" BREAKDOWN ─── #}
+  <div style="margin-top:14pt;page-break-inside:avoid;break-inside:avoid;">
+    <h3 style="font-size:10pt;color:var(--teal-800);margin-bottom:6pt;font-weight:800;text-transform:uppercase;letter-spacing:0.5pt;">
+      Code-Wise Selection Rationale · Why We Chose Each Pathway
+    </h3>
+    <div style="display:flex;flex-direction:column;gap:8pt;">
+      {% for o in occs %}
+      <div style="background:{% if o.is_primary %}#f0fdf4{% else %}#f8fafc{% endif %};border:1.5pt solid {% if o.is_primary %}#86efac{% else %}#cbd5e1{% endif %};border-radius:6pt;padding:8pt 10pt;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4pt;">
+          <div style="display:flex;align-items:center;gap:6pt;">
+            {% if o.is_primary %}
+              <span class="occ-ribbon" style="margin:0;">★ Primary Nominated</span>
+            {% else %}
+              <span class="occ-alt" style="margin:0;">Alternative Pathway</span>
+            {% endif %}
+            <span style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--teal-800);">{{ o.code }} · {{ o.title }}</span>
+          </div>
+          <span style="font-size:7.5pt;font-weight:700;color:var(--slate-500);">Assessing Body: <b>{{ o.assessing_body or o.assessing_authority_name or '—' }}</b></span>
+        </div>
+
+        <p style="font-size:8pt;color:var(--slate-700);margin:2pt 0 4pt 0;line-height:1.4;">
+          {{ o.why_we_chose_summary or o.role_alignment_summary or ("Selected for your profile based on alignment between your professional experience as " ~ (snap.client.profession or snap.client.current_profession or "a skilled specialist") ~ " and " ~ o.title ~ " duties.") }}
+        </p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6pt;margin-top:4pt;font-size:7.5pt;">
+          <div style="background:#ffffff;border:0.75pt solid {% if o.is_primary %}#bbf7d0{% else %}#e2e8f0{% endif %};border-radius:4pt;padding:6pt;">
+            <div style="font-weight:800;color:var(--teal-700);margin-bottom:2pt;">✓ Role &amp; Core Duty Alignment</div>
+            <div style="color:var(--slate-600);line-height:1.35;">
+              {{ o.duty_alignment_summary or ("Matches career role and day-to-day duties under official ANZSCO unit group " ~ (o.code[:4] if o.code else "") ~ " tasks.") }}
+            </div>
+            {% if o.employer_sector_fit %}
+            <div style="color:#0f766e;font-size:7pt;margin-top:2pt;">🏢 {{ o.employer_sector_fit }}</div>
+            {% endif %}
+            {% if o.matched_tasks %}
+              <div style="font-weight:700;color:#0f766e;margin-top:3pt;">Key Matched Tasks:</div>
+              <ul style="margin:1pt 0 0 8pt;padding:0;font-size:7pt;color:#475569;">
+                {% for t in o.matched_tasks[:2] %}<li>✓ {{ t }}</li>{% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+
+          <div style="background:#ffffff;border:0.75pt solid {% if o.is_primary %}#bbf7d0{% else %}#e2e8f0{% endif %};border-radius:4pt;padding:6pt;">
+            <div style="font-weight:800;color:var(--teal-700);margin-bottom:2pt;">⚖️ Deduction Rule &amp; Points Claim</div>
+            <div style="color:var(--slate-600);line-height:1.35;">
+              {{ o.deduction_rule_summary or ("Qualifying deduction: -" ~ (o.deducted_years or 0) ~ " yrs (" ~ (o.assessing_body or "Assessing Authority") ~ " suitability) &rarr; " ~ (o.claimable_years or snap.skills_assessment.points_claimable_years or "all") ~ " yrs points-claimable (+" ~ (o.claimable_points or 15) ~ " GSM pts).") }}
+            </div>
+            <div style="margin-top:3pt;font-size:7pt;color:#1e293b;">
+              <b>Eligible Visas:</b> {% if o.visa_subclasses %}{{ o.visa_subclasses|join(', ') }}{% else %}Subclass 189, 190, 491, 482, 186{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
   <style>
     table.occ-compare { width:100%; border-collapse:separate; border-spacing:0; margin-top:8pt; font-size:8.5pt; }
     table.occ-compare th, table.occ-compare td {
