@@ -591,7 +591,7 @@ const MarketingDashboard = () => {
                             <div className="mt-1">
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                                 <CheckCircle className="h-3 w-3 text-emerald-600" />
-                                {lead.assessment_report.country_flag || ''} Score: {lead.assessment_report.score} {lead.assessment_report.unit || 'pts'}
+                                Score: {lead.assessment_report.score} {lead.assessment_report.unit || 'pts'}
                               </span>
                             </div>
                           )}
