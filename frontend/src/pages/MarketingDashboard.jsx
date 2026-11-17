@@ -32,6 +32,7 @@ const MarketingDashboard = () => {
   const [leadStageFilter, setLeadStageFilter] = useState('all');
   const [followUpDialog, setFollowUpDialog] = useState({ open: false, leadId: null });
   const [pendingFollowUps, setPendingFollowUps] = useState([]);
+  const [reportDialog, setReportDialog] = useState({ open: false, lead: null });
   
   // Campaigns
   const [campaigns, setCampaigns] = useState([]);
@@ -97,6 +98,121 @@ const MarketingDashboard = () => {
   const openPdf = (scoreId) => {
     if (!scoreId) { toast.error('No scorecard PDF for this lead'); return; }
     window.open(`${API}/eligibility/report/${scoreId}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const printLeadReport = (lead) => {
+    if (!lead) return;
+    const rep = lead.assessment_report || {};
+    const clientName = lead.name || 'Valued Client';
+    const dateStr = rep.date || (lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'));
+    const flag = rep.country_flag || (lead.country_of_interest === 'NZ' ? '🇳🇿' : (lead.country_of_interest === 'CA' ? '🇨🇦' : '🇦🇺'));
+    const countryName = rep.country_name || (lead.country_of_interest === 'NZ' ? 'New Zealand' : (lead.country_of_interest === 'CA' ? 'Canada' : 'Australia'));
+    const score = rep.score ?? lead.score_data?.total ?? '—';
+    const maxScore = rep.max_score ?? lead.score_data?.maxScore ?? (countryName.includes('Zealand') ? 6 : 100);
+    const unit = rep.unit ?? lead.score_data?.unit ?? 'Points';
+    const passMark = rep.pass_mark ?? lead.score_data?.passMark ?? (countryName.includes('Zealand') ? 6 : 65);
+    const qualifies = rep.qualifies ?? (score !== '—' && Number(score) >= passMark);
+    const breakdown = rep.breakdown || lead.score_data?.breakdown || [];
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      toast.error('Popup blocked. Please allow popups to view/print report.');
+      return;
+    }
+
+    const rowsHtml = breakdown.length > 0 ? breakdown.map(b => `
+      <tr>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b;">${b.label || b.id}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;color:#475569;">${b.valLabel || '—'}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;color:#1b4332;">+${b.pts} pts</td>
+      </tr>
+    `).join('') : `
+      <tr>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b;">Total Points Evaluated</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;color:#475569;">${qualifies ? 'Meets standard statutory benchmark' : 'Requires additional pathway points'}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;color:#1b4332;">${score} ${unit}</td>
+      </tr>
+    `;
+
+    const statusPillHtml = qualifies
+      ? `<span style="display:inline-block;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;background:#dcfce7;color:#166534;margin-top:12px;">✓ Qualifies for Minimum Statutory Threshold (Pass Mark: ${passMark} ${unit})</span>`
+      : `<span style="display:inline-block;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700;background:#fef3c7;color:#92400e;margin-top:12px;">⚠️ Requires ${typeof score === 'number' ? Math.max(0, Math.round((passMark - score) * 10) / 10) : 'additional'} more points to meet pass mark (${passMark} ${unit})</span>`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${countryName} Client Assessment Report - ${clientName}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 40px; color: #1e293b; background: #fff; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1b4332; padding-bottom: 20px; margin-bottom: 24px; }
+          .brand { font-size: 24px; font-weight: 800; color: #1b4332; letter-spacing: -0.5px; }
+          .brand-sub { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 700; }
+          .score-card { background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+          .score-big { font-size: 42px; font-weight: 800; color: #1b4332; line-height: 1; }
+          table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+          th { text-align: left; padding: 10px 14px; background: #f1f5f9; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+          .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
+          @media print {
+            body { padding: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="brand">LEAMSS IMMIGRATION</div>
+            <div class="brand-sub">Official Client Assessment & Points Breakdown</div>
+          </div>
+          <div style="text-align: right; font-size: 12px; color: #64748b;">
+            <div>Ref: <b>${lead.lead_number || lead.id || 'N/A'}</b></div>
+            <div>Date: <b>${dateStr}</b></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <h2 style="margin: 0 0 6px 0; font-size: 20px; color: #0f172a;">${flag} ${countryName} Immigration Points & Assessment Report</h2>
+          <p style="margin: 0; font-size: 13px; color: #64748b;">Applicant: <b>${clientName}</b> · Phone: <b>${lead.phone || '—'}</b> · Email: <b>${lead.email || '—'}</b></p>
+        </div>
+
+        <div class="score-card">
+          <div style="font-size: 12px; text-transform: uppercase; font-weight: 700; color: #64748b; margin-bottom: 8px;">Overall Evaluation Score</div>
+          <div class="score-big">${score} <span style="font-size: 20px; font-weight: 500; color: #64748b;">/ ${maxScore} ${unit}</span></div>
+          <div>${statusPillHtml}</div>
+          <p style="margin: 16px 0 0 0; font-size: 13px; color: #334155; line-height: 1.6;">
+            ${rep.summary || `Applicant profile was evaluated against statutory requirements for ${countryName}. Total score recorded is ${score} ${unit}.`}
+          </p>
+        </div>
+
+        <div>
+          <h3 style="font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">Detailed Assessment Parameter Breakdown</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Assessment Parameter</th>
+                <th>Selection / Criteria</th>
+                <th style="text-align:right;">Points Claimed</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="footer">
+          LEAMSS Migration & Visa Advisory Platform · Confidential Assessment Document · Generated for ${clientName}
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 400);
   };
 
   const handleAssign = async () => {
@@ -469,13 +585,35 @@ const MarketingDashboard = () => {
                           <p className="text-slate-700">{lead.email}</p>
                           <p className="text-xs text-slate-500">{lead.phone}</p>
                         </td>
-                        <td className="p-4 text-slate-600">{lead.service_interested}</td>
+                        <td className="p-4 text-slate-600">
+                          <p className="font-medium text-slate-800">{lead.service_interested || 'General Inquiry'}</p>
+                          {lead.assessment_report && (
+                            <div className="mt-1">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                <CheckCircle className="h-3 w-3 text-emerald-600" />
+                                {lead.assessment_report.country_flag || ''} Score: {lead.assessment_report.score} {lead.assessment_report.unit || 'pts'}
+                              </span>
+                            </div>
+                          )}
+                        </td>
                         <td className="p-4"><Badge variant="outline" className="text-xs capitalize">{lead.source?.replace(/_/g, ' ')}</Badge></td>
                         <td className="p-4 text-center">
                           <Badge className={`capitalize ${stageColors[lead.stage] || ''}`}>{lead.stage}</Badge>
                         </td>
                         <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            {(lead.assessment_report || lead.source === 'eligibility_calculator' || String(lead.message || '').includes('Score:')) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-[#1b4332] border-[#1b4332]/40 bg-emerald-50 hover:bg-[#1b4332] hover:text-white h-8 px-2.5 text-xs font-bold flex items-center gap-1 transition-all shadow-xs"
+                                onClick={() => setReportDialog({ open: true, lead })}
+                                title="View Client Assessment Report"
+                                data-testid={`view-report-btn-${lead.id}`}
+                              >
+                                <FileText className="h-3.5 w-3.5" /> Report
+                              </Button>
+                            )}
                             <Button size="sm" variant="ghost" onClick={() => setLeadDialog({ open: true, data: lead, mode: 'edit' })}><Edit className="h-4 w-4" /></Button>
                             <Button size="sm" variant="ghost" onClick={() => setFollowUpDialog({ open: true, leadId: lead.id, data: { type: 'call', message: '' } })}><Phone className="h-4 w-4" /></Button>
                             {lead.stage !== 'won' && lead.stage !== 'lost' && (
@@ -513,6 +651,92 @@ const MarketingDashboard = () => {
                   <div><Label className="text-xs text-slate-500">Service</Label><p className="text-sm font-medium">{selectedLead.service_interested}</p></div>
                   <div><Label className="text-xs text-slate-500">Source</Label><p className="text-sm font-medium capitalize">{selectedLead.source?.replace(/_/g, ' ')}</p></div>
                 </div>
+
+                {/* Generated Assessment Report Card if available */}
+                {(selectedLead.assessment_report || String(selectedLead.message || '').includes('Score:')) && (
+                  <div className="mb-5 rounded-xl border-2 border-[#1b4332]/20 bg-gradient-to-br from-emerald-50/40 via-white to-slate-50 p-4 shadow-xs">
+                    <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{selectedLead.assessment_report?.country_flag || '🇳🇿'}</span>
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-sm">
+                            {selectedLead.assessment_report?.headline || `${selectedLead.service_interested || 'Assessment'} Report`}
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Generated on {selectedLead.assessment_report?.date || (selectedLead.created_at ? new Date(selectedLead.created_at).toLocaleDateString() : 'N/A')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-[#1b4332] hover:bg-[#143427] text-white text-xs h-8 font-semibold flex items-center gap-1"
+                          onClick={() => setReportDialog({ open: true, lead: selectedLead })}
+                        >
+                          <Eye className="h-3.5 w-3.5" /> Full Report
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-slate-700 border-slate-300 hover:bg-slate-100 text-xs h-8 font-semibold flex items-center gap-1"
+                          onClick={() => printLeadReport(selectedLead)}
+                        >
+                          <Download className="h-3.5 w-3.5" /> Print / PDF
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Scorecard pill */}
+                    <div className="flex items-center gap-4 p-3 bg-white rounded-lg border border-slate-200 mb-3">
+                      <div className="text-center px-4 border-r border-slate-200">
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Score</p>
+                        <p className="text-2xl font-black text-[#1b4332]">
+                          {selectedLead.assessment_report?.score ?? '—'}
+                          <span className="text-xs font-normal text-slate-400"> / {selectedLead.assessment_report?.max_score ?? '—'} {selectedLead.assessment_report?.unit || 'Points'}</span>
+                        </p>
+                      </div>
+                      <div className="flex-1">
+                        {selectedLead.assessment_report?.qualifies ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
+                            <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                            Qualifies for Minimum Statutory Threshold (Pass Mark: {selectedLead.assessment_report?.pass_mark} {selectedLead.assessment_report?.unit})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
+                            ⚠️ Requires {typeof selectedLead.assessment_report?.score === 'number' && selectedLead.assessment_report?.pass_mark ? Math.max(0, Math.round((selectedLead.assessment_report.pass_mark - selectedLead.assessment_report.score) * 10) / 10) : 'additional'} more points to meet pass mark ({selectedLead.assessment_report?.pass_mark} {selectedLead.assessment_report?.unit})
+                          </span>
+                        )}
+                        <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                          {selectedLead.assessment_report?.summary || selectedLead.message}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Parameter Breakdown Table if available */}
+                    {(selectedLead.assessment_report?.breakdown || []).length > 0 && (
+                      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                        <table className="w-full text-xs">
+                          <thead className="bg-slate-50 text-slate-600 border-b">
+                            <tr>
+                              <th className="text-left p-2.5 font-semibold">Parameter</th>
+                              <th className="text-left p-2.5 font-semibold">Selection / Claim</th>
+                              <th className="text-right p-2.5 font-semibold">Points</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {selectedLead.assessment_report.breakdown.map((b, i) => (
+                              <tr key={i} className="hover:bg-slate-50">
+                                <td className="p-2.5 font-medium text-slate-800">{b.label || b.id}</td>
+                                <td className="p-2.5 text-slate-600">{b.valLabel || '—'}</td>
+                                <td className="p-2.5 text-right font-bold text-[#1b4332]">+{b.pts} pts</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {/* Notes */}
                 <div>
                   <Label className="text-sm font-medium mb-2">Notes</Label>
@@ -1039,6 +1263,160 @@ const MarketingDashboard = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Generated Client Assessment Report Modal */}
+      <Dialog open={reportDialog.open} onOpenChange={(o) => setReportDialog({ ...reportDialog, open: o })}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 border-0 shadow-2xl">
+          {reportDialog.lead && (() => {
+            const lead = reportDialog.lead;
+            const rep = lead.assessment_report || {};
+            const clientName = lead.name || 'Valued Client';
+            const dateStr = rep.date || (lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'));
+            const flag = rep.country_flag || (lead.country_of_interest === 'NZ' ? '🇳🇿' : (lead.country_of_interest === 'CA' ? '🇨🇦' : '🇦🇺'));
+            const countryName = rep.country_name || (lead.country_of_interest === 'NZ' ? 'New Zealand' : (lead.country_of_interest === 'CA' ? 'Canada' : 'Australia'));
+            const score = rep.score ?? lead.score_data?.total ?? '—';
+            const maxScore = rep.max_score ?? lead.score_data?.maxScore ?? (countryName.includes('Zealand') ? 6 : 100);
+            const unit = rep.unit ?? lead.score_data?.unit ?? 'Points';
+            const passMark = rep.pass_mark ?? lead.score_data?.passMark ?? (countryName.includes('Zealand') ? 6 : 65);
+            const qualifies = rep.qualifies ?? (score !== '—' && Number(score) >= passMark);
+            const breakdown = rep.breakdown || lead.score_data?.breakdown || [];
+            const pathways = rep.pathways || [];
+
+            return (
+              <div className="bg-white rounded-2xl overflow-hidden border border-slate-200">
+                {/* Header ribbon matching start page report view */}
+                <div className="bg-[#1b4332] text-white p-6 relative">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-300 bg-emerald-950/60 px-2.5 py-0.5 rounded-full inline-block mb-1.5">
+                        Official Client Assessment Report
+                      </span>
+                      <h3 className="text-xl font-extrabold flex items-center gap-2">
+                        <span>{flag}</span> {countryName} Immigration Points & Assessment Report
+                      </h3>
+                      <p className="text-xs text-emerald-100 mt-1">
+                        Generated for <b>{clientName}</b> · {dateStr} · Ref: <b>{lead.lead_number || lead.id?.slice(0, 8)}</b>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-[#2a777a] hover:bg-[#205d60] text-white font-semibold text-xs h-9 px-3.5 shadow-sm"
+                        onClick={() => printLeadReport(lead)}
+                        data-testid="report-modal-download-btn"
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1.5" /> Download Report (PDF)
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Score Highlight Box */}
+                  <div className="rounded-xl border-2 border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Total Profile Score</div>
+                        <div className="text-4xl font-black text-[#1b4332] flex items-baseline gap-2">
+                          {score}
+                          <span className="text-lg font-semibold text-slate-400">/ {maxScore} {unit}</span>
+                        </div>
+                      </div>
+                      <div>
+                        {qualifies ? (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <CheckCircle className="h-4 w-4 text-emerald-600" />
+                            Qualifies for Minimum Statutory Threshold (Pass Mark: {passMark} {unit})
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                            <span>⚠️</span> Requires {typeof score === 'number' ? Math.max(0, Math.round((passMark - score) * 10) / 10) : 'additional'} more points to meet pass mark ({passMark} {unit})
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-slate-700 mt-4 leading-relaxed bg-white/80 p-3 rounded-lg border border-slate-100">
+                      {rep.summary || `Dear ${clientName}, your profile was evaluated for ${countryName} skilled migration. Your profile scored a total of ${score} ${unit}. ${qualifies ? 'You meet the minimum statutory criteria for invitation rounds.' : 'You can bridge the points gap through Provincial/State nominations or partner skill claims.'}`}
+                    </p>
+                  </div>
+
+                  {/* Parameter Breakdown Table */}
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-sm mb-2 flex items-center justify-between">
+                      <span>Detailed Assessment Parameter Breakdown</span>
+                      <span className="text-xs font-normal text-slate-500">{breakdown.length} criteria evaluated</span>
+                    </h4>
+
+                    {breakdown.length > 0 ? (
+                      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs">
+                            <tr>
+                              <th className="text-left p-3 font-semibold">Parameter</th>
+                              <th className="text-left p-3 font-semibold">Value / Selection</th>
+                              <th className="text-right p-3 font-semibold">Points Earned</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {breakdown.map((item, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                                <td className="p-3 font-medium text-slate-800">{item.label || item.id}</td>
+                                <td className="p-3 text-slate-600">{item.valLabel || '—'}</td>
+                                <td className="p-3 text-right font-bold text-[#1b4332]">+{item.pts} pts</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-slate-200 p-4 text-center bg-slate-50 text-slate-600 text-xs">
+                        <p className="font-medium">Total recorded assessment score: <b className="text-[#1b4332]">{score} {unit}</b></p>
+                        <p className="text-slate-500 mt-1">{lead.message || 'Points assessment was submitted via the eligibility portal.'}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pathways cards if present */}
+                  {pathways.length > 0 && (
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-sm mb-2">Verified Visa Pathways</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {pathways.map((pw, i) => (
+                          <div key={i} className="p-3 rounded-lg border border-slate-200 bg-slate-50/50">
+                            <h5 className="font-semibold text-xs text-[#1b4332]">{pw.name}</h5>
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-2">{pw.desc}</p>
+                            {pw.req && <span className="inline-block mt-2 text-[10px] font-bold text-[#b45309] bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Req: {pw.req}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Contact & Meta footer */}
+                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs text-slate-500">
+                    <div>
+                      <span>Contact: <b>{lead.email}</b> · <b>{lead.phone || 'No phone'}</b></span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setReportDialog({ open: false, lead: null })}>
+                        Close
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-[#2a777a] hover:bg-[#205d60] text-white font-semibold"
+                        onClick={() => printLeadReport(lead)}
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1" /> Print Report
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

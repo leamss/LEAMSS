@@ -822,16 +822,41 @@ function EligibilityQuizSection() {
     e.preventDefault();
     setComputing(true);
     const countryMap = { AU: 'Australia', CA: 'Canada', NZ: 'New Zealand' };
+    const countryFlags = { AU: '🇦🇺', CA: '🇨🇦', NZ: '🇳🇿' };
     const cName = countryMap[selectedCountry] || 'Australia';
+    const cFlag = countryFlags[selectedCountry] || '🌐';
+    const todayStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    const assessmentReport = {
+      country: selectedCountry,
+      country_name: cName,
+      country_flag: cFlag,
+      headline: `${cFlag} ${cName} Immigration Points & Assessment Report`,
+      client_name: clientInfo.name || 'Valued Client',
+      client_email: clientInfo.email,
+      client_phone: clientInfo.phone,
+      date: todayStr,
+      score: scoreData.total,
+      max_score: scoreData.maxScore,
+      pass_mark: scoreData.passMark,
+      unit: scoreData.unit,
+      qualifies: scoreData.isEligible,
+      summary: `Dear ${clientInfo.name || 'Applicant'}, your profile was evaluated for ${cName} skilled migration. Your profile scored a total of ${scoreData.total} ${scoreData.unit}. ${scoreData.isEligible ? 'You meet the minimum statutory criteria for invitation rounds.' : 'You can bridge the points gap through Provincial/State nominations or partner skill claims.'} Below is your complete parameter breakdown and verified visa pathways.`,
+      breakdown: scoreData.breakdown || []
+    };
+
     const payload = {
       name: clientInfo.name,
       email: clientInfo.email,
       phone: clientInfo.phone,
       country_of_interest: selectedCountry,
       source: 'eligibility_calculator',
-      atlas_code: 'points_calculator',
-      atlas_title: `${cName} Points Assessment`,
-      message: `Score: ${scoreData.total} ${scoreData.unit} for ${cName}. ${clientInfo.message ? 'Client Note: ' + clientInfo.message : 'Requested full breakdown & report.'}`
+      atlas_code: 'points_report',
+      atlas_title: `${cName} Points Assessment Report`,
+      service_interested: `${cName} Points Assessment Report (points_report)`,
+      message: `Score: ${scoreData.total} ${scoreData.unit} for ${cName}. ${clientInfo.message ? 'Client Note: ' + clientInfo.message : 'Requested full breakdown & report.'}`,
+      score_data: scoreData,
+      assessment_report: assessmentReport
     };
 
     try {

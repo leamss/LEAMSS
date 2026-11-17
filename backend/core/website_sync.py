@@ -183,7 +183,9 @@ def map_navratri_row_to_lead(row: Dict[str, Any]) -> Dict[str, Any]:
         "updated_at": updated_at,
         "last_contacted_at": None,
         "converted": False,
-        "converted_sale_id": None
+        "converted_sale_id": None,
+        "score_data": row.get("score_data"),
+        "assessment_report": row.get("assessment_report")
     }
     return lead_doc
 
@@ -250,6 +252,8 @@ async def upsert_website_lead(data: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
             "is_navratri": True,
             "stage": new_stage,
             "priority": new_priority,
+            "score_data": mapped.get("score_data") or existing.get("score_data"),
+            "assessment_report": mapped.get("assessment_report") or existing.get("assessment_report"),
             "updated_at": datetime.now(timezone.utc),
         }
 

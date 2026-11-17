@@ -6,11 +6,77 @@ from core.services import log_activity, create_notification
 from core.website_sync import upsert_website_lead
 from datetime import datetime, timezone
 import uuid
+import re
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 leads_col = db["leads"]
 follow_ups_col = db["follow_ups"]
 users_col = db["users"]
+
+
+def _enrich_lead_report(lead: dict) -> dict:
+    """Ensure leads originating from calculators or points reports have structured assessment_report."""
+    if not lead:
+        return lead
+    if lead.get("assessment_report"):
+        return lead
+    msg = str(lead.get("message") or "")
+    service = str(lead.get("service_interested") or "")
+    coi = str(lead.get("country_of_interest") or lead.get("country") or "").upper()
+    if "Score:" in msg or "Points Assessment" in service:
+        m = re.search(r"Score:\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)?(?:\s+for\s+([A-Za-z\s]+?))?(?:\.|$)", msg, re.IGNORECASE)
+        score_val = None
+        unit_val = "Points"
+        parsed_country = ""
+        if m:
+            score_val = float(m.group(1)) if "." in m.group(1) else int(m.group(1))
+            unit_val = m.group(2) or "Points"
+            parsed_country = (m.group(3) or "").strip()
+        c_code = coi
+        if not c_code or c_code == "GLOBAL":
+            combined = (parsed_country + " " + service).lower()
+            if "new zealand" in combined:
+                c_code = "NZ"
+            elif "canada" in combined:
+                c_code = "CA"
+            else:
+                c_code = "AU"
+        c_meta = {
+            "AU": {"name": "Australia", "flag": "🇦🇺", "pass_mark": 65, "max_score": 100},
+            "CA": {"name": "Canada", "flag": "🇨🇦", "pass_mark": 67, "max_score": 100},
+            "NZ": {"name": "New Zealand", "flag": "🇳🇿", "pass_mark": 6, "max_score": 6},
+        }.get(c_code, {"name": parsed_country or "Skilled Migration", "flag": "🌐", "pass_mark": 65, "max_score": 100})
+        pass_mark = c_meta["pass_mark"]
+        if score_val is not None:
+            qualifies = score_val >= pass_mark
+        else:
+            qualifies = False
+            score_val = "—"
+        created_date = ""
+        if lead.get("created_at"):
+            try:
+                created_date = datetime.fromisoformat(str(lead["created_at"]).replace("Z", "+00:00")).strftime("%d %b %Y")
+            except Exception:
+                created_date = str(lead.get("created_at"))[:10]
+        
+        lead["assessment_report"] = {
+            "country": c_code,
+            "country_name": c_meta["name"],
+            "country_flag": c_meta["flag"],
+            "headline": f"{c_meta['flag']} {c_meta['name']} Immigration Points & Assessment Report",
+            "client_name": lead.get("name") or "Valued Client",
+            "client_email": lead.get("email"),
+            "client_phone": lead.get("phone"),
+            "date": created_date,
+            "score": score_val,
+            "max_score": c_meta["max_score"],
+            "pass_mark": pass_mark,
+            "unit": unit_val,
+            "qualifies": qualifies,
+            "summary": f"Dear {lead.get('name') or 'Applicant'}, your profile was evaluated for {c_meta['name']} skilled migration. Recorded score is {score_val} {unit_val}. {'You meet the minimum statutory criteria for invitation rounds.' if qualifies else f'Requires additional points to meet statutory pass mark ({pass_mark} {unit_val}).'}",
+            "breakdown": []
+        }
+    return lead
 
 
 async def _next_lead_number():
@@ -104,6 +170,7 @@ async def get_leads(
         for field in ["created_at", "updated_at", "last_contacted_at"]:
             if isinstance(lead.get(field), datetime):
                 lead[field] = lead[field].isoformat()
+        _enrich_lead_report(lead)
     return leads
 
 
@@ -162,6 +229,18 @@ async def _get_source_stats(user):
     ]
     results = await leads_col.aggregate(pipeline).to_list(20)
     return {r["_id"]: r["count"] for r in results if r["_id"]}
+
+
+@router.get("/{lead_id}")
+async def get_lead_by_id(lead_id: str, current_user: dict = Depends(get_current_user)):
+    """Get single lead by id with enriched assessment report"""
+    lead = await leads_col.find_one({"id": lead_id}, {"_id": 0})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    for field in ["created_at", "updated_at", "last_contacted_at"]:
+        if isinstance(lead.get(field), datetime):
+            lead[field] = lead[field].isoformat()
+    return _enrich_lead_report(lead)
 
 
 @router.put("/{lead_id}")

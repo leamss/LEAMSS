@@ -1148,9 +1148,29 @@ function handleLeadModalSubmit(e) {
   clientInfo = { name, phone, email, message };
   const scoreData = computeScore();
   const cfg = CONFIG[currentCountry];
+  const todayStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   btn.disabled = true;
   btn.innerText = 'Generating Your Full Report...';
+
+  const assessmentReport = {
+    country: currentCountry,
+    country_name: cfg.name,
+    country_flag: cfg.flag,
+    headline: cfg.flag + ' ' + cfg.name + ' Immigration Points & Assessment Report',
+    client_name: name || 'Valued Client',
+    client_email: email,
+    client_phone: phone,
+    date: todayStr,
+    score: scoreData.total,
+    max_score: scoreData.maxScore,
+    pass_mark: scoreData.passMark,
+    unit: scoreData.unit,
+    qualifies: scoreData.qualifies,
+    summary: 'Dear ' + (name || 'Applicant') + ', your profile was evaluated for ' + cfg.name + ' skilled migration. Your profile scored a total of ' + scoreData.total + ' ' + scoreData.unit + '. ' + (scoreData.qualifies ? 'You meet the minimum statutory criteria for invitation rounds.' : 'You can bridge the points gap through Provincial/State nominations or partner skill claims.') + ' Below is your complete parameter breakdown and verified visa pathways.',
+    breakdown: scoreData.breakdown || [],
+    pathways: (cfg.pathways || []).map(p => ({ name: p.name, desc: p.desc, req: p.req }))
+  };
 
   const payload = {
     name: name,
@@ -1160,7 +1180,10 @@ function handleLeadModalSubmit(e) {
     source: 'eligibility_calculator',
     atlas_code: 'points_report',
     atlas_title: cfg.name + ' Points Assessment Report',
-    message: 'Score: ' + scoreData.total + ' ' + scoreData.unit + ' for ' + cfg.name + '. ' + (message ? 'Client Note: ' + message : 'Requested full breakdown & report.')
+    service_interested: cfg.name + ' Points Assessment Report (points_report)',
+    message: 'Score: ' + scoreData.total + ' ' + scoreData.unit + ' for ' + cfg.name + '. ' + (message ? 'Client Note: ' + message : 'Requested full breakdown & report.'),
+    score_data: scoreData,
+    assessment_report: assessmentReport
   };
 
   function postData(url) {
@@ -1174,9 +1197,19 @@ function handleLeadModalSubmit(e) {
     });
   }
 
-  postData('https://app.leamss.com/api/public-atlas/lead')
-    .catch(() => postData('https://api.leamss.com/api/public-atlas/lead'))
-    .catch(() => postData('/api/public-atlas/lead'))
+  const primaryUrl = window.location.hostname.includes('leamss.com')
+    ? 'https://app.leamss.com/api/public-atlas/lead'
+    : '/api/public-atlas/lead';
+  const fallbackUrls = [
+    '/api/public-atlas/lead',
+    'https://app.leamss.com/api/public-atlas/lead',
+    'https://api.leamss.com/api/public-atlas/lead'
+  ];
+
+  postData(primaryUrl)
+    .catch(() => postData(fallbackUrls[0]))
+    .catch(() => postData(fallbackUrls[1]))
+    .catch(() => postData(fallbackUrls[2]))
     .finally(() => {
       closeLeadModal();
       btn.disabled = false;

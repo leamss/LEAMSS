@@ -1348,7 +1348,49 @@ async def submit_lead(request: Request):
         page_title = data.get("website_page_title") or f"{interested_state.upper()} State Nomination Migration Guide"
 
     lead_category = "ATLAS"
-    pathway_label = f"{atlas_title} ({atlas_code})" if (atlas_title and atlas_code and atlas_code != "mega-landing") else (atlas_title or service)
+    pathway_label = data.get("service_interested") or (f"{atlas_title} ({atlas_code})" if (atlas_title and atlas_code and atlas_code != "mega-landing") else (atlas_title or service))
+
+    score_data = data.get("score_data")
+    assessment_report = data.get("assessment_report")
+
+    if not assessment_report and user_msg and "Score:" in str(user_msg):
+        m = re.search(r"Score:\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)?(?:\s+for\s+([A-Za-z\s]+?))?(?:\.|$)", str(user_msg), re.IGNORECASE)
+        if m:
+            score_val = float(m.group(1)) if "." in m.group(1) else int(m.group(1))
+            unit_val = m.group(2) or "Points"
+            parsed_country = (m.group(3) or "").strip()
+            c_code = coi
+            if not c_code or c_code == "GLOBAL":
+                if "new zealand" in parsed_country.lower():
+                    c_code = "NZ"
+                elif "canada" in parsed_country.lower():
+                    c_code = "CA"
+                else:
+                    c_code = "AU"
+            c_meta = {
+                "AU": {"name": "Australia", "flag": "🇦🇺", "pass_mark": 65, "max_score": 100},
+                "CA": {"name": "Canada", "flag": "🇨🇦", "pass_mark": 67, "max_score": 100},
+                "NZ": {"name": "New Zealand", "flag": "🇳🇿", "pass_mark": 6, "max_score": 6},
+            }.get(c_code, {"name": parsed_country or "Skilled Migration", "flag": "🌐", "pass_mark": 65, "max_score": 100})
+            pass_mark = c_meta["pass_mark"]
+            qualifies = score_val >= pass_mark
+            assessment_report = {
+                "country": c_code,
+                "country_name": c_meta["name"],
+                "country_flag": c_meta["flag"],
+                "headline": f"{c_meta['flag']} {c_meta['name']} Immigration Points & Assessment Report",
+                "client_name": name,
+                "client_email": email,
+                "client_phone": phone,
+                "date": now.strftime("%d %b %Y"),
+                "score": score_val,
+                "max_score": c_meta["max_score"],
+                "pass_mark": pass_mark,
+                "unit": unit_val,
+                "qualifies": qualifies,
+                "summary": f"Dear {name}, your profile was evaluated for {c_meta['name']} skilled migration. Your profile scored a total of {score_val} {unit_val}. {'You meet the minimum statutory criteria for invitation rounds.' if qualifies else f'You require {round(pass_mark - score_val, 1) if isinstance(score_val, float) else pass_mark - score_val} more points to meet the pass mark ({pass_mark} {unit_val}).'}",
+                "breakdown": []
+            }
 
     doc = {
         "id": lead_id,
@@ -1373,6 +1415,8 @@ async def submit_lead(request: Request):
         "source": src,
         "atlas_code": atlas_code,
         "atlas_title": atlas_title,
+        "score_data": score_data,
+        "assessment_report": assessment_report,
         "utm_source": data.get("utm_source") or "",
         "utm_medium": data.get("utm_medium") or "",
         "utm_campaign": data.get("utm_campaign") or "",
