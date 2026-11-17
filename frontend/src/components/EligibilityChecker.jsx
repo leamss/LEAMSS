@@ -92,7 +92,7 @@ const EligibilityChecker = ({ token }) => {
               </div>
               <div>
                 <Label>Work Experience (years)</Label>
-                <Input type="number" step="0.5" value={form.work_experience_years} onChange={(e) => setForm({ ...form, work_experience_years: e.target.value })} placeholder="e.g. 4" data-testid="elig-work-exp" />
+                <Input type="number" step="any" value={form.work_experience_years} onChange={(e) => setForm({ ...form, work_experience_years: e.target.value })} placeholder="e.g. 4" data-testid="elig-work-exp" />
               </div>
               <div>
                 <Label>IELTS Overall Score</Label>

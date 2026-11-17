@@ -139,7 +139,7 @@ export default function EligibilityCheck() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-1">Work Experience (years) *</label>
-                  <Input type="number" step="0.5" value={form.work_experience_years} onChange={e => setForm({ ...form, work_experience_years: e.target.value })} min="0" data-testid="elig-experience" />
+                  <Input type="number" step="any" value={form.work_experience_years} onChange={e => setForm({ ...form, work_experience_years: e.target.value })} min="0" data-testid="elig-experience" />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-sm font-medium text-slate-700 block mb-1">Occupation / Job Title *</label>

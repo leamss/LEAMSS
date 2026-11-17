@@ -182,7 +182,9 @@ def build_report_email(
 ) -> Tuple[str, str, str]:
     s = settings or {}
     cname = " ".join((client_name or "Applicant").split())
-    subject = (s.get("subject_template") or "Your Australia PR Pre-Assessment Report — {name}").replace("{name}", cname)
+    subj_raw = s.get("subject_template") or "Your Australia PR Pre-Assessment Report — {name}"
+    subj_cleaned = subj_raw.replace("Congratulations! ", "").replace("Congratulations — ", "")
+    subject = subj_cleaned.replace("{name}", cname)
     outcome = escape(s.get("outcome_title") or "Your Australia Migration Profile Pre-Assessment Outcome is Positive")
     body_html = _paras(s.get("body_message") or "Please find your Pre-Assessment report attached.")
 
@@ -641,12 +643,20 @@ def _brand_shell(inner_html: str, sender_name: str, settings: Optional[Dict[str,
 </body></html>"""
 
 
-def render_custom_email(template: Dict[str, Any], ctx: Dict[str, Any], *,
-                        sender_name: str = "LEAMSS", settings: Optional[Dict[str, Any]] = None
-                        ) -> Tuple[str, str, str]:
+def render_custom_email(
+    template: Dict[str, Any],
+    ctx: Optional[Dict[str, Any]] = None,
+    *,
+    sender_name: str = "LEAMSS",
+    settings: Optional[Dict[str, Any]] = None,
+    **kwargs,
+) -> Tuple[str, str, str]:
     """Render a user-authored template (subject + body with {placeholders}) into a branded email."""
-    subject = apply_placeholders(template.get("subject") or "", ctx).strip() or "A message from LEAMSS"
-    body_raw = apply_placeholders(template.get("body") or "", ctx)
+    merged_ctx = dict(ctx or {})
+    if kwargs:
+        merged_ctx.update(kwargs)
+    subject = apply_placeholders(template.get("subject") or "", merged_ctx).strip() or "A message from LEAMSS"
+    body_raw = apply_placeholders(template.get("body") or "", merged_ctx)
     inner = _body_text_to_html(body_raw)
     html = _brand_shell(inner, sender_name, settings)
     plain = body_raw

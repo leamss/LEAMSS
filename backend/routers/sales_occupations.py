@@ -11,7 +11,7 @@ Endpoints:
   GET  /api/sales/occupations/filters/meta   — distinct filter values (pathways/industries/skill_bodies)
 """
 from typing import Optional, List, Dict, Any, Set
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from rapidfuzz import fuzz, process as fuzzproc
 
@@ -298,6 +298,7 @@ def _is_in_demand(state_demand: Dict[str, str]) -> bool:
 # ════════════════════════════════════════════════════════════════
 @router.get("/search")
 async def search_occupations(
+    request: Request,
     q: Optional[str] = Query(None, description="Search query (fuzzy, typo-tolerant)"),
     country: Optional[List[str]] = Query(None, description="Country codes: AU, CA, NZ"),
     skill_level: Optional[int] = Query(None, ge=1, le=5),
@@ -315,7 +316,18 @@ async def search_occupations(
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
 
-    items = await _load_all_occupations(country)
+    country_list = []
+    if country:
+        for c in country:
+            country_list.extend([x.strip() for x in c.split(",") if x.strip()])
+    for k, v in request.query_params.multi_items():
+        if k in ("country", "country[]") and v:
+            for item in v.split(","):
+                clean = item.strip()
+                if clean and clean not in country_list:
+                    country_list.append(clean)
+
+    items = await _load_all_occupations(country_list or None)
 
     # Apply structural filters first (fast)
     if skill_level is not None:
@@ -371,7 +383,7 @@ async def search_occupations(
             score = max(score, 85)
         scored.append((score, idx))
 
-    scored.sort(key=lambda x: (-x[0], items[x[1]].get("title", "").lower()))
+    scored.sort(key=lambda x: (-x[0], 0 if items[x[1]].get("country_code") == "AU" else 1, items[x[1]].get("title", "").lower()))
     # Threshold lowered to 50 for typo tolerance
     filtered = [(s, idx) for s, idx in scored if s >= 50]
 

@@ -137,7 +137,12 @@ async def run_population():
     print("=== Starting ANZSCO Population into occupation_master ===")
     now = datetime.now(timezone.utc)
     
-    # 1. Fetch all 1,236 records from anzsco_4digit_master
+    # Clean up any legacy 4-digit unit groups so occupation_master contains ONLY 6-digit occupations
+    del_res = await db["occupation_master"].delete_many({"country_code": "AU", "code": {"$regex": "^[0-9]{4}$"}})
+    if del_res.deleted_count:
+        print(f"Purged {del_res.deleted_count} legacy 4-digit unit group entries from occupation_master")
+
+    # 1. Fetch all records from anzsco_4digit_master
     all_anzsco = await db["anzsco_4digit_master"].find({}).to_list(2500)
     print(f"Loaded {len(all_anzsco)} records from anzsco_4digit_master")
     
@@ -153,7 +158,8 @@ async def run_population():
     for item in all_anzsco:
         code = str(item.get("code") or "").strip()
         title = item.get("title") or f"ANZSCO {code}"
-        if not code:
+        # Keep strictly 6-digit actionable occupations on Public Atlas & Master
+        if not code or len(code) != 6:
             continue
             
         skill_level = _determine_skill_level(code)

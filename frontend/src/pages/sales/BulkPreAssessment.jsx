@@ -12,6 +12,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import EmailSettingsDialog from './EmailSettingsDialog';
+import MailAccountsDialog from './MailAccountsDialog';
 import { EmailPreviewDialog, EmailSummaryDialog } from './EmailSendDialogs';
 import { WhatsAppPreviewDialog } from './WhatsAppSendDialogs';
 
@@ -1811,91 +1812,6 @@ function EditRowDialog({ row, headers, senders = [], defaultSender, onClose, onS
           <Button onClick={save} disabled={saving} className="bg-teal-600 hover:bg-teal-700" data-testid="edit-save-btn">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save & Regenerate'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-
-function MailAccountsDialog({ headers, senders = [], domain, onClose, onChanged }) {
-  const [list, setList] = useState(senders);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const reload = async () => {
-    try {
-      const r = await axios.get(`${API}/bulk-assessments/mail-senders`, { headers });
-      setList(r.data);
-      if (onChanged) onChanged();
-    } catch (e) { /* silent */ }
-  };
-
-  const add = async () => {
-    if (!name.trim() || !email.trim()) { toast.error('Enter both name and email'); return; }
-    setSaving(true);
-    try {
-      const r = await axios.post(`${API}/bulk-assessments/mail-senders`, { name: name.trim(), email: email.trim() }, { headers });
-      if (r.data.domain_warning) toast.warning(`${email.trim()} is not on @${domain} — delegation may not allow sending from it`);
-      else toast.success('Mailbox added');
-      setName(''); setEmail('');
-      await reload();
-    } catch (e) { toast.error(formatApiError(e, 'Could not add mailbox')); }
-    finally { setSaving(false); }
-  };
-
-  const toggleActive = async (s) => {
-    try { await axios.patch(`${API}/bulk-assessments/mail-senders/${s.id}`, { active: !s.active }, { headers }); await reload(); }
-    catch (e) { toast.error('Could not update'); }
-  };
-
-  const remove = async (s) => {
-    try { await axios.delete(`${API}/bulk-assessments/mail-senders/${s.id}`, { headers }); toast.success('Removed'); await reload(); }
-    catch (e) { toast.error('Could not remove'); }
-  };
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" data-testid="mail-accounts-dialog">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Mail className="h-4 w-4" />Consultant Mail Accounts</DialogTitle></DialogHeader>
-        <DialogDescription className="text-[12px] text-slate-500 -mt-1">Reports are emailed from the consultant assigned to each client. Add each consultant's @{domain || 'leamss.com'} address here, then assign them per client.</DialogDescription>
-
-        <div className="flex gap-2 items-end border rounded-md p-2.5 bg-slate-50">
-          <div className="flex-1">
-            <Label className="text-[11px]">Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Priya Sharma" className="h-8 text-xs" data-testid="mailbox-name-input" />
-          </div>
-          <div className="flex-1">
-            <Label className="text-[11px]">Email</Label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={`priya@${domain || 'leamss.com'}`} className="h-8 text-xs" data-testid="mailbox-email-input" />
-          </div>
-          <Button onClick={add} disabled={saving} className="h-8 bg-indigo-600 hover:bg-indigo-700" data-testid="mailbox-add-btn">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Add'}
-          </Button>
-        </div>
-
-        <div className="space-y-1.5" data-testid="mailbox-list">
-          {list.length === 0 && <p className="text-[12px] text-slate-400 text-center py-3">No mailboxes yet. Add your consultants above.</p>}
-          {list.map((s) => (
-            <div key={s.id} className="flex items-center gap-2 border rounded-md px-2.5 py-1.5" data-testid={`mailbox-item-${s.email}`}>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold truncate">{s.name}</p>
-                <p className="text-[10px] text-slate-500 truncate">{s.email}{!s.domain_ok && <span className="text-rose-500"> · not on @{domain}</span>}</p>
-              </div>
-              <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                <Switch checked={s.active} onCheckedChange={() => toggleActive(s)} data-testid={`mailbox-active-${s.email}`} />
-                {s.active ? 'active' : 'off'}
-              </div>
-              <Button size="sm" variant="ghost" className="h-7 px-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50" onClick={() => remove(s)} data-testid={`mailbox-delete-${s.email}`}>
-                <XCircle className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} data-testid="mail-accounts-close">Done</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

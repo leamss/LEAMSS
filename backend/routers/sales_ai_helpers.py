@@ -2224,3 +2224,130 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
         "_ai_model": parsed.get("_ai_model", "sonar-pro"),
         "_ai_status": parsed.get("_ai_status", "ok"),
     }
+
+
+class EvaluateOccupationRequest(BaseModel):
+    code: str
+    country_code: str = "AU"
+    title: Optional[str] = None
+    assessing_body: Optional[str] = None
+    pathway: Optional[str] = None
+    qualification: Optional[str] = None
+    field_of_study: Optional[str] = None
+    years_experience_total: Optional[float] = None
+    profile: Optional[Dict[str, Any]] = None
+
+
+@router.post("/evaluate-occupation-skills")
+async def evaluate_occupation_skills(
+    req: EvaluateOccupationRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+
+    cc = (req.country_code or "AU").upper()
+    code_str = str(req.code).strip()
+
+    # Find master occupation document
+    occ_doc = await db["occupation_master"].find_one(
+        {"country_code": cc, "code": code_str},
+        {"_id": 0}
+    )
+    if not occ_doc:
+        occ_doc = {
+            "code": code_str,
+            "title": req.title or "Occupation",
+            "country_code": cc,
+            "assessing_body": req.assessing_body or "Designated Assessing Authority",
+            "pathway": req.pathway or "Core Skills / GSM",
+        }
+
+    # Resolve assessing authority name cleanly
+    aa = occ_doc.get("assessing_authority") or {}
+    resolved_body = None
+    if isinstance(aa, dict):
+        resolved_body = aa.get("name") or aa.get("short_name") or aa.get("code")
+    elif isinstance(aa, str):
+        resolved_body = aa
+    if not resolved_body:
+        resolved_body = occ_doc.get("assessing_body") or req.assessing_body or "Designated Assessing Authority"
+
+    # Assemble candidate profile
+    prof_dict = req.profile or {}
+    pri_app = prof_dict.get("primary_applicant") or {}
+    education = pri_app.get("education") or {}
+    professional = pri_app.get("professional") or {}
+
+    cand_qual = req.qualification or education.get("highest_qualification") or prof_dict.get("qualification") or ""
+    cand_field = req.field_of_study or education.get("field_of_study") or prof_dict.get("field_of_study") or ""
+    cand_exp = req.years_experience_total if req.years_experience_total is not None else (
+        professional.get("years_experience_total") or prof_dict.get("years_experience_total") or 0.0
+    )
+
+    candidate_profile = {
+        **prof_dict,
+        "qualification": cand_qual,
+        "field_of_study": cand_field,
+        "years_experience_total": float(cand_exp),
+        "primary_applicant": {
+            **pri_app,
+            "education": {
+                **education,
+                "highest_qualification": cand_qual,
+                "field_of_study": cand_field,
+            },
+            "professional": {
+                **professional,
+                "years_experience_total": float(cand_exp),
+            },
+        },
+    }
+
+    classification_cfg = await get_active_classification_versions()
+
+    s_item = {
+        "country_code": cc,
+        "code": code_str,
+        "title": occ_doc.get("title") or req.title or "Occupation",
+        "confidence": "high",
+        "assessing_body": resolved_body,
+        "pathway": occ_doc.get("pathway") or req.pathway or "Core Skills / GSM",
+        "reasoning": f"Evaluated for candidate profile with {cand_exp} years experience in {cand_field or 'industry'}.",
+        "considerations": f"Assessed by {resolved_body}.",
+        "_verified": True,
+        "_user_added": True,
+    }
+
+    _enrich_suggestion_skills(
+        s_item,
+        occ_doc,
+        candidate_profile,
+        cand_duties_text=prof_dict.get("roles_and_responsibilities") or "",
+        cand_company_nature=prof_dict.get("employer_nature") or "",
+        cand_employer=prof_dict.get("employer_name") or "",
+        cand_age=int(pri_app.get("personal", {}).get("age") or prof_dict.get("age") or 30),
+        classification_cfg=classification_cfg,
+    )
+
+    # Attach dual classification versions for AU
+    if cc == "AU":
+        occ_cv = await db["au_classification_versions"].find_one(
+            {"country_code": "AU", "code": code_str}, {"_id": 0}
+        ) or {}
+        s_item["classification_versions"] = occ_cv.get("classification_versions") or {
+            "anzsco_2013": {
+                "version_name": "ANZSCO 2013",
+                "framework": "General Skilled Migration (GSM)",
+                "is_eligible": True,
+                "active_subclasses": ["189", "190", "491", "494"],
+            },
+            "osca_2022": {
+                "version_name": "OSCA 2022",
+                "framework": "Employer-Sponsored & Core Skills (CSOL)",
+                "is_eligible": True,
+                "active_subclasses": ["482", "186", "407", "485"],
+            },
+        }
+
+    return s_item

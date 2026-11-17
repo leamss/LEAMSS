@@ -55,24 +55,89 @@ def _lookup_band_points(
 ) -> Tuple[int, str]:
     """Match an integer/float value against {bands: [{min, max, points}]}.
     Falls back to `default_bands` list of (min, max, points) tuples when no override.
-    Returns (points, bucket_label)."""
+    Returns (points, bucket_label).
+
+    Uses continuous half-open interval matching [lo, next_lo) so that decimal values
+    such as 5.8, 6.7, 4.5, 7.5 map accurately to the corresponding band without falling
+    into discrete integer gaps.
+    """
     tbl = _rules_table(rules, table_name)
     bands = (tbl or {}).get("bands") if tbl else None
     if isinstance(bands, list) and bands:
+        valid_bands = []
         for b in bands:
             try:
                 lo = float(b.get("min", 0))
                 hi = float(b.get("max", 99))
+                pts = int(b.get("points", 0))
+                valid_bands.append((lo, hi, pts))
             except (TypeError, ValueError):
                 continue
-            if lo <= value <= hi:
-                return int(b.get("points", 0)), f"{int(lo)}-{int(hi)}"
-        return default_band
-    # Hardcoded fallback
-    for lo, hi, pts in default_bands:
-        if lo <= value <= hi:
-            return pts, f"{lo}-{hi}"
+        if valid_bands:
+            valid_bands.sort(key=lambda x: x[0])
+            for i, (lo, hi, pts) in enumerate(valid_bands):
+                next_lo = valid_bands[i + 1][0] if i + 1 < len(valid_bands) else None
+                if next_lo is not None:
+                    if lo <= value < next_lo:
+                        lbl = f"{int(lo)}-{int(next_lo - 1)}" if next_lo - lo > 1 else f"{int(lo)}"
+                        return pts, lbl
+                else:
+                    if lo <= value:
+                        lbl = f"{int(lo)}+" if hi >= 80 else f"{int(lo)}-{int(hi)}"
+                        return pts, lbl
+            return default_band
+
+    # Hardcoded fallback using continuous half-open intervals
+    if default_bands:
+        sorted_defaults = sorted(default_bands, key=lambda x: x[0])
+        for i, (lo, hi, pts) in enumerate(sorted_defaults):
+            next_lo = sorted_defaults[i + 1][0] if i + 1 < len(sorted_defaults) else None
+            if next_lo is not None:
+                if lo <= value < next_lo:
+                    lbl = f"{lo}-{next_lo - 1}" if next_lo - lo > 1 else f"{lo}"
+                    return pts, lbl
+            else:
+                if lo <= value:
+                    lbl = f"{lo}+" if hi >= 80 else f"{lo}-{hi}"
+                    return pts, lbl
     return default_band
+
+
+def calculate_au_overseas_experience_points(years: float) -> Tuple[int, str]:
+    """Official Schedule 6D Overseas skilled employment points for Australian GSM (189/190/491):
+      • < 3.0 years: 0 points
+      • 3.0 to < 5.0 years (e.g. 3.0, 3.8, 4.5): 5 points
+      • 5.0 to < 8.0 years (e.g. 5.0, 5.8, 6.7, 7.5): 10 points
+      • >= 8.0 years (e.g. 8.0, 8.4, 10.4): 15 points
+    """
+    y = float(years or 0.0)
+    if y >= 8.0:
+        return 15, "8+"
+    elif y >= 5.0:
+        return 10, "5-7"
+    elif y >= 3.0:
+        return 5, "3-4"
+    return 0, "less_than_3"
+
+
+def calculate_au_australian_experience_points(years: float) -> Tuple[int, str]:
+    """Official Schedule 6D Australian skilled employment points for Australian GSM (189/190/491):
+      • < 1.0 year: 0 points
+      • 1.0 to < 3.0 years (e.g. 1.0, 2.5): 5 points
+      • 3.0 to < 5.0 years (e.g. 3.0, 4.5): 10 points
+      • 5.0 to < 8.0 years (e.g. 5.0, 5.8, 6.7, 7.5): 15 points
+      • >= 8.0 years (e.g. 8.0, 8.4): 20 points
+    """
+    y = float(years or 0.0)
+    if y >= 8.0:
+        return 20, "8+"
+    elif y >= 5.0:
+        return 15, "5-7"
+    elif y >= 3.0:
+        return 10, "3-4"
+    elif y >= 1.0:
+        return 5, "1-2"
+    return 0, "less_than_1"
 
 
 def _lookup_tier_points(
@@ -195,7 +260,45 @@ def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189", rul
     # 3) SKILLED EMPLOYMENT — Outside AU + Inside AU (separate)
     years_total = _to_float(professional.get("years_experience_total"))
     years_au = _to_float(professional.get("years_experience_australia"))
-    years_overseas = max(0.0, years_total - years_au)
+
+    # Applying Assessing Authority qualifying deduction for skilled employment points
+    ded_val = (
+        professional.get("deducted_years")
+        if professional.get("deducted_years") is not None
+        else profile.get("skills_assessment_deducted_years")
+    )
+    if ded_val is None and isinstance(profile.get("skills_assessment"), dict):
+        ded_val = profile.get("skills_assessment", {}).get("deducted_years")
+    if ded_val is None and isinstance(professional.get("skills_assessment"), dict):
+        ded_val = professional.get("skills_assessment", {}).get("deducted_years")
+
+    # If still None, try evaluating via skills_assessment_engine if occupation is known
+    if ded_val is None:
+        try:
+            from core.skills_assessment_engine import evaluate_skills_assessment
+            occ_obj = profile.get("occupation") or {"code": professional.get("occupation_code") or professional.get("current_profession")}
+            if occ_obj and occ_obj.get("code"):
+                sa_eval = evaluate_skills_assessment(occ_obj, profile)
+                if sa_eval and sa_eval.get("deducted_years") is not None:
+                    ded_val = sa_eval.get("deducted_years")
+        except Exception:
+            ded_val = 0.0
+
+    deducted_years = _to_float(ded_val or 0.0)
+
+    # Net points-claimable experience
+    claimable_total = professional.get("claimable_years")
+    if claimable_total is None:
+        claimable_total = profile.get("skills_assessment_claimable_years")
+    if claimable_total is None:
+        claimable_total = max(0.0, years_total - deducted_years)
+    else:
+        claimable_total = _to_float(claimable_total)
+
+    if years_total < claimable_total:
+        years_total = claimable_total + deducted_years
+
+    years_overseas = max(0.0, claimable_total - years_au)
 
     # Outside AU
     out_pts, out_bucket = _lookup_band_points(
@@ -203,7 +306,18 @@ def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189", rul
         default_band=(0, "less_than_3"),
         default_bands=[(0, 2, 0), (3, 4, 5), (5, 7, 10), (8, 99, 15)],
     )
-    breakdown["experience_overseas"] = {"value": years_overseas, "bucket": out_bucket, "points": out_pts}
+    note_str = ""
+    if deducted_years > 0:
+        note_str = f"{claimable_total:.1f} yrs claimable ({deducted_years:.1f} yrs deducted by assessing authority) · {out_pts} pts"
+    breakdown["experience_overseas"] = {
+        "value": years_overseas,
+        "raw_years": years_total,
+        "deducted_years": deducted_years,
+        "claimable_years": claimable_total,
+        "bucket": out_bucket,
+        "points": out_pts,
+        "note": note_str,
+    }
     total += out_pts
 
     # Inside AU

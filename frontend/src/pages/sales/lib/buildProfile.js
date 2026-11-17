@@ -13,15 +13,48 @@ export function buildProfile(data) {
   const num = (v) => (v === '' || v === null || v === undefined ? null : parseFloat(v));
   const bool = (v) => v === true || v === 'true';
 
+  const deductedYears = num(data.skills_assessment_deducted_years);
+  const rawExp = num(data.raw_years_experience_total);
+  const formExp = num(data.years_experience_total);
+
+  let claimableYears = data.skills_assessment_claimable_years !== '' && data.skills_assessment_claimable_years !== null && data.skills_assessment_claimable_years !== undefined
+    ? num(data.skills_assessment_claimable_years)
+    : formExp;
+
+  if (claimableYears != null) {
+    claimableYears = Math.round(claimableYears * 10) / 10;
+  } else {
+    claimableYears = 0;
+  }
+
+  // Total career experience before assessing body suitability deduction
+  const totalCareerExp = (rawExp != null && rawExp >= claimableYears)
+    ? Math.round(rawExp * 10) / 10
+    : Math.round((claimableYears + (deductedYears || 0)) * 10) / 10;
+
+  const claimablePts = claimableYears != null
+    ? (claimableYears >= 8 ? 15 : claimableYears >= 5 ? 10 : claimableYears >= 3 ? 5 : 0)
+    : 0;
+
   const primary = {
     personal: { age: num(data.age) },
     professional: {
-      current_profession: data.occupation_title,
-      designation: data.occupation_title,
-      years_experience_total: num(data.years_experience_total),
+      current_profession: data.current_profession || data.occupation_title || '',
+      designation: data.current_profession || data.occupation_title || '',
+      employer_name: data.employer_name || '',
+      employer_nature: data.employer_nature || '',
+      roles_and_responsibilities: data.roles_and_responsibilities || '',
+      years_experience_total: totalCareerExp,
+      raw_years_experience_total: totalCareerExp,
       years_experience_australia: num(data.years_experience_australia),
+      deducted_years: deductedYears,
+      claimable_years: claimableYears,
+      skills_assessment: data.skills_assessment_data || null,
     },
-    education: { highest_qualification: data.qualification },
+    education: {
+      highest_qualification: data.qualification,
+      field_of_study: data.field_of_study || '',
+    },
     language: {
       scores: {
         overall: num(data.ielts_overall),
@@ -84,7 +117,20 @@ export function buildProfile(data) {
 
   return {
     client_name: data.client_name,
+    client_email: data.client_email,
+    client_phone: data.client_phone,
     marital_status: data.marital_status,
+    current_profession: data.current_profession || '',
+    field_of_study: data.field_of_study || '',
+    employer_name: data.employer_name || '',
+    employer_nature: data.employer_nature || '',
+    roles_and_responsibilities: data.roles_and_responsibilities || '',
+    skills_assessment_outcome: data.skills_assessment_outcome || null,
+    skills_assessment_deducted_years: deductedYears,
+    skills_assessment_claimable_years: claimableYears,
+    skills_assessment_claimable_points: num(data.skills_assessment_claimable_points) != null ? num(data.skills_assessment_claimable_points) : claimablePts,
+    skills_assessment_rpl_required: bool(data.skills_assessment_rpl_required),
+    skills_assessment_data: data.skills_assessment_data || null,
     primary_applicant: primary,
     spouse,
     resume_file_id: data.resume_file_id || null,
@@ -172,6 +218,17 @@ export function dataFromAssessment(a, baseDefaults = {}) {
     ielts_speaking: num(lang.speaking),
     years_experience_total: num(primary.professional && primary.professional.years_experience_total),
     years_experience_australia: num(primary.professional && primary.professional.years_experience_australia),
+    current_profession: primary.professional?.current_profession || primary.professional?.designation || a?.current_profession || profile?.current_profession || '',
+    field_of_study: primary.education?.field_of_study || a?.field_of_study || profile?.field_of_study || '',
+    employer_name: primary.professional?.employer_name || a?.employer_name || profile?.employer_name || '',
+    employer_nature: primary.professional?.employer_nature || a?.employer_nature || profile?.employer_nature || '',
+    roles_and_responsibilities: primary.professional?.roles_and_responsibilities || a?.roles_and_responsibilities || profile?.roles_and_responsibilities || '',
+    skills_assessment_outcome: a?.skills_assessment_outcome || profile?.skills_assessment_outcome || primary.professional?.skills_assessment?.assessment_outcome || a?.skills_assessment?.assessment_outcome || '',
+    skills_assessment_deducted_years: num(a?.skills_assessment_deducted_years ?? profile?.skills_assessment_deducted_years ?? primary.professional?.deducted_years ?? a?.skills_assessment?.deducted_years),
+    skills_assessment_claimable_years: num(a?.skills_assessment_claimable_years ?? profile?.skills_assessment_claimable_years ?? primary.professional?.claimable_years ?? a?.skills_assessment?.points_claimable_years),
+    skills_assessment_claimable_points: num(a?.skills_assessment_claimable_points ?? profile?.skills_assessment_claimable_points ?? a?.skills_assessment?.points_claimable_points),
+    skills_assessment_rpl_required: !!(a?.skills_assessment_rpl_required ?? profile?.skills_assessment_rpl_required ?? primary.professional?.skills_assessment?.rpl_required ?? a?.skills_assessment?.rpl_required),
+    skills_assessment_data: a?.skills_assessment_data || profile?.skills_assessment_data || primary.professional?.skills_assessment || a?.skills_assessment || null,
     occupation_country: occ.country_code || 'AU',
     occupation_code: occ.code || '',
     occupation_title: occ.title || '',

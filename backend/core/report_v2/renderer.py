@@ -101,9 +101,44 @@ def _normalize_state_territory_eligibility(
     occ_doc: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
     """Normalizes any state eligibility data (dict, list, or empty) into 8 clean rows
-    for the Section 04.1 State / Territory Demand table.
+    for the Section 04.1 State / Territory Demand table. Sourced directly from authentic
+    Atlas JSA SPL dataset.
     """
     out: List[Dict[str, Any]] = []
+    occ_doc = occ_doc or {}
+
+    # Check if raw_ste is uniform dummy while occ_doc has differentiated 2024 JSA SPL ratings
+    h24 = (occ_doc.get("jsa_spl") or {}).get("historical_ratings", {}).get("2024") or {}
+    h24_ratings = {h24.get(f"r{st.lower()}") for st in AU_STATE_ORDER if h24.get(f"r{st.lower()}")}
+
+    is_uniform = False
+    if isinstance(raw_ste, dict) and raw_ste:
+        unique_ratings = {v.get("rating") for v in raw_ste.values() if isinstance(v, dict)}
+        if len(unique_ratings) <= 1 and len(h24_ratings) > 1:
+            is_uniform = True
+    elif isinstance(raw_ste, list) and raw_ste:
+        unique_ratings = {item.get("rating") for item in raw_ste if isinstance(item, dict)}
+        if len(unique_ratings) <= 1 and len(h24_ratings) > 1:
+            is_uniform = True
+
+    if (not raw_ste or is_uniform) and h24:
+        list_name = occ_doc.get("pathway_list") or ""
+        is_mltssl = "MLTSSL" in str(list_name).upper()
+        auth_ste = {}
+        for st in AU_STATE_ORDER:
+            r = h24.get(f"r{st.lower()}") or "NS"
+            is_s = (r == "S")
+            is_r = (r == "R")
+            stream = f"{st} Priority Skills List" if is_s else (f"{st} Regional 491 Stream" if is_r else f"{st} Regional / DAMA Concession")
+            auth_ste[st] = {
+                "rating": r,
+                "rating_label": "Shortage (Statewide)" if is_s else ("Regional Shortage" if is_r else "No Metro Shortage"),
+                "demand": "high" if is_s else ("medium" if is_r else "low"),
+                "eligible_190": is_s or is_mltssl,
+                "eligible_491": True,
+                "stream": stream,
+            }
+        raw_ste = auth_ste
 
     # 1. If raw_ste is a dictionary (standard MongoDB shape in occupation_master)
     if isinstance(raw_ste, dict) and raw_ste:
@@ -540,25 +575,34 @@ def _render_via_browser(html_str: str) -> bytes:
         with open(in_html, "w", encoding="utf-8") as f:
             f.write(html_str)
 
+        file_url = f"file://{os.path.abspath(in_html)}"
         cmd = [
             browser,
             "--headless=new",
             "--disable-gpu",
             "--no-sandbox",
             "--disable-dev-shm-usage",
-            "--allow-file-access-from-files",
-            "--enable-local-file-accesses",
+            "--disable-extensions",
+            "--disable-background-networking",
+            "--disable-default-apps",
+            "--disable-sync",
+            "--disable-translate",
+            "--no-first-run",
+            "--safebrowsing-disable-auto-update",
             f"--user-data-dir={user_data}",
             "--no-pdf-header-footer",
             f"--print-to-pdf={out_pdf}",
-            in_html,
+            file_url,
         ]
-        res = subprocess.run(cmd, capture_output=True, timeout=90)
-        if res.returncode != 0 or not os.path.exists(out_pdf):
-            cmd[1] = "--headless"
-            res = subprocess.run(cmd, capture_output=True, timeout=90)
+        try:
+            res = subprocess.run(cmd, capture_output=True, timeout=60)
             if res.returncode != 0 or not os.path.exists(out_pdf):
-                raise RuntimeError(f"Browser PDF export failed (exit code {res.returncode}): {res.stderr}")
+                cmd[1] = "--headless"
+                res = subprocess.run(cmd, capture_output=True, timeout=60)
+                if res.returncode != 0 or not os.path.exists(out_pdf):
+                    raise RuntimeError(f"Browser PDF export failed (exit code {res.returncode}): {res.stderr}")
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("Browser PDF export timed out after 60s; falling back to high-speed renderer")
         with open(out_pdf, "rb") as f:
             return f.read()
 

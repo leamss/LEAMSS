@@ -801,6 +801,7 @@ async def typeahead_country(
     match: Dict[str, Any] = {
         "country_code": country,
         "status": "verified",
+        "code": {"$regex": "^[0-9]{6}$" if country in {"AU", "NZ"} else "^[0-9]{5}$"},
         "$and": token_filters,
     }
 
@@ -851,9 +852,9 @@ async def get_featured():
     return {
         "items": items,
         "countries": [
-            {"code": "AU", **_country_meta("AU"), "total": (await db["anzsco_4digit_master"].count_documents({})) or 1236},
-            {"code": "CA", **_country_meta("CA"), "total": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified"})},
-            {"code": "NZ", **_country_meta("NZ"), "total": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified"})},
+            {"code": "AU", **_country_meta("AU"), "total": await db["occupation_master"].count_documents({"country_code": "AU", "status": "verified", "code": {"$regex": "^[0-9]{6}$"}})},
+            {"code": "CA", **_country_meta("CA"), "total": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified", "code": {"$regex": "^[0-9]{5}$"}})},
+            {"code": "NZ", **_country_meta("NZ"), "total": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified", "code": {"$regex": "^[0-9]{6}$"}})},
         ],
         "seo": {
             "page_title": "Migration Atlas — Australia, Canada & New Zealand Occupation Guide | LEAMSS",
@@ -945,6 +946,13 @@ async def list_country(
     match: Dict[str, Any] = {"country_code": country}
     if verified_only:
         match["status"] = "verified"
+
+    # Strictly enforce actionable occupations: 6-digit for AU & NZ, 5-digit for CA NOC
+    if country in {"AU", "NZ"}:
+        match["code"] = {"$regex": "^[0-9]{6}$"}
+    elif country == "CA":
+        match["code"] = {"$regex": "^[0-9]{5}$"}
+
     if search:
         s_clean = search.strip()
         tokens = [re.escape(t) for t in s_clean.split() if t]
@@ -964,8 +972,6 @@ async def list_country(
                 })
             match["$and"] = token_conditions
 
-    if country == "AU" and not search:
-        match["is_official_catalog"] = True
     total = await db["occupation_master"].count_documents(match)
     proj = {
         "_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
@@ -1021,28 +1027,18 @@ async def get_single_occupation(country: str, code: str):
     if country not in {"AU", "CA", "NZ"}:
         raise HTTPException(404, "Unknown country")
     # Sanity on code format
-    if not re.match(r"^\d{4,6}$", code):
+    if not re.match(r"^\d+$", code):
         raise HTTPException(400, "Invalid code format")
+    # Public Atlas serves strictly 6-digit occupations for AU & NZ, and 5-digit for CA NOC
+    if country in {"AU", "NZ"} and not re.match(r"^\d{6}$", code):
+        raise HTTPException(404, "Occupation not found or invalid 6-digit code format")
+    elif country == "CA" and not re.match(r"^\d{5}$", code):
+        raise HTTPException(404, "Occupation not found or invalid 5-digit code format")
 
     d = await db["occupation_master"].find_one(
         {"country_code": country, "code": code, "status": "verified"},
         {"_id": 0},
     )
-    if not d and country == "AU":
-        d = await db["anzsco_4digit_master"].find_one({"code": code}, {"_id": 0})
-        if d:
-            d["country_code"] = "AU"
-            d["status"] = "verified"
-            children = await db["occupation_master"].find(
-                {"country_code": "AU", "code": {"$regex": f"^{code}"}},
-                {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1, "pathway_list": 1, "recommended_visa_subclass": 1}
-            ).to_list(20)
-            if children:
-                d["assessing_authority"] = children[0].get("assessing_authority") or {}
-                d["similar_codes"] = [{"code": ch["code"], "title": ch["title"]} for ch in children]
-                d["child_occupations"] = children
-                d["pathway_list"] = "MLTSSL / STSOL"
-                d["recommended_visa_subclass"] = {"AU": "190"}
     if not d:
         raise HTTPException(404, "Occupation not found or not yet verified")
         # ---------------------------------------------------------
@@ -1103,11 +1099,12 @@ async def get_single_occupation(country: str, code: str):
     if len(similar) < 6:
         same_unit = (d.get("hierarchy") or {}).get("unit_group") or (code[:4] if len(code) >= 4 else "")
         same_minor = (d.get("hierarchy") or {}).get("minor_group") or (code[:3] if len(code) >= 3 else "")
+        similar_code_regex = "^[0-9]{6}$" if country in {"AU", "NZ"} else "^[0-9]{5}$"
         similar_cursor = db["occupation_master"].find(
             {
                 "country_code": country,
                 "status": {"$in": ["verified", "draft"]},
-                "code": {"$nin": [str(c) for c in seen_sim_codes]},
+                "code": {"$nin": [str(c) for c in seen_sim_codes], "$regex": similar_code_regex},
                 "$or": [
                     {"hierarchy.unit_group": same_unit} if same_unit else {"hierarchy.minor_group": same_minor},
                     {"hierarchy.minor_group": same_minor},
@@ -1214,8 +1211,17 @@ async def sitemap_xml(response: Response):
     """Return XML sitemap with all verified occupation URLs."""
     base = _public_site_url()
     urls: List[str] = [f"{base}/atlas", f"{base}/atlas/au", f"{base}/atlas/ca", f"{base}/atlas/nz"]
+    # Only include actionable occupations: 6-digit for AU & NZ, 5-digit for CA NOC
+    match_sitemap = {
+        "status": "verified",
+        "$or": [
+            {"country_code": "AU", "code": {"$regex": "^[0-9]{6}$"}},
+            {"country_code": "NZ", "code": {"$regex": "^[0-9]{6}$"}},
+            {"country_code": "CA", "code": {"$regex": "^[0-9]{5}$"}},
+        ]
+    }
     async for d in db["occupation_master"].find(
-        {"status": "verified"},
+        match_sitemap,
         {"_id": 0, "code": 1, "country_code": 1},
     ):
         urls.append(f"{base}/atlas/{(d['country_code'] or '').lower()}/{d['code']}")
@@ -1297,6 +1303,9 @@ async def submit_lead(request: Request):
 
     if not name or not email:
         raise HTTPException(400, "Name and email are required.")
+
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(422, "Invalid email address format.")
 
     now = datetime.now(timezone.utc)
     lead_id = str(uuid.uuid4())

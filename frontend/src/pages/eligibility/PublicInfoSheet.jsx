@@ -231,7 +231,7 @@ export default function PublicInfoSheet() {
           </Row>
           <Row>
             <Field label="Years of Experience">
-              <Input type="number" step="0.5" value={data.years_experience_total} onChange={e => update('years_experience_total', e.target.value)} />
+              <Input type="number" step="any" value={data.years_experience_total} onChange={e => update('years_experience_total', e.target.value)} />
             </Field>
             <Field label="Industry">
               <Input value={data.industry} onChange={e => update('industry', e.target.value)} placeholder="e.g., IT, Marketing" />

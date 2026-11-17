@@ -10,7 +10,9 @@ const newCSS = `/* Search & Typeahead */
 .search-wrapper{position:relative;max-width:760px;margin:24px 0 20px;}
 .search-bar{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:6px 6px 6px 18px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 18px rgba(31,77,68,.05);width:100%;transition:border-color .15s,box-shadow .15s}
 .search-bar:focus-within{border-color:var(--forest);box-shadow:0 6px 22px rgba(31,77,68,.12)}
-.search-bar input{flex:1;outline:none;border:none;padding:12px 6px;font-size:14px;color:var(--ink);background:transparent;font-family:inherit;min-width:0}
+.search-bar input{flex:1;outline:none;border:none;padding:12px 6px;font-size:14px;color:var(--ink);background:transparent;font-family:inherit;min-width:0;-webkit-appearance:none}
+.search-bar input::-webkit-search-cancel-button,
+.search-bar input::-webkit-search-decoration{display:none;-webkit-appearance:none;appearance:none}
 .search-bar input::placeholder{color:var(--muted)}
 .search-bar .ic{color:var(--muted);font-size:18px;flex-shrink:0}
 .search-clear-btn{display:none;background:none;border:none;cursor:pointer;color:var(--muted);padding:4px 8px;font-size:16px;border-radius:50%;line-height:1}
@@ -54,7 +56,7 @@ const newScript = `<div id="root"></div>
   var initialGridHtml = grid ? grid.innerHTML : '';
   var initialMetaText = meta ? meta.textContent : '';
   var initialTotalMatch = (meta ? meta.textContent : '').match(/of\\s+([0-9,]+)/);
-  var totalItems = initialTotalMatch ? parseInt(initialTotalMatch[1].replace(/,/g, ''), 10) : (countryCode === 'CA' ? 516 : 1236);
+  var totalItems = initialTotalMatch ? parseInt(initialTotalMatch[1].replace(/,/g, ''), 10) : (countryCode === 'CA' ? 516 : 1070);
   var currentPage = 1;
   var currentQuery = '';
 
@@ -83,7 +85,10 @@ const newScript = `<div id="root"></div>
 
   function getApiBase() {
     var host = window.location.hostname;
-    return (host === 'localhost' || host === '127.0.0.1') ? '/api' : 'https://api.leamss.com/api';
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return (window.location.port === '8001') ? '/api' : 'http://' + host + ':8001/api';
+    }
+    return 'https://api.leamss.com/api';
   }
 
   function renderCards(items) {
@@ -327,9 +332,11 @@ const newScript = `<div id="root"></div>
     fetchPage(1, input.value, true);
   });
 
+  var gridSearchTimer = null;
   input.addEventListener('input', function() {
     updateClearBtn();
     clearTimeout(typeaheadTimer);
+    clearTimeout(gridSearchTimer);
     var val = input.value;
     if (!val.trim()) {
       hideDropdown();
@@ -338,7 +345,10 @@ const newScript = `<div id="root"></div>
     }
     typeaheadTimer = setTimeout(function() {
       fetchTypeahead(val);
-    }, 180);
+    }, 150);
+    gridSearchTimer = setTimeout(function() {
+      fetchPage(1, val, false);
+    }, 280);
   });
 
   input.addEventListener('focus', function() {

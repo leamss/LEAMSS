@@ -33,7 +33,12 @@ def delegated_domain() -> str:
 
 
 def default_sender() -> str:
-    return (os.environ.get("GMAIL_DEFAULT_SENDER") or "").strip().lower()
+    return (
+        os.environ.get("GMAIL_DEFAULT_SENDER")
+        or os.environ.get("GMAIL_EMAIL")
+        or os.environ.get("SMTP_USER")
+        or "info@leamss.com"
+    ).strip().lower()
 
 
 def _sa_info() -> Optional[dict]:
@@ -97,11 +102,34 @@ async def send(
 ) -> None:
     sender_email = (sender_email or default_sender() or os.environ.get("GMAIL_EMAIL") or os.environ.get("SMTP_USER") or "info@leamss.com").strip().lower()
 
+    from core.database import db
+    try:
+        settings_doc = await db["email_settings"].find_one({"id": "global"}) or {}
+    except Exception:
+        settings_doc = {}
+
+    sender_doc = None
+    try:
+        sender_doc = await db["mail_senders"].find_one({"email": sender_email})
+    except Exception:
+        pass
+
     # Build standard email message
     msg = EmailMessage()
     def _hdr(v):
         return " ".join(str(v or "").replace("\r", " ").replace("\n", " ").split())
-    from_name = _hdr(sender_name or os.environ.get("SENDER_NAME") or "LEAMSS")
+    
+    sender_doc_name = (sender_doc or {}).get("name")
+    if sender_doc_name and (not sender_name or sender_name in ["LEAMSS", "LEAMSS Security", "Ladhani Education & Migration Services"]):
+        from_name = _hdr(f"{sender_doc_name} | LEAMSS")
+    else:
+        from_name = _hdr(sender_name or sender_doc_name or settings_doc.get("sender_name") or os.environ.get("SENDER_NAME") or "LEAMSS Consultation")
+
+    from email.utils import formatdate, make_msgid
+
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain=sender_email.split("@")[-1] or "leamss.com")
+    msg["Reply-To"] = f"{from_name} <{sender_email}>" if from_name else sender_email
     msg["From"] = f"{from_name} <{sender_email}>" if from_name else sender_email
     msg["To"] = _hdr(recipient)
     msg["Subject"] = _hdr(subject)
@@ -130,20 +158,14 @@ async def send(
             logger.warning("DWD send failed, attempting SMTP fallback: %s", e)
 
     # 2. Try SMTP with Gmail App Password or SMTP credentials (from DB or env)
-    from core.database import db
-    try:
-        settings_doc = await db["email_settings"].find_one({"id": "global"}) or {}
-    except Exception:
-        settings_doc = {}
-
-    smtp_user = (
+    global_user = (
         settings_doc.get("smtp_user")
         or settings_doc.get("gmail_email")
         or os.environ.get("GMAIL_EMAIL")
         or os.environ.get("SMTP_USER")
         or "info@leamss.com"
     ).strip()
-    smtp_pass = (
+    global_pass = (
         settings_doc.get("smtp_password")
         or settings_doc.get("smtp_pass")
         or settings_doc.get("gmail_app_password")
@@ -152,22 +174,66 @@ async def send(
         or os.environ.get("SMTP_PASSWORD")
         or "mwofliqkpoyagmkc"
     ).replace(" ", "").strip()
-    smtp_host = settings_doc.get("smtp_host") or os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(settings_doc.get("smtp_port") or os.environ.get("SMTP_PORT", "587"))
 
-    if smtp_user and smtp_pass:
-        import aiosmtplib
+    sender_app_password = (sender_doc or {}).get("app_password")
+    if sender_app_password:
+        login_user = sender_email
+        login_pass = sender_app_password.replace(" ", "").strip()
+    else:
+        login_user = global_user
+        login_pass = global_pass
+
+    smtp_host = settings_doc.get("smtp_host") or os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    configured_port = int(settings_doc.get("smtp_port") or os.environ.get("SMTP_PORT", "465"))
+
+    def _send_smtp_sync(user: str, password: str, targets: list[str]) -> None:
+        import smtplib
+        # Ensure From header matches authenticated user if different to guarantee 100% SPF/DKIM
+        if user and "@" in user and sender_email != user and not sender_app_password:
+            try:
+                msg.replace_header("From", f"{from_name} <{user}>")
+            except Exception:
+                pass
+
+        # Try port 465 SSL first on Gmail (reliable against pipe drops on 2MB attachments), fallback to 587
+        ports_to_try = [465, 587] if (smtp_host == "smtp.gmail.com" and configured_port in (465, 587)) else [configured_port]
+        last_err = None
+        for port in ports_to_try:
+            try:
+                if port == 465:
+                    with smtplib.SMTP_SSL(smtp_host, 465, timeout=45) as server:
+                        server.login(user, password)
+                        server.send_message(msg, from_addr=user, to_addrs=targets)
+                else:
+                    with smtplib.SMTP(smtp_host, port, timeout=45) as server:
+                        server.starttls()
+                        server.login(user, password)
+                        server.send_message(msg, from_addr=user, to_addrs=targets)
+                return
+            except Exception as ex:
+                last_err = ex
+                logger.warning("SMTP attempt on %s:%s failed: %s", smtp_host, port, ex)
+        if last_err:
+            raise last_err
+
+    if login_user and login_pass:
         recipients = [recipient]
-        if bcc:
+        if bcc and bcc not in recipients:
             recipients.append(bcc)
         try:
-            async with aiosmtplib.SMTP(hostname=smtp_host, port=smtp_port, start_tls=True, timeout=30) as smtp:
-                await smtp.login(smtp_user, smtp_pass)
-                await smtp.send_message(msg, sender=smtp_user, recipients=recipients)
-            logger.info("Email sent via SMTP (%s) to %s", smtp_host, recipient)
+            await asyncio.to_thread(_send_smtp_sync, login_user, login_pass, recipients)
+            logger.info("Email sent via SMTP (%s) as %s to %s", smtp_host, login_user, recipient)
             return
         except Exception as e:
-            logger.warning("SMTP send failed: %s", e)
+            logger.warning("SMTP send failed for %s: %s", login_user, e)
+            if login_user != global_user and global_user and global_pass:
+                try:
+                    logger.info("Retrying with global SMTP credentials (%s)...", global_user)
+                    await asyncio.to_thread(_send_smtp_sync, global_user, global_pass, recipients)
+                    logger.info("Email sent via global SMTP fallback to %s", recipient)
+                    return
+                except Exception as e_fb:
+                    logger.warning("Global fallback SMTP failed: %s", e_fb)
             raise RuntimeError(f"SMTP send failed: {e}") from e
 
     # 3. If neither is configured, raise clear setup message

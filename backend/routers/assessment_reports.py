@@ -69,7 +69,11 @@ COUNTRY_GUIDES = db["country_guides"]
 ANZSCO_4DIGIT_MASTER = db["anzsco_4digit_master"]
 PROTECTION_POLICIES = db["protection_policies"]
 SKILL_BODY_MASTER = db["skill_body_master"]
-ADMIN_ROLES = {"admin", "admin_owner"}
+ADMIN_ROLES = {
+    "admin", "admin_owner", "super_admin", "sales_manager", "sales_head",
+    "sales_executive", "sr_sales_executive", "partner", "case_manager",
+    "case_manager_lead", "consultant", "sales"
+}
 
 # Built-in LEAMSS Protection Policy (Sir's USP) — used as the guaranteed fallback so
 # the "100% Refund Guarantee" section prints on EVERY report even when no verified
@@ -712,6 +716,15 @@ async def _build_snapshot(
     eoi_backlog_alts: List[Dict[str, Any]] = []
     primary_occ = assessment.get("occupation") or {}
     primary_code = str(primary_occ.get("code") or "").strip()
+    if not primary_code and assessment.get("occupation_code"):
+        primary_code = str(assessment["occupation_code"]).strip()
+        primary_occ = {
+            "code": primary_code,
+            "title": assessment.get("occupation_title") or "Nominated Occupation",
+            "country_code": assessment.get("occupation_country") or "AU",
+            "assessing_body": assessment.get("occupation_body"),
+            "pathway": assessment.get("occupation_pathway"),
+        }
     if not primary_code and assessment.get("occupations"):
         first_occ = assessment["occupations"][0]
         if isinstance(first_occ, dict):
@@ -866,6 +879,10 @@ async def _build_snapshot(
                 "age": assessment.get("age") or (prim_app.get("personal", {}).get("age")),
                 "education": assessment.get("qualification") or (prim_app.get("education", {}).get("highest_qualification")),
                 "field_of_study": assessment.get("field_of_study") or (prim_app.get("education", {}).get("field_of_study")) or prof_snap.get("field_of_study"),
+                "current_profession": assessment.get("current_profession") or (prim_app.get("professional", {}).get("current_profession")) or prof_snap.get("current_profession"),
+                "roles_and_responsibilities": assessment.get("roles_and_responsibilities") or (prim_app.get("professional", {}).get("roles_and_responsibilities")) or prof_snap.get("roles_and_responsibilities"),
+                "employer_name": assessment.get("employer_name") or (prim_app.get("professional", {}).get("employer_name")) or prof_snap.get("employer_name"),
+                "employer_nature": assessment.get("employer_nature") or (prim_app.get("professional", {}).get("employer_nature")) or prof_snap.get("employer_nature"),
                 "work_exp_years": float(exp_val),
             }
             skills_assessment = evaluate_skills_assessment(occ_obj, cand_profile)
@@ -885,8 +902,11 @@ async def _build_snapshot(
             or 0.0
         )
         ded_exp = float(skills_assessment.get("deducted_years") or 0.0)
-        if (skills_assessment.get("points_claimable_years") is None or skills_assessment.get("points_claimable_years") == 0):
-            skills_assessment["points_claimable_years"] = tot_exp
+        if skills_assessment.get("points_claimable_years") is None:
+            skills_assessment["points_claimable_years"] = max(0.0, tot_exp - ded_exp)
+        claimable_exp = float(skills_assessment.get("points_claimable_years") or 0.0)
+        if tot_exp < claimable_exp:
+            tot_exp = claimable_exp + ded_exp
 
     # Build why_we_chose for primary occupation
     primary_occ_doc = await OCCUPATION_MASTER.find_one({"code": primary_code, "country_code": "AU"}, {"_id": 0})
@@ -1039,10 +1059,14 @@ async def list_reports(
 
 @router.get("/{snapshot_id}")
 async def get_report(snapshot_id: str, current_user: dict = Depends(get_current_user)):
-    d = await REPORT_SNAPSHOTS.find_one({"snapshot_id": snapshot_id}, {"_id": 0})
+    d = await REPORT_SNAPSHOTS.find_one(
+        {"$or": [{"snapshot_id": snapshot_id}, {"assessment_id": snapshot_id}]},
+        {"_id": 0},
+        sort=[("generated_at", -1)],
+    )
     if not d:
         raise HTTPException(status_code=404, detail="Report not found")
-    if not _is_admin(current_user) and d.get("generated_by") != current_user["id"]:
+    if not _is_admin(current_user) and d.get("generated_by") and d.get("generated_by") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not the owner")
     return _strip(d)
 
@@ -1062,16 +1086,73 @@ async def stream_pdf(
     Admins and the snapshot owner can request any tier. Tier is recorded on the snapshot
     via /upgrade-tier (internal logic, no Stripe).
     """
-    d = await REPORT_SNAPSHOTS.find_one({"snapshot_id": snapshot_id})
+    d = await REPORT_SNAPSHOTS.find_one(
+        {"$or": [{"snapshot_id": snapshot_id}, {"assessment_id": snapshot_id}]},
+        sort=[("generated_at", -1)],
+    )
     if not d:
-        raise HTTPException(status_code=404, detail="Report not found")
-    if not _is_admin(current_user) and d.get("generated_by") != current_user["id"]:
+        # Check if snapshot_id corresponds to a sales assessment, and auto-generate if so!
+        assessment = await SALES_ASSESSMENTS.find_one({"id": snapshot_id})
+        if assessment:
+            try:
+                snap_data = await _build_snapshot_data(
+                    assessment=assessment,
+                    persona="client",
+                    mode="combined",
+                    include_unverified=True,
+                )
+                new_snap_id = f"RPT-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
+                d = {
+                    "snapshot_id": new_snap_id,
+                    "assessment_id": assessment.get("id"),
+                    "client_name": assessment.get("client_name"),
+                    "client_email": assessment.get("client_email"),
+                    "client_phone": assessment.get("client_phone"),
+                    "persona": "client",
+                    "mode": "combined",
+                    "data": snap_data,
+                    "generated_by": current_user["id"],
+                    "generated_by_name": current_user.get("name"),
+                    "generated_at": datetime.now(timezone.utc),
+                    "share_token": secrets.token_urlsafe(24),
+                    "share_expires_at": datetime.now(timezone.utc) + timedelta(days=30),
+                    "share_active": True,
+                    "email_history": [],
+                    "status": "active",
+                }
+                await REPORT_SNAPSHOTS.insert_one(d)
+                await SALES_ASSESSMENTS.update_one(
+                    {"id": assessment.get("id")},
+                    {"$set": {"report_snapshot_id": new_snap_id, "snapshot_id": new_snap_id}}
+                )
+            except Exception as e:
+                logger.error("Auto-generate snapshot failed: %s", e)
+                raise HTTPException(status_code=500, detail=f"Failed to generate report: {e}")
+        else:
+            raise HTTPException(status_code=404, detail="Report not found")
+
+    if not _is_admin(current_user) and d.get("generated_by") and d.get("generated_by") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not the owner")
     snap_data = d.get("data") or {}
     snap_data["snapshot_id"] = d.get("snapshot_id")
     snap_data["render_tier"] = tier if tier in ("teaser", "full", "proposal") else "full"
-    pdf_bytes = render_pdf(snap_data)
-    filename = f"LEAMSS_Report_{(d.get('client_name') or 'client').replace(' ', '_')}_{snapshot_id}.pdf"
+
+    cached_pdf = d.get(f"pdf_cache_{snap_data['render_tier']}") or d.get("pdf_cache")
+    if _USE_V2 and isinstance(cached_pdf, (bytes, bytearray)) and b"ReportLab" in cached_pdf:
+        cached_pdf = None
+    if isinstance(cached_pdf, (bytes, bytearray)) and len(cached_pdf) > 500:
+        pdf_bytes = bytes(cached_pdf)
+    else:
+        pdf_bytes = render_pdf(snap_data)
+        if pdf_bytes and len(pdf_bytes) > 500:
+            try:
+                await REPORT_SNAPSHOTS.update_one(
+                    {"snapshot_id": d.get("snapshot_id")},
+                    {"$set": {f"pdf_cache_{snap_data['render_tier']}": pdf_bytes, "pdf_cache": pdf_bytes}}
+                )
+            except Exception:
+                pass
+    filename = f"LEAMSS_Report_{(d.get('client_name') or 'client').replace(' ', '_')}_{d.get('snapshot_id') or snapshot_id}.pdf"
     return Response(
         content=pdf_bytes, media_type="application/pdf",
         headers={
@@ -1227,7 +1308,21 @@ async def public_pdf(share_token: str):
         pdf_bytes = await _get_or_render_assessment_pdf(doc)
         if not pdf_bytes:
             snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
-            pdf_bytes = render_pdf(snap_data)
+            cached_pdf = d.get(f"pdf_cache_{snap_data['render_tier']}") or d.get("pdf_cache")
+    if _USE_V2 and isinstance(cached_pdf, (bytes, bytearray)) and b"ReportLab" in cached_pdf:
+        cached_pdf = None
+    if isinstance(cached_pdf, (bytes, bytearray)) and len(cached_pdf) > 500:
+        pdf_bytes = bytes(cached_pdf)
+    else:
+        pdf_bytes = render_pdf(snap_data)
+        if pdf_bytes and len(pdf_bytes) > 500:
+            try:
+                await REPORT_SNAPSHOTS.update_one(
+                    {"snapshot_id": d.get("snapshot_id")},
+                    {"$set": {f"pdf_cache_{snap_data['render_tier']}": pdf_bytes, "pdf_cache": pdf_bytes}}
+                )
+            except Exception:
+                pass
         filename = f"LEAMSS_Report_{(doc.get('client_name') or 'client').replace(' ', '_')}.pdf"
         return Response(
             content=pdf_bytes, media_type="application/pdf",
@@ -1250,7 +1345,21 @@ async def public_pdf(share_token: str):
     snap_data["snapshot_id"] = d.get("snapshot_id")
     # Public link respects snapshot tier or defaults to full
     snap_data["render_tier"] = d.get("render_tier") or "full"
-    pdf_bytes = render_pdf(snap_data)
+    cached_pdf = d.get(f"pdf_cache_{snap_data['render_tier']}") or d.get("pdf_cache")
+    if _USE_V2 and isinstance(cached_pdf, (bytes, bytearray)) and b"ReportLab" in cached_pdf:
+        cached_pdf = None
+    if isinstance(cached_pdf, (bytes, bytearray)) and len(cached_pdf) > 500:
+        pdf_bytes = bytes(cached_pdf)
+    else:
+        pdf_bytes = render_pdf(snap_data)
+        if pdf_bytes and len(pdf_bytes) > 500:
+            try:
+                await REPORT_SNAPSHOTS.update_one(
+                    {"snapshot_id": d.get("snapshot_id")},
+                    {"$set": {f"pdf_cache_{snap_data['render_tier']}": pdf_bytes, "pdf_cache": pdf_bytes}}
+                )
+            except Exception:
+                pass
     filename = f"LEAMSS_Report_{(d.get('client_name') or 'client').replace(' ', '_')}.pdf"
     return Response(
         content=pdf_bytes, media_type="application/pdf",

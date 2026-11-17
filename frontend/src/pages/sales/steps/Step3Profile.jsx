@@ -16,8 +16,25 @@ import ANZSCOPreviewCard from '../components/ANZSCOPreviewCard';
 import AtlasVerifyCard from '../components/AtlasVerifyCard';
 import AtlasAutoSuggestModal from '../components/AtlasAutoSuggestModal';
 import { QUALIFICATIONS, MARITAL_OPTIONS, CONTRIBUTION_OPTIONS } from '../lib/constants';
+import { buildProfile } from '../lib/buildProfile';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+export function getStandardDeduction(code, body) {
+  const c = String(code || '').trim();
+  const b = String(body || '').toUpperCase();
+  if (c.startsWith('3') || b.includes('TRA') || b.includes('TRADES RECOGNITION')) return 3.0;
+  if (c.startsWith('26') || c.startsWith('1351') || b.includes('ACS') || b.includes('COMPUTER SOCIETY')) return 2.0;
+  if (b.includes('VETASSESS')) return 1.0;
+  return 0.0;
+}
+
+export function round1(val) {
+  if (val === '' || val === null || val === undefined) return '';
+  const n = parseFloat(val);
+  if (isNaN(n)) return '';
+  return Math.round(n * 10) / 10;
+}
 
 export default function Step3Profile({ data, update, setData, headers }) {
   const [showSuggester, setShowSuggester] = useState(false);
@@ -32,6 +49,46 @@ export default function Step3Profile({ data, update, setData, headers }) {
     if (data.approach === 'resume_upload' && !data.age) setShowResumeUpload(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-sync deduction and claimable experience whenever primary occupation is set or changed
+  useEffect(() => {
+    if (!data.occupation_code) return;
+    const stdDed = getStandardDeduction(data.occupation_code, data.occupation_body);
+    const currentDed = round1(
+      (data.skills_assessment_deducted_years !== '' && data.skills_assessment_deducted_years !== undefined && data.skills_assessment_deducted_years !== null)
+        ? parseFloat(data.skills_assessment_deducted_years)
+        : stdDed
+    );
+
+    if (data.skills_assessment_deducted_years === undefined || data.skills_assessment_deducted_years === '') {
+      update('skills_assessment_deducted_years', currentDed);
+    }
+
+    // If years_experience_total is empty but skills assessment has claimable years, populate it directly
+    if ((data.years_experience_total === '' || data.years_experience_total === undefined || data.years_experience_total === null) &&
+        (data.skills_assessment_claimable_years != null || data.skills_assessment_data?.points_claimable_years != null)) {
+      const initClaimable = round1(data.skills_assessment_claimable_years ?? data.skills_assessment_data?.points_claimable_years);
+      update('years_experience_total', initClaimable);
+    }
+
+    // Keep claimable experience in sync with what is in years_experience_total
+    const expNum = parseFloat(data.years_experience_total);
+    if (!isNaN(expNum)) {
+      const claimableYrs = round1(expNum);
+      const claimablePts = claimableYrs >= 8 ? 15 : claimableYrs >= 5 ? 10 : claimableYrs >= 3 ? 5 : 0;
+      if (data.skills_assessment_claimable_years !== claimableYrs) {
+        update('skills_assessment_claimable_years', claimableYrs);
+      }
+      if (data.skills_assessment_claimable_points !== claimablePts) {
+        update('skills_assessment_claimable_points', claimablePts);
+      }
+      // If there are long floating point decimals in years_experience_total, round it
+      if (String(data.years_experience_total).includes('.') && String(data.years_experience_total).split('.')[1].length > 1) {
+        update('years_experience_total', claimableYrs);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.occupation_code, data.occupation_body, data.years_experience_total]);
 
   const isMarried = data.marital_status === 'married' || data.marital_status === 'de_facto';
 
@@ -49,6 +106,7 @@ export default function Step3Profile({ data, update, setData, headers }) {
     title: s.title,
     assessing_body: s.assessing_body,
     pathway: s.pathway,
+    skills_assessment: s.skills_assessment,
   });
 
   const handleSelectMultiple = (list) => {
@@ -59,14 +117,48 @@ export default function Step3Profile({ data, update, setData, headers }) {
     update('occupation_title', primary.title);
     update('occupation_body', primary.assessing_body);
     update('occupation_pathway', primary.pathway);
-    if (primary.skills_assessment) {
-      update('skills_assessment_outcome', primary.skills_assessment.assessment_outcome);
-      update('skills_assessment_deducted_years', primary.skills_assessment.deducted_years);
-      update('skills_assessment_claimable_years', primary.skills_assessment.points_claimable_years);
-      update('skills_assessment_claimable_points', primary.skills_assessment.points_claimable_points);
-      update('skills_assessment_rpl_required', primary.skills_assessment.rpl_required);
-      update('skills_assessment_data', primary.skills_assessment);
+
+    const stdDed = round1(getStandardDeduction(primary.code, primary.assessing_body));
+    const ded = (primary.skills_assessment && primary.skills_assessment.deducted_years != null)
+      ? round1(parseFloat(primary.skills_assessment.deducted_years))
+      : stdDed;
+
+    const sa = primary.skills_assessment || {};
+    // Directly fill the evaluated claimable experience from the selected occupation
+    let claimableYrs = '';
+    if (sa.points_claimable_years != null && sa.points_claimable_years !== '') {
+      claimableYrs = round1(sa.points_claimable_years);
+    } else if (sa.claimable_years != null && sa.claimable_years !== '') {
+      claimableYrs = round1(sa.claimable_years);
+    } else if (data.years_experience_total !== '' && data.years_experience_total != null && !isNaN(parseFloat(data.years_experience_total))) {
+      claimableYrs = round1(data.years_experience_total);
+    } else {
+      claimableYrs = 0;
     }
+
+    const claimablePts = sa.points_claimable_points != null
+      ? Number(sa.points_claimable_points)
+      : (claimableYrs >= 8 ? 15 : claimableYrs >= 5 ? 10 : claimableYrs >= 3 ? 5 : 0);
+
+    const totalCareerExp = sa.total_experience_years != null
+      ? round1(sa.total_experience_years)
+      : round1(claimableYrs + (ded || 0));
+
+    update('raw_years_experience_total', totalCareerExp);
+    update('years_experience_total', claimableYrs);
+    update('skills_assessment_outcome', sa.assessment_outcome || 'Likely Positive Assessment');
+    update('skills_assessment_deducted_years', ded);
+    update('skills_assessment_claimable_years', claimableYrs);
+    update('skills_assessment_claimable_points', claimablePts);
+    update('skills_assessment_rpl_required', Boolean(sa.rpl_required));
+    update('skills_assessment_data', {
+      ...sa,
+      total_experience_years: totalCareerExp,
+      deducted_years: ded,
+      points_claimable_years: claimableYrs,
+      points_claimable_points: claimablePts,
+    });
+
     // Dedupe alternatives against the primary
     const primaryKey = `${primary.code}-${primary.country_code}`;
     const extras = rest
@@ -83,6 +175,114 @@ export default function Step3Profile({ data, update, setData, headers }) {
 
   const removeAdditional = (idx) => {
     update('additional_occupations', (data.additional_occupations || []).filter((_, i) => i !== idx));
+  };
+
+  const makeAlternativePrimary = async (idx) => {
+    const alts = [...(data.additional_occupations || [])];
+    const newPrimary = alts[idx];
+    if (!newPrimary) return;
+
+    // Remove newPrimary from alternatives
+    alts.splice(idx, 1);
+
+    // Old primary to be preserved as an alternative
+    const oldPrimary = {
+      country_code: data.occupation_country || 'AU',
+      code: data.occupation_code,
+      title: data.occupation_title,
+      assessing_body: data.occupation_body,
+      pathway: data.occupation_pathway,
+      skills_assessment: data.skills_assessment_data,
+    };
+
+    if (oldPrimary.code && String(oldPrimary.code) !== String(newPrimary.code)) {
+      alts.unshift(oldPrimary);
+    }
+
+    const newCode = newPrimary.code;
+    const newTitle = newPrimary.title;
+    const newBody = newPrimary.assessing_body || (String(newCode).startsWith('3') ? 'Trades Recognition Australia' : String(newCode).startsWith('26') ? 'Australian Computer Society' : 'Designated Assessing Body');
+    const newPathway = newPrimary.pathway || 'Core Skills / GSM';
+
+    // Calculate deduction
+    let deduction = 0;
+    if (newPrimary.skills_assessment && newPrimary.skills_assessment.deducted_years != null) {
+      deduction = round1(parseFloat(newPrimary.skills_assessment.deducted_years));
+    } else {
+      deduction = round1(getStandardDeduction(newCode, newBody));
+    }
+
+    const sa = newPrimary.skills_assessment || {};
+    let claimableYrs = '';
+    if (sa.points_claimable_years != null && sa.points_claimable_years !== '') {
+      claimableYrs = round1(sa.points_claimable_years);
+    } else if (sa.claimable_years != null && sa.claimable_years !== '') {
+      claimableYrs = round1(sa.claimable_years);
+    } else if (data.years_experience_total !== '' && data.years_experience_total != null && !isNaN(parseFloat(data.years_experience_total))) {
+      claimableYrs = round1(data.years_experience_total);
+    } else {
+      claimableYrs = 0;
+    }
+
+    const claimablePts = sa.points_claimable_points != null
+      ? Number(sa.points_claimable_points)
+      : (claimableYrs >= 8 ? 15 : claimableYrs >= 5 ? 10 : claimableYrs >= 3 ? 5 : 0);
+
+    const totalCareerExp = sa.total_experience_years != null
+      ? round1(sa.total_experience_years)
+      : round1(claimableYrs + (deduction || 0));
+
+    // Update state
+    update('occupation_country', newPrimary.country_code || 'AU');
+    update('occupation_code', newCode);
+    update('occupation_title', newTitle);
+    update('occupation_body', newBody);
+    update('occupation_pathway', newPathway);
+    update('raw_years_experience_total', totalCareerExp);
+    update('years_experience_total', claimableYrs);
+    update('skills_assessment_deducted_years', deduction);
+    update('skills_assessment_claimable_years', claimableYrs);
+    update('skills_assessment_claimable_points', claimablePts);
+    update('skills_assessment_outcome', sa.assessment_outcome || 'Likely Positive Assessment');
+    update('skills_assessment_data', {
+      ...sa,
+      total_experience_years: totalCareerExp,
+      deducted_years: deduction,
+      points_claimable_years: claimableYrs,
+      points_claimable_points: claimablePts,
+    });
+    update('additional_occupations', alts);
+
+    toast.success(`Set ${newCode} · ${newTitle} as Primary Occupation! Claimable: ${claimableYrs.toFixed(1)} yrs (+${claimablePts} GSM pts)`);
+
+    // Asynchronously call backend to enrich with deep assessing authority data & ABS tasks
+    try {
+      const evalResp = await axios.post(`${API}/sales/ai/evaluate-occupation-skills`, {
+        code: newCode,
+        country_code: newPrimary.country_code || 'AU',
+        title: newTitle,
+        assessing_body: newBody,
+        qualification: data.qualification,
+        field_of_study: data.field_of_study,
+        years_experience_total: claimableYrs,
+        profile: buildProfile({ ...data, occupation_code: newCode, occupation_title: newTitle, occupation_body: newBody, years_experience_total: claimableYrs, skills_assessment_claimable_years: claimableYrs }),
+      }, { headers });
+
+      if (evalResp.data && evalResp.data.skills_assessment) {
+        const enrichedSa = evalResp.data.skills_assessment;
+        const enrichedClaimable = enrichedSa.points_claimable_years != null ? round1(enrichedSa.points_claimable_years) : claimableYrs;
+        const enrichedPts = enrichedSa.points_claimable_points != null ? enrichedSa.points_claimable_points : claimablePts;
+        const enrichedDed = enrichedSa.deducted_years != null ? round1(enrichedSa.deducted_years) : deduction;
+        update('skills_assessment_outcome', enrichedSa.assessment_outcome || 'Likely Positive Assessment');
+        update('skills_assessment_deducted_years', enrichedDed);
+        update('skills_assessment_claimable_years', enrichedClaimable);
+        update('skills_assessment_claimable_points', enrichedPts);
+        update('years_experience_total', enrichedClaimable);
+        update('skills_assessment_data', enrichedSa);
+      }
+    } catch (e) {
+      console.warn('Asynchronous enrichment failed: ', e);
+    }
   };
 
   return (
@@ -175,27 +375,48 @@ export default function Step3Profile({ data, update, setData, headers }) {
 
       {(data.additional_occupations || []).length > 0 && (
         <Card className="p-3 bg-indigo-50 border-l-4 border-l-indigo-400" data-testid="additional-occ-card">
-          <p className="text-[10px] uppercase font-bold text-indigo-700 mb-1.5">
-            Alternative Occupations · shown side-by-side in the report
-          </p>
+          <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+            <p className="text-[10px] uppercase font-bold text-indigo-700">
+              Alternative Occupations · shown side-by-side in the report
+            </p>
+            <span className="text-[10px] text-indigo-600 font-medium">Click &quot;Set as Primary&quot; to swap any alternative code to primary</span>
+          </div>
           <div className="flex flex-wrap gap-2">
             {(data.additional_occupations || []).map((o, i) => (
               <div
                 key={`${o.code}-${o.country_code}-${i}`}
-                className="flex items-center gap-1.5 bg-white border rounded px-2 py-1 text-[11px]"
+                className="flex items-center gap-2 bg-white border border-indigo-200 rounded px-2.5 py-1.5 text-xs shadow-xs"
                 data-testid={`additional-occ-${i}`}
               >
-                <span className="font-bold">{o.code}</span>
-                <span className="text-slate-500">· {o.title}</span>
-                <span className="text-[9px] text-slate-400">({o.country_code})</span>
-                <button
-                  onClick={() => removeAdditional(i)}
-                  className="ml-0.5 text-rose-500 hover:text-rose-700"
-                  data-testid={`remove-additional-${i}`}
-                  title="Remove"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                <div>
+                  <span className="font-bold text-slate-800">{o.code}</span>
+                  <span className="text-slate-600"> · {o.title}</span>
+                  <span className="text-[10px] text-slate-400 ml-1">({o.country_code || 'AU'})</span>
+                  {o.assessing_body && (
+                    <span className="text-[10px] text-indigo-600 block font-medium">{o.assessing_body}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 ml-1.5">
+                  <Button
+                    size="sm"
+                    type="button"
+                    onClick={() => makeAlternativePrimary(i)}
+                    className="h-6 text-[10px] px-2 font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+                    data-testid={`make-primary-btn-${i}`}
+                    title="Promote this occupation to Primary"
+                  >
+                    ★ Set as Primary
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => removeAdditional(i)}
+                    className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
+                    data-testid={`remove-additional-${i}`}
+                    title="Remove alternative"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -220,7 +441,46 @@ export default function Step3Profile({ data, update, setData, headers }) {
           </Select>
         </FieldWithLabel>
         <FieldWithLabel label="Total Years Experience">
-          <Input type="number" step="0.5" value={data.years_experience_total} onChange={e => update('years_experience_total', e.target.value)} data-testid="ca-exp-total" placeholder="6" />
+          <Input
+            type="number"
+            step="0.1"
+            value={data.years_experience_total !== '' && data.years_experience_total !== undefined && !isNaN(parseFloat(data.years_experience_total))
+              ? round1(data.years_experience_total)
+              : (data.years_experience_total ?? '')}
+            onChange={e => {
+              const val = e.target.value;
+              update('years_experience_total', val);
+              const numVal = parseFloat(val);
+              if (!isNaN(numVal)) {
+                const ded = (data.skills_assessment_deducted_years !== '' && data.skills_assessment_deducted_years !== undefined)
+                  ? round1(parseFloat(data.skills_assessment_deducted_years))
+                  : round1(getStandardDeduction(data.occupation_code, data.occupation_body));
+                const claimableYrs = round1(numVal);
+                const claimablePts = claimableYrs >= 8 ? 15 : claimableYrs >= 5 ? 10 : claimableYrs >= 3 ? 5 : 0;
+                const rawTotal = round1(claimableYrs + (ded || 0));
+                update('raw_years_experience_total', rawTotal);
+                update('skills_assessment_claimable_years', claimableYrs);
+                update('skills_assessment_claimable_points', claimablePts);
+                if (data.skills_assessment_data) {
+                  update('skills_assessment_data', {
+                    ...data.skills_assessment_data,
+                    total_experience_years: rawTotal,
+                    deducted_years: ded,
+                    points_claimable_years: claimableYrs,
+                    points_claimable_points: claimablePts,
+                  });
+                }
+              }
+            }}
+            onBlur={() => {
+              const numVal = parseFloat(data.years_experience_total);
+              if (!isNaN(numVal)) {
+                update('years_experience_total', round1(numVal));
+              }
+            }}
+            data-testid="ca-exp-total"
+            placeholder="1.6"
+          />
         </FieldWithLabel>
       </div>
 

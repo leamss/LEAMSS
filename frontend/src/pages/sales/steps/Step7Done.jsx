@@ -1,5 +1,5 @@
 // Step 7 — Done page: actions + Document Checklist + Save & Share Report dialog
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import {
   ArrowRight, FileText, Loader2, MessageSquare, Search, Send, Trophy, UserCheck,
   FileBadge, Link2, Mail, Copy, Lock, CheckCircle2, Circle, Clock, Paperclip, Download,
-  Settings,
+  Settings, QrCode, Upload,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 import { API } from '../lib/constants';
 import EmailSettingsDialog from '../EmailSettingsDialog';
+import MailAccountsDialog from '../MailAccountsDialog';
 
 const ADMIN_ROLES = new Set(['admin', 'admin_owner', 'case_manager']);
 
@@ -32,6 +33,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailSent, setEmailSent] = useState(Boolean(saved?.email_status === 'sent'));
+  const [emailInFlight, setEmailInFlight] = useState(Boolean(saved?.email_status === 'sending'));
   const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
   const [whatsappSent, setWhatsappSent] = useState(Boolean(saved?.whatsapp_status === 'sent'));
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -60,7 +62,31 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
       .then(r => setLifecycle(r.data))
       .catch(() => {})
       .finally(() => setLoadingLifecycle(false));
+
+    // Silently pre-warm PDF in background so email/download is instant (< 2s)
+    axios.get(`${API}/sales/assessments/${saved.id}/pdf`, { headers }).catch(() => {});
   }, [saved?.id, headers]);
+
+  // Live background delivery tracker
+  useEffect(() => {
+    if (!saved?.id || !emailInFlight) return;
+    const interval = setInterval(async () => {
+      try {
+        const r = await axios.get(`${API}/sales/assessments/${saved.id}`, { headers });
+        if (r.data?.email_status === 'sent') {
+          setEmailInFlight(false);
+          setEmailSent(true);
+          toast.success(`Assessment Report delivered to ${r.data.email_to || 'client'}!`);
+          clearInterval(interval);
+        } else if (r.data?.email_status === 'failed') {
+          setEmailInFlight(false);
+          toast.error(`Email delivery failed: ${r.data.email_error || 'Unknown error'}`);
+          clearInterval(interval);
+        }
+      } catch (e) {}
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [saved?.id, emailInFlight, headers]);
 
   const openCreatePAFlow = async () => {
     if (!needsPartnerPicker) {
@@ -180,10 +206,20 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
           variant="outline"
           onClick={() => setEmailDialogOpen(true)}
           data-testid="email-client-btn"
-          className={emailSent ? "border-teal-400 bg-teal-50 text-teal-800 hover:bg-teal-100 font-medium" : "border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-medium"}
+          className={
+            emailSent
+              ? "border-teal-400 bg-teal-50 text-teal-800 hover:bg-teal-100 font-medium"
+              : emailInFlight
+              ? "border-amber-400 bg-amber-50 text-amber-800 font-medium animate-pulse"
+              : "border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-medium"
+          }
         >
-          <Mail className="h-4 w-4 mr-1 text-indigo-600" />
-          {emailSent ? 'Email Sent ✓' : 'Send Email'}
+          {emailInFlight ? (
+            <Loader2 className="h-4 w-4 mr-1.5 animate-spin text-amber-600" />
+          ) : (
+            <Mail className="h-4 w-4 mr-1 text-indigo-600" />
+          )}
+          {emailSent ? 'Email Sent ✓' : emailInFlight ? 'Sending Email…' : 'Send Email'}
         </Button>
         <Button
           size="default"
@@ -474,7 +510,10 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
           assessment={saved}
           headers={headers}
           onClose={() => setEmailDialogOpen(false)}
-          onSent={() => setEmailSent(true)}
+          onSent={() => {
+            setEmailSent(false);
+            setEmailInFlight(true);
+          }}
         />
       )}
 
@@ -518,20 +557,27 @@ function ReportActions({ saved }) {
   const existingSnapId = snap?.snapshot_id || saved?.report_snapshot_id || saved?.snapshot_id;
 
   const downloadPdf = async (snapshotId) => {
-    const targetId = snapshotId || existingSnapId;
-    if (!targetId) return;
+    const targetId = snapshotId || existingSnapId || saved?.id;
+    if (!targetId) {
+      if (saved?.id) return generateAndDownload();
+      return;
+    }
     setGenerating(true);
     try {
       const pdfUrl = `${API}/assessment-reports/${targetId}/pdf`;
       const resp = await fetch(pdfUrl, { headers });
       if (!resp.ok) {
+        if (resp.status === 404 && saved?.id && targetId !== saved.id) {
+          return generateAndDownload();
+        }
         throw new Error(`PDF download failed (${resp.status}): ${resp.statusText}`);
       }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `LEAMSS_Assessment_Report_${saved?.client_name ? saved.client_name.replace(/\s+/g, '_') : 'Applicant'}.pdf`;
+      const clientName = saved?.client_name || saved?.profile_snapshot?.client_name || 'Applicant';
+      link.download = `LEAMSS_Assessment_Report_${clientName.replace(/\s+/g, '_')}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -539,6 +585,9 @@ function ReportActions({ saved }) {
       toast.success('Report downloaded successfully');
     } catch (e) {
       toast.error(formatApiError(e, 'PDF download failed'));
+      if (saved?.share_token) {
+        window.open(`${API}/assessment-reports/public/${saved.share_token}/pdf`, '_blank');
+      }
     } finally {
       setGenerating(false);
     }
@@ -672,6 +721,15 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [bccSelf, setBccSelf] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showMailAccounts, setShowMailAccounts] = useState(false);
+  const [attachReport, setAttachReport] = useState(true);
+  const [attachResume, setAttachResume] = useState(true);
+  const [attachSla, setAttachSla] = useState(false);
+  const [attachQr, setAttachQr] = useState(false);
+  const slaInputRef = useRef(null);
+  const qrInputRef = useRef(null);
+  const [uploadingAsset, setUploadingAsset] = useState('');
+  const userEditedRecipient = useRef(false);
 
   const authHeaders = useMemo(() => {
     if (headers && Object.keys(headers).length > 0) return headers;
@@ -679,15 +737,52 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, [headers]);
 
+  const handleUploadAsset = async (asset, file) => {
+    if (!file) return;
+    setUploadingAsset(asset);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await axios.post(`${API}/email-settings/upload/${asset}`, fd, {
+        headers: { ...authHeaders, 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success(`${asset.toUpperCase()} uploaded successfully!`);
+      if (asset === 'sla') {
+        setData(prev => ({
+          ...prev,
+          has_uploaded_sla: true,
+          sla_filename: r.data?.filename || file.name,
+        }));
+        setAttachSla(true);
+      } else if (asset === 'qr') {
+        setData(prev => ({
+          ...prev,
+          has_uploaded_qr: true,
+        }));
+        setAttachQr(true);
+      }
+    } catch (err) {
+      toast.error(`Could not upload ${asset.toUpperCase()}`);
+    } finally {
+      setUploadingAsset('');
+    }
+  };
+
   useEffect(() => {
     if (!assessment?.id) return;
     (async () => {
       try {
         const r = await axios.get(`${API}/sales/assessments/${assessment.id}/email-preview`, { headers: authHeaders });
         setData(r.data);
-        if (r.data.client_email) setRecipientEmail(r.data.client_email);
+        if (r.data.client_email && !userEditedRecipient.current) {
+          setRecipientEmail(r.data.client_email);
+        }
         if (r.data.default_sender) setSelectedMailbox(r.data.default_sender);
         else if (r.data.mailboxes?.length) setSelectedMailbox(r.data.mailboxes[0].email);
+        if (r.data.attach_report !== undefined) setAttachReport(Boolean(r.data.attach_report));
+        setAttachResume(false);
+        setAttachSla(false);
+        setAttachQr(false);
       } catch (e) {
         toast.error(formatApiError(e, 'Could not load email configuration'));
       } finally {
@@ -697,26 +792,31 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
   }, [assessment?.id, authHeaders]);
 
   const handleSend = async () => {
-    if (!recipientEmail || !recipientEmail.includes('@')) {
+    const toSend = (recipientEmail || '').trim();
+    if (!toSend || !toSend.includes('@')) {
       toast.error('Please enter a valid recipient email address');
       return;
     }
     setSending(true);
     try {
       const r = await axios.post(`${API}/sales/assessments/${assessment.id}/email`, {
-        recipient_email: recipientEmail,
+        recipient_email: toSend,
         sender_email: selectedMailbox || null,
         template_id: selectedTemplate || 'default',
         bcc_self: bccSelf,
-        attach_report: true,
-      }, { headers: authHeaders, timeout: 60000 });
+        attach_report: attachReport,
+        attach_resume: attachResume,
+        attach_sla: attachSla,
+        attach_qr: attachQr,
+        sync: false,
+      }, { headers: authHeaders, timeout: 30000 });
 
       if (r.data?.ok === false || r.data?.error) {
         toast.error(r.data.error || 'Email could not be delivered');
         return;
       }
-      toast.success(`Assessment Report sent to ${r.data.sent_to}!`);
-      onSent?.();
+      toast.success(`Assessment Report is sending to ${toSend}!`);
+      onSent?.(toSend);
       onClose();
     } catch (e) {
       toast.error(formatApiError(e, 'Failed to send email'));
@@ -744,7 +844,10 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
               <input
                 type="email"
                 value={recipientEmail}
-                onChange={e => setRecipientEmail(e.target.value)}
+                onChange={e => {
+                  userEditedRecipient.current = true;
+                  setRecipientEmail(e.target.value);
+                }}
                 placeholder="client@example.com"
                 className="w-full border border-slate-200 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 data-testid="email-recipient-input"
@@ -752,7 +855,18 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Sender Account</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sender Account</label>
+                <button
+                  type="button"
+                  onClick={() => setShowMailAccounts(true)}
+                  className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer hover:underline"
+                  data-testid="open-mail-accounts-btn"
+                >
+                  <Settings className="h-3 w-3" />
+                  + Add / Configure Account
+                </button>
+              </div>
               <select
                 value={selectedMailbox}
                 onChange={e => setSelectedMailbox(e.target.value)}
@@ -766,7 +880,18 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Email Template</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Email Template</label>
+                <button
+                  type="button"
+                  onClick={() => { onClose(); navigate('/sales/email-templates'); }}
+                  className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer hover:underline"
+                  data-testid="open-email-templates-btn"
+                >
+                  <Settings className="h-3 w-3" />
+                  + Manage / Edit Templates
+                </button>
+              </div>
               <select
                 value={selectedTemplate}
                 onChange={e => setSelectedTemplate(e.target.value)}
@@ -780,45 +905,236 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
               </select>
             </div>
 
-            <div className="rounded border bg-slate-50/50 p-2.5 space-y-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">Attachments Included</span>
-              <div className="flex flex-wrap gap-1.5">
-                <span className="text-[11px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1 font-medium">
-                  <FileText className="h-3 w-3" />23-Page PDF Report
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block">
+                  Attachments (Tick to Include)
                 </span>
-                {data?.has_resume && (
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 font-medium" title={data?.resume_filename || 'Candidate Resume'}>
-                    <Paperclip className="h-3 w-3 text-amber-600" />Resume ({data?.resume_filename || 'PDF'})
-                  </span>
-                )}
-                {data?.attach_sla && (
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1 font-medium">
-                    <Paperclip className="h-3 w-3" />Service Agreement (SLA)
-                  </span>
-                )}
-                {data?.attach_qr && (
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 font-medium">
-                    💳 Payment QR Code
-                  </span>
-                )}
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {attachReport ? 'PDF Report (~2.5 MB)' : '⚡ Fast send (~2s)'}
+                </span>
               </div>
+
+              <div className="space-y-1.5">
+                {/* 1. PDF Report */}
+                <label className={`flex items-start gap-2.5 p-2 rounded-md bg-white border transition-colors cursor-pointer select-none ${attachReport ? 'border-indigo-300 bg-indigo-50/20 shadow-xs' : 'border-slate-200 hover:border-slate-300'}`}>
+                  <input
+                    type="checkbox"
+                    checked={attachReport}
+                    onChange={e => setAttachReport(e.target.checked)}
+                    disabled={sending}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    data-testid="attach-report-checkbox"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                        23-Page Assessment Report PDF
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono shrink-0">~2.5 MB</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      Official 23-page PDF with point breakdown, state sponsorship, and visa pathways.
+                    </p>
+                  </div>
+                </label>
+
+                {/* 2. Candidate Resume */}
+                {data?.has_resume && (
+                  <label className={`flex items-start gap-2.5 p-2 rounded-md bg-white border transition-colors cursor-pointer select-none ${attachResume ? 'border-amber-300 bg-amber-50/20 shadow-xs' : 'border-slate-200 hover:border-slate-300'}`}>
+                    <input
+                      type="checkbox"
+                      checked={attachResume}
+                      onChange={e => setAttachResume(e.target.checked)}
+                      disabled={sending}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      data-testid="attach-resume-checkbox"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                          <Paperclip className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                          Candidate Resume
+                        </span>
+                        <span className="text-[10px] text-slate-400 truncate max-w-[150px] shrink-0" title={data?.resume_filename || 'Candidate Resume'}>
+                          {data?.resume_filename || 'PDF / DOCX'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        Client's uploaded CV / Resume attached back for verification.
+                      </p>
+                    </div>
+                  </label>
+                )}
+
+                {/* 3. SLA Service Agreement */}
+                <div className={`p-2 rounded-md bg-white border transition-colors ${attachSla ? 'border-teal-300 bg-teal-50/20 shadow-xs' : 'border-slate-200 hover:border-slate-300'}`}>
+                  <div className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={attachSla}
+                      onChange={e => setAttachSla(e.target.checked)}
+                      disabled={sending}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                      data-testid="attach-sla-checkbox"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                          <FileBadge className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                          Service Level Agreement (SLA)
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded border font-medium truncate max-w-[170px] ${data?.has_uploaded_sla ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold' : 'bg-teal-50 text-teal-700 border-teal-200'}`}
+                            title={data?.sla_filename || 'SLA.pdf'}
+                          >
+                            {data?.has_uploaded_sla ? `✓ ${data?.sla_filename || 'Uploaded SLA'}` : 'LEAMSS-SLA.pdf'}
+                          </span>
+                          <input
+                            ref={slaInputRef}
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            className="hidden"
+                            onChange={e => handleUploadAsset('sla', e.target.files?.[0])}
+                            data-testid="inline-sla-file-input"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => slaInputRef.current?.click()}
+                            disabled={uploadingAsset === 'sla'}
+                            className="text-[10px] text-teal-600 hover:text-teal-800 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                            data-testid="inline-upload-sla-btn"
+                          >
+                            {uploadingAsset === 'sla' ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Upload className="h-2.5 w-2.5" />}
+                            {data?.has_uploaded_sla ? 'Change' : '+ Upload'}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        {data?.has_uploaded_sla
+                          ? `Using custom SLA configured in Settings (${data.sla_filename}).`
+                          : 'Official LEAMSS client consultation terms and service agreement.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Payment QR Code */}
+                <div className={`p-2 rounded-md bg-white border transition-colors ${attachQr ? 'border-emerald-300 bg-emerald-50/20 shadow-xs' : 'border-slate-200 hover:border-slate-300'}`}>
+                  <div className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={attachQr}
+                      onChange={e => setAttachQr(e.target.checked)}
+                      disabled={sending}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      data-testid="attach-qr-checkbox"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                          <QrCode className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          Payment QR Code
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${data?.has_uploaded_qr ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                            {data?.has_uploaded_qr ? '✓ Uploaded QR' : 'Official QR.png'}
+                          </span>
+                          <input
+                            ref={qrInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => handleUploadAsset('qr', e.target.files?.[0])}
+                            data-testid="inline-qr-file-input"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => qrInputRef.current?.click()}
+                            disabled={uploadingAsset === 'qr'}
+                            className="text-[10px] text-emerald-600 hover:text-emerald-800 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                            data-testid="inline-upload-qr-btn"
+                          >
+                            {uploadingAsset === 'qr' ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Upload className="h-2.5 w-2.5" />}
+                            {data?.has_uploaded_qr ? 'Change' : '+ Upload'}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        {data?.has_uploaded_qr
+                          ? 'Using custom payment QR uploaded in Settings.'
+                          : 'Official LEAMSS scan-to-pay QR image with UPI & bank details.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {!attachReport && (
+                <div className="text-[11px] text-teal-800 bg-teal-50 border border-teal-200 rounded p-2 flex items-center gap-1.5">
+                  <span className="font-semibold text-teal-900">⚡ Fast Send Mode:</span>
+                  <span>Notice dispatches quickly in ~2 seconds.</span>
+                </div>
+              )}
             </div>
 
             <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer pt-1">
-              <input type="checkbox" checked={bccSelf} onChange={e => setBccSelf(e.target.checked)} className="rounded border-slate-300 text-indigo-600" />
+              <input type="checkbox" checked={bccSelf} onChange={e => setBccSelf(e.target.checked)} disabled={sending} className="rounded border-slate-300 text-indigo-600" />
               <span>BCC myself for verification</span>
             </label>
+
+            {sending && (
+              <div className="rounded-lg border border-indigo-200 bg-indigo-50/90 p-3 space-y-1.5 animate-pulse">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600 shrink-0" />
+                  <span className="text-xs font-bold text-indigo-950">
+                    {attachReport ? 'Delivering Assessment Report & Attachments...' : 'Delivering Email Notice...'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-indigo-700 leading-relaxed">
+                  {attachReport
+                    ? 'Transferring full 23-page original PDF report & selected attachments via Google Workspace SMTP...'
+                    : 'Dispatching message via Google Workspace SMTP (fast send in ~2s)...'}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
         <div className="flex gap-2 justify-end pt-2 border-t">
           <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={handleSend} disabled={sending || loading} data-testid="confirm-send-email-btn">
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+            onClick={handleSend}
+            disabled={sending || loading}
+            data-testid="confirm-send-email-btn"
+          >
             {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
-            {sending ? 'Sending…' : 'Send Email Now'}
+            {sending
+              ? (attachReport ? 'Sending (Uploading Attachments)...' : 'Sending Email...')
+              : 'Send Email Now'}
           </Button>
         </div>
       </Card>
+
+      {showMailAccounts && (
+        <MailAccountsDialog
+          headers={authHeaders}
+          onClose={() => setShowMailAccounts(false)}
+          onChanged={async () => {
+            try {
+              const r = await axios.get(`${API}/sales/assessments/${assessment.id}/email-preview`, { headers: authHeaders });
+              setData(r.data);
+              if (r.data.mailboxes?.length && !r.data.mailboxes.some(m => m.email === selectedMailbox)) {
+                setSelectedMailbox(r.data.mailboxes[0].email);
+              }
+            } catch (e) {}
+          }}
+        />
+      )}
     </div>
   );
 }

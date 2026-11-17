@@ -262,6 +262,157 @@ def _section_client_profile(snap, styles):
     return flow
 
 
+def _section_skills_assessment_and_why_we_chose(snap: Dict[str, Any], styles: Dict[str, Any]) -> List:
+    """Section 2.b — Skills Assessment, Qualifying Deduction & Why We Chose This Occupation.
+    Ensures ReportLab PDF contains the full detailed role alignment, core duty tasks,
+    assessing authority deduction analysis, and comparative code breakdown.
+    """
+    sa = snap.get("skills_assessment") or {}
+    occ = snap.get("occupation") or {}
+    client = snap.get("client") or {}
+    profile = snap.get("profile_snapshot") or {}
+    primary = profile.get("primary_applicant") or {}
+    prof = primary.get("professional") or {}
+    edu = primary.get("education") or {}
+
+    occ_code = _safe(occ.get("code") or sa.get("occupation_code") or "")
+    occ_title = _safe(occ.get("title") or sa.get("occupation_title") or "Nominated Occupation")
+    auth_name = _safe(sa.get("authority_name") or occ.get("assessing_body") or occ.get("assessing_authority_name") or "Assessing Authority")
+    outcome = _safe(sa.get("assessment_outcome") or "Likely Positive Assessment")
+
+    flow: List = []
+    flow.append(Paragraph("SECTION 2.b — SKILLS ASSESSMENT &amp; DEDUCTION ANALYSIS", styles["h1"]))
+    flow.append(Paragraph(
+        f"<b>{occ_code} · {occ_title}</b> &nbsp;|&nbsp; Assessing Authority: <b>{auth_name}</b>",
+        styles["h2"]
+    ))
+
+    # Top banner with outcome & pathway
+    pathway = _safe(sa.get("pathway_name") or occ.get("pathway") or "General Skilled Migration")
+    flow.append(Paragraph(
+        f"<b>Assessment Pathway:</b> {pathway} &nbsp;·&nbsp; <b>Suitability Status:</b> <font color='#059669'><b>{outcome.upper()}</b></font>",
+        styles["highlight"]
+    ))
+    flow.append(Spacer(1, 4))
+
+    # Why We Chose This Occupation Summary
+    why = sa.get("why_we_chose") or occ.get("why_we_chose") or {}
+    cand_prof = _safe(client.get("profession") or client.get("current_profession") or prof.get("current_profession") or "Skilled Specialist")
+    cand_emp = _safe(snap.get("employer_name") or prof.get("employer_name") or "")
+    cand_nature = _safe(snap.get("employer_nature") or prof.get("employer_nature") or "")
+
+    tot_exp = float(
+        client.get("work_exp_years")
+        or client.get("years_experience_total")
+        or prof.get("raw_years_experience_total")
+        or prof.get("years_experience_total")
+        or sa.get("total_experience_years")
+        or 0.0
+    )
+    ded_exp = float(sa.get("deducted_years") or 0.0)
+    claim_exp = float(sa.get("points_claimable_years") or max(0.0, tot_exp - ded_exp))
+    claim_pts = int(sa.get("points_claimable_points") or (15 if claim_exp >= 8 else 10 if claim_exp >= 5 else 5 if claim_exp >= 3 else 0))
+
+    summary_text = why.get("why_we_chose_summary")
+    if not summary_text:
+        summary_text = (
+            f"We selected nominated occupation <b>{occ_code} ({occ_title})</b> because your professional career background as "
+            f"<b>{cand_prof}</b>" + (f" at <i>{cand_emp}</i>" if cand_emp else "") + " directly aligns with its official ANZSCO core duties. "
+            f"Under {auth_name} guidelines and Department of Home Affairs (Schedule 6D) criteria, "
+            f"{ded_exp:.1f} years are deducted as the qualifying suitability period. Your remaining {claim_exp:.1f} years of post-qualification "
+            f"experience are points-claimable (+{claim_pts} GSM Points)."
+        )
+    flow.append(Paragraph(f"<b>Selection Rationale:</b> {_safe(summary_text)}", styles["body"]))
+    flow.append(Spacer(1, 6))
+
+    # 2-Column Table: Left = Role Alignment & Tasks; Right = Deduction Rule & Points
+    duty_summary = why.get("role_alignment_text") or f"Directly aligns with candidate's role as {cand_prof}."
+    matched_tasks = why.get("matched_tasks") or sa.get("matched_tasks") or []
+    
+    col_left_elements = [
+        f"<b>Role &amp; Core Duty Alignment:</b><br/>{_safe(duty_summary)}",
+    ]
+    if cand_emp or cand_nature:
+        emp_line = f"<b>Employer Fit:</b> {_safe(cand_emp)}" + (f" ({_safe(cand_nature)})" if cand_nature else "")
+        col_left_elements.append(emp_line)
+    if matched_tasks:
+        task_bullets = "<br/>".join([f"• <b>✓</b> {_safe(t)}" for t in matched_tasks[:3]])
+        col_left_elements.append(f"<b>Matched Official ANZSCO Tasks:</b><br/>{task_bullets}")
+
+    ded_rule_text = why.get("deduction_explanation") or (
+        f"Assessing authority: {auth_name}. {ded_exp:.1f} yr(s) deducted as the qualifying period (Requirement Met Date) to establish suitability."
+    )
+    col_right_elements = [
+        f"<b>Deduction Rule:</b><br/>{_safe(ded_rule_text)}",
+        f"<b>Total Career Experience:</b> {tot_exp:.1f} yrs",
+        f"<b>Qualifying Deduction:</b> <font color='#dc2626'><b>-{ded_exp:.1f} yrs</b></font>",
+        f"<b>Net Claimable Experience:</b> <font color='#059669'><b>{claim_exp:.1f} yrs</b></font> &rarr; <font color='#2563eb'><b>+{claim_pts} GSM Points</b></font>",
+        "<b>Eligible Visa Subclasses:</b> Subclass 189, 190, 491, 482, 186",
+    ]
+
+    left_cell = Paragraph("<br/><br/>".join(col_left_elements), styles["body_small"])
+    right_cell = Paragraph("<br/><br/>".join(col_right_elements), styles["body_small"])
+
+    eval_table = Table([[left_cell, right_cell]], colWidths=[8.0 * cm, 7.5 * cm])
+    eval_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#F0FDF4")),
+        ("BACKGROUND", (1, 0), (1, 0), colors.HexColor("#EFF6FF")),
+        ("BOX", (0, 0), (0, 0), 1, colors.HexColor("#86EFAC")),
+        ("BOX", (1, 0), (1, 0), 1, colors.HexColor("#93C5FD")),
+        ("PADDING", (0, 0), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    flow.append(eval_table)
+    flow.append(Spacer(1, 8))
+
+    # If occupation comparison has 2+ occupations, add comparison table and code-wise rationale
+    comp = snap.get("occupation_comparison") or {}
+    occs = comp.get("occupations") or []
+    if len(occs) >= 2:
+        flow.append(Paragraph("OCCUPATION PATHWAYS COMPARISON (PRIMARY &amp; ALTERNATIVE CODES)", styles["h2"]))
+        flow.append(Paragraph(
+            "Side-by-side comparison of nominated and alternative occupations assessed for your profile:",
+            styles["body_small"]
+        ))
+        
+        comp_rows = [["Code & Title", "Pathway Type", "Assessing Body", "Deduction", "Claimable", "GSM Pts"]]
+        for o in occs:
+            is_pri = o.get("is_primary")
+            role_type = "★ Primary" if is_pri else "Alternative"
+            c_code = _safe(o.get("code"))
+            c_title = _safe(o.get("title"))
+            c_auth = _safe(o.get("assessing_body") or o.get("assessing_authority_name") or "—")
+            c_ded = float(o.get("deducted_years") or 0.0)
+            c_claim = float(o.get("claimable_years") or max(0.0, tot_exp - c_ded))
+            c_pts = int(o.get("claimable_points") or 0)
+            comp_rows.append([
+                f"{c_code} · {c_title}",
+                role_type,
+                c_auth,
+                f"-{c_ded:.1f} yrs",
+                f"{c_claim:.1f} yrs",
+                f"+{c_pts} pts"
+            ])
+        t_comp = Table(comp_rows, colWidths=[5.5 * cm, 2.5 * cm, 3.5 * cm, 1.8 * cm, 1.8 * cm, 1.4 * cm])
+        t_comp.setStyle(_table_style())
+        flow.append(t_comp)
+        flow.append(Spacer(1, 6))
+
+        # Code-wise selection rationale for alternative occupations
+        for o in occs:
+            if o.get("is_primary"):
+                continue
+            alt_why = o.get("why_we_chose_summary") or o.get("role_alignment_summary") or f"Alternative viable pathway matching candidate duties."
+            flow.append(Paragraph(
+                f"<b>Why {_safe(o.get('code'))} ({_safe(o.get('title'))}) was considered:</b> {_safe(alt_why)}",
+                styles["body_small"]
+            ))
+            flow.append(Spacer(1, 3))
+
+    flow.append(PageBreak())
+    return flow
+
+
 def _section_country(country: Dict[str, Any], snap, styles, idx: int):
     cc = country.get("country_code")
     flag = _flag(cc)
@@ -856,6 +1007,8 @@ def render_pdf(snapshot: Dict[str, Any]) -> bytes:
     story.extend(_section_client_profile(snapshot, styles))
 
     if tier in ("full", "proposal"):
+        # Section 2.b — Skills Assessment, Qualifying Deduction & Why We Chose This Occupation
+        story.extend(_section_skills_assessment_and_why_we_chose(snapshot, styles))
         # ANZSCO occupation deep-dive (Phase 7.3)
         story.extend(_section_anzsco_profile(snapshot, styles))
         # Per-country eligibility detail

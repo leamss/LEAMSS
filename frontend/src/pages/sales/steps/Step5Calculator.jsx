@@ -85,6 +85,11 @@ export default function Step5Calculator({ results, calculating, data, update, he
                   <div key={cat} className="flex items-center justify-between text-[11px]" data-testid={`breakdown-${cat}`}>
                     <span className="capitalize" title={val.note || ''}>
                       {labelForBreakdown(cat, val)}
+                      {cat === 'experience_overseas' && val.claimable_years != null && val.deducted_years > 0 && (
+                        <span className="text-[10px] text-slate-500 font-normal ml-1">
+                          ({val.claimable_years} yrs claimable · -{val.deducted_years} deducted)
+                        </span>
+                      )}
                     </span>
                     <Badge className={(val.points || 0) > 0 ? 'bg-emerald-100 text-emerald-700 text-[9px]' : 'bg-slate-100 text-slate-500 text-[9px]'}>+{val.points || 0}</Badge>
                   </div>
@@ -101,6 +106,38 @@ export default function Step5Calculator({ results, calculating, data, update, he
               <p className="text-[10px] mt-2 italic text-amber-900">{r.recommendation}</p>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Assessing Authority Deduction Notice */}
+      {data?.occupation_code && (
+        <div className="bg-teal-50 border border-teal-200 rounded-lg p-2.5 text-xs flex items-center justify-between flex-wrap gap-2 text-teal-950" data-testid="calculator-deduction-banner">
+          <div className="flex items-center gap-2">
+            <span className="font-bold">{data.occupation_body || 'Assessing Authority'}:</span>
+            <span>
+              {parseFloat(data.skills_assessment_deducted_years) > 0 ? (
+                (() => {
+                  const claimable = parseFloat(data.skills_assessment_claimable_years ?? data.years_experience_total) || 0;
+                  const ded = parseFloat(data.skills_assessment_deducted_years) || 0;
+                  const netPts = claimable >= 8 ? 15 : claimable >= 5 ? 10 : claimable >= 3 ? 5 : 0;
+                  return (
+                    <>Qualifying deduction: <strong className="text-rose-600">-{ded.toFixed(1)} yrs</strong> · Net points-claimable: <strong className="text-emerald-700">{claimable.toFixed(1)} yrs</strong> (+{netPts} GSM pts)</>
+                  );
+                })()
+              ) : (
+                (() => {
+                  const claimable = parseFloat(data.skills_assessment_claimable_years ?? data.years_experience_total) || 0;
+                  const pts = claimable >= 8 ? 15 : claimable >= 5 ? 10 : claimable >= 3 ? 5 : 0;
+                  return (
+                    <>0.0 yrs deducted · All <strong className="text-emerald-700">{claimable.toFixed(1)} yrs</strong> points-claimable (+{pts} GSM pts)</>
+                  );
+                })()
+              )}
+            </span>
+          </div>
+          <span className="text-[10px] bg-teal-100 text-teal-800 px-2 py-0.5 rounded font-semibold">
+            {data.occupation_code} {data.occupation_title}
+          </span>
         </div>
       )}
 
@@ -122,14 +159,14 @@ export default function Step5Calculator({ results, calculating, data, update, he
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             {showAU && (
               <Field label="Australian work experience (yrs)">
-                <Input type="number" step="0.5" value={data.years_experience_australia ?? ''}
+                <Input type="number" step="any" value={data.years_experience_australia ?? ''}
                   onChange={e => update('years_experience_australia', e.target.value)}
                   placeholder="0" data-testid="factor-exp-au" />
               </Field>
             )}
             {showCA && (
               <Field label="Canadian work experience (yrs)">
-                <Input type="number" step="0.5" value={data.canadian_work_years ?? ''}
+                <Input type="number" step="any" value={data.canadian_work_years ?? ''}
                   onChange={e => update('canadian_work_years', e.target.value)}
                   placeholder="0" data-testid="factor-exp-ca" />
               </Field>

@@ -126,7 +126,7 @@
           {{ why.deduction_explanation or ("Assessing authority: " ~ (sa.authority_name or occ.assessing_body or "ACS") ~ ". " ~ ("%.1f"|format(sa.deducted_years or 0)) ~ " yr(s) deducted as the qualifying period (Requirement Met Date) to satisfy skills suitability.") }}
         </p>
         <div style="background:#f8fafc;border-radius:4pt;padding:4pt 6pt;margin-top:4pt;font-size:7pt;color:#1e293b;line-height:1.4;">
-          <div><b>Total Experience:</b> {{ "%.1f"|format(client.work_exp_years or client.raw_years_experience_total or client.years_experience_total or why.total_experience or 0) }} yrs</div>
+          <div><b>Total Experience:</b> {{ "%.1f"|format(why.total_experience or (sa.points_claimable_years + sa.deducted_years if (sa.points_claimable_years and sa.deducted_years) else (client.raw_years_experience_total or client.work_exp_years or client.years_experience_total or 0))) }} yrs</div>
           <div><b>Qualifying Deduction:</b> -{{ "%.1f"|format(sa.deducted_years or 0) }} yrs</div>
           <div style="color:#047857;font-weight:700;"><b>Net Claimable Experience:</b> {{ "%.1f"|format(sa.points_claimable_years or 0) }} yrs &rarr; +{{ sa.points_claimable_points or 0 }} GSM Points</div>
           {% if why.eligible_visas_text %}

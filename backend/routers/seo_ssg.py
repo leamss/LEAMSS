@@ -12,6 +12,7 @@ Triggered by:
 """
 from __future__ import annotations
 import os
+import re
 import json
 import shutil
 from datetime import datetime, timezone, timedelta
@@ -86,8 +87,9 @@ def _hero_image(cc: str) -> str:
 # Phase 19.1a — Per-country skill-level breakdown (for hub + country pages).
 async def _skill_level_breakdown(cc: str) -> List[Dict[str, Any]]:
     cc = (cc or "").upper()
+    code_regex = "^[0-9]{6}$" if cc in {"AU", "NZ"} else "^[0-9]{5}$"
     pipeline = [
-        {"$match": {"country_code": cc, "status": "verified", "skill_level": {"$nin": [None, ""]}}},
+        {"$match": {"country_code": cc, "status": "verified", "code": {"$regex": code_regex}, "skill_level": {"$nin": [None, ""]}}},
         {"$group": {"_id": "$skill_level", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
     ]
@@ -173,12 +175,18 @@ def _verification_tone(days: Optional[int]) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 async def _load_occupation_for_ssg(cc: str, code: str) -> Optional[Dict[str, Any]]:
     cc = (cc or "").upper()
+    code_str = str(code).strip()
+    if cc in {"AU", "NZ"} and not re.match(r"^\d{6}$", code_str):
+        return None
+    if cc == "CA" and not re.match(r"^\d{5}$", code_str):
+        return None
+
     doc = await db["occupation_master"].find_one(
-        {"country_code": cc, "code": str(code), "status": {"$in": ["verified", "draft"]}},
+        {"country_code": cc, "code": code_str, "status": {"$in": ["verified", "draft"]}},
         {"_id": 0},
     )
-    if doc and cc == "AU" and len(str(code)) == 6:
-        code_4 = str(code)[:4]
+    if doc and cc == "AU" and len(code_str) == 6:
+        code_4 = code_str[:4]
         parent = await db["anzsco_4digit_master"].find_one({"code": code_4}, {"_id": 0})
         if parent:
             if not doc.get("typical_tasks") and parent.get("tasks"):
@@ -215,62 +223,6 @@ async def _load_occupation_for_ssg(cc: str, code: str) -> Optional[Dict[str, Any
                         "_parent_inherited": True,
                         "_anzsco_4digit_source": code_4
                     }
-
-    if not doc and cc == "AU" and len(str(code)) == 4:
-        unit = await db["anzsco_4digit_master"].find_one({"code": str(code)}, {"_id": 0})
-        children = await db["occupation_master"].find(
-            {"country_code": "AU", "code": {"$regex": f"^{code}"}},
-            {"_id": 0}
-        ).to_list(20)
-        first = children[0] if children else {}
-        if not unit:
-            t = first.get("title") or "Unit Group"
-            unit = {
-                "code": str(code),
-                "title": first.get("anzsco_unit_group_title") or f"{t} (Unit Group {code})",
-                "description": first.get("description") or "",
-                "skill_level": first.get("skill_level") or 1,
-            }
-
-        aa = {}
-        for ch in children:
-            if ch.get("assessing_authority"):
-                aa = ch["assessing_authority"]
-                break
-
-        unit["country_code"] = "AU"
-        unit["status"] = "verified"
-        unit["assessing_authority"] = aa or first.get("assessing_authority") or {}
-        unit["similar_codes"] = [{"code": ch["code"], "title": ch["title"]} for ch in children]
-        unit["child_occupations"] = children
-        unit["pathway_list"] = first.get("pathway_list") or "CSOL"
-        unit["pathway_lists"] = first.get("pathway_lists") or ["CSOL", "ROL", "STSOL"]
-        unit["recommended_visa_subclass"] = first.get("recommended_visa_subclass") or {"AU": "190"}
-        unit["visa_pathways"] = first.get("visa_pathways") or {}
-        unit["national_shortage_status"] = first.get("national_shortage_status") or "Core Skills Occupation List (CSOL)"
-        unit["state_territory_eligibility"] = first.get("state_territory_eligibility") or {}
-        unit["demand_rationale"] = first.get("demand_rationale") or ""
-        unit["required_documents"] = first.get("required_documents") or []
-        unit["typical_tasks"] = unit.get("tasks") or first.get("typical_tasks") or []
-
-        # Alternative titles & specialisations for unit group
-        if not unit.get("alternative_titles"):
-            alts = []
-            for ch in children:
-                for a in ch.get("alternative_titles") or []:
-                    if a not in alts:
-                        alts.append(a)
-            unit["alternative_titles"] = alts
-
-        if not unit.get("specialisations"):
-            specs = []
-            for ch in children:
-                for s in ch.get("specialisations") or []:
-                    if s not in specs:
-                        specs.append(s)
-            unit["specialisations"] = specs
-
-        return unit
     return doc
 
 
@@ -842,8 +794,9 @@ async def render_country_index_html(country_code: str) -> str:
     page_url = f"{base}/atlas/{cc.lower()}"
 
     top: List[Dict[str, Any]] = []
+    code_regex = "^[0-9]{6}$" if cc in {"AU", "NZ"} else "^[0-9]{5}$"
     async for o in db["occupation_master"].find(
-        {"country_code": cc, "status": "verified"},
+        {"country_code": cc, "status": "verified", "code": {"$regex": code_regex}},
         {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1,
          "recommended_visa_subclass": 1, "anzsco_major_group_code": 1,
          "skill_level": 1, "teer_category": 1,
@@ -870,10 +823,7 @@ async def render_country_index_html(country_code: str) -> str:
             o["salary_chip"] = None
         o["growth_chip"] = jsa_d.get("future_growth") if jsa_d.get("future_growth") not in (None, "Unknown") else None
         top.append(o)
-    if cc == "AU":
-        total = (await db["anzsco_4digit_master"].count_documents({})) or 1236
-    else:
-        total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
+    total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified", "code": {"$regex": code_regex}})
     skill_breakdown = await _skill_level_breakdown(cc)
 
     # Phase 19.4c — latest Vacancy Report (AU only) for the trust chip
@@ -923,10 +873,8 @@ async def render_atlas_hub_html() -> str:
 
     countries = []
     for cc in ("AU", "CA", "NZ"):
-        if cc == "AU":
-            n = (await db["anzsco_4digit_master"].count_documents({})) or 1236
-        else:
-            n = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
+        code_regex = "^[0-9]{6}$" if cc in {"AU", "NZ"} else "^[0-9]{5}$"
+        n = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified", "code": {"$regex": code_regex}})
         meta = _country_meta(cc)
         skill_breakdown = await _skill_level_breakdown(cc)
         countries.append({
@@ -1148,7 +1096,13 @@ async def prune_unverified_files() -> Dict[str, Any]:
         return {"deleted": 0}
     verified_codes: set = set()
     async for d in db["occupation_master"].find({"status": "verified"}, {"_id": 0, "country_code": 1, "code": 1}):
-        verified_codes.add((str(d.get("country_code", "")).lower(), str(d.get("code", ""))))
+        cc_val = str(d.get("country_code", "")).lower()
+        code_val = str(d.get("code", "")).strip()
+        if cc_val in {"au", "nz"} and not re.match(r"^\d{6}$", code_val):
+            continue
+        if cc_val == "ca" and not re.match(r"^\d{5}$", code_val):
+            continue
+        verified_codes.add((cc_val, code_val))
     deleted = 0
     # Phase 19.4c — whitelist non-ANZSCO subdirectories (e.g. /atlas/au/industry/)
     NON_ANZSCO_DIRS = {"industry", "state"}
@@ -1185,8 +1139,12 @@ async def regenerate_sitemap() -> Dict[str, Any]:
         {"_id": 0, "country_code": 1, "code": 1, "updated_at": 1},
     ).sort("country_code", 1):
         cc = (d.get("country_code") or "").lower()
-        code = d.get("code")
+        code = str(d.get("code") or "").strip()
         if not cc or not code:
+            continue
+        if cc in {"au", "nz"} and not re.match(r"^\d{6}$", code):
+            continue
+        if cc == "ca" and not re.match(r"^\d{5}$", code):
             continue
         lastmod = d.get("updated_at")
         if hasattr(lastmod, "strftime"):
@@ -1255,10 +1213,14 @@ async def regenerate_all() -> Dict[str, Any]:
     ):
         try:
             cc = d.get("country_code")
-            code = d.get("code")
+            code = str(d.get("code") or "").strip()
             if not cc or not code:
                 continue
-            r = await regenerate_one(cc, str(code))
+            if cc in {"AU", "NZ"} and not re.match(r"^\d{6}$", code):
+                continue
+            if cc == "CA" and not re.match(r"^\d{5}$", code):
+                continue
+            r = await regenerate_one(cc, code)
             if r:
                 written += 1
         except Exception as e:  # noqa: BLE001

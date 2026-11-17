@@ -86,6 +86,16 @@ class SaveAssessmentRequest(BaseModel):
     resume_filename: Optional[str] = None
     resume_url: Optional[str] = None
     lead_id: Optional[str] = None
+    current_profession: Optional[str] = None
+    field_of_study: Optional[str] = None
+    employer_name: Optional[str] = None
+    employer_nature: Optional[str] = None
+    roles_and_responsibilities: Optional[str] = None
+    skills_assessment_deducted_years: Optional[float] = None
+    skills_assessment_claimable_years: Optional[float] = None
+    skills_assessment_claimable_points: Optional[float] = None
+    skills_assessment_outcome: Optional[str] = None
+    skills_assessment: Optional[Dict[str, Any]] = None
 
 
 @router.post("")
@@ -134,12 +144,28 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
         "resume_filename": resume_fname,
         "resume_url": resume_u,
         "linked_pa_id": None,
+        "current_profession": req.current_profession or (req.profile or {}).get("current_profession") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("current_profession"),
+        "field_of_study": req.field_of_study or (req.profile or {}).get("field_of_study") or (req.profile or {}).get("primary_applicant", {}).get("education", {}).get("field_of_study"),
+        "employer_name": req.employer_name or (req.profile or {}).get("employer_name") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("employer_name"),
+        "employer_nature": req.employer_nature or (req.profile or {}).get("employer_nature") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("employer_nature"),
+        "roles_and_responsibilities": req.roles_and_responsibilities or (req.profile or {}).get("roles_and_responsibilities") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("roles_and_responsibilities"),
+        "skills_assessment_deducted_years": req.skills_assessment_deducted_years if req.skills_assessment_deducted_years is not None else ((req.profile or {}).get("skills_assessment_deducted_years") if (req.profile or {}).get("skills_assessment_deducted_years") is not None else (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("deducted_years")),
+        "skills_assessment_claimable_years": req.skills_assessment_claimable_years if req.skills_assessment_claimable_years is not None else ((req.profile or {}).get("skills_assessment_claimable_years") if (req.profile or {}).get("skills_assessment_claimable_years") is not None else (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("claimable_years")),
+        "skills_assessment_claimable_points": req.skills_assessment_claimable_points if req.skills_assessment_claimable_points is not None else (req.profile or {}).get("skills_assessment_claimable_points"),
+        "skills_assessment_outcome": req.skills_assessment_outcome or (req.profile or {}).get("skills_assessment_outcome"),
+        "skills_assessment": req.skills_assessment or (req.profile or {}).get("skills_assessment_data") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("skills_assessment"),
         "created_by": current_user["id"],
         "created_by_name": current_user.get("name"),
         "created_at": now,
         "updated_at": now,
     }
     await assessments_col.insert_one(doc)
+
+    # Pre-render PDF in background immediately so downloads and emails are instant (< 2s)
+    try:
+        asyncio.create_task(_get_or_render_assessment_pdf(dict(doc)))
+    except Exception:
+        pass
 
     if lead_id:
         try:
@@ -408,6 +434,16 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
         "best_total": new_best_total,
         "best_recommendation": new_best_reco,
         "final_notes": req.final_notes,
+        "current_profession": req.current_profession or (req.profile or {}).get("current_profession") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("current_profession"),
+        "field_of_study": req.field_of_study or (req.profile or {}).get("field_of_study") or (req.profile or {}).get("primary_applicant", {}).get("education", {}).get("field_of_study"),
+        "employer_name": req.employer_name or (req.profile or {}).get("employer_name") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("employer_name"),
+        "employer_nature": req.employer_nature or (req.profile or {}).get("employer_nature") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("employer_nature"),
+        "roles_and_responsibilities": req.roles_and_responsibilities or (req.profile or {}).get("roles_and_responsibilities") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("roles_and_responsibilities"),
+        "skills_assessment_deducted_years": req.skills_assessment_deducted_years if req.skills_assessment_deducted_years is not None else ((req.profile or {}).get("skills_assessment_deducted_years") if (req.profile or {}).get("skills_assessment_deducted_years") is not None else (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("deducted_years")),
+        "skills_assessment_claimable_years": req.skills_assessment_claimable_years if req.skills_assessment_claimable_years is not None else ((req.profile or {}).get("skills_assessment_claimable_years") if (req.profile or {}).get("skills_assessment_claimable_years") is not None else (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("claimable_years")),
+        "skills_assessment_claimable_points": req.skills_assessment_claimable_points if req.skills_assessment_claimable_points is not None else (req.profile or {}).get("skills_assessment_claimable_points"),
+        "skills_assessment_outcome": req.skills_assessment_outcome or (req.profile or {}).get("skills_assessment_outcome"),
+        "skills_assessment": req.skills_assessment or (req.profile or {}).get("skills_assessment_data") or (req.profile or {}).get("primary_applicant", {}).get("professional", {}).get("skills_assessment"),
         "updated_at": now,
     }
     if req.cost_estimator is not None:
@@ -1066,7 +1102,7 @@ async def _get_or_render_assessment_pdf(doc: dict) -> Optional[bytes]:
             buf = io.BytesIO()
             await gridfs.download_to_stream(ObjectId(cached_fid), buf)
             val = buf.getvalue()
-            if val and len(val) > 1000:
+            if val and len(val) > 1000 and b"ReportLab" not in val:
                 return val
         except Exception:
             pass
@@ -1342,9 +1378,52 @@ async def get_assessment_email_preview(id: str, current_user: dict = Depends(get
     default_sender = gmail_default_sender()
 
     # Consultant mailboxes
-    mailboxes = settings.get("mailboxes") or []
+    mailboxes = []
+    seen_senders = set()
+
+    def_name = settings.get("sender_name") or os.environ.get("SENDER_NAME") or "LEAMSS Consultation"
+    if default_sender:
+        mailboxes.append({
+            "email": default_sender,
+            "name": def_name,
+            "display": f"{def_name} <{default_sender}>",
+            "is_default": True,
+        })
+        seen_senders.add(default_sender.lower())
+
+    try:
+        cursor = db["mail_senders"].find({"active": {"$ne": False}}, {"_id": 0}).sort("name", 1)
+        consultants = await cursor.to_list(100)
+        for c in consultants:
+            c_email = (c.get("email") or "").strip().lower()
+            if not c_email or c_email in seen_senders:
+                continue
+            c_name = (c.get("name") or c_email).strip()
+            mailboxes.append({
+                "email": c_email,
+                "name": c_name,
+                "display": f"{c_name} <{c_email}>",
+                "is_default": False,
+            })
+            seen_senders.add(c_email)
+    except Exception as e:
+        logger.warning("Could not fetch mail_senders: %s", e)
+
+    for m in (settings.get("mailboxes") or []):
+        m_email = (m.get("email") if isinstance(m, dict) else str(m)).strip().lower()
+        if not m_email or m_email in seen_senders:
+            continue
+        m_name = (m.get("name") if isinstance(m, dict) else m_email).strip()
+        mailboxes.append({
+            "email": m_email,
+            "name": m_name,
+            "display": f"{m_name} <{m_email}>",
+            "is_default": False,
+        })
+        seen_senders.add(m_email)
+
     if not mailboxes and default_sender:
-        mailboxes = [{"email": default_sender, "name": "LEAMSS Consultation", "is_default": True}]
+        mailboxes = [{"email": default_sender, "name": def_name, "display": f"{def_name} <{default_sender}>", "is_default": True}]
 
     # Templates
     templates = await list_templates_for_category("eligible")
@@ -1360,6 +1439,12 @@ async def get_assessment_email_preview(id: str, current_user: dict = Depends(get
     res_fname = doc.get("resume_filename") or (doc.get("profile_snapshot") or {}).get("resume_filename") or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
     resolved_email = await _resolve_assessment_email(doc)
 
+    has_uploaded_sla = bool(settings.get("sla_file_id"))
+    sla_fname = settings.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+    has_uploaded_qr = bool(settings.get("qr_file_id"))
+    has_sla = has_uploaded_sla or os.path.exists(
+        os.path.join(os.path.dirname(__file__), "..", "uploads", "agreements", "agreement_95111010-1be0-4d80-8b80-de34881eb735.pdf")
+    )
     return {
         "assessment_id": id,
         "client_name": doc.get("client_name"),
@@ -1369,10 +1454,15 @@ async def get_assessment_email_preview(id: str, current_user: dict = Depends(get
         "mailboxes": mailboxes,
         "templates": templates,
         "attach_report": settings.get("attach_report", True),
-        "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
-        "attach_qr": bool(settings.get("qr_file_id")),
+        "attach_sla": bool(settings.get("attach_sla", False)),
+        "has_uploaded_sla": has_uploaded_sla,
+        "sla_filename": sla_fname,
+        "attach_qr": bool(settings.get("attach_qr", False)),
+        "has_uploaded_qr": has_uploaded_qr,
         "attach_resume": has_res or bool(settings.get("attach_resume")),
         "has_resume": has_res,
+        "has_sla": has_sla,
+        "has_qr": True,
         "resume_filename": res_fname,
     }
 
@@ -1382,6 +1472,11 @@ class SendSingleEmailRequest(BaseModel):
     sender_email: Optional[str] = None
     template_id: Optional[str] = None
     bcc_self: bool = True
+    attach_report: bool = True
+    attach_resume: bool = True
+    attach_sla: bool = False
+    attach_qr: bool = False
+    sync: bool = False
 
 
 @router.post("/{id}/email")
@@ -1390,6 +1485,7 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
     from routers.email_settings import get_settings, read_asset_bytes
     from core.report_email import build_report_email, render_custom_email, get_resume_attachment
     from routers.assessment_reports import _build_snapshot
+    from core.report_renderer import render_pdf as render_pdf_v1
     from core.report_v2.renderer import render_pdf_v2
 
     if not _can_access(current_user):
@@ -1404,140 +1500,235 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
     if not doc:
         raise HTTPException(status_code=404, detail="Assessment not found")
 
-    resolved_email = await _resolve_assessment_email(doc)
-    to = (req.recipient_email or resolved_email or doc.get("client_email") or "").strip()
-    if not to or "@" not in to:
+    target_email = (req.recipient_email or "").strip()
+    if not target_email or "@" not in target_email:
+        resolved_email = await _resolve_assessment_email(doc)
+        target_email = (resolved_email or doc.get("client_email") or "").strip()
+    if not target_email or "@" not in target_email:
         raise HTTPException(status_code=400, detail="Client has no valid email address.")
+    to = target_email
 
     s = await get_settings()
-    sender_email = (req.sender_email or s.get("default_sender") or gmail_default_sender() or "").strip().lower()
-    sender_name = s.get("sender_name") or "Ladhani Education & Migration Services"
-
-    # Generate 23-page PDF Report Bytes asynchronously in thread pool
-    pdf_bytes = await _get_or_render_assessment_pdf(doc)
-    if not pdf_bytes:
-        snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=True)
-        pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
-
-    occ = doc.get("occupation") or {}
-    results = doc.get("results") or []
-    best_res = max(results, key=lambda r: r.get("total", 0)) if results else {}
-
-    # Email Subject and Body (Template or Built-in)
-    if req.template_id:
-        tmpl = await db["email_templates"].find_one({"id": req.template_id}, {"_id": 0})
-        if tmpl:
-            subject, html, plain = render_custom_email(
-                tmpl,
-                client_name=doc.get("client_name") or "Applicant",
-                occupation=occ.get("title") or "Professional",
-                code=occ.get("code") or "",
-                points={"total": best_res.get("total", 0), "189": best_res.get("total", 0)},
-                sender_name=sender_name,
-                portal_link=os.environ.get("FRONTEND_URL", "https://app.leamss.com"),
-            )
-        else:
-            subject, html, plain = build_report_email(
-                s, client_name=doc.get("client_name") or "Applicant",
-                occupation=occ.get("title"), code=occ.get("code"),
-                points=best_res.get("breakdown") or {}, sender_name=sender_name,
-                backend_url=os.environ.get("PUBLIC_BASE_URL", ""),
-            )
+    sender_email = (req.sender_email or s.get("default_sender") or gmail_default_sender() or "info@leamss.com").strip().lower()
+    consultant_sender = await db["mail_senders"].find_one({"email": sender_email})
+    if consultant_sender and consultant_sender.get("name"):
+        sender_name = consultant_sender["name"]
     else:
-        subject, html, plain = build_report_email(
-            s, client_name=doc.get("client_name") or "Applicant",
-            occupation=occ.get("title"), code=occ.get("code"),
-            points=best_res.get("breakdown") or {}, sender_name=sender_name,
-            backend_url=os.environ.get("PUBLIC_BASE_URL", ""),
-        )
+        sender_name = s.get("sender_name") or os.environ.get("SENDER_NAME") or "LEAMSS Consultation"
 
-    attachments: List[Dict[str, Any]] = []
-    # 1. Report PDF
-    if pdf_bytes:
-        attachments.append({
-            "bytes": pdf_bytes,
-            "filename": _report_filename(doc.get("client_name"), id),
-            "maintype": "application",
-            "subtype": "pdf",
-        })
-    # 2. SLA
-    if s.get("attach_sla") and s.get("sla_file_id"):
-        sla = await read_asset_bytes(s["sla_file_id"])
-        if sla:
-            attachments.append({
-                "bytes": sla,
-                "filename": s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf",
-                "maintype": "application",
-                "subtype": "pdf",
-            })
-    # 3. QR
-    if s.get("qr_file_id"):
-        qr = await read_asset_bytes(s["qr_file_id"])
-        if qr:
-            attachments.append({
-                "bytes": qr,
-                "filename": "LEAMSS-Payment-QR.png",
-                "maintype": "image",
-                "subtype": "png",
-            })
-    # 4. Candidate Resume Attachment (uploaded or linked)
-    resume_fid = (
-        doc.get("resume_file_id")
-        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
-        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
-    )
-    resume_link = (
-        doc.get("resume_url")
-        or doc.get("resume_link")
-        or (doc.get("profile_snapshot") or {}).get("resume_url")
-        or (doc.get("profile_snapshot") or {}).get("resume_link")
-        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_url")
-    )
-    resume_fname = (
-        doc.get("resume_filename")
-        or (doc.get("profile_snapshot") or {}).get("resume_filename")
-        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
-    )
-    resume_att = await get_resume_attachment(
-        file_id=resume_fid,
-        link=resume_link,
-        filename=resume_fname,
-        client_name=doc.get("client_name"),
-    )
-    if resume_att:
-        attachments.append(resume_att)
-
-    try:
-        await gmail_send(
-            sender_email=sender_email,
-            sender_name=sender_name,
-            recipient=to,
-            subject=subject,
-            html=html,
-            plain=plain,
-            attachments=attachments,
-            bcc=(sender_email if req.bcc_self else None),
-        )
-    except Exception as e:
-        logger.exception("Error dispatching email via gmail_send")
-        raise HTTPException(status_code=400, detail=f"Email delivery failed: {e}")
-
-    # Log in assessment history
     now = datetime.now(timezone.utc)
+    # Log pending delivery in assessment history immediately and keep client_email in sync
     await assessments_col.update_one({"id": id}, {"$set": {
-        "email_status": "sent",
+        "client_email": to,
+        "email_status": "sending",
         "email_to": to,
         "email_from": sender_email,
-        "email_sent_at": now,
-        "email_resume_attached": bool(resume_att),
+        "email_attempted_at": now,
     }})
+
+    async def _dispatch_delivery():
+        try:
+            # Generate / Retrieve 24-page PDF Report Bytes only if requested
+            pdf_bytes = None
+            if req.attach_report:
+                pdf_bytes = await _get_or_render_assessment_pdf(doc)
+                if not pdf_bytes:
+                    snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=True)
+                    try:
+                        pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+                    except Exception:
+                        pdf_bytes = await asyncio.to_thread(render_pdf_v1, snap_data)
+
+            occ = doc.get("occupation") or {}
+            results = doc.get("results") or []
+            best_res = max(results, key=lambda r: r.get("total", 0)) if results else {}
+
+            # Email Subject and Body (Template or Built-in)
+            if req.template_id and req.template_id != "default":
+                tmpl = await db["email_templates"].find_one({"id": req.template_id}, {"_id": 0})
+                if not tmpl:
+                    tmpl = await db["email_templates"].find_one({"name": req.template_id}, {"_id": 0})
+                if tmpl:
+                    ctx = {
+                        "client_name": doc.get("client_name") or "Applicant",
+                        "name": doc.get("client_name") or "Applicant",
+                        "occupation": occ.get("title") or "Professional",
+                        "code": occ.get("code") or "",
+                        "points": best_res.get("total", 0),
+                        "best_points": best_res.get("total", 0),
+                        "best_subclass": best_res.get("visa_subclass") or "189/190/491",
+                        "pass_mark": 65,
+                        "consultant_name": sender_name,
+                        "sender_name": sender_name,
+                        "portal_link": os.environ.get("FRONTEND_URL", "https://app.leamss.com"),
+                        "calendly_link": s.get("calendly_link") or "",
+                        "payment_link": s.get("payment_link") or "",
+                        "offer_badge": s.get("offer_badge") or "",
+                        "offer_price": s.get("offer_price") or "",
+                        "offer_regular_fee": s.get("offer_regular_fee") or "",
+                        "offer_savings": s.get("offer_savings") or "",
+                        "phone": s.get("contact_phone") or "+91 77188 82427",
+                        "email": sender_email or s.get("contact_email") or "info@leamss.com",
+                        "website": s.get("website") or "www.leamss.com",
+                    }
+                    subject, html, plain = render_custom_email(
+                        tmpl,
+                        ctx,
+                        sender_name=sender_name,
+                        settings=s,
+                    )
+                else:
+                    subject, html, plain = build_report_email(
+                        s, client_name=doc.get("client_name") or "Applicant",
+                        occupation=occ.get("title"), code=occ.get("code"),
+                        points=best_res.get("breakdown") or {}, sender_name=sender_name,
+                        backend_url=os.environ.get("PUBLIC_BASE_URL", ""),
+                    )
+            else:
+                subject, html, plain = build_report_email(
+                    s, client_name=doc.get("client_name") or "Applicant",
+                    occupation=occ.get("title"), code=occ.get("code"),
+                    points=best_res.get("breakdown") or {}, sender_name=sender_name,
+                    backend_url=os.environ.get("PUBLIC_BASE_URL", ""),
+                )
+
+            attachments: List[Dict[str, Any]] = []
+
+            # 1. Report PDF (if requested)
+            if req.attach_report and pdf_bytes:
+                attachments.append({
+                    "bytes": pdf_bytes,
+                    "filename": _report_filename(doc.get("client_name"), id),
+                    "maintype": "application",
+                    "subtype": "pdf",
+                })
+
+            # 2. SLA Service Agreement (if requested)
+            sla_bytes = None
+            if req.attach_sla:
+                sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+                is_accidentally_report = "assessment" in (sla_fname or "").lower()
+                if not is_accidentally_report and s.get("sla_file_id"):
+                    sla_bytes = await read_asset_bytes(s["sla_file_id"])
+                    if sla_bytes and len(sla_bytes) > 1_500_000 and b"Assessment" in sla_bytes[:10000]:
+                        logger.warning("Uploaded SLA file %s is an assessment report; falling back to official SLA", sla_fname)
+                        sla_bytes = None
+                        is_accidentally_report = True
+
+                if not sla_bytes:
+                    default_sla_path = os.path.join(
+                        os.path.dirname(__file__), "..", "uploads", "agreements", "agreement_95111010-1be0-4d80-8b80-de34881eb735.pdf"
+                    )
+                    if os.path.exists(default_sla_path):
+                        try:
+                            with open(default_sla_path, "rb") as fp:
+                                sla_bytes = fp.read()
+                        except Exception as e:
+                            logger.warning("Could not read default agreement: %s", e)
+                from core.official_assets import ensure_valid_sla_pdf
+                client_nm = doc.get("client_name") or "Applicant"
+                sla_bytes = ensure_valid_sla_pdf(sla_bytes, client_name=client_nm, country="Australia")
+
+                if not sla_fname.lower().endswith(".pdf") or is_accidentally_report:
+                    sla_fname = "LEAMSS-Service-Level-Agreement.pdf"
+
+                if sla_bytes:
+                    attachments.append({
+                        "bytes": sla_bytes,
+                        "filename": sla_fname,
+                        "maintype": "application",
+                        "subtype": "pdf",
+                    })
+
+            # 3. Payment QR Code (if requested)
+            qr_bytes = None
+            if req.attach_qr:
+                if s.get("qr_file_id"):
+                    qr_bytes = await read_asset_bytes(s["qr_file_id"])
+                if not qr_bytes:
+                    from core.official_assets import generate_official_qr_image
+                    qr_bytes = generate_official_qr_image()
+                if qr_bytes:
+                    attachments.append({
+                        "bytes": qr_bytes,
+                        "filename": "LEAMSS-Payment-QR.png",
+                        "maintype": "image",
+                        "subtype": "png",
+                    })
+
+            # 4. Candidate Resume Attachment (if requested)
+            resume_att = None
+            if req.attach_resume:
+                resume_fid = (
+                    doc.get("resume_file_id")
+                    or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+                    or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
+                )
+                resume_link = (
+                    doc.get("resume_url")
+                    or doc.get("resume_link")
+                    or (doc.get("profile_snapshot") or {}).get("resume_url")
+                    or (doc.get("profile_snapshot") or {}).get("resume_link")
+                    or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_url")
+                )
+                resume_fname = (
+                    doc.get("resume_filename")
+                    or (doc.get("profile_snapshot") or {}).get("resume_filename")
+                    or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
+                )
+                resume_att = await get_resume_attachment(
+                    file_id=resume_fid,
+                    link=resume_link,
+                    filename=resume_fname,
+                    client_name=doc.get("client_name"),
+                )
+                if resume_att:
+                    attachments.append(resume_att)
+
+            await gmail_send(
+                sender_email=sender_email,
+                sender_name=sender_name,
+                recipient=to,
+                subject=subject,
+                html=html,
+                plain=plain,
+                attachments=attachments,
+                bcc=(sender_email if req.bcc_self else None),
+            )
+            await assessments_col.update_one({"id": id}, {"$set": {
+                "client_email": to,
+                "email_status": "sent",
+                "email_to": to,
+                "email_from": sender_email,
+                "email_sent_at": datetime.now(timezone.utc),
+                "email_resume_attached": bool(resume_att),
+                "email_error": None,
+            }})
+            logger.info("Assessment %s email successfully delivered to %s", id, to)
+        except Exception as e:
+            logger.exception("Error dispatching email via gmail_send: %s", e)
+            await assessments_col.update_one({"id": id}, {"$set": {
+                "email_status": "failed",
+                "email_error": str(e)[:400],
+            }})
+            if req.sync:
+                raise
+
+    if req.sync:
+        await _dispatch_delivery()
+    else:
+        asyncio.create_task(_dispatch_delivery())
 
     return {
         "ok": True,
         "sent_to": to,
         "sender_email": sender_email,
         "sent_at": now.isoformat(),
-        "resume_attached": bool(resume_att),
+        "report_attached": req.attach_report,
+        "resume_attached": req.attach_resume,
+        "sla_attached": req.attach_sla,
+        "qr_attached": req.attach_qr,
+        "queued": not req.sync,
     }
 
 

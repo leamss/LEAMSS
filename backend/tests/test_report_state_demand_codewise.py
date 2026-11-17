@@ -159,3 +159,50 @@ def test_enrich_snapshot_normalizes_countries_and_primary_occ():
     assert c_occ["state_territory_eligibility"][0]["demand"] == "Shortage (Statewide)"
     assert c_occ["state_territory_eligibility"][0]["sc190"] is True
     assert c_occ["state_territory_eligibility"][0]["sc491"] is True
+
+
+def test_cook_351411_authentic_atlas_jsa_differentiation():
+    """Verifies that Cook 351411 with JSA SPL 2024 authentic ratings correctly differentiates:
+    - S states (NSW, QLD, WA, NT) -> Shortage (Statewide), 190: True, 491: True
+    - NS states (VIC, SA, TAS, ACT) -> No Metro Shortage, 190: False, 491: True
+    """
+    occ_doc = {
+        "code": "351411",
+        "title": "Cook",
+        "country_code": "AU",
+        "pathway_list": "STSOL",
+        "jsa_spl": {
+            "national_rating": "S",
+            "historical_ratings": {
+                "2024": {
+                    "rnat": "S", "rnsw": "S", "rvic": "NS", "rqld": "S",
+                    "rsa": "NS", "rwa": "S", "rtas": "NS", "rnt": "S", "ract": "NS"
+                }
+            }
+        },
+        # Even if raw_ste was the old uniform dummy dictionary
+        "state_territory_eligibility": {
+            st: {"rating": "S", "rating_label": "Shortage (Statewide)", "demand": "high", "eligible_190": True, "eligible_491": True}
+            for st in AU_STATE_ORDER
+        }
+    }
+
+    normalized = _normalize_state_territory_eligibility(
+        occ_doc["state_territory_eligibility"], clean_code="351411", occ_doc=occ_doc
+    )
+    assert len(normalized) == 8
+
+    by_st = {item["state_code"]: item for item in normalized}
+
+    # Shortage states (S)
+    for s_st in ["NSW", "QLD", "WA", "NT"]:
+        assert by_st[s_st]["demand"] == "Shortage (Statewide)"
+        assert by_st[s_st]["sc190"] is True, f"{s_st} should be 190 open"
+        assert by_st[s_st]["sc491"] is True, f"{s_st} should be 491 open"
+
+    # No Shortage states (NS)
+    for ns_st in ["VIC", "SA", "TAS", "ACT"]:
+        assert by_st[ns_st]["demand"] == "No Metro Shortage"
+        assert by_st[ns_st]["sc190"] is False, f"{ns_st} should be 190 closed for STSOL"
+        assert by_st[ns_st]["sc491"] is True, f"{ns_st} should be 491 open"
+

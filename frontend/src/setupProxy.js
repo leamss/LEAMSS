@@ -24,6 +24,7 @@
  */
 const path = require('path');
 const fs = require('fs');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 const ATLAS_DIR = path.join(PUBLIC_DIR, 'atlas');
@@ -45,6 +46,15 @@ function sendStaticFile(req, res, filePath, contentType) {
 }
 
 module.exports = function setupProxy(app) {
+  // Proxy /api to FastAPI backend
+  const backendTarget = (process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8001').replace('localhost', '127.0.0.1');
+  app.use(
+    createProxyMiddleware('/api', {
+      target: backendTarget,
+      changeOrigin: true,
+    })
+  );
+
   // /sitemap.xml — static SSG-generated sitemap
   app.get('/sitemap.xml', (req, res, next) => {
     const f = path.join(PUBLIC_DIR, 'sitemap.xml');
@@ -78,6 +88,16 @@ module.exports = function setupProxy(app) {
       const code = parts[2];
       if (!/^[a-z]{2}$/.test(country)) return next();
       if (!/^[a-zA-Z0-9_-]{1,20}$/.test(code)) return next();
+      if ((country === 'au' || country === 'nz') && !/^\d{6}$/.test(code)) {
+        res.statusCode = 404;
+        res.end();
+        return;
+      }
+      if (country === 'ca' && !/^\d{5}$/.test(code)) {
+        res.statusCode = 404;
+        res.end();
+        return;
+      }
       target = path.join(ATLAS_DIR, country, code, 'index.html');
     } else if (parts.length === 4 && parts[2] === 'industry') {
       // Phase 19.4c — /atlas/{country}/industry/{slug}

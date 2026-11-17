@@ -49,9 +49,18 @@ export default function ParallelSubclassPanel({ data, headers }) {
         },
       },
       professional: {
-        current_profession: data.occupation_title,
-        years_experience_total:     parseFloat(data.years_experience_total)     || 0,
+        current_profession: data.current_profession || data.occupation_title,
+        designation: data.current_profession || data.occupation_title,
+        years_experience_total:     parseFloat(data.raw_years_experience_total || data.years_experience_total) || 0,
         years_experience_australia: parseFloat(data.years_experience_australia) || 0,
+        deducted_years:             data.skills_assessment_deducted_years !== '' && data.skills_assessment_deducted_years !== undefined ? parseFloat(data.skills_assessment_deducted_years) : 0,
+        claimable_years:            (() => {
+          if (data.skills_assessment_claimable_years !== '' && data.skills_assessment_claimable_years !== undefined) {
+            return parseFloat(data.skills_assessment_claimable_years);
+          }
+          return parseFloat(data.years_experience_total) || 0;
+        })(),
+        skills_assessment:          data.skills_assessment_data || null,
       },
       au_extras: {
         naati_accredited:             !!data.naati_accredited,

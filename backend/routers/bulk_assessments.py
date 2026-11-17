@@ -1876,13 +1876,18 @@ class MailSenderRequest(BaseModel):
     name: str
     email: str
     active: bool = True
+    app_password: Optional[str] = None
 
 
 @router.get("/mail-senders")
 async def list_mail_senders(current_user: dict = Depends(get_current_user)):
     if not _can(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
-    return await MAIL_SENDERS.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+    senders = await MAIL_SENDERS.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+    for s in senders:
+        if s.get("app_password"):
+            s["has_app_password"] = True
+    return senders
 
 
 @router.post("/mail-senders")
@@ -1897,13 +1902,16 @@ async def add_mail_sender(req: MailSenderRequest, current_user: dict = Depends(g
         raise HTTPException(status_code=400, detail=f"{email} is already in the mailbox list.")
     dom = gmail_domain()
     domain_ok = (not dom) or email.endswith("@" + dom)
+    app_pw = (req.app_password or "").replace(" ", "").strip() if getattr(req, "app_password", None) else ""
     doc = {
         "id": str(uuid.uuid4()), "name": name, "email": email, "active": bool(req.active),
         "domain_ok": domain_ok, "created_at": datetime.now(timezone.utc), "created_by": current_user.get("email"),
     }
+    if app_pw:
+        doc["app_password"] = app_pw
     await MAIL_SENDERS.insert_one(dict(doc))
     doc.pop("_id", None)
-    return {"ok": True, "sender": {k: v for k, v in doc.items() if k != "created_at"}, "domain_warning": (not domain_ok)}
+    return {"ok": True, "sender": {k: v for k, v in doc.items() if k not in ("created_at", "app_password")}, "domain_warning": (not domain_ok)}
 
 
 @router.patch("/mail-senders/{sender_id}")
@@ -1915,6 +1923,8 @@ async def update_mail_sender(sender_id: str, req: dict, current_user: dict = Dep
         updates["name"] = str(req["name"]).strip()
     if "active" in req:
         updates["active"] = bool(req["active"])
+    if "app_password" in req and req["app_password"] is not None:
+        updates["app_password"] = str(req["app_password"]).replace(" ", "").strip()
     if not updates:
         raise HTTPException(status_code=400, detail="Nothing to update.")
     res = await MAIL_SENDERS.update_one({"id": sender_id}, {"$set": updates})

@@ -13,6 +13,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Loader2, Upload, Trash2, Plus, XCircle, Mail, Gift, CreditCard, Paperclip, MessageSquare, Send, Settings,
+  Key, ShieldCheck, CheckCircle2,
 } from 'lucide-react';
 import { API } from './lib/constants';
 
@@ -36,6 +37,27 @@ export default function EmailSettingsDialog({ headers, onClose }) {
   const slaRef = useRef(null);
   const qrRef = useRef(null);
 
+  // Mail senders state
+  const [sendersList, setSendersList] = useState([]);
+  const [newSenderName, setNewSenderName] = useState('');
+  const [newSenderEmail, setNewSenderEmail] = useState('');
+  const [newSenderPassword, setNewSenderPassword] = useState('');
+  const [savingSender, setSavingSender] = useState(false);
+  const [editingSenderId, setEditingSenderId] = useState(null);
+  const [editSenderPassword, setEditSenderPassword] = useState('');
+
+  const loadSenders = async () => {
+    try {
+      const r = await axios.get(`${API}/email-settings/mail-senders`, { headers });
+      setSendersList(r.data?.senders || []);
+    } catch (e) {
+      try {
+        const fb = await axios.get(`${API}/bulk-assessments/mail-senders`, { headers });
+        setSendersList(fb.data || []);
+      } catch (err) {}
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     try {
@@ -43,10 +65,73 @@ export default function EmailSettingsDialog({ headers, onClose }) {
       setSt(r.data);
       setTestTo(r.data?.contact_email || '');
       setTestWhatsAppTo(r.data?.contact_phone || '+91');
+      await loadSenders();
     } catch (e) { toast.error('Could not load email settings'); }
     finally { setLoading(false); }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, []);
+
+  const addSender = async () => {
+    if (!newSenderName.trim() || !newSenderEmail.trim()) {
+      toast.error('Enter both name and email');
+      return;
+    }
+    setSavingSender(true);
+    try {
+      const payload = {
+        name: newSenderName.trim(),
+        email: newSenderEmail.trim().toLowerCase(),
+        active: true,
+      };
+      if (newSenderPassword.trim()) {
+        payload.app_password = newSenderPassword.replace(/\s+/g, '').trim();
+      }
+      await axios.post(`${API}/email-settings/mail-senders`, payload, { headers });
+      toast.success('Sender account added');
+      setNewSenderName('');
+      setNewSenderEmail('');
+      setNewSenderPassword('');
+      await loadSenders();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Could not add mailbox');
+    } finally {
+      setSavingSender(false);
+    }
+  };
+
+  const toggleSenderActive = async (s) => {
+    try {
+      await axios.patch(`${API}/email-settings/mail-senders/${s.id}`, { active: !s.active }, { headers });
+      await loadSenders();
+    } catch (e) {}
+  };
+
+  const updateSenderPassword = async (senderId) => {
+    if (!editSenderPassword.trim()) return;
+    try {
+      await axios.patch(`${API}/email-settings/mail-senders/${senderId}`, {
+        app_password: editSenderPassword.replace(/\s+/g, '').trim(),
+      }, { headers });
+      toast.success('Password updated');
+      setEditingSenderId(null);
+      setEditSenderPassword('');
+      await loadSenders();
+    } catch (e) {
+      toast.error('Could not update password');
+    }
+  };
+
+  const removeSender = async (s) => {
+    if (!window.confirm(`Remove ${s.name} (${s.email})?`)) return;
+    try {
+      await axios.delete(`${API}/email-settings/mail-senders/${s.id}`, { headers });
+      toast.success('Removed');
+      await loadSenders();
+    } catch (e) {
+      toast.error('Could not remove');
+    }
+  };
 
   const up = (k, v) => setSt((s) => ({ ...s, [k]: v }));
   const upBank = (k, v) => setSt((s) => ({ ...s, bank_domestic: { ...(s.bank_domestic || {}), [k]: v } }));
@@ -145,11 +230,12 @@ export default function EmailSettingsDialog({ headers, onClose }) {
           <div className="py-16 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" /></div>
         ) : (
           <Tabs defaultValue="message" className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className="grid grid-cols-5 shrink-0">
+            <TabsList className="grid grid-cols-6 shrink-0">
               <TabsTrigger value="message" data-testid="tab-message"><MessageSquare className="h-3.5 w-3.5 mr-1" />Message</TabsTrigger>
               <TabsTrigger value="offer" data-testid="tab-offer"><Gift className="h-3.5 w-3.5 mr-1" />Offer</TabsTrigger>
               <TabsTrigger value="payment" data-testid="tab-payment"><CreditCard className="h-3.5 w-3.5 mr-1" />Payment</TabsTrigger>
               <TabsTrigger value="attach" data-testid="tab-attach"><Paperclip className="h-3.5 w-3.5 mr-1" />Attachments</TabsTrigger>
+              <TabsTrigger value="accounts" data-testid="tab-accounts"><Mail className="h-3.5 w-3.5 mr-1 text-indigo-600" />Accounts</TabsTrigger>
               <TabsTrigger value="whatsapp" data-testid="tab-whatsapp"><MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-600" />WhatsApp</TabsTrigger>
             </TabsList>
 
@@ -310,6 +396,140 @@ export default function EmailSettingsDialog({ headers, onClose }) {
                   <Switch checked={st.attach_report !== false} onCheckedChange={(v) => up('attach_report', v)} data-testid="es-attach-report" />
                   <span className="font-semibold text-slate-700">Attach Pre-Assessment Report PDF</span>
                 </label>
+              </TabsContent>
+
+              {/* SENDER ACCOUNTS & CONSULTANT MAILBOXES */}
+              <TabsContent value="accounts" className="space-y-3 mt-0">
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                      Primary Sender Account (System Default)
+                    </span>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-300">
+                      Verified
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800">
+                    <strong>LEAMSS Consultation</strong> &lt;info@leamss.com&gt; — default sender using Google Workspace SMTP App Password.
+                  </p>
+                </div>
+
+                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-2.5">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                    <Plus className="h-3.5 w-3.5 text-indigo-600" />
+                    Add Consultant Sender Account
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] font-semibold text-slate-600">Consultant Name *</Label>
+                      <Input
+                        value={newSenderName}
+                        onChange={(e) => setNewSenderName(e.target.value)}
+                        placeholder="e.g. Pooja Ghatkar"
+                        className="h-7 text-xs bg-white mt-0.5"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] font-semibold text-slate-600">Email Address *</Label>
+                      <Input
+                        value={newSenderEmail}
+                        onChange={(e) => setNewSenderEmail(e.target.value)}
+                        placeholder="consultant@leamss.com"
+                        className="h-7 text-xs bg-white mt-0.5"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] font-semibold text-slate-600 flex items-center gap-1">
+                      <Key className="h-3 w-3 text-slate-400" />
+                      Google App Password (Optional)
+                    </Label>
+                    <Input
+                      type="password"
+                      value={newSenderPassword}
+                      onChange={(e) => setNewSenderPassword(e.target.value)}
+                      placeholder="16-character Google App Password (optional)"
+                      className="h-7 text-xs font-mono bg-white mt-0.5"
+                    />
+                    <p className="text-[9px] text-slate-400 mt-0.5">
+                      Generate in <em>Google Account &gt; Security &gt; App Passwords</em>. If omitted, uses system credentials.
+                    </p>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      onClick={addSender}
+                      disabled={savingSender}
+                      className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      {savingSender ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
+                      Add Mailbox
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                    Configured Sender Accounts ({sendersList.length})
+                  </span>
+                  {sendersList.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-4 bg-slate-50 border rounded">
+                      No consultant mailboxes added yet.
+                    </p>
+                  ) : (
+                    sendersList.map((s) => (
+                      <div key={s.id || s.email} className="flex items-center justify-between border rounded px-2.5 py-1.5 bg-white">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-slate-900 truncate">{s.name}</span>
+                            {s.has_app_password && (
+                              <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 rounded flex items-center gap-0.5 font-medium">
+                                <CheckCircle2 className="h-2.5 w-2.5" /> App Password
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono truncate block">{s.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {editingSenderId === s.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="password"
+                                placeholder="App Password"
+                                value={editSenderPassword}
+                                onChange={(e) => setEditSenderPassword(e.target.value)}
+                                className="h-6 text-xs font-mono w-28"
+                              />
+                              <Button size="sm" className="h-6 text-[10px] bg-emerald-600 px-2" onClick={() => updateSenderPassword(s.id)}>Save</Button>
+                              <Button size="sm" variant="ghost" className="h-6 text-[10px] px-1" onClick={() => { setEditingSenderId(null); setEditSenderPassword(''); }}>X</Button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => { setEditingSenderId(s.id); setEditSenderPassword(''); }}
+                              className="text-[10px] text-slate-500 hover:text-indigo-600 underline font-medium"
+                            >
+                              {s.has_app_password ? 'Edit Key' : '+ Add Key'}
+                            </button>
+                          )}
+                          <Switch
+                            checked={s.active !== false}
+                            onCheckedChange={() => toggleSenderActive(s)}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-slate-400 hover:text-rose-600"
+                            onClick={() => removeSender(s)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </TabsContent>
 
               {/* WHATSAPP TEMPLATES & CLOUD API */}

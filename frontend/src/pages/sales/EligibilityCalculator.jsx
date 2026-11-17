@@ -335,12 +335,12 @@ export default function EligibilityCalculator() {
 
               <p className="text-[11px] uppercase font-bold text-slate-500 mt-3 mb-1">Experience (in nominated occupation)</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Field label="Total Years"><Input type="number" step="0.5" value={data.years_experience_total} onChange={e => update('years_experience_total', e.target.value)} placeholder="6" data-testid="exp-total" /></Field>
+                <Field label="Total Years"><Input type="number" step="any" value={data.years_experience_total} onChange={e => update('years_experience_total', e.target.value)} placeholder="6" data-testid="exp-total" /></Field>
                 {data.country === 'AU' && (
-                  <Field label="In Australia"><Input type="number" step="0.5" value={data.years_experience_australia} onChange={e => update('years_experience_australia', e.target.value)} placeholder="0" data-testid="exp-au" /></Field>
+                  <Field label="In Australia"><Input type="number" step="any" value={data.years_experience_australia} onChange={e => update('years_experience_australia', e.target.value)} placeholder="0" data-testid="exp-au" /></Field>
                 )}
                 {data.country === 'CA' && (
-                  <Field label="In Canada"><Input type="number" step="0.5" value={data.canadian_work_years} onChange={e => update('canadian_work_years', e.target.value)} placeholder="0" data-testid="exp-ca" /></Field>
+                  <Field label="In Canada"><Input type="number" step="any" value={data.canadian_work_years} onChange={e => update('canadian_work_years', e.target.value)} placeholder="0" data-testid="exp-ca" /></Field>
                 )}
               </div>
 
@@ -420,7 +420,7 @@ export default function EligibilityCalculator() {
                       <Input value={data.spouse_profession} onChange={e => update('spouse_profession', e.target.value)} placeholder="e.g., Data Analyst" data-testid="spouse-profession" />
                     </Field>
                     <Field label="Spouse Years Experience">
-                      <Input type="number" step="0.5" value={data.spouse_years_experience} onChange={e => update('spouse_years_experience', e.target.value)} data-testid="spouse-exp" placeholder="5" />
+                      <Input type="number" step="any" value={data.spouse_years_experience} onChange={e => update('spouse_years_experience', e.target.value)} data-testid="spouse-exp" placeholder="5" />
                     </Field>
                   </>
                 )}

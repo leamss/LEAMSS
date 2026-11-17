@@ -53,7 +53,21 @@ const INITIAL_DATA = {
   ielts_writing: '',
   ielts_speaking: '',
   years_experience_total: '',
+  raw_years_experience_total: '',
   years_experience_australia: '',
+  // Professional details & job duties (manual & extracted)
+  current_profession: '',
+  field_of_study: '',
+  employer_name: '',
+  employer_nature: '',
+  roles_and_responsibilities: '',
+  // Assessing Authority Deduction & Outcomes
+  skills_assessment_outcome: '',
+  skills_assessment_deducted_years: '',
+  skills_assessment_claimable_years: '',
+  skills_assessment_claimable_points: '',
+  skills_assessment_rpl_required: false,
+  skills_assessment_data: null,
   // Occupation
   occupation_country: 'AU',
   occupation_code: '',
@@ -104,7 +118,8 @@ const INITIAL_DATA = {
 
 // Phase 6.8.4 — fields that, when changed on Step 5, must trigger live recalc.
 const FACTOR_FIELDS = [
-  'years_experience_australia', 'canadian_work_years',
+  'years_experience_total', 'years_experience_australia', 'skills_assessment_deducted_years',
+  'skills_assessment_claimable_years', 'canadian_work_years',
   'australian_study_2_years', 'specialist_education_stem_au', 'professional_year_completed',
   'naati_accredited', 'regional_study_au', 'state_nominated', 'state_code',
   'provincial_nomination', 'job_offer_noc_00', 'job_offer_noc_0_a_b',
@@ -277,6 +292,16 @@ export default function ClientAssessment() {
         client_email: data.client_email || undefined,
         client_phone: data.client_phone || undefined,
         profile: buildProfile(data),
+        current_profession: data.current_profession || undefined,
+        field_of_study: data.field_of_study || undefined,
+        employer_name: data.employer_name || undefined,
+        employer_nature: data.employer_nature || undefined,
+        roles_and_responsibilities: data.roles_and_responsibilities || undefined,
+        skills_assessment_outcome: data.skills_assessment_outcome || undefined,
+        skills_assessment_deducted_years: data.skills_assessment_deducted_years !== '' && data.skills_assessment_deducted_years !== undefined ? parseFloat(data.skills_assessment_deducted_years) : undefined,
+        skills_assessment_claimable_years: data.skills_assessment_claimable_years !== '' && data.skills_assessment_claimable_years !== undefined ? parseFloat(data.skills_assessment_claimable_years) : undefined,
+        skills_assessment_claimable_points: data.skills_assessment_claimable_points !== '' && data.skills_assessment_claimable_points !== undefined ? parseFloat(data.skills_assessment_claimable_points) : undefined,
+        skills_assessment: data.skills_assessment_data || undefined,
         resume_file_id: data.resume_file_id || undefined,
         resume_filename: data.resume_filename || undefined,
         occupation: data.occupation_code ? {

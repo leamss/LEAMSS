@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Bot, ChevronRight, Loader2, Check, AlertTriangle, FileText, Award, Scale, HelpCircle, ListChecks, Building2, Search, Layers, Plus } from 'lucide-react';
+import { Bot, ChevronRight, Loader2, Check, AlertTriangle, FileText, Award, Scale, HelpCircle, ListChecks, Building2, Search, Layers, Plus, Sparkles } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 import { API, COUNTRIES } from './constants';
 
@@ -94,6 +94,23 @@ export default function SuggesterModal({
         : [...prev, s]
     ));
   };
+  const setAsPrimary = (item) => {
+    setSelected(prev => {
+      const rest = prev.filter(x => keyOf(x) !== keyOf(item));
+      return [item, ...rest];
+    });
+    toast.success(`Set ${item.code} · ${item.title} as Primary!`);
+  };
+  const addAsAlternative = (item) => {
+    setSelected(prev => {
+      if (prev.some(x => keyOf(x) === keyOf(item))) return prev;
+      return [...prev, item];
+    });
+    toast.success(`Added ${item.code} · ${item.title} as Alternative!`);
+  };
+  const removeFromSelected = (item) => {
+    setSelected(prev => prev.filter(x => keyOf(x) !== keyOf(item)));
+  };
   const useSelected = () => {
     if (!selected.length) return;
     if (onSelectMultiple) onSelectMultiple(selected);
@@ -102,70 +119,102 @@ export default function SuggesterModal({
 
   const countryName = (code) => (code === 'ALL' ? 'All countries' : (COUNTRIES.find(c => c.code === code)?.name || code));
 
-  const executeSearch = async () => {
-    if (!searchQuery.trim()) return;
+  const executeSearch = async (overrideQ) => {
+    const qStr = typeof overrideQ === 'string' ? overrideQ : searchQuery;
+    if (!qStr || !qStr.trim()) {
+      setSearchResults([]);
+      return;
+    }
     setSearching(true);
     try {
-      const cc = searchedCountry === 'ALL' ? undefined : (searchedCountry || country);
+      const activeCC = searchedCountry === 'ALL' ? undefined : (searchedCountry || country || 'AU');
       const r = await axios.get(`${API}/sales/occupations/search`, {
         params: {
-          q: searchQuery.trim(),
-          country: cc ? [cc] : undefined,
-          limit: 10,
+          q: qStr.trim(),
+          country: activeCC,
+          limit: 20,
         },
         headers,
       });
       let items = r.data.items || [];
-      // For Australia, strictly require official 6-digit codes
-      if (cc === 'AU' || (!cc && country === 'AU')) {
-        items = items.filter(it => String(it.code || '').length === 6 && /^\d+$/.test(String(it.code)));
+      // For Australia, strictly require official 6-digit Australian codes
+      if (activeCC === 'AU' || (!activeCC && country === 'AU')) {
+        items = items.filter(it => (it.country_code || 'AU') === 'AU' && String(it.code || '').length === 6 && /^\d+$/.test(String(it.code)));
       }
       setSearchResults(items);
-      if (!items.length) {
-        toast.info('No 6-digit occupations found matching your query.');
-      }
     } catch (e) {
-      toast.error('Search failed: ' + formatApiError(e));
+      console.warn('Search failed: ', e);
     } finally {
       setSearching(false);
     }
   };
 
-  const addSearchedOccupation = (item) => {
-    const cc = item.country_code || searchedCountry || country || 'AU';
-    const codeStr = String(item.code || '');
-    
-    // Check if code is already in suggestions list
-    const alreadyExists = (suggestions?.suggestions || []).some(
-      s => String(s.code) === codeStr && (s.country_code || cc) === cc
-    );
+  // Live search as user types: debounced by 200ms when query >= 2 chars
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed.length >= 2) {
+      const handle = setTimeout(() => {
+        executeSearch(trimmed);
+      }, 200);
+      return () => clearTimeout(handle);
+    } else if (!trimmed) {
+      setSearchResults([]);
+    }
+  }, [searchQuery, searchedCountry, country]);
 
-    const isAu = cc === 'AU';
-    const anzSubclasses = ['189', '190', '491', '494'].filter(v => (item.eligible_visas || []).includes(v) || true);
-    const oscaSubclasses = ['482', '186', '407', '485'].filter(v => (item.eligible_visas || []).includes(v) || true);
+  const addSearchedOccupation = async (item) => {
+    // If the modal is in Australia mode, always enforce country_code AU
+    const activeCC = searchedCountry === 'ALL' ? (item.country_code || 'AU') : (searchedCountry || country || 'AU');
+    const cc = activeCC === 'AU' ? 'AU' : (item.country_code || activeCC);
+    const codeStr = String(item.code || '');
+
+    // Calculate preliminary points on client side immediately so user sees real numbers without delay
+    const totalExp = expYears ? Number(expYears) : 0;
+    let deducted = 0;
+    let authName = item.assessing_body || 'Designated Assessing Authority';
+    let pathwayName = item.pathway || 'Core Skills / GSM';
+
+    // IT codes with Bachelor degree (e.g. 261313, 262112, 261111, 261312)
+    if (codeStr.startsWith('26') || codeStr.startsWith('1351') || (authName && authName.toUpperCase().includes('ACS'))) {
+      authName = 'Australian Computer Society';
+      deducted = 2.0;
+      pathwayName = 'ACS General Skills - Bachelor/Master with IT Major (Closely Related)';
+    } else if (codeStr.startsWith('3') || (authName && authName.toUpperCase().includes('TRA'))) {
+      authName = 'Trades Recognition Australia';
+      deducted = 3.0;
+      pathwayName = 'TRA OSAP / Migration Skills Assessment';
+    } else if (authName && authName.toUpperCase().includes('VETASSESS')) {
+      deducted = 1.0;
+      pathwayName = 'VETASSESS Professional General';
+    }
+
+    const claimableYrs = Math.max(0, totalExp - deducted);
+    const claimablePts = claimableYrs >= 8 ? 15 : claimableYrs >= 5 ? 10 : claimableYrs >= 3 ? 5 : 0;
 
     const newItem = {
       country_code: cc,
       code: codeStr,
       title: item.title || 'Occupation',
-      confidence: 'medium',
-      assessing_body: item.assessing_body || 'Designated Assessing Authority',
-      pathway: item.pathway || 'Core Skills / GSM',
+      confidence: 'high',
+      assessing_body: authName,
+      pathway: pathwayName,
       reasoning: `Manually searched and added occupation ${codeStr} (${item.title}).`,
-      considerations: `Selected via quick search. Official assessing body: ${item.assessing_body || 'Designated Authority'}.`,
+      considerations: `Assessed by ${authName}. Official suitability deduction: ${deducted.toFixed(1)} yrs.`,
       _verified: true,
       _user_added: true,
       skills_assessment: {
-        authority_name: item.assessing_body || 'Designated Assessing Authority',
-        pathway_name: item.pathway || 'Skilled Migration',
-        assessment_outcome: 'Likely Positive (Review Required)',
+        authority_name: authName,
+        pathway_name: pathwayName,
+        assessment_outcome: 'Likely Positive Assessment',
         is_positive: true,
-        deducted_years: 0,
-        points_claimable_years: expYears ? Number(expYears) : 0,
-        points_claimable_points: 0,
-        conditions_summary: 'Verify assessing authority criteria and work references before submitting EOI.',
+        deducted_years: deducted,
+        points_claimable_years: claimableYrs,
+        points_claimable_points: claimablePts,
+        conditions_summary: deducted > 0
+          ? `Requires ${deducted.toFixed(1)} yr(s) qualifying deduction. Remaining ${claimableYrs.toFixed(1)} yrs can claim +${claimablePts} migration points for GSM.`
+          : `0.0 yrs deduction. All ${claimableYrs.toFixed(1)} yrs are points-claimable (+${claimablePts} GSM points).`,
       },
-      classification_versions: isAu ? {
+      classification_versions: cc === 'AU' ? {
         anzsco_2013: {
           version_name: 'ANZSCO 2013',
           framework: 'General Skilled Migration (GSM)',
@@ -181,22 +230,53 @@ export default function SuggesterModal({
       } : undefined,
     };
 
-    if (!alreadyExists) {
-      setSuggestions(prev => ({
+    // Add to suggestions list immediately
+    setSuggestions(prev => {
+      const existing = (prev?.suggestions || []).filter(
+        s => !(String(s.code) === codeStr && (s.country_code || cc) === cc)
+      );
+      return {
         ...prev,
-        suggestions: [newItem, ...(prev?.suggestions || [])],
-      }));
-    }
-
-    // Immediately toggle select this item
-    setSelected(prev => {
-      const exists = prev.some(x => keyOf(x) === keyOf(newItem));
-      return exists ? prev : [newItem, ...prev];
+        suggestions: [newItem, ...existing],
+      };
     });
 
-    toast.success(`Added ${codeStr} · ${item.title} to selection!`);
-    setSearchQuery('');
-    setSearchResults([]);
+    // Select this item
+    setSelected(prev => {
+      const filtered = prev.filter(x => !(String(x.code) === codeStr && (x.country_code || cc) === cc));
+      return [...filtered, newItem];
+    });
+
+    toast.success(`Added ${codeStr} · ${item.title}!`);
+
+    // Call backend endpoint to asynchronously enrich with deep assessing authority data
+    try {
+      const evalResp = await axios.post(`${API}/sales/ai/evaluate-occupation-skills`, {
+        code: codeStr,
+        country_code: cc,
+        title: item.title,
+        assessing_body: authName,
+        qualification: qualification || initialProfile?.qualification,
+        field_of_study: fieldOfStudy || initialProfile?.field_of_study,
+        years_experience_total: totalExp,
+        profile: initialProfile,
+      }, { headers });
+
+      if (evalResp.data && evalResp.data.skills_assessment) {
+        const enrichedItem = { ...evalResp.data, _user_added: true, _verified: true };
+        setSuggestions(prev => ({
+          ...prev,
+          suggestions: (prev?.suggestions || []).map(s =>
+            (String(s.code) === codeStr && (s.country_code || cc) === cc) ? enrichedItem : s
+          ),
+        }));
+        setSelected(prev =>
+          prev.map(s => (String(s.code) === codeStr && (s.country_code || cc) === cc) ? enrichedItem : s)
+        );
+      }
+    } catch (e) {
+      console.warn('Backend evaluation fallback used', e);
+    }
   };
 
   const submit = async (overrideCountry) => {
@@ -473,10 +553,10 @@ export default function SuggesterModal({
                 <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Total Career Exp (Years)</label>
                 <Input
                   type="number"
-                  step="0.5"
+                  step="any"
                   value={expYears}
                   onChange={e => setExpYears(e.target.value)}
-                  placeholder="e.g. 5.0"
+                  placeholder="e.g. 5.8"
                   className="h-8 text-xs font-semibold"
                   data-testid="suggester-exp-input"
                 />
@@ -605,33 +685,72 @@ export default function SuggesterModal({
                 </Button>
               </div>
 
-              {/* Render Search Results Dropdown/Card List */}
+              {/* Render Search Results in Side-by-Side Grid */}
               {searchResults.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-slate-200/80 space-y-1.5 max-h-48 overflow-y-auto">
-                  <span className="text-[10px] font-semibold uppercase text-slate-500 block">
-                    Found {searchResults.length} matching occupation{searchResults.length > 1 ? 's' : ''}:
-                  </span>
-                  <div className="space-y-1">
-                    {searchResults.map((item, sidx) => (
-                      <div
-                        key={sidx}
-                        className="flex items-center justify-between p-2 bg-white rounded border border-slate-200 hover:border-indigo-300 transition text-xs"
-                      >
-                        <div>
-                          <span className="font-bold text-slate-800">{item.code} · {item.title}</span>
-                          <span className="text-[10px] text-slate-400 ml-2">({item.assessing_body || 'Assessing Body'} · {item.pathway || 'Core Skills'})</span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 text-[10px] border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-                          onClick={() => addSearchedOccupation(item)}
-                          data-testid={`add-searched-occ-${sidx}`}
+                <div className="mt-2.5 pt-2.5 border-t border-slate-200/90 space-y-2" data-testid="suggester-search-results-grid">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-indigo-900 flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                      Matching Occupations ({searchResults.length} found):
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Click &quot;+ Add Code&quot; to add to list</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto p-1.5 bg-slate-100/70 rounded-lg border border-slate-200">
+                    {searchResults.map((item, sidx) => {
+                      const isAdded = selected.some(s => String(s.code) === String(item.code));
+
+                      return (
+                        <div
+                          key={sidx}
+                          className={`p-2.5 rounded-lg border transition flex flex-col justify-between ${
+                            isAdded
+                              ? 'bg-emerald-50/70 border-emerald-300'
+                              : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-xs'
+                          }`}
                         >
-                          <Plus className="h-3 w-3 mr-1" /> Add &amp; Select
-                        </Button>
-                      </div>
-                    ))}
+                          <div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="font-mono font-bold text-xs bg-indigo-600 text-white px-2 py-0.5 rounded shadow-xs">
+                                {item.code}
+                              </span>
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
+                                {item.country_code || 'AU'}
+                              </span>
+                            </div>
+
+                            <p className="font-bold text-slate-800 text-xs mt-1" title={item.title}>
+                              {item.title}
+                            </p>
+                            <p className="text-[11px] text-slate-500 mt-0.5 font-medium truncate">
+                              {item.assessing_body || 'Designated Assessing Body'}
+                            </p>
+                          </div>
+
+                          <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between gap-1.5">
+                            <span className="text-[9px] text-slate-400 truncate max-w-[110px]" title={item.pathway || 'Core Skills'}>
+                              {item.pathway || 'Core Skills'}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {isAdded ? (
+                                <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1 bg-emerald-100/80 px-2 py-0.5 rounded">
+                                  <Check className="h-3 w-3 text-emerald-600" /> Added
+                                </span>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  className="h-6 text-[10px] px-2.5 font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+                                  onClick={() => addSearchedOccupation(item)}
+                                  data-testid={`add-searched-occ-${sidx}`}
+                                >
+                                  + Add Code
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -697,6 +816,8 @@ export default function SuggesterModal({
                 return (s.eligible_visas || []).includes(activeFilterSubclass);
               })).map((s, i) => {
                 const sel = isSelected(s);
+                const isPrimary = selected.length > 0 && selected[0] && keyOf(selected[0]) === keyOf(s);
+                const isAlternative = selected.slice(1).some(x => keyOf(x) === keyOf(s));
                 const sa = s.skills_assessment || {};
                 const isPositive = sa.is_positive !== false;
                 const rplReq = Boolean(sa.rpl_required);
@@ -749,15 +870,36 @@ export default function SuggesterModal({
                         )}
                       </div>
 
-                      <Button
-                        size="sm"
-                        variant={sel ? 'default' : 'outline'}
-                        className={`text-xs h-8 px-3 shrink-0 ${sel ? 'bg-indigo-600 hover:bg-indigo-700 text-white font-semibold' : 'hover:border-indigo-400'}`}
-                        onClick={() => toggleSelect(s)}
-                        data-testid={`select-suggestion-${i}`}
-                      >
-                        {sel ? <><Check className="h-3.5 w-3.5 mr-1" />Selected{selected.length > 1 && selected[0] && keyOf(selected[0]) === keyOf(s) ? ' · Primary' : ''}</> : <>Select Code <ChevronRight className="h-3.5 w-3.5 ml-1" /></>}
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* for primary just before select code: make as primary */}
+                        {isPrimary ? (
+                          <span className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300 rounded px-2.5 py-1 shadow-xs flex items-center gap-1" data-testid={`primary-badge-${i}`}>
+                            ★ Primary
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-8 px-2.5 font-semibold border-amber-300 text-amber-800 hover:bg-amber-50 shadow-xs"
+                            onClick={() => setAsPrimary(s)}
+                            data-testid={`make-primary-suggestion-${i}`}
+                            title="Make as Primary"
+                          >
+                            ★ Make as Primary
+                          </Button>
+                        )}
+
+                        {/* Select Code as before */}
+                        <Button
+                          size="sm"
+                          variant={sel ? 'default' : 'outline'}
+                          className={`text-xs h-8 px-3 shrink-0 ${sel ? 'bg-indigo-600 hover:bg-indigo-700 text-white font-semibold' : 'hover:border-indigo-400'}`}
+                          onClick={() => toggleSelect(s)}
+                          data-testid={`select-suggestion-${i}`}
+                        >
+                          {sel ? <><Check className="h-3.5 w-3.5 mr-1" />Selected</> : <>Select Code <ChevronRight className="h-3.5 w-3.5 ml-1" /></>}
+                        </Button>
+                      </div>
                     </div>
 
                     {/* AI Job Alignment Reasoning */}

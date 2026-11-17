@@ -22,7 +22,10 @@ from core.database import db
 router = APIRouter(prefix="/email-settings", tags=["email-settings"])
 
 SETTINGS = db["email_settings"]
-_assets = AsyncIOMotorGridFSBucket(db, bucket_name="email_assets")
+
+
+def _get_assets_bucket() -> AsyncIOMotorGridFSBucket:
+    return AsyncIOMotorGridFSBucket(db, bucket_name="email_assets")
 
 ADMIN_ROLES = {"admin", "admin_owner"}
 
@@ -187,8 +190,9 @@ async def get_settings() -> Dict[str, Any]:
 
 async def read_asset_bytes(file_id: str) -> Optional[bytes]:
     try:
+        bucket = _get_assets_bucket()
         buf = io.BytesIO()
-        await _assets.download_to_stream(ObjectId(file_id), buf)
+        await bucket.download_to_stream(ObjectId(file_id), buf)
         return buf.getvalue()
     except Exception:
         return None
@@ -240,18 +244,30 @@ async def upload_asset(asset: str, file: UploadFile = File(...), current_user: d
     # remove old asset if present
     old = (await SETTINGS.find_one({"id": "global"}, {field: 1})) or {}
     old_id = old.get(field)
-    file_id = await _assets.upload_from_stream(
-        file.filename or asset,
+    if asset == "sla":
+        from core.official_assets import ensure_valid_sla_pdf
+        data = ensure_valid_sla_pdf(data, client_name="Valued Applicant", country="Australia")
+        out_fname = file.filename or "LEAMSS-Service-Level-Agreement.pdf"
+        if not out_fname.lower().endswith(".pdf"):
+            out_fname = f"{out_fname.rsplit('.', 1)[0]}.pdf"
+        file_content_type = "application/pdf"
+    else:
+        out_fname = file.filename or asset
+        file_content_type = file.content_type
+
+    bucket = _get_assets_bucket()
+    file_id = await bucket.upload_from_stream(
+        out_fname,
         io.BytesIO(data),
-        metadata={"asset": asset, "content_type": file.content_type},
+        metadata={"asset": asset, "content_type": file_content_type},
     )
     update = {field: str(file_id)}
     if asset == "sla":
-        update["sla_filename"] = file.filename or "LEAMSS-Service-Level-Agreement.pdf"
+        update["sla_filename"] = out_fname
     await SETTINGS.update_one({"id": "global"}, {"$set": update})
     if old_id:
         try:
-            await _assets.delete(ObjectId(old_id))
+            await bucket.delete(ObjectId(old_id))
         except Exception:
             pass
     return {"ok": True, "asset": asset, "file_id": str(file_id), "filename": file.filename}
@@ -267,7 +283,7 @@ async def delete_asset(asset: str, current_user: dict = Depends(get_current_user
     cur = (await SETTINGS.find_one({"id": "global"}, {field: 1})) or {}
     if cur.get(field):
         try:
-            await _assets.delete(ObjectId(cur[field]))
+            await _get_assets_bucket().delete(ObjectId(cur[field]))
         except Exception:
             pass
     await SETTINGS.update_one({"id": "global"}, {"$set": {field: None}})
@@ -386,4 +402,87 @@ async def send_test_whatsapp(req: TestWhatsAppRequest, current_user: dict = Depe
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Mail Senders (Consultant & Sender Accounts with App Passwords)
+# ────────────────────────────────────────────────────────────────────────────
+
+class MailSenderModel(BaseModel):
+    name: str
+    email: str
+    active: bool = True
+    app_password: Optional[str] = None
+
+
+@router.get("/mail-senders")
+async def get_email_senders(current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    from core.gmail_dwd import default_sender, delegated_domain
+    senders = await db["mail_senders"].find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+    for s in senders:
+        if s.get("app_password"):
+            s["has_app_password"] = True
+    return {
+        "default_sender": default_sender(),
+        "domain": delegated_domain(),
+        "senders": senders,
+    }
+
+
+@router.post("/mail-senders")
+async def create_email_sender(req: MailSenderModel, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    import uuid
+    from core.gmail_dwd import delegated_domain
+    email = (req.email or "").strip().lower()
+    name = (req.name or "").strip()
+    if "@" not in email or not name:
+        raise HTTPException(status_code=400, detail="A valid name and email are required.")
+    if await db["mail_senders"].find_one({"email": email}):
+        raise HTTPException(status_code=400, detail=f"{email} is already in the mailbox list.")
+    dom = delegated_domain()
+    domain_ok = (not dom) or email.endswith("@" + dom)
+    app_pw = (req.app_password or "").replace(" ", "").strip()
+    doc = {
+        "id": str(uuid.uuid4()), "name": name, "email": email, "active": bool(req.active),
+        "domain_ok": domain_ok, "created_at": datetime.now(timezone.utc), "created_by": current_user.get("email"),
+    }
+    if app_pw:
+        doc["app_password"] = app_pw
+    await db["mail_senders"].insert_one(dict(doc))
+    doc.pop("_id", None)
+    if "app_password" in doc:
+        doc["has_app_password"] = True
+        del doc["app_password"]
+    return {"ok": True, "sender": doc, "domain_warning": (not domain_ok)}
+
+
+@router.patch("/mail-senders/{sender_id}")
+async def patch_email_sender(sender_id: str, req: dict, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    updates = {}
+    if "name" in req and req["name"]:
+        updates["name"] = str(req["name"]).strip()
+    if "active" in req:
+        updates["active"] = bool(req["active"])
+    if "app_password" in req and req["app_password"] is not None:
+        updates["app_password"] = str(req["app_password"]).replace(" ", "").strip()
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update.")
+    res = await db["mail_senders"].update_one({"id": sender_id}, {"$set": updates})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Mailbox not found.")
+    return {"ok": True}
+
+
+@router.delete("/mail-senders/{sender_id}")
+async def remove_email_sender(sender_id: str, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    await db["mail_senders"].delete_one({"id": sender_id})
+    return {"ok": True}
 

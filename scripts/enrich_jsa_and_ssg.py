@@ -107,7 +107,16 @@ async def main():
     client = AsyncIOMotorClient(mongo_url)
     db = client[db_name]
 
-    # 0. Import all 1236 ANZSCO into anzsco_4digit_master and populate occupation_master
+    # 0. Clean up legacy 4-digit unit groups & populate 6-digit ANZSCO
+    await db["occupation_master"].delete_many({"country_code": "AU", "code": {"$regex": "^[0-9]{4}$"}})
+    
+    # Clean up static 4-digit directories
+    for base_dir in [PROJECT_ROOT / "frontend" / "public" / "atlas" / "au", PROJECT_ROOT / "frontend" / "build" / "atlas" / "au"]:
+        if base_dir.exists():
+            for p in base_dir.iterdir():
+                if p.is_dir() and len(p.name) == 4 and p.name.isdigit():
+                    shutil.rmtree(p, ignore_errors=True)
+
     jsa_dir = BACKEND_DIR / "data" / "jsa_imports"
     occ_file = jsa_dir / "occupation_profiles_feb_2026.xlsx"
     if occ_file.exists():
@@ -119,7 +128,7 @@ async def main():
         except Exception as e:
             print("ANZSCO Excel import error:", e)
 
-        print("\n--- 0b. Populating all 1,236 ANZSCO into occupation_master ---")
+        print("\n--- 0b. Populating all 6-digit ANZSCO into occupation_master ---")
         try:
             from scripts.populate_all_1236_anzsco import run_population
             await run_population()
