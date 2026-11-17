@@ -58,7 +58,8 @@ def _check_ca(doc: Dict[str, Any]) -> Tuple[bool, List[str], float]:
     one_of = ["pnp_eligibility", "quebec_eligibility", "regional_pilot_eligibility"]
     missing_base = [f for f in base_required if not _is_filled(doc.get(f))]
     has_one_of = any(_is_filled(doc.get(f)) for f in one_of)
-    pct = _coverage_pct(doc, base_required + one_of)
+    filled_total = sum(1 for f in base_required if _is_filled(doc.get(f))) + (1 if has_one_of else 0)
+    pct = round(filled_total / (len(base_required) + 1) * 100, 1)
     missing = list(missing_base)
     if not has_one_of:
         missing.append("provincial_pathway (one of pnp/quebec/regional_pilot)")
@@ -75,7 +76,8 @@ def _check_nz(doc: Dict[str, Any]) -> Tuple[bool, List[str], float]:
         has_pathway = True
     if doc.get("nz_green_list_tier") in (1, 2):
         has_pathway = True
-    pct = _coverage_pct(doc, base_required + one_of)
+    filled_total = sum(1 for f in base_required if _is_filled(doc.get(f))) + (1 if has_pathway else 0)
+    pct = round(filled_total / (len(base_required) + 1) * 100, 1)
     missing = list(missing_base)
     if not has_pathway:
         missing.append("nz_pathway (green_list_tier or aewv_eligibility)")

@@ -32,6 +32,9 @@ from parsers.jsa import (
     atlas_industries as p_atlas_industry,
     atlas_occupation_workbook as p_atlas_occ_workbook,
     vacancy_report as p_vacancy,
+    noc_canada_structure as p_noc_structure,
+    noc_canada_elements as p_noc_elements,
+    nz_anzsco_seed as p_nz_seed,
 )
 from services import jsa_importer
 
@@ -49,6 +52,9 @@ PARSER_REGISTRY = {
     "atlas_industries": p_atlas_industry,
     "atlas_occupation_workbook": p_atlas_occ_workbook,
     "vacancy_report": p_vacancy,
+    "noc_canada_structure": p_noc_structure,
+    "noc_canada_elements": p_noc_elements,
+    "nz_anzsco_seed": p_nz_seed,
 }
 
 COMMITTER_REGISTRY = {
@@ -59,6 +65,9 @@ COMMITTER_REGISTRY = {
     "vacancy_report": jsa_importer.commit_vacancy_report,
     "atlas_industries": jsa_importer.commit_atlas_industries,
     "atlas_occupation_workbook": jsa_importer.commit_atlas_occupation_workbook,
+    "noc_canada_structure": jsa_importer.commit_noc_canada_structure,
+    "noc_canada_elements": jsa_importer.commit_noc_canada_elements,
+    "nz_anzsco_seed": jsa_importer.commit_nz_anzsco_seed,
 }
 
 
@@ -75,8 +84,10 @@ def _require_admin(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str
 
 def _detect_type(path: Path) -> str:
     """Auto-detect file type by extension + inspect."""
+    suffix = path.suffix.lower()
+    fname = path.name.lower()
     # PDF branch — currently only Vacancy Report supported
-    if path.suffix.lower() == ".pdf":
+    if suffix == ".pdf":
         try:
             import pdfplumber  # noqa: PLC0415
             with pdfplumber.open(str(path)) as pdf:
@@ -86,7 +97,24 @@ def _detect_type(path: Path) -> str:
         except Exception as e:  # noqa: BLE001
             logger.exception("pdf type detection failed: %s", e)
         return "unknown"
-    # XLSX branch
+
+    # CSV branch
+    if suffix == ".csv":
+        try:
+            with open(path, mode="r", encoding="utf-8-sig", errors="ignore") as f:
+                first_lines = [f.readline() for _ in range(8)]
+                joined = " ".join(first_lines).lower()
+                if "element type label english" in joined or "element description english" in joined or ("noc" in fname and "element" in fname):
+                    return "noc_canada_elements"
+                if "code - noc" in joined or "hierarchical structure" in joined or "class definition" in joined or ("noc" in fname and ("structure" in fname or "classification" in fname)):
+                    return "noc_canada_structure"
+                if "anzsco" in joined or "green list" in joined or "aewv" in joined or "new zealand" in joined or "nz_" in fname:
+                    return "nz_anzsco_seed"
+        except Exception as e:  # noqa: BLE001
+            logger.exception("csv type detection failed: %s", e)
+        return "unknown"
+
+    # XLSX / XLS branch
     try:
         wb = load_workbook(str(path), read_only=True, data_only=True)
         sheet_names = wb.sheetnames
@@ -95,7 +123,7 @@ def _detect_type(path: Path) -> str:
         for i, row in enumerate(first_sheet.iter_rows(values_only=True, max_row=15)):
             first_rows.append(list(row))
         wb.close()
-        return jsa_importer.detect_file_type(sheet_names, first_rows)
+        return jsa_importer.detect_file_type(sheet_names, first_rows, path.name)
     except Exception as e:  # noqa: BLE001
         logger.exception("type detection failed: %s", e)
         return "unknown"
@@ -116,7 +144,7 @@ async def upload_file(
     storage_path.write_bytes(content)
     file_size = storage_path.stat().st_size
 
-    detected_type = _detect_type(storage_path) if safe_name.lower().endswith((".xlsx", ".pdf")) else "unsupported_extension"
+    detected_type = _detect_type(storage_path) if safe_name.lower().endswith((".xlsx", ".xls", ".csv", ".pdf")) else "unsupported_extension"
 
     doc = {
         "id": file_id,
@@ -202,6 +230,9 @@ async def commit_file(
         "sa4_ratings": "regional_labour_market",
         "industry_data": "industry_master",
         "vacancy_report": "vacancy_snapshots",
+        "noc_canada_structure": "occupation_master",
+        "noc_canada_elements": "occupation_master",
+        "nz_anzsco_seed": "occupation_master",
     }
     batch = await ibs.open_batch(
         db,

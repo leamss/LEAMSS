@@ -208,6 +208,36 @@ async def main():
     except Exception as e:
         print("State aggregation warning:", e)
 
+    # 4b. Seed & Enrich Canada NOC 2021 (516 unit group occupations)
+    print("\n--- 4b. Seeding & Enriching Canada NOC 2021 ---")
+    try:
+        from core.scrapers import noc_canada, ircc_ee_streams, pnp_canada, ca_regional_pilots, quebec_immigration, ircc_round_cutoffs
+        from core import auto_verify
+        await noc_canada.apply_to_db(db, dry_run=False, actor="enrich_script")
+        await ircc_ee_streams.apply_to_db(db, dry_run=False)
+        await pnp_canada.apply_to_db(db, dry_run=False)
+        await ca_regional_pilots.apply_to_db(db, dry_run=False)
+        await quebec_immigration.apply_to_db(db, dry_run=False)
+        await ircc_round_cutoffs.apply_to_db(db, dry_run=False)
+        ca_verify = await auto_verify.run(db, "CA", dry_run=False, actor="enrich_script")
+        print("Canada NOC seeded & verified:", ca_verify)
+    except Exception as e:
+        print("Canada NOC enrichment warning:", e)
+
+    # 4c. Seed & Enrich New Zealand ANZSCO 1.3 (243 occupations)
+    print("\n--- 4c. Seeding & Enriching New Zealand ANZSCO 1.3 ---")
+    try:
+        from core.scrapers import nz_anzsco_seed, nz_green_list, nz_aewv_smc, nz_sector_agreements
+        from core import auto_verify
+        await nz_anzsco_seed.apply_to_db(db, dry_run=False, actor="enrich_script")
+        await nz_green_list.apply_to_db(db, dry_run=False)
+        await nz_aewv_smc.apply_to_db(db, dry_run=False)
+        await nz_sector_agreements.apply_to_db(db, dry_run=False)
+        nz_verify = await auto_verify.run(db, "NZ", dry_run=False, actor="enrich_script")
+        print("New Zealand ANZSCO seeded & verified:", nz_verify)
+    except Exception as e:
+        print("New Zealand enrichment warning:", e)
+
     # 5. Regenerate SSG Files
     print("\n--- 5. Regenerating Static Site (SSG) Files ---")
     try:

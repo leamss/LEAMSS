@@ -223,10 +223,10 @@ export default function DataImportHub() {
           <CardContent>
             <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:bg-slate-50 transition-colors">
               <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-              <p className="text-sm text-slate-600 mb-3">Drop an .xlsx file or click to browse</p>
+              <p className="text-sm text-slate-600 mb-3">Drop an .xlsx, .csv or .pdf file or click to browse</p>
               <input
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv,.pdf"
                 ref={fileInputRef}
                 onChange={(e) => handleFile(e.target.files?.[0])}
                 className="hidden"
@@ -236,7 +236,7 @@ export default function DataImportHub() {
                 {uploading ? 'Uploading…' : 'Choose file'}
               </Button>
               <p className="text-xs text-slate-400 mt-3">
-                Supported: occupation_profiles · employment_projections · sa4_ratings · industry_data · vacancy_report (PDF)
+                Supported: Canada NOC (structure & elements) · New Zealand ANZSCO · AU JSA profiles, projections, SA4 & industries
               </p>
             </div>
           </CardContent>

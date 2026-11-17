@@ -296,9 +296,41 @@ async def commit_vacancy_report(
     }
 
 
-def detect_file_type(sheet_names: List[str], first_sheet_data: List[Any]) -> str:
-    """Heuristic file-type detector based on sheet names / titles."""
+def detect_file_type(sheet_names: List[str], first_sheet_data: List[Any], filename: str = "") -> str:
+    """Heuristic file-type detector based on sheet names / titles / filename."""
     joined = " ".join(sheet_names).lower()
+    fname = (filename or "").lower()
+    first_rows_text = " ".join(str(c or "").lower() for row in first_sheet_data for c in row)
+
+    # 1. Canada NOC Elements
+    if (
+        "element type label english" in first_rows_text
+        or "element description english" in first_rows_text
+        or ("noc" in fname and "elements" in fname)
+    ):
+        return "noc_canada_elements"
+
+    # 2. Canada NOC Structure
+    if (
+        ("code - noc" in first_rows_text and "hierarchical structure" in first_rows_text)
+        or ("class title" in first_rows_text and "class definition" in first_rows_text)
+        or ("noc" in fname and ("structure" in fname or "classification" in fname))
+        or ("hierarchical structure" in joined and "noc" in joined)
+    ):
+        return "noc_canada_structure"
+
+    # 3. New Zealand ANZSCO / Green list
+    if (
+        "green list" in first_rows_text
+        or "green list" in fname
+        or "green_list" in fname
+        or "aewv" in first_rows_text
+        or "nz_anzsco" in fname
+        or "anzsco_2021_structure" in fname
+        or ("table 5" in joined and "australian and new zealand" in first_rows_text and "nz" in fname)
+    ):
+        return "nz_anzsco_seed"
+
     if "table_9" in joined and "table_8" in joined and "table_1" in joined:
         return "occupation_profiles"
     if any("employment projections" in (str(c) or "").lower() for row in first_sheet_data for c in row):
@@ -428,4 +460,130 @@ async def commit_atlas_occupation_workbook(db, parsed):
         "matched": result.matched_count,
         "modified": result.modified_count,
         "count_before_update": count
+    }
+
+
+async def commit_noc_canada_structure(
+    db: AsyncIOMotorDatabase, parsed: Iterable[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Upsert Canada NOC unit groups, run enrichers, and auto-verify CA."""
+    from core.scrapers import noc_canada, ircc_ee_streams, pnp_canada, ca_regional_pilots, quebec_immigration, ircc_round_cutoffs
+    from core import auto_verify
+
+    parsed_list = list(parsed)
+    noc_res = await noc_canada.apply_to_db(db, dry_run=False, actor="admin_data_import")
+
+    # Run CA enrichers
+    await ircc_ee_streams.apply_to_db(db, dry_run=False)
+    await pnp_canada.apply_to_db(db, dry_run=False)
+    await ca_regional_pilots.apply_to_db(db, dry_run=False)
+    await quebec_immigration.apply_to_db(db, dry_run=False)
+    await ircc_round_cutoffs.apply_to_db(db, dry_run=False)
+
+    verify_res = await auto_verify.run(db, "CA", dry_run=False, actor="admin_data_import")
+
+    return {
+        "source": "noc_canada_structure",
+        "parsed_rows": len(parsed_list),
+        "noc_result": noc_res.get("counts", {}),
+        "verified_count": verify_res.get("verified_count", 0),
+        "already_verified": verify_res.get("already_verified_count", 0),
+    }
+
+
+async def commit_noc_canada_elements(
+    db: AsyncIOMotorDatabase, parsed: Iterable[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Group elements and patch occupation_master for CA, then auto-verify."""
+    from collections import defaultdict
+    from core import auto_verify
+    from pymongo import UpdateOne
+
+    ELEMENT_TYPE_MAP = {
+        "All examples": "alternative_titles",
+        "Illustrative example(s)": "illustrative_titles",
+        "Main duties": "typical_tasks",
+        "Employment requirements": "employment_requirements",
+        "Exclusion(s)": "exclusions",
+        "Inclusion(s)": "inclusions",
+        "Additional information": "additional_info",
+    }
+
+    parsed_list = list(parsed)
+    bucket: Dict[str, Dict[str, List[str]]] = defaultdict(lambda: defaultdict(list))
+    for r in parsed_list:
+        code = str(r.get("code") or "").strip()
+        etype = str(r.get("element_type") or "").strip()
+        desc = str(r.get("description") or "").strip()
+        field = ELEMENT_TYPE_MAP.get(etype)
+        if field and desc and code:
+            bucket[code][field].append(desc)
+
+    ops = []
+    now = datetime.now(timezone.utc)
+    for code, fields in bucket.items():
+        patch: Dict[str, Any] = {"updated_at": now}
+        if "typical_tasks" in fields:
+            patch["typical_tasks"] = [t.strip() for t in fields["typical_tasks"] if t.strip()][:25]
+        if "employment_requirements" in fields:
+            patch["employment_requirements"] = " ".join(fields["employment_requirements"]).strip() or None
+        if "alternative_titles" in fields or "illustrative_titles" in fields:
+            alt_pool = []
+            for src in ("alternative_titles", "illustrative_titles"):
+                for t in fields.get(src, []):
+                    t = t.strip()
+                    if t and t not in alt_pool:
+                        alt_pool.append(t)
+            patch["alternative_titles"] = alt_pool[:30]
+        if "exclusions" in fields:
+            patch["exclusions"] = fields["exclusions"][:10]
+        if "inclusions" in fields:
+            patch["inclusions"] = fields["inclusions"][:10]
+        if "additional_info" in fields:
+            patch["additional_info"] = fields["additional_info"][:5]
+
+        ops.append(UpdateOne(
+            {"country_code": "CA", "code": code},
+            {"$set": patch}
+        ))
+
+    modified = 0
+    if ops:
+        res = await db["occupation_master"].bulk_write(ops, ordered=False)
+        modified = res.modified_count
+
+    verify_res = await auto_verify.run(db, "CA", dry_run=False, actor="admin_data_import")
+
+    return {
+        "source": "noc_canada_elements",
+        "parsed_rows": len(parsed_list),
+        "codes_updated": len(ops),
+        "occupations_modified": modified,
+        "verified_count": verify_res.get("verified_count", 0),
+    }
+
+
+async def commit_nz_anzsco_seed(
+    db: AsyncIOMotorDatabase, parsed: Iterable[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Seed NZ occupations, run NZ enrichers, and auto-verify NZ."""
+    from core.scrapers import nz_anzsco_seed, nz_green_list, nz_aewv_smc, nz_sector_agreements
+    from core import auto_verify
+
+    parsed_list = list(parsed)
+    seed_res = await nz_anzsco_seed.apply_to_db(db, dry_run=False, actor="admin_data_import")
+
+    # Run NZ enrichers
+    await nz_green_list.apply_to_db(db, dry_run=False)
+    await nz_aewv_smc.apply_to_db(db, dry_run=False)
+    await nz_sector_agreements.apply_to_db(db, dry_run=False)
+
+    verify_res = await auto_verify.run(db, "NZ", dry_run=False, actor="admin_data_import")
+
+    return {
+        "source": "nz_anzsco_seed",
+        "parsed_rows": len(parsed_list),
+        "seed_result": seed_res.get("counts", {}),
+        "verified_count": verify_res.get("verified_count", 0),
+        "already_verified": verify_res.get("already_verified_count", 0),
     }

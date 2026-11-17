@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-<title>Canada Skilled Migration Atlas — 1 Verified NOC Occupations | LEAMSS</title>
-<meta name="description" content="Browse 1 verified NOC occupations for Canada skilled migration. Independent eligibility, points, assessing authority and visa pathway data &mdash; curated by LEAMSS migration experts.">
+<title>Canada Skilled Migration Atlas — 516 Verified NOC Occupations | LEAMSS</title>
+<meta name="description" content="Browse 516 verified NOC occupations for Canada skilled migration. Independent eligibility, points, assessing authority and visa pathway data &mdash; curated by LEAMSS migration experts.">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="theme-color" content="#1F4D44">
 <link rel="canonical" href="https://www.leamss.com/atlas/ca">
 <link rel="icon" href="/leamss-logo.png" type="image/png">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="LEAMSS — Ladhani Education & Migration Services">
-<meta property="og:title" content="Canada Migration Atlas — 1 Verified Occupations">
-<meta property="og:description" content="Browse 1 verified NOC occupations for Canada skilled migration.">
+<meta property="og:title" content="Canada Migration Atlas — 516 Verified Occupations">
+<meta property="og:description" content="Browse 516 verified NOC occupations for Canada skilled migration.">
 <meta property="og:url" content="https://www.leamss.com/atlas/ca">
 <meta property="og:image" content="https://www.leamss.com/leamss-logo.png">
 <meta property="og:locale" content="en_IN">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Canada Migration Atlas — LEAMSS">
-<meta name="twitter:description" content="1 verified NOC occupations.">
+<meta name="twitter:description" content="516 verified NOC occupations.">
 <meta name="twitter:image" content="https://www.leamss.com/leamss-logo.png">
 <script type="application/ld+json">
 {
@@ -166,14 +166,19 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
         <span>Canada</span>
       </div>
       <div class="hero-pills">
-        <span class="pill pill-glass">NOC Classification</span>
-        <span class="pill pill-glass">1 Verified Occupations</span>
+        <span class="pill pill-glass">NOC 2021 Classification</span>
+        <span class="pill pill-glass">516 Verified Occupations</span>
         <span class="pill pill-glass">Updated daily by LEAMSS</span>
       </div>
       <h1 id="country-h1" class="country-h1"><span class="flag">🇨🇦</span>Canada Migration Atlas</h1>
-      <p class="country-meta">1 verified NOC occupations &mdash; independent eligibility, points, assessing authority and visa pathways. India&rsquo;s Trusted Immigration Experts &mdash; We Value Emotions.</p>
+      <p class="country-meta">516 verified NOC occupations &mdash; independent eligibility, points, assessing authority and visa pathways. India&rsquo;s Trusted Immigration Experts &mdash; We Value Emotions.</p>
       <div class="level-pills-light" aria-label="Skill level breakdown">
-        <span class="lp">Level 0: 1</span>
+        <span class="lp">TEER 0: 48</span>
+        <span class="lp">TEER 1: 97</span>
+        <span class="lp">TEER 2: 162</span>
+        <span class="lp">TEER 3: 69</span>
+        <span class="lp">TEER 4: 95</span>
+        <span class="lp">TEER 5: 45</span>
       </div>
     </div>
   </div>
@@ -193,7 +198,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 
     <div class="section-title-row">
       <h2 class="section-title">Browse occupations</h2>
-      <span class="section-title-meta">Showing top 1 of 1 verified · sorted by code</span>
+      <span class="section-title-meta">Showing top 50 of 516 verified · sorted by code</span>
     </div>
 
     <div class="occ-grid">
@@ -425,7 +430,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     }
     searchController = new AbortController();
 
-    if (!q && currentPage === 1 && initialGridHtml) {
+    if (!q && currentPage === 1 && initialGridHtml && initialGridHtml.split('class="occ-card"').length > 10) {
       grid.innerHTML = initialGridHtml;
       if (meta) meta.textContent = initialMetaText;
       renderPagination(totalItems, 1, PAGE_SIZE);
@@ -632,7 +637,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
     var initialParams = new URLSearchParams(window.location.search);
     var initialQ = initialParams.get('q');
     var initialP = parseInt(initialParams.get('page'), 10);
-    if (initialQ || (initialP && initialP > 1)) {
+    if (initialQ || (initialP && initialP > 1) || (!initialGridHtml || initialGridHtml.split('class="occ-card"').length <= 2)) {
       if (initialQ) {
         input.value = initialQ;
         updateClearBtn();
