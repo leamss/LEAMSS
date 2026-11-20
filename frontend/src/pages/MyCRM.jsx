@@ -19,7 +19,7 @@ import {
   ArrowLeft, Plus, Search, RefreshCw, LayoutGrid, List as ListIcon,
   Phone, Mail, MessageCircle, X, Clock, User, MapPin, GraduationCap,
   Briefcase, ChevronRight, ChevronDown, Send, Sparkles, CheckCircle2, LayoutDashboard,
-  CalendarClock, TrendingUp, Users, Menu, UserPlus, ListChecks, CheckCheck,
+  CalendarClock, TrendingUp, Users, Menu, UserPlus, ListChecks, CheckCheck, Globe,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -77,6 +77,7 @@ const NAV_ITEMS = [
       { key: 'converted', label: 'Converted Leads', icon: CheckCheck },
     ],
   },
+  { key: 'product-master', label: 'Product Master & Pitch Guide', icon: Globe },
 ];
 
 const MyCRM = () => {
@@ -121,6 +122,11 @@ const MyCRM = () => {
 
   // handle sidebar nav clicks
   const handleNavClick = (key) => {
+    if (key === 'product-master') {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      navigate(user.role === 'admin' ? '/admin/product-master' : '/sales/pitch-guide');
+      return;
+    }
     if (key === 'addlead') {
       setShowAddLead(true);
       return;

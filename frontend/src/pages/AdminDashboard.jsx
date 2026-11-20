@@ -1251,6 +1251,7 @@ const AdminDashboard = () => {
     {
       groupLabel: 'System',
       items: [
+        { id: 'product-master', icon: Globe, label: 'Product Master', badge: 'Hub', onClick: () => navigate('/admin/product-master') },
         { id: 'products', icon: Package, label: 'Products', onClick: () => navigate('/admin/products') },
         { id: 'people', icon: Users, label: 'People (All)', onClick: () => navigate('/admin/people') },
         { id: 'intake-builder', icon: ClipboardList, label: 'Intake Form Builder', onClick: () => { setActiveTab('intake-builder'); resetSelections(); } },
@@ -1265,6 +1266,7 @@ const AdminDashboard = () => {
       groupLabel: 'Smart Sales Helper',
       defaultOpen: true,
       items: [
+        { id: 'sales-pitch-guide', icon: Globe, label: 'Pitch Guide & Sales Handbook', onClick: () => navigate('/sales/pitch-guide') },
         { id: 'sales-occupation-search', icon: Sparkles, label: 'Occupation Search (legacy)', onClick: () => navigate('/sales/occupations') },
         { id: 'sales-calculator', icon: Calculator, label: 'Eligibility Calculator', onClick: () => navigate('/sales/calculator') },
         { id: 'sales-client-assessment', icon: Wand2, label: 'Client Assessment (Workflow)', onClick: () => navigate('/sales/client-assessment') },

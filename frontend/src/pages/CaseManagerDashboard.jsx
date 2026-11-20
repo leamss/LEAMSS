@@ -696,6 +696,7 @@ const loadCaseDetails = async (caseId) => {
       defaultOpen: true,
       items: [
         { id: 'documents', icon: Download, label: 'All Documents', onClick: () => { setActiveTab('documents'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'product-master', icon: BookOpen, label: 'Product Master & Checklists', onClick: () => navigate('/admin/product-master') },
         { id: 'step-docs', icon: FileText, label: 'Step Documents', onClick: () => { setActiveTab('step-docs'); setInfoSheetCaseId(null); } },
         { id: 'deadlines', icon: CalendarClock, label: 'Deadlines & SLA', onClick: () => { setActiveTab('deadlines'); setInfoSheetCaseId(null); } },
         { id: 'case-intake', icon: ClipboardList, label: 'Case Intake', onClick: () => { setActiveTab('case-intake'); setInfoSheetCaseId(null); } },
