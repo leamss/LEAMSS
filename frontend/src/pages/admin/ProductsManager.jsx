@@ -28,6 +28,7 @@ import {
   Layers, Trash2, Save, Edit, Globe, Briefcase, TrendingUp, AlertCircle, CheckCircle2,
   Workflow as WorkflowIcon
 } from 'lucide-react';
+import PackageRefundPolicyEditor from '@/components/admin/product-master/PackageRefundPolicyEditor';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -40,15 +41,17 @@ const formatINR = (n) => {
 };
 
 const VENDOR_CATS = [
-  { key: 'sales_commission', label: 'Sales Commission', internal: true, color: 'emerald' },
-  { key: 'case_manager',     label: 'Case Manager',     internal: true, color: 'blue' },
-  { key: 'tutor',            label: 'Tutor (IELTS/PTE)',           color: 'amber' },
-  { key: 'lawyer',           label: 'Lawyer',                       color: 'purple' },
-  { key: 'translator',       label: 'Translator',                   color: 'rose' },
-  { key: 'consultant',       label: 'Consultant',                   color: 'cyan' },
-  { key: 'medical_examiner', label: 'Medical Examiner',             color: 'orange' },
-  { key: 'courier',          label: 'Courier',                      color: 'slate' },
-  { key: 'other',            label: 'Other',                        color: 'slate' },
+  { key: 'internal_partner', label: 'Internal Salesperson (Employee)', internal: true, color: 'emerald' },
+  { key: 'external_partner', label: 'External Salesperson / Partner', color: 'purple' },
+  { key: 'case_manager',     label: 'Case Manager Fee',      internal: true, color: 'blue' },
+  { key: 'sales_commission', label: 'Legacy Sales Commission', internal: true, color: 'slate' },
+  { key: 'tutor',            label: 'Tutor (IELTS/PTE)',     color: 'amber' },
+  { key: 'lawyer',           label: 'Lawyer',                color: 'purple' },
+  { key: 'translator',       label: 'Translator',            color: 'rose' },
+  { key: 'consultant',       label: 'Consultant',            color: 'cyan' },
+  { key: 'medical_examiner', label: 'Medical Examiner',      color: 'orange' },
+  { key: 'courier',          label: 'Courier',               color: 'slate' },
+  { key: 'other',            label: 'Other',                 color: 'slate' },
 ];
 
 const catColor = (key) => (VENDOR_CATS.find(c => c.key === key) || {}).color || 'slate';
@@ -127,6 +130,24 @@ function AllocationsEditor({ product, allocations, onChange }) {
       is_optional: false,
     }]);
   };
+
+  const addRole = (catKey, defaultLabel, defaultType = 'percentage', defaultVal = 5) => {
+    const existing = allocations.find(a => a.vendor_category === catKey);
+    if (existing) {
+      toast.info(`${defaultLabel} is already in the allocations list.`);
+      return;
+    }
+    onChange([...allocations, {
+      vendor_category: catKey,
+      label: defaultLabel,
+      payment_type: defaultType,
+      amount: defaultType === 'flat' ? defaultVal : 0,
+      rate: defaultType === 'percentage' ? defaultVal : 0,
+      is_optional: false,
+    }]);
+    toast.success(`Added ${defaultLabel}`);
+  };
+
   const updateRow = (i, patch) => {
     const next = [...allocations];
     next[i] = { ...next[i], ...patch };
@@ -138,9 +159,25 @@ function AllocationsEditor({ product, allocations, onChange }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Layers className="h-4 w-4 text-leamss-teal" />Cost Allocations</h3>
-        <Button size="sm" onClick={addRow} variant="outline" data-testid="add-allocation"><Plus className="h-3.5 w-3.5 mr-1" />Add</Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Layers className="h-4 w-4 text-leamss-teal" />Cost Allocations & Commission</h3>
+          <p className="text-[11px] text-slate-500">Configure separate commission amounts or percentages per role.</p>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Button size="sm" onClick={() => addRole('internal_partner', 'Internal Salesperson Commission', 'percentage', 10)} variant="outline" className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" data-testid="add-role-internal-salesperson">
+            <Plus className="h-3 w-3 mr-0.5" />Internal Salesperson
+          </Button>
+          <Button size="sm" onClick={() => addRole('external_partner', 'External Partner Commission', 'percentage', 8)} variant="outline" className="h-7 text-xs border-purple-300 text-purple-700 hover:bg-purple-50" data-testid="add-role-external-partner">
+            <Plus className="h-3 w-3 mr-0.5" />External Partner
+          </Button>
+          <Button size="sm" onClick={() => addRole('case_manager', 'Case Manager Fee', 'flat', 5000)} variant="outline" className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-50" data-testid="add-role-cm">
+            <Plus className="h-3 w-3 mr-0.5" />Case Manager
+          </Button>
+          <Button size="sm" onClick={addRow} variant="outline" className="h-7 text-xs" data-testid="add-allocation">
+            <Plus className="h-3 w-3 mr-0.5" />Custom
+          </Button>
+        </div>
       </div>
       {allocations.length === 0 ? (
         <Card className="p-8 text-center bg-slate-50">
@@ -478,6 +515,7 @@ function PackagesEditor({ packages, onChange }) {
       id: crypto.randomUUID(), package_type: 'standard', name: 'New Package',
       price: 0, description: '', is_active: true,
       document_url: null, document_name: null,   // 👈 NEW
+      refund_policy: null,
       payment_methods: {
         full_payment: { enabled: true },
         split_50_50: { enabled: false, first_pct: 50, trigger_condition: '' },
@@ -688,6 +726,13 @@ function PackagesEditor({ packages, onChange }) {
                 )}
               </div>
             </div>
+
+            {/* Refund Policy for this Package */}
+            <PackageRefundPolicyEditor
+              packagePrice={pkg.price}
+              refundPolicy={pkg.refund_policy}
+              onChange={(updatedPolicy) => updatePkg(i, { refund_policy: updatedPolicy })}
+            />
           </Card>
         ))
       )}
@@ -898,13 +943,22 @@ function ProductDetail({ product, onSaved, onDeleted }) {
       country: product.country || '',
       visa_type: product.visa_type || '',
       category: product.category || 'immigration',
+      _category_v2: product._category_v2 || product.category || 'immigration',
       service_price: product.service_price || product.base_fee || 0,
       status: product.status || 'active',
       cost_allocations: product.cost_allocations || [],
       success_bonuses: product.success_bonuses || [],
       packages: product.packages || [],
-      discount_coupons: product.discount_coupons || [],   // 👈 NEW
-      requires_partner_info: product.requires_partner_info || false,
+      discount_coupons: product.discount_coupons || [],
+      requires_partner_info: !!product.requires_partner_info,
+      // Phase 20.2 — Sales Flow Settings
+      is_pre_assessment: !!product.is_pre_assessment,
+      pre_assessment_fee_inr: product.pre_assessment_fee_inr ?? null,
+      pre_assessment_fee_currency: product.pre_assessment_fee_currency || 'INR',
+      visa_subclass: product.visa_subclass || '',
+      assessing_body_code: product.assessing_body_code || '',
+      workflow_id: product.workflow_id || null,
+      workflow_steps_count: product.workflow_steps_count || 0,
     });
     setDirty(false);
     setActiveTab('overview');
@@ -916,8 +970,16 @@ function ProductDetail({ product, onSaved, onDeleted }) {
     setSaving(true);
     try {
       const token = localStorage.getItem('token');
+      const payload = {
+        ...form,
+        service_price: parseFloat(form.service_price) || 0,
+        is_pre_assessment: !!form.is_pre_assessment,
+        pre_assessment_fee_inr: form.is_pre_assessment && form.pre_assessment_fee_inr != null && form.pre_assessment_fee_inr !== ''
+          ? Number(form.pre_assessment_fee_inr)
+          : null,
+      };
       await axios.put(`${API}/products/${product.id}`,
-        { ...form, service_price: parseFloat(form.service_price) || 0 },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } });
       toast.success('Product saved');
       setDirty(false);
@@ -1146,9 +1208,14 @@ function ProductDetail({ product, onSaved, onDeleted }) {
 // PAGE
 // ═══════════════════════════════════════════════════════════════════════
 function NewProductDialog({ open, onClose, onCreated }) {
-  const [form, setForm] = useState({ name: '', country: '', visa_type: '', service_price: 0, description: '' });
+  const initialForm = {
+    name: '', country: '', visa_type: '', service_price: 0, description: '',
+    is_pre_assessment: false, pre_assessment_fee_inr: '', pre_assessment_fee_currency: 'INR',
+    requires_partner_info: false,
+  };
+  const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
-  useEffect(() => { if (open) setForm({ name: '', country: '', visa_type: '', service_price: 0, description: '' }); }, [open]);
+  useEffect(() => { if (open) setForm(initialForm); }, [open]); // eslint-disable-line
 
   const save = async () => {
     if (!form.name.trim()) { toast.error('Name required'); return; }
@@ -1156,7 +1223,15 @@ function NewProductDialog({ open, onClose, onCreated }) {
     try {
       const token = localStorage.getItem('token');
       const r = await axios.post(`${API}/products`,
-        { ...form, service_price: parseFloat(form.service_price) || 0, category: 'immigration' },
+        {
+          ...form,
+          service_price: parseFloat(form.service_price) || 0,
+          is_pre_assessment: !!form.is_pre_assessment,
+          pre_assessment_fee_inr: form.is_pre_assessment && form.pre_assessment_fee_inr !== '' && form.pre_assessment_fee_inr != null
+            ? Number(form.pre_assessment_fee_inr)
+            : null,
+          category: 'immigration',
+        },
         { headers: { Authorization: `Bearer ${token}` } });
       toast.success('Product created');
       onCreated(r.data.id);
@@ -1176,8 +1251,55 @@ function NewProductDialog({ open, onClose, onCreated }) {
             <div><Label className="text-xs font-bold">Visa Type</Label><Input value={form.visa_type} onChange={e => setForm({ ...form, visa_type: e.target.value })} placeholder="PR" data-testid="new-visa" /></div>
           </div>
           <div><Label className="text-xs font-bold">Service Price (₹)</Label><Input type="number" value={form.service_price} onChange={e => setForm({ ...form, service_price: e.target.value })} data-testid="new-price" /></div>
+
+          {/* Pre-Assessment Flow Settings in New Product Dialog */}
+          <div className="p-3 rounded-lg bg-leamss-orange_50 border border-leamss-orange/30 space-y-2.5">
+            <div className="flex items-center gap-2 bg-white rounded p-2 border border-leamss-orange/20">
+              <input
+                type="checkbox"
+                id="new-pa-toggle"
+                checked={!!form.is_pre_assessment}
+                onChange={e => setForm({ ...form, is_pre_assessment: e.target.checked })}
+                data-testid="new-product-pa-toggle"
+                className="h-4 w-4"
+              />
+              <label htmlFor="new-pa-toggle" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                Pre-Assessment Flow Required?
+              </label>
+              <span className="text-[10px] text-slate-500 ml-auto">Enable custom PA fee</span>
+            </div>
+            {form.is_pre_assessment && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs font-bold">Pre-Assessment Fee (₹)</Label>
+                  <Input
+                    type="number"
+                    value={form.pre_assessment_fee_inr}
+                    onChange={e => setForm({ ...form, pre_assessment_fee_inr: e.target.value ? Number(e.target.value) : '' })}
+                    placeholder="e.g., 2100"
+                    data-testid="new-product-pa-fee"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold">Fee Currency</Label>
+                  <Select
+                    value={form.pre_assessment_fee_currency || 'INR'}
+                    onValueChange={v => setForm({ ...form, pre_assessment_fee_currency: v })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="INR">INR</SelectItem>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="AUD">AUD</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div><Label className="text-xs font-bold">Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} data-testid="new-desc" /></div>
-          <p className="text-[11px] text-slate-500 italic">💡 You can configure cost allocations and success bonuses after creation, in the product&apos;s edit screen.</p>
+          <p className="text-[11px] text-slate-500 italic">💡 You can configure cost allocations, packages, and success bonuses after creation, in the product&apos;s edit screen.</p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>

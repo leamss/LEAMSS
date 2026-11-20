@@ -90,6 +90,7 @@ import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import CostStructuresManager from '@/pages/admin/CostStructuresManager';
 import ProductsManager from '@/pages/admin/ProductsManager';
+import ProductMasterManager from '@/pages/admin/ProductMasterManager';
 import BrandGuide from '@/pages/admin/BrandGuide';
 import PreAssessmentFeePolicies from '@/pages/admin/PreAssessmentFeePolicies';
 import InfoSheetPage from '@/pages/admin/InfoSheetPage';
@@ -128,6 +129,7 @@ import WhatsAppTemplatesManager from '@/pages/sales/WhatsAppTemplatesManager';
 import WhatsAppChatInbox from '@/pages/sales/WhatsAppChatInbox';
 import FeeMaster from '@/pages/sales/FeeMaster';
 import ProposalBuilder from '@/pages/sales/ProposalBuilder';
+import SalesPitchGuide from '@/pages/sales/SalesPitchGuide';
 import ClientPortalLogin from '@/pages/client-portal/ClientPortalLogin';
 import ClientPortalDashboard from '@/pages/client-portal/ClientPortalDashboard';
 import AdminClientPortalPreview from '@/pages/admin/AdminClientPortalPreview';
@@ -611,6 +613,11 @@ function App() {
               <FeeMaster />
             </RequirePermission>
           } />
+          <Route path="/sales/pitch-guide" element={
+            <RequirePermission anyOf={['lead.view.own', 'lead.view.all', 'pa.view.own', 'product_cost.view.all', 'system.user_manage.any']}>
+              <SalesPitchGuide />
+            </RequirePermission>
+          } />
           <Route path="/upload-resume" element={<ResumeUpload />} />
           <Route path="/upload-resume/:token" element={<ResumeUpload />} />
           {/* Public Sales Report — Phase 6.5 Save & Share (NO LOGIN) */}
@@ -625,6 +632,11 @@ function App() {
           <Route path="/admin/vendors/categories" element={
             <RequirePermission anyOf={['vendor_category.manage.any', 'system.user_manage.any']}>
               <VendorCategoriesManager />
+            </RequirePermission>
+          } />
+          <Route path="/admin/product-master" element={
+            <RequirePermission anyOf={['product_cost.view.all', 'product_cost.manage.any', 'system.user_manage.any', 'lead.view.own', 'pa.view.own', 'case.view.own', 'case.view.all']}>
+              <ProductMasterManager />
             </RequirePermission>
           } />
           <Route path="/admin/products" element={

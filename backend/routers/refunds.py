@@ -111,6 +111,65 @@ class RefundReview(BaseModel):
     review_notes: str = ""
 
 
+@router.get("/finance-report")
+async def get_refund_finance_report(current_user: dict = Depends(get_current_user)):
+    """Provide Finance with refund liability and monthly refund-loss reports"""
+    if current_user["role"] not in ["admin", "finance", "superadmin"]:
+        raise HTTPException(status_code=403, detail="Admin or Finance only")
+
+    sales = await sales_col.find(
+        {"status": "approved", "payment_status": {"$in": ["paid", "partial"]}},
+        {"_id": 0, "id": 1, "fee_amount": 1, "amount_received": 1, "locked_refund_policy": 1, "client_name": 1, "created_at": 1}
+    ).to_list(1000)
+
+    total_active_sales_value = sum(s.get("amount_received", 0) for s in sales)
+    total_refund_liability = 0.0
+    protection_coverage_count = 0
+
+    for s in sales:
+        pol = s.get("locked_refund_policy") or {}
+        if pol.get("enabled", True) and pol.get("policy_type") in ["protection", "standard"]:
+            pct = pol.get("refundable_service_fee_pct", 100)
+            rec = s.get("amount_received", 0)
+            total_refund_liability += round(rec * (pct / 100.0), 2)
+            if pol.get("policy_type") == "protection":
+                protection_coverage_count += 1
+
+    processed_refunds = await refunds_col.find(
+        {"status": "processed"},
+        {"_id": 0}
+    ).to_list(2000)
+
+    total_loss_to_date = sum(r.get("amount", 0) for r in processed_refunds)
+
+    monthly_map = {}
+    for r in processed_refunds:
+        p_at = r.get("processed_at") or r.get("created_at")
+        month_key = "Unknown"
+        if isinstance(p_at, datetime):
+            month_key = p_at.strftime("%Y-%m")
+        elif isinstance(p_at, str) and len(p_at) >= 7:
+            month_key = p_at[:7]
+        
+        if month_key not in monthly_map:
+            monthly_map[month_key] = {"month": month_key, "total_refund_loss": 0.0, "count": 0}
+        monthly_map[month_key]["total_refund_loss"] = round(monthly_map[month_key]["total_refund_loss"] + r.get("amount", 0), 2)
+        monthly_map[month_key]["count"] += 1
+
+    monthly_losses = sorted(monthly_map.values(), key=lambda x: x["month"], reverse=True)
+
+    return {
+        "summary": {
+            "total_active_sales_value": round(total_active_sales_value, 2),
+            "total_refund_contingent_liability": round(total_refund_liability, 2),
+            "protection_coverage_count": protection_coverage_count,
+            "total_actual_loss_to_date": round(total_loss_to_date, 2),
+            "processed_refunds_count": len(processed_refunds),
+        },
+        "monthly_losses": monthly_losses
+    }
+
+
 @router.post("/review")
 async def review_refund(data: RefundReview, current_user: dict = Depends(get_current_user)):
     """Review and approve/reject a pending refund"""
@@ -123,6 +182,13 @@ async def review_refund(data: RefundReview, current_user: dict = Depends(get_cur
 
     if refund.get("status") != "pending_review":
         raise HTTPException(status_code=400, detail="Refund is not in pending review state")
+
+    # Maker-checker enforcement
+    if data.action == "approve" and refund.get("initiated_by") == current_user["id"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Maker-checker violation: Initiator cannot approve refund. Another admin must review."
+        )
 
     if data.action == "reject":
         if not data.review_notes or len(data.review_notes.strip()) < 5:

@@ -343,6 +343,23 @@ async def create_sale(
         "pre_assessment_id": pre_assessment_id,
         "bypass_pre_assessment": bool(bypass_pre_assessment),
         "bypass_reason": bypass_reason or "",
+        "locked_refund_policy": product.get("refund_policy") or {
+            "enabled": True,
+            "policy_type": "protection",
+            "name": "LEAMSS Protection Policy Guarantee",
+            "refundable_service_fee_pct": 100,
+            "is_service_fee_refundable": True,
+            "govt_fees_handling": "non_refundable",
+            "is_govt_fee_refundable": False,
+            "gst_treatment": "credit_note",
+            "negative_skills_assessment_guarantee": True,
+            "visa_refusal_guarantee": True,
+            "voluntary_withdrawal_milestones": True,
+            "claim_window_days": 30,
+            "payout_time_days": 14,
+            "maker_checker_required": True,
+        },
+        "policy_locked_at": datetime.now(timezone.utc),
         "payment_history": [
             {"amount": received, "method": payment_method, "reference": payment_reference,
              "date": datetime.now(timezone.utc).isoformat(), "recorded_by": current_user["id"]}

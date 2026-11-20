@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+import re
 from typing import Optional, List, Dict, Any
 from core.database import db
 from routers.auth import get_current_user
@@ -18,6 +19,7 @@ router = APIRouter(prefix="/ai-workflow", tags=["AI Workflow Builder"])
 
 products_col = db["products"]
 workflow_steps_col = db["workflow_steps"]
+product_master_col = db["product_master"]
 # Sweep A.2 — Background job collection for AI workflow generation
 ai_workflow_jobs_col = db["ai_workflow_jobs"]
 
@@ -40,10 +42,17 @@ class WorkflowGenerateRequest(BaseModel):
 class WorkflowSaveRequest(BaseModel):
     product_name: str
     description: str
-    category: str
-    base_fee: float
-    commission_rate: float
-    steps: List[dict]
+    category: Optional[str] = "immigration"
+    base_fee: Optional[float] = 0.0
+    commission_rate: Optional[float] = 10.0
+    steps: List[dict] = []
+    country: Optional[str] = ""
+    visa_type: Optional[str] = ""
+    visa_subclass: Optional[str] = ""
+    estimated_government_fees: Optional[str] = ""
+    estimated_total_duration_days: Optional[int] = 120
+    success_tips: Optional[List[str]] = []
+    common_rejection_reasons: Optional[List[str]] = []
 
 
 COUNTRY_REFERENCES = {
@@ -1408,46 +1417,216 @@ async def save_workflow_as_product(
     request: WorkflowSaveRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Save an AI-generated workflow as a new product"""
-    if current_user["role"] != "admin":
+    """Save an AI-generated workflow as a product and sync seamlessly to Product Master."""
+    if current_user.get("role") not in ("admin", "admin_owner", "super_admin"):
         raise HTTPException(status_code=403, detail="Admin only")
     
-    product = {
-        "id": str(uuid.uuid4()),
-        "name": request.product_name,
-        "description": request.description,
-        "category": request.category or "immigration",
-        "base_fee": request.base_fee,
-        "commission_rate": request.commission_rate,
-        "commission_type": "percentage",
-        "status": "active",
-        "ai_generated": True,
-        "created_at": datetime.now(timezone.utc)
+    clean_name = request.product_name.strip()
+    clean_country = (request.country or "").strip()
+    clean_subclass = (request.visa_subclass or "").strip()
+
+    # Inferred country and subclass if missing
+    if not clean_country:
+        for c in ("Australia", "Canada", "United Kingdom", "UK", "United States", "USA", "New Zealand", "Germany", "Singapore", "Dubai", "UAE", "Ireland"):
+            if c.lower() in clean_name.lower():
+                clean_country = c
+                break
+    if not clean_subclass:
+        match = re.search(r'\b(?:subclass\s*)?(\d{3,4})\b', clean_name, re.IGNORECASE)
+        if match:
+            clean_subclass = match.group(1)
+
+    # Deduplicate against existing products
+    query: Dict[str, Any] = {"name": clean_name}
+    if clean_country and clean_subclass:
+        query = {
+            "$or": [
+                {"name": clean_name},
+                {"country": clean_country, "visa_subclass": clean_subclass}
+            ]
+        }
+    existing_product = await product_master_col.find_one(query, {"_id": 0})
+    if not existing_product:
+        existing_product = await products_col.find_one(query, {"_id": 0})
+
+    prod_id = existing_product["id"] if existing_product else str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+
+    # 1. Compile document checklist template from steps
+    checklist_template = []
+    for step_idx, step_data in enumerate(request.steps or []):
+        s_name = step_data.get("step_name") or f"Stage {step_idx + 1}"
+        for doc in step_data.get("required_documents") or []:
+            if isinstance(doc, dict):
+                d_name = doc.get("name") or "Document"
+                d_desc = doc.get("description") or ""
+                d_mand = bool(doc.get("mandatory", True))
+                d_lock = bool(doc.get("is_locked_until_paid", False))
+                d_cat = doc.get("category") or (
+                    "Identity & Legal" if any(k in d_name.lower() for k in ("passport", "birth", "police", "id", "photo", "pcc", "national"))
+                    else "Professional & Academic" if any(k in d_name.lower() for k in ("degree", "transcript", "resume", "experience", "cv", "assessment", "acs", "vetassess", "ea"))
+                    else "Financial & Sponsorship" if any(k in d_name.lower() for k in ("bank", "fund", "statement", "tax", "sponsor", "income"))
+                    else "Health & Biometrics" if any(k in d_name.lower() for k in ("medical", "health", "biometric", "x-ray", "panel"))
+                    else "General Statutory Dossier"
+                )
+            else:
+                d_name = str(doc)
+                d_desc = ""
+                d_mand = True
+                d_lock = False
+                d_cat = "General Statutory Dossier"
+
+            checklist_template.append({
+                "id": str(uuid.uuid4()),
+                "document_name": d_name,
+                "category": d_cat,
+                "applicant_scope": "primary_applicant",
+                "is_mandatory": d_mand,
+                "is_locked_until_paid": d_lock,
+                "stage_name": s_name,
+                "step_order": step_idx + 1,
+                "description": d_desc,
+                "issuing_authority": "",
+                "validity_window": "",
+            })
+
+    # 2. Compile processing timeline stages
+    processing_timeline = {
+        "standard_duration": f"{request.estimated_total_duration_days or 120} days",
+        "stages": [
+            {
+                "stage_order": step_idx + 1,
+                "stage_name": s.get("step_name") or f"Stage {step_idx + 1}",
+                "duration_days": s.get("duration_days") or 14,
+                "description": s.get("description") or "",
+                "government_fees": s.get("government_fees") or "",
+                "important_notes": s.get("important_notes") or "",
+                "authority": s.get("official_source_url") or "",
+            }
+            for step_idx, s in enumerate(request.steps or [])
+        ]
     }
-    await products_col.insert_one(product)
-    
-    # saved_steps = []
-    # for step_data in request.steps:
-    #     step = {
-    #         "id": str(uuid.uuid4()),
-    #         "product_id": product["id"],
-    #         "step_name": step_data.get("step_name", ""),
-    #         "step_order": step_data.get("step_order", 0),
-    #         "description": step_data.get("description", ""),
-    #         "duration_days": step_data.get("duration_days", 7),
-    #         "required_documents": step_data.get("required_documents", []),
-    #         "important_notes": step_data.get("important_notes", ""),
-    #         "government_fees": step_data.get("government_fees", "")
-    #     }
-    #     await workflow_steps_col.insert_one(step)
-    #     saved_steps.append({"id": step["id"], "step_name": step["step_name"]})
+
+    # 3. Compile government costs
+    government_costs = {
+        "currency": "INR",
+        "line_items": [
+            {
+                "title": "Estimated Statutory Authority Fees",
+                "amount_inr": 0,
+                "original_amount": request.estimated_government_fees or "",
+                "original_currency": "Local Statutory Currency"
+            }
+        ] if request.estimated_government_fees else [],
+        "effective_date": now.strftime("%Y-%m-%d"),
+        "source_link": "",
+        "notes": request.estimated_government_fees or ""
+    }
+
+    # 4. Compile sales playbook
+    sales_playbook = {
+        "elevator_pitch": f"Secure your official {clean_name} through LEAMSS. Our registered attorneys and case managers deliver comprehensive, statutory compliance across every stage of your visa process.",
+        "target_client": f"Candidates seeking statutory immigration pathway for {clean_country or clean_name}",
+        "pitch_points": request.success_tips or [
+            "Official statutory visa pathway fully managed by LEAMSS registered experts",
+            "End-to-end documentation auditing and legal verification",
+            "Milestone-based service delivery and transparent progress tracking"
+        ],
+        "key_benefits": [
+            f"Authorized immigration pathway for {clean_country or 'destination country'}",
+            "Direct processing adhering strictly to statutory government guidelines",
+            "Pre-assessment qualification check and continuous case updates"
+        ],
+        "discovery_questions": [
+            "What is your target timeline for relocation?",
+            "Have you completed an English language proficiency test (IELTS / PTE) or skills assessment?",
+            "Do you have family members or dependents accompanying you?"
+        ],
+        "upselling": [
+            "Spouse Skills Assessment & language points addition",
+            "Premium Concierge Case Management tier with priority lawyer reviews",
+            "Professional resume rebuild and ANZSCO alignment"
+        ],
+        "red_flags": request.common_rejection_reasons or [
+            "Uncertified document translations or missing apostille stamps",
+            "Discrepancies in declared work history or statutory employment records",
+            "Insufficient verifiable proof of maintenance funds"
+        ],
+        "faqs": [
+            {"question": "How long does the entire visa process take?", "answer": f"The statutory timeline is approximately {request.estimated_total_duration_days or 120} days depending on government processing queues."},
+            {"question": "Can I include my family members?", "answer": "Yes, secondary applicants (spouse and dependent children) can be included in the primary application dossier."}
+        ]
+    }
+
+    # 5. Extract official URLs from steps
+    official_urls = []
+    for s in request.steps or []:
+        url = s.get("official_source_url")
+        if url and url not in official_urls:
+            official_urls.append(url)
+
+    # 6. Build Master Document
+    product_doc = {
+        "id": prod_id,
+        "name": clean_name,
+        "summary": request.description or f"Immigration pathway for {clean_name}",
+        "description": request.description or f"Immigration pathway for {clean_name}",
+        "country": clean_country or (existing_product.get("country") if existing_product else ""),
+        "visa_type": request.visa_type or (existing_product.get("visa_type") if existing_product else "Immigration / Residency"),
+        "visa_subclass": clean_subclass or (existing_product.get("visa_subclass") if existing_product else ""),
+        "category": request.category or (existing_product.get("category") if existing_product else "skilled_migration"),
+        "status": "active",
+        "base_fee": float(request.base_fee or (existing_product.get("base_fee") if existing_product else 150000)),
+        "service_price": float(request.base_fee or (existing_product.get("service_price") if existing_product else 150000)),
+        "commission_rate": float(request.commission_rate or 10),
+        "commission_type": "percentage",
+        "ai_generated": True,
+        "version": int(existing_product.get("version", 1)) + 1 if existing_product else 1,
+        "document_checklist_template": checklist_template or (existing_product.get("document_checklist_template") if existing_product else []),
+        "processing_timeline": processing_timeline,
+        "government_costs": government_costs,
+        "sales_playbook": sales_playbook,
+        "official_urls": official_urls or (existing_product.get("official_urls") if existing_product else []),
+        "official_domains": existing_product.get("official_domains") if existing_product else [],
+        "migrate_page_url": existing_product.get("migrate_page_url") if existing_product else "",
+        "eligibility_criteria": existing_product.get("eligibility_criteria") if (existing_product and existing_product.get("eligibility_criteria")) else {
+            "mandatory": ["Valid Passport with 6+ Months Validity", "Age Qualification Standard", "Clear Police & Character Clearance"],
+            "optional": ["State / Territory Nomination", "Partner Qualifications"],
+            "points_based": {
+                "is_points_tested": bool(clean_subclass in ("189", "190", "491")),
+                "minimum_points": 65 if clean_subclass in ("189", "190", "491") else 0,
+                "scoring_factors": []
+            }
+        },
+        "visa_conditions": existing_product.get("visa_conditions") if existing_product else [],
+        "packages": existing_product.get("packages") if existing_product else [
+            {"id": str(uuid.uuid4()), "package_type": "standard", "name": "Standard Package", "price": float(request.base_fee or 150000), "description": "Core visa application guidance & assessment filing", "is_active": True},
+            {"id": str(uuid.uuid4()), "package_type": "smart", "name": "Smart Package", "price": float(request.base_fee or 150000) * 1.25, "description": "Includes documentation prep, priority reviews & exam support", "is_active": True},
+            {"id": str(uuid.uuid4()), "package_type": "premium", "name": "Premium Package", "price": float(request.base_fee or 150000) * 1.5, "description": "Full concierge, dedicated senior case manager & resume rebuild", "is_active": True},
+        ],
+        "cost_allocations": existing_product.get("cost_allocations") if existing_product else [
+            {"vendor_category": "internal_partner", "label": "Internal Salesperson Commission", "payment_type": "percentage", "rate": float(request.commission_rate or 10), "amount": 0, "is_optional": False},
+            {"vendor_category": "external_partner", "label": "External Partner Fee", "payment_type": "percentage", "rate": 8.0, "amount": 0, "is_optional": False},
+            {"vendor_category": "case_manager", "label": "Case Manager Fee", "payment_type": "flat", "rate": 0, "amount": 5000, "is_optional": False},
+        ],
+        "updated_at": now,
+        "created_at": existing_product.get("created_at") if existing_product else now,
+    }
+
+    # Upsert into products collection
+    await products_col.update_one({"id": prod_id}, {"$set": product_doc}, upsert=True)
+
+    # Upsert into product_master collection (Single Source of Truth)
+    await product_master_col.update_one({"id": prod_id}, {"$set": product_doc}, upsert=True)
+
+    # Clean existing workflow steps for this product to prevent duplicates
+    await workflow_steps_col.delete_many({"product_id": prod_id})
+
+    # Insert steps into workflow_steps_col
     saved_steps = []
-
-    for step_data in request.steps:
+    for step_data in request.steps or []:
         required_documents = step_data.get("required_documents", [])
-
         document_fields = []
-
         for doc_index, doc in enumerate(required_documents):
             if isinstance(doc, dict):
                 doc_name = doc.get("name", f"Document {doc_index + 1}")
@@ -1481,7 +1660,6 @@ async def save_workflow_as_product(
             })
 
         sections = []
-
         if document_fields:
             sections.append({
                 "id": f"section_documents_{uuid.uuid4()}",
@@ -1491,7 +1669,7 @@ async def save_workflow_as_product(
 
         step = {
             "id": str(uuid.uuid4()),
-            "product_id": product["id"],
+            "product_id": prod_id,
             "step_name": step_data.get("step_name", ""),
             "name": step_data.get("step_name", ""),
             "step_order": step_data.get("step_order", 0),
@@ -1502,25 +1680,31 @@ async def save_workflow_as_product(
             "sections": sections,
             "important_notes": step_data.get("important_notes", ""),
             "government_fees": step_data.get("government_fees", ""),
+            "official_source_url": step_data.get("official_source_url", ""),
+            "vfsglobal_url": step_data.get("vfsglobal_url", ""),
             "is_active": True,
-            "created_at": datetime.now(timezone.utc)
+            "created_at": now
         }
-
         await workflow_steps_col.insert_one(step)
+        saved_steps.append({"id": step["id"], "step_name": step["step_name"]})
 
-        saved_steps.append({
-            "id": step["id"],
-            "step_name": step["step_name"]
-        })
-    
-    await log_activity(current_user["id"], current_user["name"], "saved_ai_workflow", "product",
-                       product["id"], f"Saved AI workflow as product: {request.product_name} with {len(saved_steps)} steps")
-    
+    await log_activity(
+        current_user["id"],
+        current_user.get("name", "Admin"),
+        "saved_ai_workflow",
+        "product_master",
+        prod_id,
+        f"Saved AI workflow to Product Master: {clean_name} ({len(saved_steps)} steps)"
+    )
+
     return {
-        "product_id": product["id"],
-        "product_name": request.product_name,
+        "product_id": prod_id,
+        "product_name": clean_name,
+        "country": product_doc["country"],
+        "visa_subclass": product_doc["visa_subclass"],
         "steps_created": len(saved_steps),
-        "message": "Workflow saved as product successfully"
+        "checklists_created": len(checklist_template),
+        "message": "Workflow saved and synchronized to Product Master successfully"
     }
 
 

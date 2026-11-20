@@ -35,6 +35,7 @@ db = client[DB_NAME]
 # Collections
 users_col = db["users"]
 products_col = db["products"]
+product_master_col = db["product_master"]
 workflow_steps_col = db["workflow_steps"]
 sales_col = db["sales"]
 sale_documents_col = db["sale_documents"]

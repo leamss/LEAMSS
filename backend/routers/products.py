@@ -16,6 +16,40 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 router = APIRouter(prefix="/products", tags=["Products"])
 
 
+def _extract_commissions_v2(cost_allocations: list, explicit_v2: Optional[dict] = None) -> dict:
+    """Extracts or derives commissions_v2 mapping for the 4 core commission roles:
+    salesperson / sales_user, case_manager, partner_internal, partner_external.
+    """
+    comm = dict(explicit_v2 or {})
+    for a in (cost_allocations or []):
+        cat = str(a.get("vendor_category") or "").strip().lower()
+        ptype = a.get("payment_type", "percentage")
+        if ptype == "flat":
+            val = float(a.get("amount") if a.get("amount") is not None and str(a.get("amount")) != "" else (a.get("rate") or 0))
+        else:
+            val = float(a.get("rate") if a.get("rate") is not None and str(a.get("rate")) != "" else (a.get("amount") or 0))
+        entry = {
+            "type": ptype,
+            "rate": val if ptype == "percentage" else 0.0,
+            "amount": val if ptype == "flat" else 0.0,
+            "flat_amount": val if ptype == "flat" else 0.0,
+            "label": a.get("label") or cat,
+            "is_optional": bool(a.get("is_optional", False))
+        }
+        if cat in ("sales_commission", "salesperson", "sales_user"):
+            comm["sales_user"] = entry
+            comm["salesperson"] = entry
+        elif cat in ("case_manager", "cm"):
+            comm["case_manager"] = entry
+        elif cat in ("internal_partner", "partner_internal"):
+            comm["partner_internal"] = entry
+            comm["internal_partner"] = entry
+        elif cat in ("external_partner", "partner_external"):
+            comm["partner_external"] = entry
+            comm["external_partner"] = entry
+    return comm
+
+
 def _compute_margin(service_price: float, cost_allocations: list, success_bonuses: list) -> dict:
     sp = float(service_price or 0)
     base = 0.0
@@ -40,6 +74,7 @@ def _compute_margin(service_price: float, cost_allocations: list, success_bonuse
         "expected_margin_pct": round((margin / sp * 100), 2) if sp > 0 else 0,
         "max_bonus_payout": round(max_bonus, 2),
     }
+
 
 
 @router.get("")
@@ -80,6 +115,77 @@ async def get_product(product_id: str, current_user: dict = Depends(get_current_
     return product
 
 
+class ProductAiResearchRequest(BaseModel):
+    country: str
+    visa_name: str
+    category: Optional[str] = "skilled_migration"
+    visa_subclass: Optional[str] = ""
+    government_url: Optional[str] = None
+    migrate_page_url: Optional[str] = None
+    additional_context: Optional[str] = None
+
+    class Config:
+        extra = "forbid"
+
+
+@router.post("/ai-research")
+async def ai_research_product(
+    payload: ProductAiResearchRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    role = current_user.get("role") or current_user.get("rbac_role")
+    permissions = current_user.get("permissions") or []
+    if role not in ("admin", "super_admin", "admin_owner") and "product_cost.manage.any" not in permissions and "system.user_manage.any" not in permissions:
+        raise HTTPException(status_code=403, detail="Admin authorization required")
+    try:
+        from services.product_master_ai_service import research_product_with_ai
+        result = await research_product_with_ai(
+            country=payload.country,
+            visa_name=payload.visa_name,
+            category=payload.category or "skilled_migration",
+            visa_subclass=payload.visa_subclass or "",
+            government_url=payload.government_url,
+            migrate_page_url=payload.migrate_page_url,
+            additional_context=payload.additional_context,
+        )
+        return result
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception("Product AI research failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{product_id}/verify")
+async def verify_product_master(
+    product_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Admin-only: Mark Product Master record as verified with audit trail."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res = await products_col.update_one(
+        {"id": product_id},
+        {"$set": {
+            "last_verified_at": now_iso,
+            "last_verified_by": current_user.get("name") or current_user.get("id"),
+            "status": "active",
+            "updated_at": datetime.now(timezone.utc),
+        }}
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+    await log_activity(
+        current_user["id"],
+        current_user.get("name", "Admin"),
+        "verified",
+        "product",
+        product_id,
+        f"Verified Product Master at {now_iso}"
+    )
+    return {"message": "Product verified successfully", "last_verified_at": now_iso}
+
+
 @router.post("")
 async def create_product(data: dict, current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
@@ -109,10 +215,66 @@ async def create_product(data: dict, current_user: dict = Depends(get_current_us
             {"id": str(uuid.uuid4()), "package_type": "premium", "name": "Premium Package", "price": 0, "description": "", "is_active": True,
             "payment_methods": {"full_payment": {"enabled": True}, "split_50_50": {"enabled": False, "first_pct": 50, "trigger_condition": ""}, "installments": {"enabled": False, "max_installments": 5}}},
         ],
-        "requires_partner_info": data.get("requires_partner_info", False),  
+        "requires_partner_info": bool(data.get("requires_partner_info", False)),
+        # Phase 20.2 — Sales Flow Settings
+        "is_pre_assessment": bool(data.get("is_pre_assessment", False)),
+        "pre_assessment_fee_inr": (
+            float(data["pre_assessment_fee_inr"])
+            if data.get("is_pre_assessment", True) and data.get("pre_assessment_fee_inr") is not None and str(data.get("pre_assessment_fee_inr")).strip() != ""
+            else None
+        ),
+        "pre_assessment_fee_currency": data.get("pre_assessment_fee_currency") or "INR",
+        "visa_subclass": data.get("visa_subclass") or "",
+        "assessing_body_code": data.get("assessing_body_code") or "",
+        "workflow_id": data.get("workflow_id") or None,
+        "workflow_steps_count": data.get("workflow_steps_count") or 0,
+        "_category_v2": data.get("_category_v2") or data.get("category", "immigration"),
+        "archived_at": None,
+        "commissions_v2": _extract_commissions_v2(cost_allocations, data.get("commissions_v2")),
         "computed": _compute_margin(sp, cost_allocations, success_bonuses),
-        "status": "active",
+        "status": data.get("status") or "active",
         "created_at": datetime.now(timezone.utc),
+        # Product Master — Module A extensions
+        "summary": data.get("summary") or data.get("description", ""),
+        "migrate_page_url": data.get("migrate_page_url") or "",
+        "official_urls": data.get("official_urls") or [],
+        "official_domains": data.get("official_domains") or [],
+        "eligibility_criteria": data.get("eligibility_criteria") or {
+            "mandatory": [],
+            "optional": [],
+            "points_based": {"is_points_tested": False, "minimum_points": 0, "scoring_factors": []}
+        },
+        "visa_conditions": data.get("visa_conditions") or [],
+        "government_costs": data.get("government_costs") or {
+            "currency": "INR",
+            "line_items": [],
+            "effective_date": None,
+            "source_link": ""
+        },
+        "processing_timeline": data.get("processing_timeline") or {
+            "standard_duration": "",
+            "stages": []
+        },
+        "sales_playbook": data.get("sales_playbook") or {
+            "target_client": "",
+            "pitch_points": [],
+            "key_benefits": []
+        },
+        "objections_rebuttals": data.get("objections_rebuttals") or [],
+        "faqs": data.get("faqs") or [],
+        "document_checklist_template": data.get("document_checklist_template") or [],
+        "letters_required": data.get("letters_required") or [],
+        "info_sheet_sections": data.get("info_sheet_sections") or [],
+        "refund_options": data.get("refund_options") or [],
+        "explore_services": data.get("explore_services") or {
+            "show_in_explore": True,
+            "direct_purchase_allowed": False,
+            "suggested_next_products": []
+        },
+        "last_verified_at": data.get("last_verified_at"),
+        "last_verified_by": data.get("last_verified_by"),
+        "next_review_at": data.get("next_review_at"),
+        "version": int(data.get("version") or 1),
     }
     await products_col.insert_one(product)
     for step_data in data.get("workflow_steps", []):
@@ -147,9 +309,24 @@ async def update_product(product_id: str, data: dict, current_user: dict = Depen
         "visa_subclass", "assessing_body_code",
         "commissions_v2", "_category_v2",
         "requires_partner_info",
+        # Product Master — Module A extensions
+        "summary", "migrate_page_url", "official_urls", "official_domains",
+        "eligibility_criteria", "visa_conditions", "government_costs",
+        "processing_timeline", "sales_playbook", "objections_rebuttals",
+        "faqs", "document_checklist_template", "letters_required",
+        "info_sheet_sections", "refund_options", "explore_services",
+        "last_verified_at", "last_verified_by", "next_review_at", "version"
     ]:
         if field in data:
             update[field] = data[field]
+
+    # Ensure pre_assessment_fee_inr is numeric when set, or cleared if is_pre_assessment is explicitly False
+    if "is_pre_assessment" in update and update["is_pre_assessment"] is False:
+        update["pre_assessment_fee_inr"] = None
+    elif "pre_assessment_fee_inr" in update and update["pre_assessment_fee_inr"] is not None and str(update["pre_assessment_fee_inr"]).strip() != "":
+        update["pre_assessment_fee_inr"] = float(update["pre_assessment_fee_inr"])
+        if "is_pre_assessment" not in update:
+            update["is_pre_assessment"] = True
 
     # Phase 20.2 — validation rules
     if "assessing_body_code" in update and update["assessing_body_code"]:
@@ -183,8 +360,8 @@ async def update_product(product_id: str, data: dict, current_user: dict = Depen
         update["service_price"] = update["base_fee"]
 
     if update:
-        # Recompute margin if pricing-related fields changed
-        if any(k in update for k in ("service_price", "base_fee", "cost_allocations", "success_bonuses")):
+        # Recompute margin & commissions_v2 if pricing or cost_allocations changed
+        if any(k in update for k in ("service_price", "base_fee", "cost_allocations", "success_bonuses", "commissions_v2")):
             current = await products_col.find_one({"id": product_id}, {"_id": 0})
             if current:
                 merged = {**current, **update}
@@ -192,6 +369,10 @@ async def update_product(product_id: str, data: dict, current_user: dict = Depen
                     merged.get("service_price") or merged.get("base_fee") or 0,
                     merged.get("cost_allocations") or [],
                     merged.get("success_bonuses") or [],
+                )
+                update["commissions_v2"] = _extract_commissions_v2(
+                    merged.get("cost_allocations") or [],
+                    merged.get("commissions_v2")
                 )
         update["updated_at"] = datetime.now(timezone.utc)
         await products_col.update_one({"id": product_id}, {"$set": update})
@@ -276,26 +457,50 @@ async def link_workflow(product_id: str, req: LinkWorkflowRequest,
 @router.get("/{product_id}/commissions")
 async def get_commissions(product_id: str, current_user: dict = Depends(get_current_user)):
     """Returns commissions_v2 filtered by caller's role.
-    Sales user → only sales_user · Partner → only partner_internal/external · Admin → all.
+    Sales user → only sales_user · Internal Partner → only partner_internal · External Partner → only partner_external · Admin → all.
     """
-    p = await products_col.find_one({"id": product_id}, {"_id": 0, "id": 1, "name": 1, "commissions_v2": 1})
+    p = await products_col.find_one({"id": product_id}, {"_id": 0, "id": 1, "name": 1, "commissions_v2": 1, "cost_allocations": 1})
     if not p:
         raise HTTPException(status_code=404, detail="Product not found")
-    v2 = p.get("commissions_v2") or {}
+    v2 = p.get("commissions_v2")
+    if not v2:
+        v2 = _extract_commissions_v2(p.get("cost_allocations") or [])
+
     role = (current_user.get("rbac_role") or current_user.get("role") or "").lower()
+    user_type = (current_user.get("user_type") or "").lower()
+    partner_type = (current_user.get("partner_type") or "").lower()
+    is_internal_partner = user_type == "internal" or partner_type == "internal" or current_user.get("is_internal") is True
+
     visible = {}
     if role in ("admin", "admin_owner", "super_admin") or "*" in (current_user.get("permissions") or []):
         visible = v2  # full view
-    elif role in ("sales", "case_manager"):
+    elif role in ("sales", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head", "sales_rep", "sales_person"):
         if "sales_user" in v2:
             visible["sales_user"] = v2["sales_user"]
+        elif "salesperson" in v2:
+            visible["salesperson"] = v2["salesperson"]
+    elif role in ("case_manager", "cm"):
+        if "case_manager" in v2:
+            visible["case_manager"] = v2["case_manager"]
     elif role == "partner":
-        if "partner_internal" in v2:
-            visible["partner_internal"] = v2["partner_internal"]
-        if "partner_external" in v2:
-            visible["partner_external"] = v2["partner_external"]
-    return {"product_id": product_id, "name": p.get("name"), "commissions": visible,
-            "role": role, "has_v2": bool(v2)}
+        if is_internal_partner:
+            if "partner_internal" in v2:
+                visible["partner_internal"] = v2["partner_internal"]
+            elif "internal_partner" in v2:
+                visible["internal_partner"] = v2["internal_partner"]
+        else:
+            if "partner_external" in v2:
+                visible["partner_external"] = v2["partner_external"]
+            elif "external_partner" in v2:
+                visible["external_partner"] = v2["external_partner"]
+    return {
+        "product_id": product_id,
+        "name": p.get("name"),
+        "commissions": visible,
+        "role": role,
+        "is_internal_partner": is_internal_partner if role == "partner" else None,
+        "has_v2": bool(v2)
+    }
 
 
 @router.delete("/{product_id}")
@@ -419,7 +624,7 @@ async def delete_workflow_step(product_id: str, step_order: int, current_user: d
 # Package Info Document Upload (PDF) — admin uploads a document
 # describing a specific package (e.g. Standard/Smart/Premium/custom)
 # ──────────────────────────────────────────────────────────────
-PACKAGE_DOCS_DIR = os.environ.get("PACKAGE_DOCS_DIR") or ("/app/uploads/product_packages" if os.path.exists("/app") and os.access("/app", os.W_OK) else os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "product_packages"))
+PACKAGE_DOCS_DIR = os.environ.get("PACKAGE_DOCS_DIR") or os.path.join(os.environ.get("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")), "product_packages")
 os.makedirs(PACKAGE_DOCS_DIR, exist_ok=True)
 
 

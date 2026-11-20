@@ -5,6 +5,7 @@ import {
   FileText, Users, Check, ArrowRight, ShieldCheck, ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
+import PackageRefundBadge from '@/components/admin/product-master/PackageRefundBadge';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 
@@ -81,7 +82,7 @@ export default function PaSelectedPackageCard({
   if (!pkg) return null;
 
   const price = Number(pkg.price || 0);
-  const paDeduction = (pa.fee_payment_status === 'paid' || pa.fee_amount) ? (Number(pa.fee_amount) || 5100) : 0;
+  const paDeduction = (pa.fee_payment_status === 'paid' || pa.pre_assessment_fee || pa.fee_amount) ? (Number(pa.fee_base_amount || pa.pre_assessment_fee || pa.fee_amount_paid || pa.fee_amount) || 5100) : 0;
   const paymentMethods = pkg.payment_methods || {};
   const isPackageSelectedStage = pa.stage === 'package_selected';
 
@@ -236,6 +237,11 @@ export default function PaSelectedPackageCard({
           )}
         </div>
       </div>
+
+      {/* PACKAGE REFUND POLICY GUARANTEE */}
+      {pkg.refund_policy && (
+        <PackageRefundBadge pkg={pkg} compact={false} showConditions={true} />
+      )}
     </div>
   );
 }

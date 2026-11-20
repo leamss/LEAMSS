@@ -205,6 +205,7 @@ from routers.whatsapp_templates import router as whatsapp_templates_router
 from routers.whatsapp_chat import router as whatsapp_chat_router
 from routers.public_resume import router as public_resume_router
 from routers.migroto import router as migroto_router
+from routers.product_master import router as product_master_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -717,7 +718,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           reimbursements_router, hr_analytics_router, content_studio_router,
           site_audit_router, dev_tracker_router,
           internal_chat_router, support_tickets_router, rbac_v2_router, country_workflows_router,atlas_countries_router,atlas_country_admin_router,
-          eoi_backlog_router, bulk_assessments_router, fee_master_router, email_settings_router, email_templates_router, whatsapp_templates_router, whatsapp_chat_router, public_resume_router, migroto_router]:
+          eoi_backlog_router, bulk_assessments_router, fee_master_router, email_settings_router, email_templates_router, whatsapp_templates_router, whatsapp_chat_router, public_resume_router, migroto_router,
+          product_master_router]:
     app.include_router(r, prefix="/api")
 
 
