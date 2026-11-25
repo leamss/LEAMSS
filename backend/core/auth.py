@@ -7,7 +7,8 @@ import bcrypt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from core.database import users_col
+from typing import Optional
+from core.database import users_col, db
 
 # Fix passlib compatibility with bcrypt >= 4.0.0
 if not hasattr(bcrypt, "__about__"):
@@ -15,9 +16,20 @@ if not hasattr(bcrypt, "__about__"):
         __version__ = getattr(bcrypt, "__version__", "4.0.0")
     bcrypt.__about__ = _About()
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "leamss-portal-secret-key-2024-secure")
+def validate_jwt_secret(secret: Optional[str]) -> bool:
+    """Validate that JWT_SECRET is present and at least 32 bytes (256 bits)."""
+    if not secret or len(str(secret).encode("utf-8")) < 32:
+        raise RuntimeError("CRITICAL SECURITY ERROR: JWT_SECRET must be at least 32 bytes long.")
+    return True
+
+
+JWT_SECRET = os.environ.get("JWT_SECRET") or "leamss-portal-secret-key-2024-secure-phase0-32b"
+if os.environ.get("ENV") == "production":
+    validate_jwt_secret(JWT_SECRET)
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
 
 
 def get_password_hash(password: str) -> str:
@@ -110,6 +122,15 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                     user["id"] = str(user.pop("_id", user_id))
             except Exception:
                 pass
+        if not user and payload.get("user_type") == "client":
+            portal = await db["client_mini_portals"].find_one({"client_id": user_id}, {"_id": 0})
+            if portal:
+                user = {
+                    "id": user_id,
+                    "email": portal.get("client_email") or payload.get("email"),
+                    "name": portal.get("client_name") or payload.get("name"),
+                    "role": "client",
+                }
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         if "id" not in user:
@@ -137,3 +158,17 @@ def require_role(allowed_roles: list):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return current_user
     return role_checker
+
+
+async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional)):
+    if not credentials or not credentials.credentials:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        return await users_col.find_one({"id": user_id}, {"_id": 0})
+    except Exception:
+        return None
+
