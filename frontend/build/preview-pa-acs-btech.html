@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pre-Assessment Report — Priya Patel · 261312 Developer Programmer</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 22mm 16mm;
+          @bottom-center { content: counter(page) " / " counter(pages); color: #94a3b8; font-size: 9pt; font-family: 'Helvetica', sans-serif; }
+          @bottom-left   { content: "LEAMSS · We Value Emotions"; color: #94a3b8; font-size: 8pt; font-family: 'Helvetica', sans-serif; }
+          @bottom-right  { content: "Generated 16 Sep 2026 · 16:50 UTC · Ref PREVIEW-261312"; color: #94a3b8; font-size: 8pt; font-family: 'Helvetica', sans-serif; } }
+  body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 9.5pt; color: #1f2937; line-height: 1.45; }
+  h1, h2, h3, h4 { font-family: 'Helvetica', 'Georgia', serif; margin: 0; }
+  h1 { font-size: 24pt; color: #1F4D44; }
+  h2 { font-size: 14pt; color: #1F4D44; margin-top: 14pt; border-bottom: 2px solid #D4633F; padding-bottom: 3pt; }
+  h3 { font-size: 11pt; color: #D4633F; margin-top: 8pt; }
+  h4 { font-size: 10pt; color: #1F4D44; margin-top: 6pt; }
+  .small { font-size: 8pt; color: #64748b; }
+  .meta-row { display: flex; gap: 12pt; margin-top: 4pt; }
+  .meta-row > div { flex: 1; }
+  .badge { display: inline-block; padding: 2pt 6pt; border-radius: 8pt; font-size: 8pt; font-weight: 600; }
+  .badge.green { background: #dcfce7; color: #065f46; }
+  .badge.amber { background: #fef3c7; color: #92400e; }
+  .badge.rose  { background: #ffe4e6; color: #9f1239; }
+  .badge.indigo { background: #e0e7ff; color: #3730a3; }
+  .cover { padding: 30pt 0 18pt; border-bottom: 4pt solid #D4633F; margin-bottom: 12pt; }
+  .cover .tagline { font-style: italic; color: #D4633F; font-size: 11pt; margin-top: 4pt; }
+  .stat-grid { display: flex; gap: 8pt; margin: 8pt 0; }
+  .stat { flex: 1; background: #f8fafc; padding: 8pt; border-left: 3pt solid #1F4D44; }
+  .stat .label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.5pt; color: #64748b; }
+  .stat .value { font-size: 14pt; font-weight: 700; color: #1F4D44; margin-top: 2pt; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0; font-size: 9pt; }
+  table th, table td { border: 0.5pt solid #e2e8f0; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  table th { background: #1F4D44; color: white; font-weight: 600; font-size: 8.5pt; }
+  ul.tight { margin: 2pt 0 2pt 14pt; padding: 0; }
+  ul.tight li { margin: 1pt 0; }
+  .timeline { margin: 6pt 0; }
+  .timeline .step { display: flex; gap: 8pt; align-items: flex-start; padding: 5pt 0; border-left: 2pt solid #e2e8f0; padding-left: 10pt; }
+  .timeline .step .num { display: inline-block; width: 16pt; height: 16pt; border-radius: 50%; background: #1F4D44; color: white; text-align: center; font-size: 9pt; line-height: 16pt; margin-right: 4pt; }
+  .next-steps { background: #fff7ed; border: 1pt solid #fdba74; padding: 8pt 10pt; border-radius: 4pt; margin-top: 8pt; }
+  .next-steps h3 { color: #c2410c; margin-top: 0; }
+  .footer-note { font-size: 7.5pt; color: #94a3b8; margin-top: 14pt; font-style: italic; }
+  .pagebreak { page-break-before: always; }
+  .pill-row { margin: 4pt 0; }
+  .pill-row > * { margin-right: 4pt; }
+
+
+  .occupation-comparison {
+    margin-top: 30px;
+    page-break-inside: avoid;
+}
+
+.occupation-comparison .section-header {
+    margin-bottom: 14px;
+}
+
+.occupation-comparison .eyebrow {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #1F4D44;
+}
+
+.occupation-comparison h2 {
+    margin: 4px 0;
+    font-size: 20px;
+}
+
+.occupation-comparison .section-header p {
+    margin: 0;
+    font-size: 10px;
+    color: #64748b;
+}
+
+.occupation-comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-top: 12px;
+}
+
+.occupation-comparison-table th,
+.occupation-comparison-table td {
+    border: 1px solid #dbe3e8;
+    padding: 9px;
+    vertical-align: top;
+    font-size: 9px;
+}
+
+.occupation-comparison-table thead th {
+    color: #ffffff;
+}
+
+.occupation-comparison-table .feature-column {
+    width: 20%;
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 700;
+}
+
+.occupation-comparison-table th.feature-column {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.occupation-comparison-table .primary-column {
+    background: #1F4D44;
+}
+
+.occupation-comparison-table .alternative-column {
+    background: #315f56;
+}
+
+.occupation-status {
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    margin-bottom: 5px;
+}
+
+.primary-status {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.alternative-status {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.occupation-code {
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.occupation-name {
+    margin-top: 4px;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.occupation-body {
+    margin-top: 5px;
+    font-size: 7px;
+    opacity: .85;
+}
+</style>
+</head>
+<body>
+
+<!-- ─── COVER ─── -->
+<div class="cover">
+  <div class="small">Pre-Assessment Report · Phase 19.11 · Confidential</div>
+  <h1>261312 · Developer Programmer</h1>
+  <div class="tagline">Prepared for Priya Patel · priya.patel@example.com</div>
+  <div class="meta-row">
+    <div><b>Country:</b> Australia (AU)</div>
+    <div><b>Generated:</b> 16 Sep 2026 · 16:50 UTC</div>
+    <div><b>Prepared by:</b> Rohit Alluri (LEAMSS Senior Consultant)</div>
+    <div><b>Ref:</b> PREVIEW-261312</div>
+  </div>
+  
+    <span class="badge green">✓ Verified by LEAMSS — 0d ago</span>
+  
+</div>
+
+<!-- ─── 1. INDUSTRY CONTEXT ─── -->
+<h2>1. Industry Context</h2>
+<p class="small">National labour-market overview for Developer Programmer in Australia.</p>
+<div class="stat-grid">
+  <div class="stat"><div class="label">Median Annual Salary</div><div class="value">AUD $131,924</div><div class="small">₹73.2L</div></div>
+  <div class="stat"><div class="label">10-yr Growth</div><div class="value">Very Strong Growth</div><div class="small"></div></div>
+  <div class="stat"><div class="label">Active Workers</div><div class="value">186,100</div><div class="small"></div></div>
+  <div class="stat"><div class="label">Active Vacancies</div><div class="value">—</div><div class="small"></div></div>
+</div>
+
+
+<h3>Top Hiring Industries</h3>
+<ul class="tight">
+  <li>Professional, Scientific and Technical Services</li><li>Financial and Insurance Services</li><li>Public Administration and Safety</li>
+</ul>
+
+
+<!-- ─── 2. OCCUPATION DEEP-DIVE ─── -->
+<h2>2. Occupation Deep-dive</h2>
+
+<p>Software and Applications Programmers design, develop, test, maintain and document program code in accordance with user requirements, and system and technical specifications.</p>
+
+
+<h3>Typical Tasks</h3>
+<ul class="tight">
+  <li>Researching, consulting, analysing and evaluating system program needs</li><li>Identifying technology limitations and deficiencies in existing systems and associated processes, procedures and methods</li><li>Testing, debugging, diagnosing and correcting errors and faults in an applications programming language within established testing protocols, guidelines and quality standards to ensure programs and applications perform to specification</li><li>Writing and maintaining program code to meet system requirements, system designs and technical specifications in accordance with quality accredited standards</li><li>Writing, updating and maintaining technical program, end user documentation and operational procedures</li><li>Providing advice, guidance and expertise in developing proposals and strategies for software design activities such as financial evaluation and costings for recommending software purchases and upgrades</li>
+</ul>
+
+
+<h3>Also Known As</h3>
+<p class="small">Applications Developer · ICT Developer · ICT Programmer</p>
+
+
+
+<!-- ─── 3. SKILLS ASSESSMENT & EXPERIENCE DEDUCTION ANALYSIS (Phase 21) ─── -->
+
+<h2>3. Skills Assessment & Experience Deduction Analysis</h2>
+
+
+  <div style="background: #f8fafc; border: 1.5pt solid #10b981; border-radius: 6pt; padding: 10pt; margin: 8pt 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6pt;">
+      <div>
+        <span style="font-size: 8pt; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 0.5pt;">Assessing Authority &amp; Pathway</span>
+        <div style="font-size: 13pt; font-weight: 700; color: #1F4D44;">
+          Australian Computer Society
+          
+          
+        </div>
+      </div>
+      <div>
+        
+          <span class="badge green" style="font-size: 9pt; padding: 4pt 8pt;">✓ LIKELY POSITIVE ASSESSMENT</span>
+        
+      </div>
+    </div>
+
+    <table>
+      <tr>
+        <th style="width: 28%;">Assessment Pathway</th>
+        <td><b>ACS General Skills — Bachelor/Master with IT Major (Closely Related)</b></td>
+      </tr>
+      <tr>
+        <th>Qualification Mapping</th>
+        <td>
+          <b>Bachelor of Technology</b>
+           in <i>Computer Science &amp; Engineering</i>
+           · <span class="badge green">IT Major</span>
+        </td>
+      </tr>
+      <tr>
+        <th>Qualifying Experience Deduction</th>
+        <td>
+          <b style="color: #b91c1c;">-2.0 years</b>
+          <span class="small">(consumed to establish skills suitability / Requirement Met Date)</span>
+        </td>
+      </tr>
+      <tr>
+        <th>Points-Claimable Work Experience</th>
+        <td>
+          <b style="color: #047857;">6.0 years</b>
+          &nbsp;·&nbsp;
+          <span class="badge indigo">5-7 years overseas (10 pts)</span>
+        </td>
+      </tr>
+      
+      <tr>
+        <th>Standard Assessment Fee</th>
+        <td>AUD $1,498 (approx ₹83.1K)</td>
+      </tr>
+      
+      
+    </table>
+  </div>
+
+  
+  <div style="background: #fffbeb; border-left: 3pt solid #f59e0b; padding: 8pt 10pt; margin: 8pt 0; font-size: 8.5pt; line-height: 1.5;">
+    <b style="color: #92400e; text-transform: uppercase; font-size: 8pt; letter-spacing: 0.5pt; display: block; margin-bottom: 4pt;">
+      Adviser Screening Rationale &amp; Client Justification
+    </b>
+    <div style="color: #78350f; white-space: pre-line;">Your qualification (Bachelor of Technology in Computer Science &amp; Engineering) is assessed as an AQF Bachelor degree or higher with an IT Major (at least 33% ICT content for Bachelor / 50% for Master&#39;s) that is closely related (at least 65% ICT units) to nominated ANZSCO 261312 (Developer Programmer).
+
+Under ACS General Skills criteria, 2 years of relevant professional ICT employment completed in the last 10 years are required to meet skills suitability. These 2 years constitute the qualifying period (Requirement Met Date) and are deducted from your total experience.</div>
+  </div>
+  
+
+  
+  <h3 style="margin-top: 10pt;">Mandatory Evidence &amp; Documents to Screen Before Lodgement</h3>
+  <ul class="tight">
+    
+      <li><b>Passport bio-data page (colour copy)</b></li>
+    
+      <li><b>Secondary Government ID (Aadhaar / PAN / Driver Licence)</b></li>
+    
+      <li><b>All Degree Certificates and Consolidated + Semester-wise Marksheets</b></li>
+    
+      <li><b>Official Academic Transcripts (with subject syllabus for ICT mapping)</b></li>
+    
+      <li><b>Employer Reference Letters on official letterhead detailing roles, responsibilities, tools &amp; weekly hours (20+ hrs/wk)</b></li>
+    
+      <li><b>Two forms of payment evidence covering start and end dates (Form 16/ITR, EPFO/PF records, Bank Salary Credits, Payslips)</b></li>
+    
+      <li><b>Current Comprehensive Résumé / CV</b></li>
+    
+  </ul>
+  
+
+  
+  <div style="background: #fef2f2; border: 1pt solid #fecaca; border-radius: 4pt; padding: 6pt 8pt; margin-top: 8pt; font-size: 8pt; color: #991b1b;">
+    <b>Important Pre-Lodgement Precautions:</b>
+    <ul class="tight" style="margin-top: 2pt;">
+      
+        <li>Generic HR letters omitting specific ICT duties or hours will cause assessment delays or refusal.</li>
+      
+        <li>Copied or verbatim ANZSCO duty descriptions are strictly rejected by ACS.</li>
+      
+        <li>Unpaid internships, freelance work without tax records/invoices, and periods under 20 hours/week cannot be counted.</li>
+      
+        <li>Ensure Form 16 / ITR or bank statements clearly display the employer name and salary credits.</li>
+      
+    </ul>
+  </div>
+  
+
+
+
+
+<!-- ─── 4. SALARY + STATE DEMAND ─── -->
+<h2>4. Salary & State Demand</h2>
+
+<table>
+<tr><th>Median Annual Salary</th><td>AUD $131,924<br><span class="badge indigo">₹73.2L</span></td></tr>
+
+
+</table>
+
+
+
+<p class="small">No state nomination lists currently indexed for this occupation. LEAMSS recommends checking individual state portals directly during the application phase.</p>
+
+
+<!-- ─── 5. VISA PATHWAYS ─── -->
+<h2>5. Visa Pathways</h2>
+
+<table>
+<tr><th>Visa Subclass</th><th>Name</th><th>Eligible</th><th>Notes</th></tr>
+
+<tr>
+  <td><b>189</b></td>
+  <td>Skilled Independent (Points-tested)</td>
+  <td><span class="badge green">Yes</span></td>
+  <td class="small">Direct Permanent Residence. No state/employer sponsorship needed. Points pass mark 65.</td>
+</tr>
+
+<tr>
+  <td><b>190</b></td>
+  <td>Skilled Nominated (State/Territory)</td>
+  <td><span class="badge green">Yes</span></td>
+  <td class="small">Direct Permanent Residence with +5 State Nomination points.</td>
+</tr>
+
+<tr>
+  <td><b>491</b></td>
+  <td>Skilled Work Regional (Provisional)</td>
+  <td><span class="badge green">Yes</span></td>
+  <td class="small">5-year provisional visa with +15 Regional points and PR pathway via Subclass 191.</td>
+</tr>
+
+<tr>
+  <td><b>485</b></td>
+  <td>Temporary Graduate (Graduate Work Stream)</td>
+  <td><span class="badge green">Yes</span></td>
+  <td class="small">Post-study work visa for international qualification holders in MLTSSL occupations.</td>
+</tr>
+
+<tr>
+  <td><b>482</b></td>
+  <td>Skills in Demand Visa (Core Skills / TSS)</td>
+  <td><span class="badge green">Yes</span></td>
+  <td class="small">4-year employer sponsored work visa under Core Skills Occupation List (CSOL) with PR pathway.</td>
+</tr>
+
+<tr>
+  <td><b>186</b></td>
+  <td>Employer Nomination Scheme (Direct Entry / TRT)</td>
+  <td><span class="badge green">Yes</span></td>
+  <td class="small">Permanent Residence via direct employer nomination by approved Australian employer.</td>
+</tr>
+
+<tr>
+  <td><b>494</b></td>
+  <td>Skilled Employer Sponsored Regional (Provisional)</td>
+  <td><span class="badge green">Yes</span></td>
+  <td class="small">Regional employer sponsored visa with PR pathway via Subclass 191.</td>
+</tr>
+
+</table>
+
+
+
+
+<!-- ─── 6. TIMELINE ─── -->
+<h2>6. Indicative Timeline</h2>
+<div class="timeline">
+  <div class="step"><div><span class="num">1</span><b>Document Collection</b> — 2-4 weeks · 7 core documents</div></div>
+  <div class="step"><div><span class="num">2</span><b>Skill Assessment Submission</b> — 1 week · MSA application to ACS</div></div>
+  <div class="step"><div><span class="num">3</span><b>Assessment Processing</b> — 56-84 days</div></div>
+  <div class="step"><div><span class="num">4</span><b>English Test (if not already done)</b> — 2-4 weeks · IELTS / PTE</div></div>
+  <div class="step"><div><span class="num">5</span><b>EOI Submission</b> — 1 week · SkillSelect (Visa 189/190/491)</div></div>
+  <div class="step"><div><span class="num">6</span><b>State Nomination (if applicable)</b> — 4-8 weeks</div></div>
+  <div class="step"><div><span class="num">7</span><b>Visa Lodgement</b> — 1 week · After invitation</div></div>
+  <div class="step"><div><span class="num">8</span><b>Visa Decision</b> — 4-12 months (varies by subclass + queue)</div></div>
+</div>
+<p class="small">Total realistic timeline: <b>8-18 months</b> from start of documentation to visa grant. Indicative only — depends on case complexity, English score, and Home Affairs queues.</p>
+
+<!-- ─── 7. PATHWAY GUIDE ─── -->
+<h2>7. Pathway Guide</h2>
+<p>Based on the assessment above, LEAMSS recommends the following actions:</p>
+<ul class="tight">
+  <li><b>Documents to gather:</b> birth certificate, all education transcripts + degree certificates, all employment evidence (reference letters with detailed duties), passport copy, English test result (current within 3 years), spouse + dependent documents (if applicable).</li>
+  <li><b>English level target:</b> IELTS overall 7.0+ (or PTE 65+) for competitive points score. Minimum 6.0 in each band.</li>
+  <li><b>Employment evidence:</b> reference letters MUST detail tasks performed, hours per week, salary, dates, signed on company letterhead with HR contact details.</li>
+  <li><b>Skill assessment cost (advance):</b> AUD $1,498 (₹83.1K approx)</li>
+  
+</ul>
+
+<!-- ─── 8. NEXT STEPS ─── -->
+<h2>8. Next Steps</h2>
+<div class="next-steps">
+  <h3>Ready to move forward? Here's how to proceed:</h3>
+  <ol class="tight">
+    <li><b>Sign service agreement</b> with LEAMSS (e-sign in 5 minutes)</li>
+    <li><b>Initial document checklist</b> — we'll send a personalised list within 24 hours</li>
+    <li><b>Begin English test preparation</b> if not already complete</li>
+    <li><b>Lock in your case manager</b> — one of our MARA-registered consultants</li>
+  </ol>
+  <p style="margin: 6pt 0 0 0;"><b>Contact LEAMSS:</b> <span class="badge indigo">Toll-Free 1800-210-2427</span> · WhatsApp +91 77383-52427 · Email <a href="mailto:hello@leamss.com">hello@leamss.com</a></p>
+</div>
+
+<!-- ─── Footer note ─── -->
+<p class="footer-note">
+  This Pre-Assessment Report is prepared by LEAMSS (Ladhani Education &amp; Migration Services OPC Pvt. Ltd.) as an
+  indicative pathway guide based on public government data (ABS, JSA, Home Affairs, ACS/VETASSESS/Engineers Australia).
+  It does NOT constitute migration advice under the Migration Act 1958 (Cth) or guarantee a visa outcome.
+  Full migration advice will be provided after engagement with a registered Migration Agent (MARA).
+  Currency conversions are indicative (₹55.5 = AUD 1 as of 16 Sep 2026);
+  actual fees are payable in the native currency. Phase 19.11 · Report ref PREVIEW-261312.
+</p>
+
+</body>
+</html>
