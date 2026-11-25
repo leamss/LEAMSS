@@ -9,9 +9,9 @@ import {
   LayoutDashboard, Building2, UsersRound, Network, UserPlus, ArrowLeft,
   Home, Sparkles, Settings as SettingsIcon, Calendar, FileText, ShieldCheck, History,
   Megaphone, Target, Mail, Gift, BarChart3, MessageCircleQuestion, Bot,
-  Server, Globe, Search,
+  Server, Globe, Search, Shield,
   User, CheckSquare, Coffee, Receipt, BookOpen, Clock, ArrowRight, Wallet,
-  MessageCircle, TicketCheck,
+  MessageCircle, TicketCheck, TrendingUp, DollarSign
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
@@ -20,14 +20,18 @@ const API = `${BACKEND_URL}/api`;
 // Lazy-loaded existing employee modules
 const EmployeesDashboard = lazy(() => import('@/components/employees/EmployeesDashboard'));
 const DepartmentsPage = lazy(() => import('@/components/employees/DepartmentsPage'));
+const RolesPage = lazy(() => import('@/components/employees/RolesPage'));
 const EmployeesList = lazy(() => import('@/components/employees/EmployeesList'));
 const AddEmployeeForm = lazy(() => import('@/components/employees/AddEmployeeForm'));
 const OrgChart = lazy(() => import('@/components/employees/OrgChart'));
+const SalesPersonOverview = lazy(() => import('@/pages/admin/SalesPersonOverview'));
 
 const PAGE_TITLES = {
   'hub-home': 'Portal Hub',
+  'sales-performance': 'Sales Person Performance & Activity Overview',
   'emp-dashboard': 'Employees Dashboard',
   'emp-departments': 'Departments',
+  'emp-roles': 'Roles & Permissions',
   'emp-list': 'All Employees',
   'emp-add': 'Add Employee',
   'emp-org-chart': 'Org Chart',
@@ -54,10 +58,24 @@ const GROUP_CARDS = {
     description: 'Manage internal workforce, departments, and org structure.',
     cards: [
       { id: 'emp-dashboard', icon: LayoutDashboard, title: 'Dashboard', desc: 'Workforce overview & stats', internal: true },
+      { id: 'emp-departments', icon: Building2, title: 'Departments', desc: 'Eight departments + heads', internal: true },
+      { id: 'emp-roles', icon: Shield, title: 'Roles', desc: 'Company roles, hierarchy levels & permissions', internal: true },
       { id: 'emp-list', icon: UsersRound, title: 'All Employees', desc: 'Search, filter, manage', internal: true },
       { id: 'emp-org-chart', icon: Network, title: 'Org Chart', desc: 'Reports-to hierarchy', internal: true },
-      { id: 'emp-departments', icon: Building2, title: 'Departments', desc: 'Eight departments + heads', internal: true },
       { id: 'emp-add', icon: UserPlus, title: 'Add Employee', desc: 'Three-step onboarding form', internal: true },
+    ],
+  },
+  sales: {
+    label: 'Sales & CRM',
+    accent: 'emerald',
+    icon: TrendingUp,
+    description: 'Complete sales lifecycle — leads, pipeline, deals, calls, WhatsApp, client conversion & case handover.',
+    cards: [
+      { id: 'sales-performance', icon: UsersRound, title: 'Sales Team Performance', desc: 'Complete sales rep activity history, call recordings, follow-ups & conversions', internal: true },
+      { id: 'sales-crm', icon: Target, title: 'My CRM', desc: 'Lead pipeline, deals, WhatsApp, calls, follow-ups', route: '/sales/my-crm' },
+      { id: 'sales-dashboard', icon: LayoutDashboard, title: 'Sales Dashboard', desc: 'Performance and revenue metrics', route: '/sales/dashboard' },
+      { id: 'sales-pipeline', icon: TrendingUp, title: 'Deals Pipeline', desc: 'Kanban board & closing stages', route: '/sales/my-crm' },
+      { id: 'sales-payments', icon: DollarSign, title: 'Sales Payments', desc: 'Retainers, packages, transaction logs', route: '/sales/my-crm' },
     ],
   },
   hr: {
@@ -73,6 +91,7 @@ const GROUP_CARDS = {
       { id: 'hr-approvers', icon: UsersRound, title: 'Approver Config', desc: 'L1, Final, department-wise', route: '/admin/hr/approvers' },
       { id: 'hr-reimbursements', icon: Receipt, title: 'Reimbursements (HR)', desc: 'Approve & merge into payslip', route: '/admin/reimbursements/all' },
       { id: 'hr-payroll', icon: Wallet, title: 'Payroll Admin', desc: 'Bulk generate · approve · mark-paid · salary structures', route: '/admin/payroll' },
+      { id: 'hr-policy-control', icon: ShieldCheck, title: 'Policy Control Center', desc: 'Incentive rules, Growth Pool, SLA & targets maker-checker', route: '/admin/policy-control-center' },
       { id: 'hr-rbac', icon: ShieldCheck, title: 'RBAC v2 — Capability Builder', desc: 'Manage 9 packs + 140 features per user (admin only)', route: '/admin/rbac' },
       { id: 'hr-audit', icon: History, title: 'Audit Log', desc: 'Policy changes trail', route: '/admin/hr/audit' },
     ],
@@ -88,7 +107,7 @@ const GROUP_CARDS = {
       { id: 'mkt-seo', icon: Search, title: 'SEO Tools', desc: 'Keyword research, meta optimisation', route: '/portal/marketing/seo' },
       { id: 'mkt-aeo', icon: MessageCircleQuestion, title: 'AEO Tools', desc: 'FAQ schema, voice search, snippets', route: '/portal/marketing/aeo' },
       { id: 'mkt-geo', icon: Bot, title: 'GEO Tools (NEW)', desc: 'LLM citation optimiser — quotable by ChatGPT/Claude', route: '/portal/marketing/geo' },
-      { id: 'mkt-leads', icon: Target, title: 'Lead CRM', desc: 'Capture, qualify, follow-up', route: '/admin/marketing' },
+      { id: 'mkt-leads', icon: Target, title: 'Lead CRM / My CRM', desc: 'Capture, qualify, follow-up, convert', route: '/sales/my-crm' },
       { id: 'mkt-campaigns', icon: Mail, title: 'Campaigns', desc: 'Email blasts, drip flows', route: '/admin/marketing' },
       { id: 'mkt-promos', icon: Gift, title: 'Promo Codes', desc: 'Discounts & coupons', route: '/admin/marketing' },
       { id: 'mkt-scorecards', icon: FileText, title: 'Scorecards', desc: 'Eligibility quiz leads', route: '/admin/marketing' },
@@ -111,6 +130,8 @@ const GROUP_CARDS = {
     icon: User,
     description: 'Your personal workspace — profile, tasks, leave, payslips.',
     cards: [
+      { id: 'me-earnings', icon: DollarSign, title: 'My Earnings', desc: 'Pockets 1, 2, 3 ledger, held items, payout history', route: '/portal/my-earnings' },
+      { id: 'me-score', icon: Target, title: 'My Score', desc: 'Scorecard, KPIs, performance grades', route: '/portal/my-score' },
       { id: 'me-profile', icon: User, title: 'My Profile', desc: 'Personal, bank, emergency contact', route: '/portal/my-profile' },
       { id: 'me-tasks', icon: CheckSquare, title: 'My Tasks', desc: 'Kanban board of assigned work', route: '/portal/my-tasks' },
       { id: 'me-attendance', icon: Clock, title: 'My Attendance', desc: 'Punch in/out, monthly calendar', route: '/portal/attendance' },
@@ -163,6 +184,14 @@ export default function EmployeesPortal() {
     }).catch(() => navigate('/'));
   }, [navigate]);
 
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+      setEmpListFilter(null);
+    }
+  }, [searchParams]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -184,15 +213,25 @@ export default function EmployeesPortal() {
       items: [
         { id: 'emp-dashboard', icon: LayoutDashboard, label: 'Dashboard', onClick: () => { setActiveTab('emp-dashboard'); setEmpListFilter(null); } },
         { id: 'emp-departments', icon: Building2, label: 'Departments', onClick: () => { setActiveTab('emp-departments'); setEmpListFilter(null); } },
+        { id: 'emp-roles', icon: Shield, label: 'Roles', onClick: () => { setActiveTab('emp-roles'); setEmpListFilter(null); } },
         { id: 'emp-list', icon: UsersRound, label: 'All Employees', onClick: () => { setActiveTab('emp-list'); setEmpListFilter(null); } },
         { id: 'emp-org-chart', icon: Network, label: 'Org Chart', onClick: () => { setActiveTab('emp-org-chart'); } },
         { id: 'emp-add', icon: UserPlus, label: 'Add Employee', onClick: () => { setActiveTab('emp-add'); } },
       ],
     },
     {
-      groupLabel: 'Jump To',
-      defaultOpen: false,
+      groupLabel: 'Sales & CRM',
+      defaultOpen: true,
       items: [
+        { id: 'nav-crm-sidebar', icon: Target, label: 'My CRM (Sales)', onClick: () => navigate('/sales/my-crm') },
+        { id: 'sales-performance', icon: TrendingUp, label: 'Sales Team Performance', onClick: () => { setActiveTab('sales-performance'); setEmpListFilter(null); } },
+      ],
+    },
+    {
+      groupLabel: 'Jump To',
+      defaultOpen: true,
+      items: [
+        { id: 'nav-crm', icon: Target, label: 'My CRM', onClick: () => navigate('/sales/my-crm') },
         { id: 'nav-hr', icon: ShieldCheck, label: 'HR Settings', onClick: () => navigate('/admin/hr/settings') },
         { id: 'nav-marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
         { id: 'nav-my-profile', icon: User, label: 'My Profile', onClick: () => navigate('/portal/my-profile') },
@@ -233,12 +272,16 @@ export default function EmployeesPortal() {
         return <EmployeesDashboard onNavigate={onNavigateInternal} />;
       case 'emp-departments':
         return <DepartmentsPage onNavigate={onNavigateInternal} />;
+      case 'emp-roles':
+        return <RolesPage onNavigate={onNavigateInternal} />;
       case 'emp-list':
         return <EmployeesList initialFilter={empListFilter} onNavigate={(t) => setActiveTab(t)} />;
       case 'emp-add':
         return <AddEmployeeForm onNavigate={(t) => { setEmpListFilter(null); setActiveTab(t); }} />;
       case 'emp-org-chart':
         return <OrgChart onSelect={(id) => { setEmpListFilter({ employeeId: id }); setActiveTab('emp-list'); }} />;
+      case 'sales-performance':
+        return <SalesPersonOverview />;
       default:
         return null;
     }

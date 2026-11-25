@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import NotificationBell from '@/components/NotificationBell';
 import { LanguageToggle, useLanguage } from '@/components/LanguageProvider';
 import { ThemeToggle } from '@/components/ThemeProvider';
-import { LogOut, Menu, ArrowLeft, ChevronDown, ChevronRight, MessageCircle, TicketCheck } from 'lucide-react';
+import { LogOut, Menu, ArrowLeft, ChevronDown, ChevronRight, MessageCircle, TicketCheck, Clock, Target } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const COMM_API = `${BACKEND_URL}/api`;
@@ -321,6 +321,30 @@ const DashboardShell = ({
               </div>
               <div className="flex items-center gap-2">
                 {headerActions}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/sales/my-crm')}
+                  className="h-8 text-xs font-semibold text-teal-800 bg-teal-50 border-teal-300 hover:bg-teal-100 flex items-center gap-1.5"
+                  title="Sales CRM & Lead Pipeline"
+                  data-testid="header-my-crm-btn"
+                >
+                  <Target className="h-3.5 w-3.5 text-teal-600" />
+                  <span className="hidden sm:inline">My CRM</span>
+                </Button>
+                {user?.user_type === 'internal' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/portal/welcome')}
+                    className="h-8 text-xs font-semibold text-emerald-700 bg-emerald-50 border-emerald-300 hover:bg-emerald-100 flex items-center gap-1.5"
+                    title="Employee Portal & Punch In"
+                    data-testid="header-employee-portal-btn"
+                  >
+                    <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                    <span className="hidden sm:inline">Employee Portal</span>
+                  </Button>
+                )}
                 <HeaderCommButtons user={user} />
                 <ThemeToggle />
                 <LanguageToggle />

@@ -92,6 +92,9 @@ async def portal_hub_stats(current_user: dict = Depends(get_current_user)):
     })
 
     result = {
+        "sales": {
+            "total_leads": leads_count,
+        },
         "employees": {
             "active": active_employees,
             "on_leave": on_leave_employees,

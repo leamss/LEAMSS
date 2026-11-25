@@ -31,12 +31,13 @@ export default function HubHome({
   }, [activeGroup]);
 
   const counts = useMemo(() => stats ? {
-    employees: stats.employees.active,
-    hr: stats.hr.pending_leaves + stats.hr.pending_regularizations,
-    marketing: stats.marketing.active_campaigns + stats.marketing.draft_campaigns,
-    it: stats.it.open_incidents,
-    me: stats.me.my_tasks + (stats.me.unread_announcements || 0),
-  } : { employees: 0, hr: 0, marketing: 0, it: 0, me: 0 }, [stats]);
+    sales: stats.sales?.total_leads || 0,
+    employees: stats.employees?.active || 0,
+    hr: (stats.hr?.pending_leaves || 0) + (stats.hr?.pending_regularizations || 0),
+    marketing: (stats.marketing?.active_campaigns || 0) + (stats.marketing?.draft_campaigns || 0),
+    it: stats.it?.open_incidents || 0,
+    me: (stats.me?.my_tasks || 0) + (stats.me?.unread_announcements || 0),
+  } : { sales: 0, employees: 0, hr: 0, marketing: 0, it: 0, me: 0 }, [stats]);
 
   return (
     <div className="space-y-6" data-testid="portal-hub">
