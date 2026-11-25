@@ -133,7 +133,6 @@ import WhatsAppTemplatesManager from '@/pages/sales/WhatsAppTemplatesManager';
 import WhatsAppChatInbox from '@/pages/sales/WhatsAppChatInbox';
 import FeeMaster from '@/pages/sales/FeeMaster';
 import ProposalBuilder from '@/pages/sales/ProposalBuilder';
-import SalesPitchGuide from '@/pages/sales/SalesPitchGuide';
 import ClientPortalLogin from '@/pages/client-portal/ClientPortalLogin';
 import ClientPortalDashboard from '@/pages/client-portal/ClientPortalDashboard';
 import AdminClientPortalPreview from '@/pages/admin/AdminClientPortalPreview';
