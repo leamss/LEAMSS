@@ -38,7 +38,8 @@ const pctBarColor = (p) => {
 export function TargetWidget() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [monthly, setMonthly] = useState(null);
+  const [targets, setTargets] = useState({ daily: null, weekly: null, monthly: null, yearly: null });
+  const [activePeriod, setActivePeriod] = useState('daily');
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +47,19 @@ export function TargetWidget() {
       try {
         const token = localStorage.getItem('token');
         const r = await axios.get(`${API}/sales/targets/my`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!cancelled) setMonthly(r.data.monthly);
+        if (!cancelled && r.data) {
+          setTargets(r.data);
+          // Default to daily if daily exists, else monthly, else weekly
+          if (r.data.daily) {
+            setActivePeriod('daily');
+          } else if (r.data.monthly) {
+            setActivePeriod('monthly');
+          } else if (r.data.weekly) {
+            setActivePeriod('weekly');
+          } else if (r.data.yearly) {
+            setActivePeriod('yearly');
+          }
+        }
       } catch (e) {
         // Silently fail — user may not have access
       } finally {
@@ -63,86 +76,93 @@ export function TargetWidget() {
       <Card className="p-4 border-t-4 border-t-leamss-teal-500" data-testid="widget-target-loading">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-8 h-8 rounded-full bg-leamss-teal-100 flex items-center justify-center"><Target className="h-4 w-4 text-leamss-teal-600 animate-pulse" /></div>
-          <p className="text-sm font-bold text-slate-800">Monthly Target</p>
+          <p className="text-sm font-bold text-slate-800">Sales Targets</p>
         </div>
         <p className="text-xs text-slate-400">Loading…</p>
       </Card>
     );
   }
 
-  // No target set — keep placeholder behavior
-  if (!monthly) {
-    return (
-      <Card className="p-4 border-t-4 border-t-leamss-teal-500 hover:shadow-md transition" data-testid="widget-target">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-leamss-teal-100 flex items-center justify-center">
-              <Target className="h-4 w-4 text-leamss-teal-600" />
-            </div>
-            <p className="text-sm font-bold text-slate-800">Monthly Target</p>
-          </div>
-          <Badge className="bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">Not set</Badge>
-        </div>
-        <p className="text-xs text-slate-500 mt-1">No target assigned yet</p>
-        <p className="text-xs text-slate-400">Your manager will set it soon</p>
-        <button
-          onClick={() => navigate('/sales/my-targets')}
-          className="mt-2 text-xs text-leamss-teal-600 hover:underline flex items-center gap-1"
-          data-testid="link-targets"
-        >
-          View targets page <ArrowRight className="h-3 w-3" />
-        </button>
-      </Card>
-    );
-  }
-
-  // Live target data
-  const ach = monthly.achievement || {};
+  const currentTarget = targets[activePeriod];
+  const ach = currentTarget?.achievement || {};
+  const tg = currentTarget?.targets || {};
   const revPct = ach.revenue_percentage || 0;
   const overallPct = ach.overall_percentage || 0;
-  const targetRev = monthly.targets?.revenue || 0;
+  const targetRev = tg.revenue || 0;
   const currentRev = ach.revenue || 0;
-  const targetPa = monthly.targets?.pa_count || 0;
-  const currentPa = ach.pa_count || 0;
-  const daysLeft = monthly.days_remaining || 0;
-  const gap = Math.max(0, targetRev - currentRev);
-  const dailyReq = daysLeft > 0 && gap > 0 ? gap / daysLeft : 0;
+  const targetDeals = tg.pa_count || 0;
+  const currentDeals = ach.pa_count || 0;
+  const daysLeft = currentTarget?.days_remaining != null ? currentTarget.days_remaining : 0;
+  const hasTarget = Boolean(currentTarget && (targetRev || tg.leads || tg.calls || tg.follow_ups || targetDeals));
 
   return (
-    <Card className="p-4 border-t-4 border-t-leamss-teal-500 hover:shadow-md transition cursor-pointer" data-testid="widget-target" onClick={() => navigate('/sales/my-targets')}>
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-leamss-teal-100 flex items-center justify-center">
-            <Target className="h-4 w-4 text-leamss-teal-600" />
+    <Card className="p-3.5 border-t-4 border-t-leamss-teal-500 hover:shadow-md transition cursor-pointer flex flex-col justify-between" data-testid="widget-target" onClick={() => navigate('/sales/my-targets')}>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-md bg-leamss-teal-100 flex items-center justify-center">
+              <Target className="h-3.5 w-3.5 text-leamss-teal-600" />
+            </div>
+            <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Targets</p>
           </div>
-          <p className="text-sm font-bold text-slate-800">Monthly Target</p>
+          {hasTarget ? (
+            <Badge className="bg-leamss-teal-600 text-white text-[10px] font-black uppercase">{overallPct.toFixed(0)}%</Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] text-slate-400">Not set</Badge>
+          )}
         </div>
-        <Badge className="bg-leamss-teal-600 text-white text-[10px] font-bold uppercase">{overallPct.toFixed(0)}%</Badge>
+
+        {/* Period Selector Tabs */}
+        <div className="flex items-center bg-slate-100 p-0.5 rounded-md mb-2 text-[10px] font-bold" onClick={(e) => e.stopPropagation()}>
+          {[
+            { key: 'daily', label: 'Day' },
+            { key: 'weekly', label: 'Wk' },
+            { key: 'monthly', label: 'Mo' },
+            { key: 'yearly', label: 'Yr' },
+          ].map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setActivePeriod(p.key)}
+              className={`flex-1 py-0.5 rounded transition ${
+                activePeriod === p.key
+                  ? 'bg-white text-teal-800 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {hasTarget ? (
+          <>
+            <p className="text-sm font-black text-leamss-teal-700" data-testid="widget-target-amounts">
+              {formatINR(currentRev)} <span className="text-slate-400 text-xs font-normal">/ {formatINR(targetRev)}</span>
+            </p>
+            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1" data-testid="widget-target-progress">
+              <div className={`h-full ${pctBarColor(overallPct)} transition-all`} style={{ width: `${Math.min(100, Math.max(0, overallPct))}%` }} />
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-600">
+              <span>{currentDeals}/{targetDeals} Deals</span>
+              <span>{ach.calls || 0}/{tg.calls || 0} Calls</span>
+            </div>
+          </>
+        ) : (
+          <div className="py-1">
+            <p className="text-xs text-slate-500 font-medium capitalize">{activePeriod} target not set</p>
+            <p className="text-[11px] text-slate-400">Tap to configure or view other periods</p>
+          </div>
+        )}
       </div>
-      <p className="text-lg font-extrabold text-leamss-teal-700 mt-1" data-testid="widget-target-amounts">
-        {formatINR(currentRev)} <span className="text-slate-400 text-sm font-normal">/ {formatINR(targetRev)}</span>
-      </p>
-      <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1.5" data-testid="widget-target-progress">
-        <div className={`h-full ${pctBarColor(revPct)} transition-all`} style={{ width: `${Math.min(100, revPct)}%` }} />
-      </div>
-      <div className="mt-2 flex items-center justify-between text-[11px]">
-        <span className="text-slate-600 flex items-center gap-1">
-          <span>{currentPa}/{targetPa} PAs</span>
+
+      <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+        <span className="text-slate-500 font-medium">
+          {activePeriod === 'daily' ? 'Today' : daysLeft > 0 ? `${daysLeft}d left` : 'Active'}
         </span>
-        <span className="text-slate-500 flex items-center gap-1"><Clock className="h-3 w-3" />{daysLeft}d left</span>
+        <span className="text-leamss-teal-600 font-bold hover:underline flex items-center gap-0.5">
+          View <ArrowRight className="h-2.5 w-2.5" />
+        </span>
       </div>
-      {dailyReq > 0 && (
-        <p className="mt-1.5 text-[11px] text-orange-700 font-medium flex items-center gap-1" data-testid="widget-target-pace">
-          <Flame className="h-3 w-3" /> Need {formatINR(Math.ceil(dailyReq))}/day
-        </p>
-      )}
-      <button
-        onClick={(e) => { e.stopPropagation(); navigate('/sales/my-targets'); }}
-        className="mt-2 text-xs text-leamss-teal-600 hover:underline flex items-center gap-1"
-        data-testid="link-targets"
-      >
-        View details <ArrowRight className="h-3 w-3" />
-      </button>
     </Card>
   );
 }

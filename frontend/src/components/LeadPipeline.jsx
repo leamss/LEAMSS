@@ -8,49 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Plus, CreditCard, FileText, Eye, CheckCircle, Send, XCircle,
   RefreshCw, Globe, Clock, LayoutGrid, List as ListIcon, Search, ChevronRight,
-  MessageCircle, Mail, Phone, ExternalLink, Copy, Check, User, Sparkles, BookOpen, Briefcase, Download
+  MessageCircle, Mail, Phone, ExternalLink, Copy, Check, User, Sparkles, BookOpen, Briefcase, Upload
 } from 'lucide-react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
-const API = `${BACKEND_URL}/api`;
-
-const getResumeHref = (url) => {
-  if (!url) return '';
-  const str = String(url).trim();
-  const hex = str.match(/[a-fA-F0-9]{24}/);
-  if (hex && (str.includes('cockpit') || str.includes('resume') || /^[a-fA-F0-9]{24}$/.test(str))) {
-    return `${BACKEND_URL}/api/cockpit/resume/${hex[0]}`;
-  }
-  if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('blob:') || str.startsWith('data:')) return str;
-  if (str.startsWith('/api')) return `${BACKEND_URL}${str}`;
-  if (str.startsWith('/')) return `${BACKEND_URL}/api${str}`;
-  return `${BACKEND_URL}/api/${str}`;
-};
-
-const getReportPdfHref = (lead) => {
-  if (!lead) return '';
-  if (lead.report_pdf_url) {
-    const u = String(lead.report_pdf_url).trim();
-    if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('blob:') || u.startsWith('data:')) return u;
-    if (u.startsWith('/api')) return `${BACKEND_URL}${u}`;
-    if (u.startsWith('/')) return `${BACKEND_URL}/api${u}`;
-    return `${BACKEND_URL}/api/${u}`;
-  }
-  if (lead.bulk_row_id) {
-    return `${BACKEND_URL}/api/bulk-assessments/public/row/${lead.bulk_row_id}/report.pdf`;
-  }
-  if (lead.share_token) {
-    return `${BACKEND_URL}/api/assessment-reports/public/${lead.share_token}/pdf`;
-  }
-  if (lead.assessment_report_id || lead.latest_report_snapshot_id) {
-    const snapId = lead.assessment_report_id || lead.latest_report_snapshot_id;
-    return `${BACKEND_URL}/api/assessment-reports/${snapId}/pdf`;
-  }
-  if (lead.id && lead.item_type === 'pre_assessment') {
-    return `${BACKEND_URL}/api/pre-assess-portal/pdf/${lead.id}`;
-  }
-  return '';
-};
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const STAGES = [
   { key: 'new', label: 'New Leads', color: 'bg-slate-500', text: 'text-slate-700', border: 'border-slate-300', bg: 'bg-slate-50', dot: 'bg-slate-500', icon: Plus },
@@ -63,6 +24,7 @@ const STAGES = [
   { key: 'proposal_sent', label: 'Proposal Sent', color: 'bg-teal-500', text: 'text-teal-700', border: 'border-teal-300', bg: 'bg-teal-50', dot: 'bg-teal-500', icon: Send },
   { key: 'proposal_paid', label: 'Proposal Paid', color: 'bg-cyan-500', text: 'text-cyan-700', border: 'border-cyan-300', bg: 'bg-cyan-50', dot: 'bg-cyan-500', icon: CreditCard },
   { key: 'awaiting_final_approval', label: 'Awaiting Approval', color: 'bg-indigo-500', text: 'text-indigo-700', border: 'border-indigo-300', bg: 'bg-indigo-50', dot: 'bg-indigo-500', icon: Clock },
+  { key: 'converted', label: 'Converted Clients', color: 'bg-emerald-600', text: 'text-emerald-700', border: 'border-emerald-300', bg: 'bg-emerald-50', dot: 'bg-emerald-600', icon: CheckCircle },
   { key: 'case_created', label: 'Case Created', color: 'bg-green-600', text: 'text-green-700', border: 'border-green-300', bg: 'bg-green-50', dot: 'bg-green-600', icon: CheckCircle },
   { key: 'prospect', label: 'Prospect', color: 'bg-purple-500', text: 'text-purple-700', border: 'border-purple-300', bg: 'bg-purple-50', dot: 'bg-purple-500', icon: Sparkles },
   { key: 'not_interested', label: 'Not Interested', color: 'bg-stone-500', text: 'text-stone-700', border: 'border-stone-300', bg: 'bg-stone-50', dot: 'bg-stone-500', icon: XCircle },
@@ -99,6 +61,45 @@ const LeadPipeline = ({ onLeadClick }) => {
     }
     setLoading(false);
   }, []);
+
+  const handleResumeUpload = async (lead, file) => {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Resume file exceeds maximum limit of 15MB');
+      return;
+    }
+    const targetLeadId = lead?.lead_id || lead?.id || lead?._id || lead?.original_lead_id || lead?.pa_number;
+    if (!targetLeadId) {
+      toast.error('Cannot identify lead or pre-assessment record');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const toastId = toast.loading('Uploading and synchronizing resume...');
+    try {
+      const res = await axios.post(`${API}/leads/${targetLeadId}/resume`, formData, {
+        headers: {
+          ...getAuthHeader().headers,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      toast.success(res.data.message || 'Resume uploaded successfully', { id: toastId });
+      loadData();
+      if (selectedLead) {
+        setSelectedLead(prev => ({
+          ...prev,
+          resume_file_id: res.data.resume_file_id,
+          resume_filename: res.data.resume_filename || file.name,
+          resume_url: res.data.resume_url || `/cockpit/resume/${res.data.resume_file_id}`,
+          resume_uploaded: true,
+        }));
+      }
+    } catch (err) {
+      console.error('Error uploading resume:', err);
+      toast.error(err.response?.data?.detail || err.message || 'Failed to upload resume', { id: toastId });
+    }
+  };
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -289,8 +290,20 @@ const LeadPipeline = ({ onLeadClick }) => {
                       <span className="truncate">{lead.country || 'Global'} · {lead.service_type || 'PR'}</span>
                     </div>
 
-                    <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{lead.pa_number || 'N/A'}</span>
+                      {(lead.resume_file_id || lead.resume_url) && (
+                        <a
+                          href={`${process.env.REACT_APP_BACKEND_URL || ''}/api/cockpit/resume/${lead.resume_file_id || lead.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded shadow-none"
+                          title={`View Resume: ${lead.resume_filename || 'Candidate Resume'}`}
+                        >
+                          <FileText className="h-3 w-3 text-emerald-600" /> Resume
+                        </a>
+                      )}
                     </div>
 
                     {/* Quick follow-up buttons */}
@@ -396,7 +409,20 @@ const LeadPipeline = ({ onLeadClick }) => {
 
                         {/* Quick action bar */}
                         <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                          <Badge className="bg-slate-100 text-slate-600 text-[11px] font-mono h-5">{item.pa_number || 'N/A'}</Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge className="bg-slate-100 text-slate-600 text-[11px] font-mono h-5">{item.pa_number || 'N/A'}</Badge>
+                            {(item.resume_file_id || item.resume_url) && (
+                              <a
+                                href={`${process.env.REACT_APP_BACKEND_URL || ''}/api/cockpit/resume/${item.resume_file_id || item.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1 py-0.5 rounded shadow-none"
+                                title={`View Resume: ${item.resume_filename || 'Candidate Resume'}`}
+                              >
+                                <FileText className="h-2.5 w-2.5 text-emerald-600" /> CV
+                              </a>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1">
                             <button
                               onClick={(e) => handleWhatsApp(e, item)}
@@ -466,20 +492,6 @@ const LeadPipeline = ({ onLeadClick }) => {
                   <p className="text-slate-400 font-medium">PA Number</p>
                   <p className="text-slate-800 font-semibold font-mono">{selectedLead.pa_number || 'N/A'}</p>
                 </div>
-                <div>
-                  <p className="text-slate-400 font-medium">Assigned Partner / Owner</p>
-                  <p className="text-slate-800 font-semibold">{selectedLead.assigned_to_name || selectedLead.partner_name || 'Unassigned'}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400 font-medium">Report Status</p>
-                  <p className="font-semibold">
-                    {selectedLead.report_generated ? (
-                      <span className="text-emerald-700 font-bold">✓ Generated</span>
-                    ) : (
-                      <span className="text-amber-700 font-medium">Pending</span>
-                    )}
-                  </p>
-                </div>
                 {selectedLead.education && (
                   <div>
                     <p className="text-slate-400 font-medium">Education</p>
@@ -494,81 +506,58 @@ const LeadPipeline = ({ onLeadClick }) => {
                 )}
               </div>
 
-              {/* Client Pre-Assessment Report (PDF) Box */}
-              {selectedLead.report_generated || getReportPdfHref(selectedLead) ? (
-                <div className="border border-emerald-300 bg-emerald-50/80 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-xs text-emerald-950">Client Pre-Assessment Report</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 border border-emerald-300">✓ PDF Generated</span>
-                      </div>
-                      <p className="text-[11px] text-emerald-800 truncate mt-0.5">
-                        {selectedLead.bulk_batch_id ? `Generated via Batch: ${selectedLead.bulk_batch_id}` : 'Complete strategic eligibility, occupation & visa points report'}
-                      </p>
-                    </div>
-                  </div>
-                  {getReportPdfHref(selectedLead) && (
-                    <a
-                      href={getReportPdfHref(selectedLead)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 flex items-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-98"
-                      data-testid="modal-view-report-pdf-btn"
-                    >
-                      <Download className="h-4 w-4" /> View PDF Report
-                    </a>
-                  )}
+              {/* Candidate Resume Section */}
+              <div className="border border-slate-200 rounded-xl p-3.5 bg-white space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-xs uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-emerald-600" /> Candidate Resume / CV
+                  </p>
+                  <label className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded border border-emerald-200 transition-colors">
+                    <Upload className="w-3 h-3" />
+                    <span>{selectedLead.resume_file_id || selectedLead.resume_url ? 'Replace Resume' : 'Upload Resume'}</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleResumeUpload(selectedLead, e.target.files[0]);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                  </label>
                 </div>
-              ) : (
-                <div className="border border-slate-200 bg-slate-50/60 rounded-xl p-3 flex items-center justify-between text-xs text-slate-500">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-slate-400" />
-                    <span>Pre-Assessment Report: <strong className="text-slate-700">Pending Generation</strong></span>
-                  </div>
-                </div>
-              )}
 
-              {/* Uploaded Candidate Resume Box */}
-              {selectedLead.has_resume || selectedLead.resume_url ? (
-                <div className="border border-teal-300 bg-teal-50/80 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-[#0F766E] text-white flex items-center justify-center shrink-0 shadow-sm">
-                      <Briefcase className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-teal-950">Candidate Resume</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-200 text-teal-900 border border-teal-300">Attached</span>
+                {selectedLead.resume_file_id || selectedLead.resume_url ? (
+                  <div className="flex items-center justify-between p-2.5 bg-emerald-50/60 border border-emerald-200 rounded-lg text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                        📄
                       </div>
-                      <p className="text-[11px] text-teal-800 font-mono truncate mt-0.5">
-                        {selectedLead.resume_filename || 'Resume.pdf'}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-emerald-900 truncate">
+                          {selectedLead.resume_filename || 'Candidate Resume'}
+                        </p>
+                        <p className="text-[10px] text-emerald-700">Verified & Attached to Record</p>
+                      </div>
                     </div>
-                  </div>
-                  {selectedLead.resume_url && (
                     <a
-                      href={getResumeHref(selectedLead.resume_url)}
+                      href={`${process.env.REACT_APP_BACKEND_URL || ''}/api/cockpit/resume/${selectedLead.resume_file_id || selectedLead.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-[#0F766E] hover:bg-[#115E59] flex items-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-98"
-                      data-testid="modal-view-resume-btn"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shrink-0"
                     >
-                      <Download className="h-4 w-4" /> View Resume
+                      <Eye className="w-3 h-3" /> View / Download
                     </a>
-                  )}
-                </div>
-              ) : (
-                <div className="border border-slate-200 bg-slate-50/60 rounded-xl p-3 flex items-center justify-between text-xs text-slate-500">
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="h-4 w-4 text-slate-400" />
-                    <span>Candidate Resume: <strong className="text-slate-600">No resume uploaded</strong></span>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg flex items-center justify-between text-xs text-amber-800">
+                    <span className="italic">No resume currently attached to this record.</span>
+                    <span className="text-[11px] font-medium text-amber-900">Upload to attach</span>
+                  </div>
+                )}
+              </div>
 
               {/* Follow-Up Action Hub */}
               <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-3">

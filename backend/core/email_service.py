@@ -43,8 +43,8 @@ def _build_html(title: str, body: str) -> str:
     </div>"""
 
 
-async def send_email(to_email: str, subject: str, title: str, body_html: str) -> dict:
-    """Send an email. Falls back to logging if Resend is not configured."""
+async def send_email(to_email: str, subject: str, title: str, body_html: str, *args, **kwargs) -> dict:
+    """Send an email using configured SMTP / Resend dispatch with graceful fallback."""
     from core.database import db
     email_logs_col = db["email_logs"]
     
@@ -54,9 +54,11 @@ async def send_email(to_email: str, subject: str, title: str, body_html: str) ->
         "id": str(uuid.uuid4()),
         "to": to_email,
         "subject": subject,
+        "body": full_html,
+        "body_html": full_html,
         "status": "pending",
         "sent_at": datetime.now(timezone.utc),
-        "provider": "resend" if _resend_available else "mock"
+        "provider": "resend" if _resend_available else "smtp"
     }
     
     if _resend_available:
@@ -70,14 +72,32 @@ async def send_email(to_email: str, subject: str, title: str, body_html: str) ->
             result = await asyncio.to_thread(resend.Emails.send, params)
             log_entry["status"] = "sent"
             log_entry["provider_id"] = result.get("id", "")
-            logger.info(f"Email sent to {to_email}: {subject}")
+            logger.info(f"Email sent via Resend to {to_email}: {subject}")
         except Exception as e:
             log_entry["status"] = "failed"
             log_entry["error"] = str(e)
             logger.error(f"Failed to send email to {to_email}: {e}")
     else:
-        log_entry["status"] = "mock_sent"
-        logger.info(f"[MOCK] Email to {to_email}: {subject}")
+        try:
+            from core.mail_dispatch import dispatch_email
+            sender_uid = kwargs.get("sender_user_id") or kwargs.get("user_id")
+            disp_res = await dispatch_email(
+                to_email=to_email,
+                subject=subject,
+                body_html=full_html,
+                user_id=sender_uid,
+                sender_name=COMPANY_NAME,
+            )
+            is_ok = disp_res.get("status") in ("delivered", "sent")
+            log_entry["status"] = "sent" if is_ok else disp_res.get("status", "failed")
+            log_entry["provider"] = disp_res.get("provider", "smtp")
+            if not is_ok and disp_res.get("error"):
+                log_entry["error"] = disp_res.get("error")
+            logger.info(f"Email dispatch to {to_email}: status={log_entry['status']} provider={log_entry['provider']}")
+        except Exception as e:
+            log_entry["status"] = "failed"
+            log_entry["error"] = str(e)
+            logger.error(f"Failed to dispatch email to {to_email}: {e}")
     
     await email_logs_col.insert_one(log_entry)
     return log_entry

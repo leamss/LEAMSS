@@ -13,10 +13,11 @@ import {
   CheckCircle, CheckCircle2, ChevronRight, RefreshCw, Phone, ShieldCheck,
   FileText, Compass, Award, Clock, Coins, BookOpen, AlertCircle, Edit3, Zap,
   PhoneCall, Volume2, ShieldAlert, Layers, X, Download, Printer, Briefcase,
-  Languages
+  Languages, ShieldX
 } from 'lucide-react';
 
 import Flag from 'react-world-flags';
+import PackageRefundBadge from '@/components/admin/product-master/PackageRefundBadge';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -1674,10 +1675,25 @@ export default function SalesPitchGuide() {
                             const isSmart = (pkg.package_type || '').toLowerCase() === 'smart';
                             const isPrem = (pkg.package_type || '').toLowerCase() === 'premium';
 
+                            const effectivePkg = {
+                              ...pkg,
+                              price: pPrice,
+                              refund_policy: pkg.refund_policy || (selectedProduct?.refund_policy ? {
+                                ...selectedProduct.refund_policy,
+                                enabled: true,
+                              } : null),
+                            };
+
+                            const hasRefundPolicy = Boolean(
+                              effectivePkg.refund_policy &&
+                              effectivePkg.refund_policy.enabled !== false &&
+                              effectivePkg.refund_policy.policy_type !== 'none'
+                            );
+
                             return (
                               <div
                                 key={idx}
-                                className={`p-3.5 rounded-xl border transition-all space-y-2.5 ${
+                                className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between space-y-3 ${
                                   isPrem
                                     ? 'bg-amber-50/40 border-amber-300 ring-1 ring-amber-300/50'
                                     : isSmart
@@ -1685,40 +1701,68 @@ export default function SalesPitchGuide() {
                                     : 'bg-slate-50/70 border-slate-200'
                                 }`}
                               >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-extrabold text-xs text-slate-900">{pkg.name}</span>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[9px] uppercase font-bold ${
-                                      isPrem
-                                        ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                        : isSmart
-                                        ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
-                                        : 'bg-slate-200 text-slate-800 border-slate-300'
-                                    }`}
-                                  >
-                                    {pkg.package_type || 'Tier'}
-                                  </Badge>
-                                </div>
+                                <div className="space-y-2.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-extrabold text-xs text-slate-900">{pkg.name}</span>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[9px] uppercase font-bold ${
+                                        isPrem
+                                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                          : isSmart
+                                          ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                                          : 'bg-slate-200 text-slate-800 border-slate-300'
+                                      }`}
+                                    >
+                                      {pkg.package_type || 'Tier'}
+                                    </Badge>
+                                  </div>
 
-                                <div className="space-y-0.5">
-                                  <div className="text-base font-black text-slate-900">{formatINR(pPrice)}</div>
-                                  {isTierGst ? (
-                                    <div className="text-[10px] text-purple-700 font-medium">
-                                      + 18% GST ({formatINR(pGst)}) = <strong className="text-slate-800 font-extrabold">{formatINR(pTotal)}</strong>
-                                    </div>
-                                  ) : (
-                                    <div className="text-[10px] text-slate-500 font-medium">
-                                      Net Package Investment <span className="text-slate-400 font-normal">(No GST)</span>
-                                    </div>
+                                  <div className="space-y-0.5">
+                                    <div className="text-base font-black text-slate-900">{formatINR(pPrice)}</div>
+                                    {isTierGst ? (
+                                      <div className="text-[10px] text-purple-700 font-medium">
+                                        + 18% GST ({formatINR(pGst)}) = <strong className="text-slate-800 font-extrabold">{formatINR(pTotal)}</strong>
+                                      </div>
+                                    ) : (
+                                      <div className="text-[10px] text-slate-500 font-medium">
+                                        Net Package Investment <span className="text-slate-400 font-normal">(No GST)</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {pkg.description && (
+                                    <p className="text-[11px] text-slate-600 leading-snug bg-white/80 p-2 rounded-lg border border-slate-100">
+                                      {pkg.description}
+                                    </p>
                                   )}
                                 </div>
 
-                                {pkg.description && (
-                                  <p className="text-[11px] text-slate-600 leading-snug bg-white/80 p-2 rounded-lg border border-slate-100">
-                                    {pkg.description}
-                                  </p>
-                                )}
+                                {/* Package-level Refund Policy & Guarantees for Salesperson */}
+                                <div className="pt-2 border-t border-slate-200/70 mt-auto space-y-1.5">
+                                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide flex items-center justify-between">
+                                    <span className="flex items-center gap-1">
+                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>Package Refund Safeguard</span>
+                                    </span>
+                                    {hasRefundPolicy && (
+                                      <Badge variant="outline" className="text-[8px] font-bold py-0 text-slate-500">
+                                        Active
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  {hasRefundPolicy ? (
+                                    <PackageRefundBadge pkg={effectivePkg} compact={false} showConditions={true} />
+                                  ) : (
+                                    <div className="p-2 rounded-lg bg-slate-100/70 border border-dashed border-slate-200 text-center">
+                                      <span className="text-[10px] font-semibold text-slate-400 flex items-center justify-center gap-1">
+                                        <ShieldAlert className="h-3 w-3 text-slate-400" />
+                                        No Refund Policy Configured
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
@@ -2606,12 +2650,20 @@ export default function SalesPitchGuide() {
                           <span>Available Package Tiers ({packages.length}):</span>
                         </div>
                         <div className="grid grid-cols-3 gap-1.5">
-                          {packages.slice(0, 3).map((pkg, i) => (
-                            <div key={i} className="p-1.5 bg-slate-50 rounded border border-slate-200 text-[11px] text-center">
-                              <span className="font-bold text-slate-800 block truncate">{pkg.name}</span>
-                              <span className="font-extrabold text-emerald-700">{formatINR(pkg.price)}</span>
-                            </div>
-                          ))}
+                          {packages.slice(0, 3).map((pkg, i) => {
+                            const effectivePkg = {
+                              ...pkg,
+                              price: pkg.price,
+                              refund_policy: pkg.refund_policy || (selectedProduct?.refund_policy ? { ...selectedProduct.refund_policy, enabled: true } : null),
+                            };
+                            return (
+                              <div key={i} className="p-1.5 bg-slate-50 rounded border border-slate-200 text-[11px] text-center space-y-1">
+                                <span className="font-bold text-slate-800 block truncate">{pkg.name}</span>
+                                <span className="font-extrabold text-emerald-700 block">{formatINR(pkg.price)}</span>
+                                <PackageRefundBadge pkg={effectivePkg} compact={true} />
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

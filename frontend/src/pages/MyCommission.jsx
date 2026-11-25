@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Trophy, IndianRupee, TrendingUp, Target, Crown, Sparkles } from 'lucide-react';
+import { handleSafeBack } from '@/lib/navigation';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -67,7 +68,7 @@ export default function MyCommission() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-slate-200" data-testid="back-btn"><ArrowLeft className="h-5 w-5 text-slate-700" /></button>
+            <button onClick={() => handleSafeBack(navigate, '/sales/dashboard')} className="p-2 rounded-lg hover:bg-slate-200" data-testid="back-btn"><ArrowLeft className="h-5 w-5 text-slate-700" /></button>
             <div>
               <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><IndianRupee className="h-7 w-7 text-emerald-600" />My Commission</h1>
               <p className="text-sm text-slate-500 mt-1">Track your earnings and progress to the next slab.</p>
@@ -80,12 +81,18 @@ export default function MyCommission() {
         <Card className="p-6 mb-6 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 border-amber-300" data-testid="current-slab-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-wider text-amber-700 font-bold mb-1">Current Tier</p>
+              <p className="text-xs uppercase tracking-wider text-amber-700 font-bold mb-1">
+                {data.commission_mode === 'flat' ? 'Incentive Plan' : 'Current Tier'}
+              </p>
               <h2 className="text-4xl font-extrabold text-amber-900 flex items-center gap-2">
                 <Crown className="h-8 w-8 text-amber-600" />
-                {data.current_slab?.name || '—'}
+                {data.commission_mode === 'flat' ? `Flat ${data.individual_rate}%` : (data.current_slab?.name || '—')}
               </h2>
-              <p className="text-sm text-amber-700 mt-1">{data.current_slab?.rate_pct}% commission on every deal</p>
+              <p className="text-sm text-amber-700 mt-1">
+                {data.commission_mode === 'flat'
+                  ? `${data.individual_rate}% custom rate configured for all deals`
+                  : `${data.current_slab?.rate_pct || 0}% commission on every deal`}
+              </p>
             </div>
             <div className="text-right">
               <p className="text-xs uppercase tracking-wider text-emerald-700 font-bold mb-1">Total Commission ({period})</p>
@@ -94,8 +101,8 @@ export default function MyCommission() {
             </div>
           </div>
 
-          {/* Progress to next slab */}
-          {data.next_slab && (
+          {/* Progress to next slab (only for tiered slabs) */}
+          {data.commission_mode !== 'flat' && data.next_slab && (
             <div className="mt-6 bg-white/60 rounded-lg p-4" data-testid="next-slab-progress">
               <div className="flex justify-between items-center mb-2 text-xs">
                 <span><strong>Revenue Achieved:</strong> {formatINR(data.total_revenue)}</span>

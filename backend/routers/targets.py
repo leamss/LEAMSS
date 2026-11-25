@@ -31,10 +31,12 @@ Endpoints:
     DELETE /api/sales/target-templates/{id}
 """
 import uuid
+import csv
+import io
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, Query
 
 from core.auth import get_current_user
 from core.database import db, users_col
@@ -58,7 +60,7 @@ ASSIGNABLE_ROLES = {"sales_executive", "sr_sales_executive", "sales_manager"}
 # Roles that can SET / VIEW team targets
 MANAGER_ROLES = {"sales_manager"}
 HEAD_ROLES = {"sales_head"}
-ADMIN_ROLES = {"admin", "admin_owner"}
+ADMIN_ROLES = {"admin", "admin_owner", "super_admin"}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -66,18 +68,28 @@ ADMIN_ROLES = {"admin", "admin_owner"}
 # ──────────────────────────────────────────────────────────────
 class TargetCreateRequest(BaseModel):
     user_id: str
-    period_type: str  # "monthly" | "quarterly"
+    period_type: str  # "daily" | "weekly" | "monthly" | "quarterly"
     period_year: int
     period_month: Optional[int] = None
     period_quarter: Optional[int] = None
-    revenue: float = Field(..., ge=0)
-    pa_count: int = Field(..., ge=0)
+    period_week: Optional[int] = None
+    period_date: Optional[str] = None  # YYYY-MM-DD for daily
+    revenue: float = Field(0.0, ge=0)
+    pa_count: int = Field(0, ge=0)
+    leads: Optional[int] = Field(0, ge=0)
+    calls: Optional[int] = Field(0, ge=0)
+    follow_ups: Optional[int] = Field(0, ge=0)
+    conversions: Optional[int] = Field(0, ge=0)
     notes: Optional[str] = ""
 
 
 class TargetUpdateRequest(BaseModel):
     revenue: Optional[float] = Field(None, ge=0)
     pa_count: Optional[int] = Field(None, ge=0)
+    leads: Optional[int] = Field(None, ge=0)
+    calls: Optional[int] = Field(None, ge=0)
+    follow_ups: Optional[int] = Field(None, ge=0)
+    conversions: Optional[int] = Field(None, ge=0)
     notes: Optional[str] = None
     reason: str  # required for audit
 
@@ -124,15 +136,17 @@ class TemplateUpdateRequest(BaseModel):
 # Authorization helpers
 # ──────────────────────────────────────────────────────────────
 def _is_admin(user: dict) -> bool:
-    return user.get("role") in ADMIN_ROLES or user.get("rbac_role") in ADMIN_ROLES
+    r = str(user.get("role", "")).lower()
+    rr = str(user.get("rbac_role", "")).lower()
+    return r in ADMIN_ROLES or rr in ADMIN_ROLES or "admin" in r or "admin" in rr
 
 
 def _is_head(user: dict) -> bool:
-    return user.get("rbac_role") in HEAD_ROLES
+    return user.get("rbac_role") in HEAD_ROLES or user.get("role") in HEAD_ROLES
 
 
 def _is_manager(user: dict) -> bool:
-    return user.get("rbac_role") in MANAGER_ROLES
+    return user.get("rbac_role") in MANAGER_ROLES or user.get("role") in MANAGER_ROLES
 
 
 def _can_set_for_user(setter: dict, target_user: dict) -> bool:
@@ -167,6 +181,8 @@ def _strip_id(d: dict) -> dict:
                 v = entry.get(k)
                 if isinstance(v, datetime):
                     entry[k] = v.isoformat()
+        if "period_type" in d:
+            d["period_label"] = format_period_label(d)
     return d
 
 
@@ -188,7 +204,14 @@ async def create_target(req: TargetCreateRequest, current_user: dict = Depends(g
 
     # Period bounds
     try:
-        start, end = get_period_bounds(req.period_type, req.period_year, req.period_month, req.period_quarter)
+        start, end = get_period_bounds(
+            req.period_type,
+            req.period_year,
+            req.period_month,
+            req.period_quarter,
+            req.period_week,
+            req.period_date,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -202,10 +225,17 @@ async def create_target(req: TargetCreateRequest, current_user: dict = Depends(g
         "user_id": req.user_id,
         "period_type": req.period_type,
         "period_year": req.period_year,
-        "period_month": req.period_month,
-        "period_quarter": req.period_quarter,
         "deleted_at": None,
     }
+    if req.period_type == "daily":
+        unique_q["period_date"] = req.period_date
+    elif req.period_type == "weekly":
+        unique_q["period_week"] = req.period_week
+    elif req.period_type == "monthly":
+        unique_q["period_month"] = req.period_month
+    elif req.period_type == "quarterly":
+        unique_q["period_quarter"] = req.period_quarter
+
     existing = await sales_targets_col.find_one(unique_q, {"_id": 0, "id": 1})
     if existing:
         raise HTTPException(status_code=409, detail="A target for this user + period already exists. Use PATCH to update.")
@@ -220,10 +250,41 @@ async def create_target(req: TargetCreateRequest, current_user: dict = Depends(g
         "period_year": req.period_year,
         "period_month": req.period_month,
         "period_quarter": req.period_quarter,
+        "period_week": req.period_week,
+        "period_date": req.period_date,
         "period_start": start,
         "period_end": end,
-        "targets": {"revenue": float(req.revenue), "pa_count": int(req.pa_count)},
-        "achievement": {"revenue": 0.0, "pa_count": 0, "revenue_percentage": 0, "pa_count_percentage": 0, "overall_percentage": 0},
+        "targets": {
+            "revenue": float(req.revenue or 0),
+            "pa_count": int(req.pa_count or 0),
+            "leads": int(req.leads or 0),
+            "calls": int(req.calls or 0),
+            "follow_ups": int(req.follow_ups or 0),
+            "conversions": int(req.conversions or 0),
+        },
+        "achievement": {
+            "revenue": 0.0,
+            "pa_count": 0,
+            "leads": 0,
+            "calls": 0,
+            "follow_ups": 0,
+            "conversions": 0,
+            "revenue_percentage": 0,
+            "pa_count_percentage": 0,
+            "leads_percentage": 0,
+            "calls_percentage": 0,
+            "follow_ups_percentage": 0,
+            "conversions_percentage": 0,
+            "overall_percentage": 0,
+            "pending": {
+                "leads": int(req.leads or 0),
+                "calls": int(req.calls or 0),
+                "follow_ups": int(req.follow_ups or 0),
+                "conversions": int(req.conversions or 0),
+                "revenue": float(req.revenue or 0),
+                "pa_count": int(req.pa_count or 0),
+            },
+        },
         "status": "active",
         "set_by": current_user["id"],
         "set_by_name": current_user.get("name"),
@@ -236,7 +297,14 @@ async def create_target(req: TargetCreateRequest, current_user: dict = Depends(g
             "by": current_user["id"],
             "by_name": current_user.get("name"),
             "at": now,
-            "new_values": {"revenue": float(req.revenue), "pa_count": int(req.pa_count)},
+            "new_values": {
+                "revenue": float(req.revenue or 0),
+                "pa_count": int(req.pa_count or 0),
+                "leads": int(req.leads or 0),
+                "calls": int(req.calls or 0),
+                "follow_ups": int(req.follow_ups or 0),
+                "conversions": int(req.conversions or 0),
+            },
             "reason": "Initial creation",
         }],
         "deleted_at": None,
@@ -244,7 +312,7 @@ async def create_target(req: TargetCreateRequest, current_user: dict = Depends(g
     await sales_targets_col.insert_one(target)
     target.pop("_id", None)
 
-    # Immediately compute achievement (handles back-set with existing PAs)
+    # Immediately compute achievement (handles back-set with existing activity/PAs)
     updated = await recalc_target(target["id"], notify=False)
     return {"ok": True, "target": _strip_id(updated or target)}
 
@@ -270,7 +338,15 @@ async def update_target(target_id: str, req: TargetUpdateRequest, current_user: 
 
     now = datetime.now(timezone.utc)
     update_fields = {"last_updated_at": now, "last_updated_by": current_user["id"]}
-    old_values = {"revenue": target["targets"].get("revenue"), "pa_count": target["targets"].get("pa_count"), "notes": target.get("notes")}
+    old_values = {
+        "revenue": target["targets"].get("revenue"),
+        "pa_count": target["targets"].get("pa_count"),
+        "leads": target["targets"].get("leads"),
+        "calls": target["targets"].get("calls"),
+        "follow_ups": target["targets"].get("follow_ups"),
+        "conversions": target["targets"].get("conversions"),
+        "notes": target.get("notes"),
+    }
     new_values = {}
 
     if req.revenue is not None:
@@ -279,6 +355,18 @@ async def update_target(target_id: str, req: TargetUpdateRequest, current_user: 
     if req.pa_count is not None:
         update_fields["targets.pa_count"] = int(req.pa_count)
         new_values["pa_count"] = int(req.pa_count)
+    if req.leads is not None:
+        update_fields["targets.leads"] = int(req.leads)
+        new_values["leads"] = int(req.leads)
+    if req.calls is not None:
+        update_fields["targets.calls"] = int(req.calls)
+        new_values["calls"] = int(req.calls)
+    if req.follow_ups is not None:
+        update_fields["targets.follow_ups"] = int(req.follow_ups)
+        new_values["follow_ups"] = int(req.follow_ups)
+    if req.conversions is not None:
+        update_fields["targets.conversions"] = int(req.conversions)
+        new_values["conversions"] = int(req.conversions)
     if req.notes is not None:
         update_fields["notes"] = req.notes
         new_values["notes"] = req.notes
@@ -457,8 +545,31 @@ async def target_from_template(req: FromTemplateRequest, current_user: dict = De
 # ──────────────────────────────────────────────────────────────
 @router.get("/targets/my")
 async def get_my_targets(current_user: dict = Depends(get_current_user)):
-    """Returns current month + current quarter target for the logged-in user."""
+    """Returns current daily, weekly, monthly, and quarterly targets for the logged-in user."""
     now = datetime.now(timezone.utc)
+    today_str = now.strftime("%Y-%m-%d")
+    iso_y, iso_w, _ = now.isocalendar()
+    quarter = (now.month - 1) // 3 + 1
+
+    daily_target = await sales_targets_col.find_one(
+        {
+            "user_id": current_user["id"],
+            "period_type": "daily",
+            "period_date": today_str,
+            "deleted_at": None,
+        },
+        {"_id": 0},
+    )
+    weekly_target = await sales_targets_col.find_one(
+        {
+            "user_id": current_user["id"],
+            "period_type": "weekly",
+            "period_year": iso_y,
+            "period_week": iso_w,
+            "deleted_at": None,
+        },
+        {"_id": 0},
+    )
     month_target = await sales_targets_col.find_one(
         {
             "user_id": current_user["id"],
@@ -469,7 +580,6 @@ async def get_my_targets(current_user: dict = Depends(get_current_user)):
         },
         {"_id": 0},
     )
-    quarter = (now.month - 1) // 3 + 1
     quarter_target = await sales_targets_col.find_one(
         {
             "user_id": current_user["id"],
@@ -481,18 +591,56 @@ async def get_my_targets(current_user: dict = Depends(get_current_user)):
         {"_id": 0},
     )
 
-    # Refresh both before returning (cheap — single user)
+    yearly_target = await sales_targets_col.find_one(
+        {
+            "user_id": current_user["id"],
+            "period_type": "yearly",
+            "period_year": now.year,
+            "deleted_at": None,
+        },
+        {"_id": 0},
+    )
+
+    # Refresh all before returning (cheap — single user)
+    if daily_target:
+        daily_target = await recalc_target(daily_target["id"], notify=False) or daily_target
+    if weekly_target:
+        weekly_target = await recalc_target(weekly_target["id"], notify=False) or weekly_target
     if month_target:
         month_target = await recalc_target(month_target["id"], notify=False) or month_target
     if quarter_target:
         quarter_target = await recalc_target(quarter_target["id"], notify=False) or quarter_target
+    if yearly_target:
+        yearly_target = await recalc_target(yearly_target["id"], notify=False) or yearly_target
+    else:
+        # Synthesize real-time Year-to-Date (YTD) performance for current year
+        start_y, end_y = get_period_bounds("yearly", now.year)
+        ytd_pseudo = {
+            "id": f"ytd-{current_user['id']}-{now.year}",
+            "user_id": current_user["id"],
+            "period_type": "yearly",
+            "period_year": now.year,
+            "period_start": start_y,
+            "period_end": end_y,
+            "targets": {
+                "revenue": float((month_target.get("targets", {}).get("revenue") if month_target else 0) or 0) * 12,
+                "pa_count": int((month_target.get("targets", {}).get("pa_count") if month_target else 0) or 0) * 12,
+                "leads": int((month_target.get("targets", {}).get("leads") if month_target else 0) or 0) * 12,
+                "calls": int((month_target.get("targets", {}).get("calls") if month_target else 0) or 0) * 12,
+                "follow_ups": int((month_target.get("targets", {}).get("follow_ups") if month_target else 0) or 0) * 12,
+                "conversions": int((month_target.get("targets", {}).get("conversions") if month_target else 0) or 0) * 12,
+            },
+            "status": "active",
+        }
+        ytd_ach = await compute_achievement(ytd_pseudo)
+        ytd_pseudo["achievement"] = ytd_ach
+        ytd_pseudo["status"] = compute_status(ytd_pseudo, ytd_ach)
+        yearly_target = ytd_pseudo
 
     def enrich(t):
         if not t:
             return None
         t = _strip_id(t)
-        # days_remaining calc needs ISO -> datetime; parsed datetime is naive when stored from Mongo,
-        # so coerce to UTC-aware before comparing against now() which is aware.
         try:
             end_dt = datetime.fromisoformat(t["period_end"])
             if end_dt.tzinfo is None:
@@ -501,19 +649,24 @@ async def get_my_targets(current_user: dict = Depends(get_current_user)):
             if start_dt.tzinfo is None:
                 start_dt = start_dt.replace(tzinfo=timezone.utc)
             t["days_remaining"] = days_remaining_in_period(end_dt)
-            total_days = (end_dt - start_dt).days
+            total_days = max(1, (end_dt - start_dt).days)
             t["total_days"] = total_days
             t["days_elapsed"] = max(0, total_days - t["days_remaining"])
+            t["is_active"] = (start_dt <= now < end_dt)
         except Exception:
             t["days_remaining"] = 0
             t["total_days"] = 0
             t["days_elapsed"] = 0
+            t["is_active"] = False
         t["period_label"] = format_period_label(t)
         return t
 
     return {
+        "daily": enrich(daily_target),
+        "weekly": enrich(weekly_target),
         "monthly": enrich(month_target),
         "quarterly": enrich(quarter_target),
+        "yearly": enrich(yearly_target),
     }
 
 
@@ -540,7 +693,18 @@ async def get_user_target(user_id: str, current_user: dict = Depends(get_current
     if not _can_view_user_target(current_user, target_user):
         raise HTTPException(status_code=403, detail="Not authorized to view this user's targets")
     now = datetime.now(timezone.utc)
+    today_str = now.strftime("%Y-%m-%d")
+    iso_y, iso_w, _ = now.isocalendar()
     quarter = (now.month - 1) // 3 + 1
+
+    daily = await sales_targets_col.find_one(
+        {"user_id": user_id, "period_type": "daily", "period_date": today_str, "deleted_at": None},
+        {"_id": 0},
+    )
+    weekly = await sales_targets_col.find_one(
+        {"user_id": user_id, "period_type": "weekly", "period_year": iso_y, "period_week": iso_w, "deleted_at": None},
+        {"_id": 0},
+    )
     monthly = await sales_targets_col.find_one(
         {"user_id": user_id, "period_type": "monthly", "period_year": now.year, "period_month": now.month, "deleted_at": None},
         {"_id": 0},
@@ -549,9 +713,13 @@ async def get_user_target(user_id: str, current_user: dict = Depends(get_current
         {"user_id": user_id, "period_type": "quarterly", "period_year": now.year, "period_quarter": quarter, "deleted_at": None},
         {"_id": 0},
     )
-    return {"user": {"id": target_user["id"], "name": target_user["name"], "role": target_user.get("rbac_role")},
-            "monthly": _strip_id(monthly) if monthly else None,
-            "quarterly": _strip_id(quarterly) if quarterly else None}
+    return {
+        "user": {"id": target_user["id"], "name": target_user["name"], "role": target_user.get("rbac_role")},
+        "daily": _strip_id(daily) if daily else None,
+        "weekly": _strip_id(weekly) if weekly else None,
+        "monthly": _strip_id(monthly) if monthly else None,
+        "quarterly": _strip_id(quarterly) if quarterly else None,
+    }
 
 
 @router.get("/targets/team")
@@ -560,6 +728,8 @@ async def get_team_targets(
     year: Optional[int] = None,
     month: Optional[int] = None,
     quarter: Optional[int] = None,
+    week: Optional[int] = None,
+    date: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
     if not (_is_manager(current_user) or _is_head(current_user) or _is_admin(current_user)):
@@ -567,32 +737,203 @@ async def get_team_targets(
 
     now = datetime.now(timezone.utc)
     year = year or now.year
-    if period_type == "monthly":
+    if period_type == "daily":
+        date = date or now.strftime("%Y-%m-%d")
+    elif period_type == "weekly":
+        iso_y, iso_w, _ = now.isocalendar()
+        year = year or iso_y
+        week = week or iso_w
+    elif period_type == "monthly":
         month = month or now.month
     else:
         quarter = quarter or ((now.month - 1) // 3 + 1)
 
     # Resolve team member ids
     if _is_admin(current_user) or _is_head(current_user):
-        users = await users_col.find({"rbac_role": {"$in": list(ASSIGNABLE_ROLES)}, "status": "active"}, {"_id": 0}).to_list(500)
+        users = await users_col.find({
+            "$or": [
+                {"rbac_role": {"$in": list(ASSIGNABLE_ROLES)}},
+                {"role": {"$in": list(ASSIGNABLE_ROLES)}}
+            ],
+            "status": "active"
+        }, {"_id": 0}).to_list(500)
     else:
         users = await users_col.find({"reports_to": current_user["id"], "status": "active"}, {"_id": 0}).to_list(500)
 
     out = []
     for u in users:
         q = {"user_id": u["id"], "period_type": period_type, "period_year": year, "deleted_at": None}
-        if period_type == "monthly":
+        if period_type == "daily":
+            q["period_date"] = date
+        elif period_type == "weekly":
+            q["period_week"] = week
+        elif period_type == "monthly":
             q["period_month"] = month
         else:
             q["period_quarter"] = quarter
+
         t = await sales_targets_col.find_one(q, {"_id": 0})
         if t:
             t = await recalc_target(t["id"], notify=False) or t
         out.append({
-            "user": {"id": u["id"], "name": u.get("name"), "email": u.get("email"), "rbac_role": u.get("rbac_role"), "reports_to": u.get("reports_to")},
+            "user": {"id": u["id"], "name": u.get("name"), "email": u.get("email"), "rbac_role": u.get("rbac_role") or u.get("role") or "sales_executive", "reports_to": u.get("reports_to")},
             "target": _strip_id(t) if t else None,
         })
-    return {"period_type": period_type, "period_year": year, "period_month": month, "period_quarter": quarter, "members": out}
+    return {
+        "period_type": period_type,
+        "period_year": year,
+        "period_month": month,
+        "period_quarter": quarter,
+        "period_week": week,
+        "period_date": date,
+        "members": out,
+    }
+
+
+@router.get("/targets/reports")
+async def get_targets_reports(
+    salesperson_id: Optional[str] = None,
+    period_type: Optional[str] = "all",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    format: Optional[str] = "json",
+    current_user: dict = Depends(get_current_user),
+):
+    """Generates salesperson target vs actual performance report with filters and summary totals."""
+    is_admin = _is_admin(current_user)
+    is_head = _is_head(current_user)
+    is_mgr = _is_manager(current_user)
+
+    # Scoping
+    if not (is_admin or is_head or is_mgr):
+        target_uids = [current_user["id"]]
+    elif is_mgr and not (is_admin or is_head):
+        team_uids = [u["id"] async for u in users_col.find({"reports_to": current_user["id"]}, {"_id": 0, "id": 1})]
+        team_uids.append(current_user["id"])
+        if salesperson_id and salesperson_id not in ("all", ""):
+            if salesperson_id not in team_uids:
+                raise HTTPException(status_code=403, detail="Not authorized to view reports for this salesperson")
+            target_uids = [salesperson_id]
+        else:
+            target_uids = team_uids
+    else:
+        if salesperson_id and salesperson_id not in ("all", ""):
+            target_uids = [salesperson_id]
+        else:
+            target_uids = None
+
+    q = {"deleted_at": None}
+    if target_uids is not None:
+        q["user_id"] = {"$in": target_uids} if len(target_uids) > 1 else target_uids[0]
+
+    if period_type and period_type != "all":
+        q["period_type"] = period_type
+
+    if start_date:
+        try:
+            s_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            q["period_start"] = {"$gte": s_dt}
+        except Exception:
+            pass
+    if end_date:
+        try:
+            e_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
+            q["period_end"] = {"$lte": e_dt}
+        except Exception:
+            pass
+
+    cursor = sales_targets_col.find(q, {"_id": 0}).sort("period_start", -1).limit(1000)
+    raw_targets = await cursor.to_list(1000)
+
+    rows = []
+    tot_targets = {"leads": 0, "calls": 0, "follow_ups": 0, "conversions": 0, "revenue": 0.0, "pa_count": 0}
+    tot_actuals = {"leads": 0, "calls": 0, "follow_ups": 0, "conversions": 0, "revenue": 0.0, "pa_count": 0}
+    tot_pending = {"leads": 0, "calls": 0, "follow_ups": 0, "conversions": 0, "revenue": 0.0, "pa_count": 0}
+    status_counts = {"active": 0, "completed": 0, "exceeded": 0, "missed": 0}
+
+    for t in raw_targets:
+        t = await recalc_target(t["id"], notify=False) or t
+        t = _strip_id(t)
+        t["period_label"] = format_period_label(t)
+        rows.append(t)
+
+        st = t.get("status", "active")
+        status_counts[st] = status_counts.get(st, 0) + 1
+
+        tg = t.get("targets", {})
+        ach = t.get("achievement", {})
+        pnd = ach.get("pending", {})
+
+        for m in ["leads", "calls", "follow_ups", "conversions", "pa_count"]:
+            tot_targets[m] += int(tg.get(m, 0) or 0)
+            tot_actuals[m] += int(ach.get(m, 0) or 0)
+            tot_pending[m] += int(pnd.get(m, 0) or 0)
+        tot_targets["revenue"] += float(tg.get("revenue", 0) or 0)
+        tot_actuals["revenue"] += float(ach.get("revenue", 0) or 0)
+        tot_pending["revenue"] += float(pnd.get("revenue", 0) or 0)
+
+    tot_targets["revenue"] = round(tot_targets["revenue"], 2)
+    tot_actuals["revenue"] = round(tot_actuals["revenue"], 2)
+    tot_pending["revenue"] = round(tot_pending["revenue"], 2)
+
+    summary_pcts = []
+    for m in ["leads", "calls", "follow_ups", "conversions", "pa_count"]:
+        if tot_targets[m] > 0:
+            summary_pcts.append(round((tot_actuals[m] / tot_targets[m] * 100), 2))
+    if tot_targets["revenue"] > 0:
+        summary_pcts.append(round((tot_actuals["revenue"] / tot_targets["revenue"] * 100), 2))
+
+    overall_avg_pct = round(sum(summary_pcts) / len(summary_pcts), 2) if summary_pcts else 0.0
+
+    if format == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Target ID", "Salesperson Name", "Email", "Role", "Period Type", "Period",
+            "Leads Target", "Leads Actual", "Leads Pending", "Leads Achievement %",
+            "Calls Target", "Calls Actual", "Calls Pending", "Calls Achievement %",
+            "Follow-ups Target", "Follow-ups Actual", "Follow-ups Pending", "Follow-ups Achievement %",
+            "Conversions Target", "Conversions Actual", "Conversions Pending", "Conversions Achievement %",
+            "Revenue Target (₹)", "Revenue Actual (₹)", "Revenue Pending (₹)", "Revenue Achievement %",
+            "Overall Achievement %", "Status"
+        ])
+        for r in rows:
+            tg = r.get("targets", {})
+            ach = r.get("achievement", {})
+            pnd = ach.get("pending", {})
+            writer.writerow([
+                r.get("id"),
+                r.get("user_name"),
+                r.get("user_email"),
+                r.get("user_role"),
+                r.get("period_type"),
+                r.get("period_label"),
+                tg.get("leads", 0), ach.get("leads", 0), pnd.get("leads", 0), f"{ach.get('leads_percentage', 0)}%",
+                tg.get("calls", 0), ach.get("calls", 0), pnd.get("calls", 0), f"{ach.get('calls_percentage', 0)}%",
+                tg.get("follow_ups", 0), ach.get("follow_ups", 0), pnd.get("follow_ups", 0), f"{ach.get('follow_ups_percentage', 0)}%",
+                tg.get("conversions", 0), ach.get("conversions", 0), pnd.get("conversions", 0), f"{ach.get('conversions_percentage', 0)}%",
+                tg.get("revenue", 0), ach.get("revenue", 0), pnd.get("revenue", 0), f"{ach.get('revenue_percentage', 0)}%",
+                f"{ach.get('overall_percentage', 0)}%",
+                r.get("status"),
+            ])
+        csv_data = output.getvalue()
+        return Response(
+            content=csv_data,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=sales_target_reports_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"},
+        )
+
+    return {
+        "summary": {
+            "total_targets_count": len(rows),
+            "status_counts": status_counts,
+            "targets": tot_targets,
+            "actuals": tot_actuals,
+            "pending": tot_pending,
+            "overall_achievement_percentage": overall_avg_pct,
+        },
+        "rows": rows,
+    }
 
 
 @router.get("/targets/department")
@@ -601,12 +942,22 @@ async def get_department_targets(
     year: Optional[int] = None,
     month: Optional[int] = None,
     quarter: Optional[int] = None,
+    week: Optional[int] = None,
+    date: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
-    if not (_is_head(current_user) or _is_admin(current_user)):
-        raise HTTPException(status_code=403, detail="Sales head or admin only")
+    if not (_is_head(current_user) or _is_admin(current_user) or _is_manager(current_user)):
+        raise HTTPException(status_code=403, detail="Sales manager or higher only")
     # Reuses team logic — admin/head see entire sales dept
-    return await get_team_targets(period_type, year, month, quarter, current_user)
+    return await get_team_targets(
+        period_type=period_type,
+        year=year,
+        month=month,
+        quarter=quarter,
+        week=week,
+        date=date,
+        current_user=current_user,
+    )
 
 
 # ──────────────────────────────────────────────────────────────

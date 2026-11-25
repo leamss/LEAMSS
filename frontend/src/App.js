@@ -54,6 +54,10 @@ import MyTargets from '@/pages/MyTargets';
 import SalesLeaderboard from '@/pages/SalesLeaderboard';
 import MyCRM from '@/pages/MyCRM';
 import SalesTargetsAdmin from '@/pages/admin/SalesTargetsAdmin';
+import IntegrationsHub from '@/pages/admin/IntegrationsHub';
+import IntegrationRequests from '@/pages/admin/IntegrationRequests';
+import SalespersonActivityAuditLog from '@/pages/admin/SalespersonActivityAuditLog';
+import SalesPitchGuide from '@/pages/sales/SalesPitchGuide';
 import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import StandardApprovalsAdmin from '@/pages/admin/StandardApprovalsAdmin';
@@ -392,6 +396,31 @@ function App() {
           <Route path="/sales/my-crm" element={
             <RequirePermission anyOf={['lead_pool', 'pa.view.own', 'pa.create.own']}>
               <MyCRM />
+            </RequirePermission>
+          } />
+          <Route path="/admin/salesperson-activity" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'super_admin']}>
+              <SalespersonActivityAuditLog />
+            </RequirePermission>
+          } />
+          <Route path="/sales/integrations" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'super_admin']}>
+              <IntegrationsHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/integrations" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'super_admin']}>
+              <IntegrationsHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/integration-requests" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'super_admin']}>
+              <IntegrationRequests />
+            </RequirePermission>
+          } />
+          <Route path="/sales/pitch-guide" element={
+            <RequirePermission anyOf={['lead.view.own', 'lead.view.all', 'pa.view.own', 'product_cost.view.all', 'system.user_manage.any']}>
+              <SalesPitchGuide />
             </RequirePermission>
           } />
           <Route path="/admin/sales/targets" element={

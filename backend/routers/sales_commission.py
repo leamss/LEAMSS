@@ -14,7 +14,7 @@ Endpoints:
 """
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -22,10 +22,12 @@ from core.auth import get_current_user
 from core.database import db, users_col
 from core.commission_logic import (
     slabs_col, entries_col, get_user_summary, _period_key,
-    ensure_default_slabs, _is_sales_user,
+    ensure_default_slabs, _is_sales_user, get_active_slabs,
+    _match_slab, SALES_ROLES,
 )
 
 router = APIRouter(prefix="/sales-commission", tags=["Phase 4C.4 - Sales Commission"])
+
 
 
 def _is_admin(u: dict) -> bool:
@@ -69,6 +71,14 @@ class SlabUpdate(BaseModel):
     rate_pct: Optional[float] = Field(None, ge=0, le=100)
     color: Optional[str] = None
     is_active: Optional[bool] = None
+
+
+class SalespersonConfigUpdate(BaseModel):
+    commission_mode: Optional[Literal["slab", "flat"]] = Field(None, description="slab (tiered) or flat (individual rate)")
+    commission_rate: Optional[float] = Field(None, ge=0, le=100, description="Individual flat rate %")
+    is_commission_active: Optional[bool] = Field(None, description="Enable or disable commission eligibility")
+    reason: Optional[str] = Field(None, max_length=500, description="Audit reason for changes")
+
 
 
 # ══════════════════════════════════════════════════════════════
@@ -227,6 +237,152 @@ async def leaderboard(period: Optional[str] = None, current_user: dict = Depends
 
 
 # ══════════════════════════════════════════════════════════════
+# Admin: Salesperson Rate & Rules Management
+# ══════════════════════════════════════════════════════════════
+@router.get("/salespersons")
+async def list_salespersons(
+    period: Optional[str] = Query(None, description="YYYY-MM"),
+    current_user: dict = Depends(get_current_user),
+):
+    """List all salespersons (even those with 0 sales) with their rate rules and period metrics. Admin only."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    period = period or _period_key()
+    all_sales_roles = list(SALES_ROLES | {"sales", "sales_rep", "sales_person", "internal_salesperson"})
+
+    users = await users_col.find(
+        {"$or": [
+            {"role": {"$in": all_sales_roles}},
+            {"rbac_role": {"$in": all_sales_roles}},
+        ]},
+        {"_id": 0, "password": 0, "password_hash": 0, "hashed_password": 0}
+    ).sort("name", 1).to_list(1000)
+
+    user_ids = [u["id"] for u in users if u.get("id")]
+    pipeline = [
+        {"$match": {"user_id": {"$in": user_ids}, "period": period, "status": {"$ne": "reversed"}}},
+        {"$group": {
+            "_id": "$user_id",
+            "total_revenue": {"$sum": "$revenue"},
+            "total_commission": {"$sum": "$commission_amount"},
+            "paid": {"$sum": {"$cond": [{"$eq": ["$status", "paid"]}, "$commission_amount", 0]}},
+            "approved": {"$sum": {"$cond": [{"$eq": ["$status", "approved"]}, "$commission_amount", 0]}},
+            "pending": {"$sum": {"$cond": [{"$eq": ["$status", "pending"]}, "$commission_amount", 0]}},
+            "deal_count": {"$sum": 1},
+        }},
+    ]
+    stats_cursor = entries_col.aggregate(pipeline)
+    stats_map = {row["_id"]: row async for row in stats_cursor}
+
+    slabs = await get_active_slabs()
+
+    salespersons = []
+    for u in users:
+        uid = u["id"]
+        st = stats_map.get(uid, {})
+        rev = float(st.get("total_revenue") or 0)
+        matched_slab = _match_slab(rev, slabs) if slabs else None
+
+        comm_mode = u.get("commission_mode", "slab")
+        indiv_rate = float(u.get("commission_rate") or 0)
+
+        effective_rate = indiv_rate if comm_mode == "flat" else (float(matched_slab["rate_pct"]) if matched_slab else 0.0)
+
+        salespersons.append({
+            "id": uid,
+            "name": u.get("name") or "Unnamed",
+            "email": u.get("email"),
+            "role": u.get("role"),
+            "rbac_role": u.get("rbac_role"),
+            "status": u.get("status", "active"),
+            "commission_mode": comm_mode,
+            "commission_rate": indiv_rate,
+            "is_commission_active": u.get("is_commission_active", True),
+            "commission_rate_history": u.get("commission_rate_history", []),
+            "current_slab": _clean(matched_slab) if matched_slab else None,
+            "effective_rate_pct": effective_rate,
+            "rule_display": f"Individual Rate ({indiv_rate}%)" if comm_mode == "flat" else f"Tiered Slab: {matched_slab.get('name', 'None') if matched_slab else 'Bronze'} ({effective_rate}%)",
+            "total_revenue": round(rev, 2),
+            "total_commission": round(float(st.get("total_commission") or 0), 2),
+            "paid": round(float(st.get("paid") or 0), 2),
+            "approved": round(float(st.get("approved") or 0), 2),
+            "pending": round(float(st.get("pending") or 0), 2),
+            "deal_count": int(st.get("deal_count") or 0),
+        })
+
+    return {
+        "period": period,
+        "salespersons": salespersons,
+        "count": len(salespersons),
+    }
+
+
+@router.put("/salespersons/{user_id}/config")
+async def update_salesperson_commission_config(
+    user_id: str,
+    req: SalespersonConfigUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Admin endpoint to configure a salesperson's commission mode, flat rate, and active status."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    user = await users_col.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    update: dict = {}
+    history_entry = {
+        "changed_at": datetime.now(timezone.utc).isoformat(),
+        "changed_by": current_user["id"],
+        "reason": req.reason or "Admin rate adjustment",
+        "previous_mode": user.get("commission_mode", "slab"),
+        "previous_rate": user.get("commission_rate", 0.0),
+        "previous_active": user.get("is_commission_active", True),
+    }
+
+    if req.commission_mode is not None:
+        update["commission_mode"] = req.commission_mode
+        history_entry["new_mode"] = req.commission_mode
+
+    if req.commission_rate is not None:
+        update["commission_rate"] = req.commission_rate
+        history_entry["new_rate"] = req.commission_rate
+
+    if req.is_commission_active is not None:
+        update["is_commission_active"] = req.is_commission_active
+        history_entry["new_active"] = req.is_commission_active
+
+    if not update:
+        return {"ok": True, "no_change": True}
+
+    update["updated_at"] = datetime.now(timezone.utc)
+
+    await users_col.update_one(
+        {"id": user_id},
+        {
+            "$set": update,
+            "$push": {"commission_rate_history": history_entry}
+        }
+    )
+
+    # Insert into audit log
+    audit_logs_col = db["audit_logs"]
+    await audit_logs_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "action": "salesperson_commission_config_updated",
+        "entity_type": "user",
+        "entity_id": user_id,
+        "details": history_entry,
+        "created_at": datetime.now(timezone.utc),
+    })
+
+    return {"ok": True, "message": "Salesperson commission configuration updated", "config": update}
+
+
+# ══════════════════════════════════════════════════════════════
 # Approve / Mark Paid / Reverse
 # ══════════════════════════════════════════════════════════════
 class MarkPaidReq(BaseModel):
@@ -237,14 +393,38 @@ class MarkPaidReq(BaseModel):
 async def approve_entry(entry_id: str, current_user: dict = Depends(get_current_user)):
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin only")
+
+    existing = await entries_col.find_one({"id": entry_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    # Maker-checker validation
+    if existing.get("user_id") == current_user["id"]:
+        raise HTTPException(status_code=403, detail="Maker-checker violation: You cannot approve your own commission payout.")
+
+    if existing.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Entry is not in pending state")
+
+    now = datetime.now(timezone.utc)
     res = await entries_col.find_one_and_update(
-        {"id": entry_id, "status": {"$in": ["pending"]}},
-        {"$set": {"status": "approved", "approved_at": datetime.now(timezone.utc), "approved_by": current_user["id"]}},
+        {"id": entry_id, "status": "pending"},
+        {"$set": {"status": "approved", "approved_at": now, "approved_by": current_user["id"]}},
         return_document=True,
         projection={"_id": 0},
     )
-    if not res:
-        raise HTTPException(status_code=404, detail="Entry not found or not in pending state")
+
+    # Audit log
+    audit_logs_col = db["audit_logs"]
+    await audit_logs_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "action": "commission_entry_approved",
+        "entity_type": "sales_commission_entry",
+        "entity_id": entry_id,
+        "details": {"commission_amount": existing.get("commission_amount"), "recipient_id": existing.get("user_id")},
+        "created_at": now,
+    })
+
     return {"ok": True, "entry": _clean(res)}
 
 
@@ -252,14 +432,47 @@ async def approve_entry(entry_id: str, current_user: dict = Depends(get_current_
 async def mark_paid(entry_id: str, req: MarkPaidReq, current_user: dict = Depends(get_current_user)):
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin only")
+
+    existing = await entries_col.find_one({"id": entry_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    # Maker-checker validation
+    if existing.get("user_id") == current_user["id"]:
+        raise HTTPException(status_code=403, detail="Maker-checker violation: You cannot pay your own commission payout.")
+
+    if existing.get("status") not in ("pending", "approved"):
+        raise HTTPException(status_code=400, detail="Entry must be pending or approved to mark as paid")
+
+    now = datetime.now(timezone.utc)
     res = await entries_col.find_one_and_update(
         {"id": entry_id, "status": {"$in": ["pending", "approved"]}},
-        {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc), "paid_by": current_user["id"], "payment_reference": req.payment_reference}},
+        {"$set": {
+            "status": "paid",
+            "paid_at": now,
+            "paid_by": current_user["id"],
+            "payment_reference": req.payment_reference or ""
+        }},
         return_document=True,
         projection={"_id": 0},
     )
-    if not res:
-        raise HTTPException(status_code=404, detail="Entry not found or not approvable")
+
+    # Audit log
+    audit_logs_col = db["audit_logs"]
+    await audit_logs_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "action": "commission_entry_paid",
+        "entity_type": "sales_commission_entry",
+        "entity_id": entry_id,
+        "details": {
+            "commission_amount": existing.get("commission_amount"),
+            "payment_reference": req.payment_reference,
+            "recipient_id": existing.get("user_id")
+        },
+        "created_at": now,
+    })
+
     return {"ok": True, "entry": _clean(res)}
 
 
@@ -267,12 +480,33 @@ async def mark_paid(entry_id: str, req: MarkPaidReq, current_user: dict = Depend
 async def reverse_entry(entry_id: str, current_user: dict = Depends(get_current_user)):
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin only")
+
+    existing = await entries_col.find_one({"id": entry_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    if existing.get("status") == "reversed":
+        raise HTTPException(status_code=400, detail="Entry is already reversed")
+
+    now = datetime.now(timezone.utc)
     res = await entries_col.find_one_and_update(
-        {"id": entry_id, "status": {"$nin": ["reversed"]}},
-        {"$set": {"status": "reversed", "reversed_at": datetime.now(timezone.utc), "reversed_by": current_user["id"]}},
+        {"id": entry_id, "status": {"$ne": "reversed"}},
+        {"$set": {"status": "reversed", "reversed_at": now, "reversed_by": current_user["id"]}},
         return_document=True,
         projection={"_id": 0},
     )
-    if not res:
-        raise HTTPException(status_code=404, detail="Entry not found")
+
+    # Audit log
+    audit_logs_col = db["audit_logs"]
+    await audit_logs_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "action": "commission_entry_reversed",
+        "entity_type": "sales_commission_entry",
+        "entity_id": entry_id,
+        "details": {"commission_amount": existing.get("commission_amount"), "recipient_id": existing.get("user_id")},
+        "created_at": now,
+    })
+
     return {"ok": True, "entry": _clean(res)}
+

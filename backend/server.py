@@ -206,6 +206,13 @@ from routers.whatsapp_chat import router as whatsapp_chat_router
 from routers.public_resume import router as public_resume_router
 from routers.migroto import router as migroto_router
 from routers.product_master import router as product_master_router
+from routers.crm_communication import router as crm_communication_router
+from routers.crm_telephony import router as crm_telephony_router
+from routers.crm_activities import router as crm_activities_router
+from routers.crm_sales import router as crm_sales_router
+from routers.crm_website_leads import router as crm_website_leads_router
+from routers.salesperson_activity import router as salesperson_activity_router
+from routers.integrations import router as integrations_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -479,8 +486,51 @@ async def startup():
                         )
                 except Exception:  # noqa: BLE001
                     pass
+                async def periodic_meeting_reminders_and_followups():
+                    try:
+                        from services.integrations.calendly_service import (
+                            process_due_meeting_reminders,
+                            auto_complete_past_meetings_and_create_tasks
+                        )
+                        await process_due_meeting_reminders(db)
+                        await auto_complete_past_meetings_and_create_tasks(db)
+                    except Exception as m_err:
+                        print(f"[Meeting Reminders Job WARN] {m_err}")
+
+                _digest_scheduler.add_job(
+                    periodic_meeting_reminders_and_followups,
+                    "interval",
+                    minutes=1,
+                    id="meeting_reminders_and_followups",
+                    replace_existing=True,
+                )
+
+                async def periodic_calendly_sync():
+                    try:
+                        from services.integrations.calendly_service import sync_calendly_integration
+                        cursor = db["integrations"].find({"provider": "calendly", "status": "connected"})
+                        async for integ in cursor:
+                            await sync_calendly_integration(
+                                company_id=integ.get("company_id", "comp_leamss_primary"),
+                                integration_id=integ["id"]
+                            )
+                    except Exception as c_err:
+                        print(f"[Calendly Sync Job WARN] {c_err}")
+
+                _digest_scheduler.add_job(
+                    periodic_calendly_sync,
+                    "interval",
+                    seconds=45,
+                    id="calendly_leads_auto_sync",
+                    replace_existing=True,
+                )
+
                 _digest_scheduler.start()
                 app.state.digest_scheduler = _digest_scheduler
+                try:
+                    asyncio.create_task(periodic_calendly_sync())
+                except Exception:
+                    pass
                 print("[Phase18.7] Client-error digest scheduler started (30 min interval)")
             except Exception as e:
                 print(f"[Phase18.7 scheduler ERROR] {e}")
@@ -512,6 +562,44 @@ async def startup():
 
         asyncio.create_task(_navratri_background_sync_loop())
         print("[Navratri Sync] Automated continuous background sync & reconciliation daemon started (60s loop)")
+
+        async def _google_sheets_background_sync_loop():
+            await asyncio.sleep(10)
+            while True:
+                try:
+                    from core.database import db
+                    from services.integrations.google_services import fetch_sheets_leads
+                    from services.integrations.lead_ingestion_service import ingest_lead
+
+                    integrations = await db["integrations"].find({
+                        "provider": "google_sheets",
+                        "status": "connected"
+                    }).to_list(50)
+
+                    for integ in integrations:
+                        creds = integ.get("credentials") or {}
+                        company_id = integ.get("company_id") or "comp_leamss_primary"
+                        leads = await fetch_sheets_leads(creds, max_rows=50)
+                        synced_any = 0
+                        for l in leads:
+                            try:
+                                ingest_res = await ingest_lead(company_id, integ.get("id"), "google_sheets", l)
+                                if ingest_res.get("status") in ("created", "updated"):
+                                    synced_any += 1
+                            except Exception as e_row:
+                                print(f"[Google Sheets Sync Row Error] {e_row}")
+                        if synced_any > 0:
+                            await db["integrations"].update_one(
+                                {"id": integ.get("id")},
+                                {"": {"total_leads_synced": synced_any}, "": {"last_synced_at": datetime.now(timezone.utc)}}
+                            )
+                except Exception as e_loop:
+                    print(f"[Google Sheets Loop Error] {e_loop}")
+                    pass
+                await asyncio.sleep(15)
+
+        asyncio.create_task(_google_sheets_background_sync_loop())
+        print("[Google Sheets Sync] Automated background sync daemon started (15s loop)")
     except Exception as e:
         print(f"[Navratri Sync WARN] {e}")
 
@@ -719,7 +807,9 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           site_audit_router, dev_tracker_router,
           internal_chat_router, support_tickets_router, rbac_v2_router, country_workflows_router,atlas_countries_router,atlas_country_admin_router,
           eoi_backlog_router, bulk_assessments_router, fee_master_router, email_settings_router, email_templates_router, whatsapp_templates_router, whatsapp_chat_router, public_resume_router, migroto_router,
-          product_master_router]:
+          product_master_router,
+          crm_communication_router, crm_telephony_router, crm_activities_router, crm_sales_router,
+          crm_website_leads_router, salesperson_activity_router, integrations_router]:
     app.include_router(r, prefix="/api")
 
 
@@ -776,6 +866,13 @@ async def stripe_webhook(request: Request):
     except Exception as e:
         print(f"Webhook error: {e}")
         return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/webhook/razorpay")
+async def razorpay_global_webhook(request: Request):
+    """Global webhook handler alias for Razorpay payments and events."""
+    from routers.payments import razorpay_webhook_endpoint
+    return await razorpay_webhook_endpoint(request)
 
 
 @app.get("/api/quick-actions")

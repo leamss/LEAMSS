@@ -38,8 +38,29 @@ def get_period_bounds(
     year: int,
     month: Optional[int] = None,
     quarter: Optional[int] = None,
+    week: Optional[int] = None,
+    date_str: Optional[str] = None,
 ) -> Tuple[datetime, datetime]:
     """Returns (start, end) datetimes for a period. End is exclusive (first day of next period)."""
+    if period_type == "daily":
+        if date_str:
+            d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        elif month and (1 <= month <= 12):
+            day = week or 1
+            d = date(year, month, day)
+        else:
+            raise ValueError("Daily target requires date_str (YYYY-MM-DD)")
+        start = datetime(d.year, d.month, d.day, 0, 0, 0, tzinfo=timezone.utc)
+        end = start + timedelta(days=1)
+        return start, end
+
+    if period_type == "weekly":
+        if not week or not (1 <= week <= 53):
+            raise ValueError("Weekly target requires week 1-53")
+        start = datetime.fromisocalendar(year, week, 1).replace(tzinfo=timezone.utc)
+        end = start + timedelta(days=7)
+        return start, end
+
     if period_type == "monthly":
         if not month or not (1 <= month <= 12):
             raise ValueError("Monthly target requires month 1-12")
@@ -62,16 +83,33 @@ def get_period_bounds(
             end = datetime(year, end_month, 1, tzinfo=timezone.utc)
         return start, end
 
+    if period_type == "yearly":
+        start = datetime(year, 1, 1, tzinfo=timezone.utc)
+        end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        return start, end
+
     raise ValueError(f"Unknown period_type: {period_type}")
 
 
-def current_period(period_type: str, ref: Optional[datetime] = None) -> Dict[str, int]:
-    """Returns the current period dict (e.g., {year:2026, month:5} or {year:2026, quarter:2})."""
+def current_period(period_type: str, ref: Optional[datetime] = None) -> Dict[str, Any]:
+    """Returns the current period dict (e.g., {year:2026, month:5} or {year:2026, week:44} or {year:2026, date:'...'})."""
     now = ref or datetime.now(timezone.utc)
+    if period_type == "daily":
+        return {
+            "year": now.year,
+            "month": now.month,
+            "day": now.day,
+            "date": now.strftime("%Y-%m-%d"),
+        }
+    if period_type == "weekly":
+        iso_year, iso_week, _ = now.isocalendar()
+        return {"year": iso_year, "week": iso_week}
     if period_type == "monthly":
         return {"year": now.year, "month": now.month}
     if period_type == "quarterly":
         return {"year": now.year, "quarter": (now.month - 1) // 3 + 1}
+    if period_type == "yearly":
+        return {"year": now.year}
     raise ValueError(f"Unknown period_type: {period_type}")
 
 
@@ -81,17 +119,25 @@ def days_remaining_in_period(period_end: datetime, ref: Optional[datetime] = Non
     period_end = _aware(period_end)
     if now >= period_end:
         return 0
-    return max(0, (period_end - now).days)
+    import math
+    diff_seconds = (period_end - now).total_seconds()
+    if diff_seconds <= 0:
+        return 0
+    return max(0, math.ceil(diff_seconds / 86400))
 
 
 # ────────────────────────────────────────────────────────────
 # Achievement calculation
 # ────────────────────────────────────────────────────────────
 async def compute_achievement(target: Dict[str, Any]) -> Dict[str, Any]:
-    """Re-queries closed deals in the target period for target.user_id.
-    Sums revenue from BOTH:
-      - pre_assessments where stage='case_created' (PA path — standard + express converge here)
-      - sales records where status='approved'  (Direct Sale path — bypasses PA entirely)
+    """Re-queries closed deals and CRM activities in the target period for target.user_id.
+    Measures:
+      - leads assigned/created
+      - calls logged
+      - follow-ups completed or created
+      - conversions (won/converted leads + case_created PAs + approved sales)
+      - revenue (PAs stage='case_created' + sales status='approved')
+      - pa_count (count of deals)
 
     Returns achievement dict (does NOT persist — caller persists).
     """
@@ -100,10 +146,11 @@ async def compute_achievement(target: Dict[str, Any]) -> Dict[str, Any]:
     period_end = _aware(target["period_end"])
 
     revenue_total = 0.0
-    pa_count = 0
+    closed_deals_count = 0
+    seen_lead_ids = set()
     seen_sale_ids = set()
 
-    # ─── (1) PA-driven revenue: stage=case_created ──────────────────
+    # ─── (1) PA-driven revenue & deals: stage=case_created ──────────
     pa_query = {
         "$or": [
             {"created_by_user_id": user_id},
@@ -115,45 +162,219 @@ async def compute_achievement(target: Dict[str, Any]) -> Dict[str, Any]:
         "stage": "case_created",
         "final_approved_at": {"$gte": period_start, "$lt": period_end},
     }
-    async for pa in pre_assessments_col.find(pa_query, {"_id": 0, "proposal_fee": 1, "final_amount": 1, "sale_id": 1}):
+    async for pa in pre_assessments_col.find(pa_query, {"_id": 0, "id": 1, "lead_id": 1, "proposal_fee": 1, "final_amount": 1, "sale_id": 1}):
         amount = float(pa.get("proposal_fee") or pa.get("final_amount") or 0)
         revenue_total += amount
-        pa_count += 1
-        # Track linked sale_id so we don't double-count if same deal appears in sales_col
+        closed_deals_count += 1
+        if pa.get("lead_id"):
+            seen_lead_ids.add(pa["lead_id"])
         if pa.get("sale_id"):
             seen_sale_ids.add(pa["sale_id"])
 
-    # ─── (2) Direct Sale revenue: status=approved ───────────────────
-    # Match by partner_id (Phase 4A: sales execs use their user_id as partner_id on sales too)
+    # ─── (2) Direct Sale revenue & deals: status=approved ───────────
     sales_col = db["sales"]
     sale_query = {
         "partner_id": user_id,
         "status": "approved",
         "approved_at": {"$gte": period_start, "$lt": period_end},
     }
-    async for s in sales_col.find(sale_query, {"_id": 0, "id": 1, "fee_amount": 1, "amount_received": 1}):
+    async for s in sales_col.find(sale_query, {"_id": 0, "id": 1, "lead_id": 1, "fee_amount": 1, "amount_received": 1}):
         if s.get("id") in seen_sale_ids:
-            # Already counted via the PA path
             continue
-        # Use amount_received if available (matches commission-calc convention), else fee_amount
         amount = float(s.get("amount_received") or s.get("fee_amount") or 0)
         revenue_total += amount
-        pa_count += 1
+        closed_deals_count += 1
+        if s.get("lead_id"):
+            seen_lead_ids.add(s["lead_id"])
 
+    # ─── (3) CRM Deals: stage=won or closed_won ─────────────────────
+    deals_col = db["crm_deals"]
+    deals_query = {
+        "$and": [
+            {"sales_person_id": user_id},
+            {"stage": {"$in": ["won", "closed_won"]}},
+            {
+                "$or": [
+                    {"closed_at": {"$gte": period_start, "$lt": period_end}},
+                    {"closed_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+                    {"updated_at": {"$gte": period_start, "$lt": period_end}},
+                    {"updated_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+                ]
+            }
+        ]
+    }
+    async for d in deals_col.find(deals_query, {"_id": 0, "id": 1, "lead_id": 1, "deal_value": 1}):
+        lead_id = d.get("lead_id")
+        if lead_id and lead_id in seen_lead_ids:
+            continue
+        if lead_id:
+            seen_lead_ids.add(lead_id)
+        val = float(d.get("deal_value") or 0)
+        revenue_total += val
+        closed_deals_count += 1
+
+    # ─── (4) CRM Leads marked Won / Converted / Closed Won ──────────
+    leads_col = db["leads"]
+    leads_user_q = {"$or": [{"assigned_to": user_id}, {"created_by": user_id}]}
+    won_leads_query = {
+        "$and": [
+            leads_user_q,
+            {
+                "$or": [
+                    {"stage": {"$in": ["won", "closed_won", "converted"]}},
+                    {"status": {"$in": ["won", "closed_won", "converted"]}},
+                    {"converted": True}
+                ]
+            },
+            {
+                "$or": [
+                    {"converted_at": {"$gte": period_start, "$lt": period_end}},
+                    {"converted_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+                    {"closed_at": {"$gte": period_start, "$lt": period_end}},
+                    {"closed_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+                    {"updated_at": {"$gte": period_start, "$lt": period_end}},
+                    {"updated_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+                ]
+            }
+        ]
+    }
+    def _parse_amount(val) -> float:
+        if val is None or val == "":
+            return 0.0
+        if isinstance(val, (int, float)):
+            return float(val)
+        import re
+        cleaned = re.sub(r"[^\d.]", "", str(val))
+        try:
+            return float(cleaned) if cleaned else 0.0
+        except ValueError:
+            return 0.0
+
+    async for l in leads_col.find(won_leads_query, {"_id": 0, "id": 1, "deal_value": 1, "budget": 1, "amount": 1, "paid_amount": 1}):
+        lid = l.get("id")
+        if lid in seen_lead_ids:
+            continue
+        seen_lead_ids.add(lid)
+        val = float(l.get("deal_value") or l.get("amount") or l.get("paid_amount") or _parse_amount(l.get("budget")) or 0)
+        revenue_total += val
+        closed_deals_count += 1
+
+    # ─── (5) Direct CRM Payments recorded in period ─────────────────
+    payments_col = db["crm_payments"]
+    payments_query = {
+        "$and": [
+            {"sales_person_id": user_id},
+            {"payment_status": {"$in": ["paid", "partially_paid"]}},
+            {
+                "$or": [
+                    {"created_at": {"$gte": period_start, "$lt": period_end}},
+                    {"created_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+                ]
+            }
+        ]
+    }
+    async for p in payments_col.find(payments_query, {"_id": 0, "id": 1, "lead_id": 1, "paid_amount": 1}):
+        lid = p.get("lead_id")
+        if lid and lid in seen_lead_ids:
+            continue
+        paid = float(p.get("paid_amount") or 0)
+        revenue_total += paid
+
+    pa_count = closed_deals_count
+    conversions_count = closed_deals_count
+
+    # ─── (5) Activity metrics: Leads, Calls, Follow-ups ─────────────
+    calls_col = db["crm_calls"]
+    fu_col = db["follow_ups"]
+
+    # Leads assigned or created in period
+    leads_time_q = {
+        "$or": [
+            {"created_at": {"$gte": period_start, "$lt": period_end}},
+            {"created_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+            {"assigned_at": {"$gte": period_start, "$lt": period_end}},
+            {"assigned_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+        ]
+    }
+    leads_count = await leads_col.count_documents({"$and": [leads_user_q, leads_time_q]})
+
+    # Calls logged in period
+    calls_user_q = {"$or": [{"sales_person_id": user_id}, {"created_by": user_id}, {"user_id": user_id}]}
+    calls_time_q = {
+        "$or": [
+            {"created_at": {"$gte": period_start, "$lt": period_end}},
+            {"created_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+            {"call_date": {"$gte": period_start, "$lt": period_end}},
+            {"call_date": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}}
+        ]
+    }
+    calls_count = await calls_col.count_documents({"$and": [calls_user_q, calls_time_q]})
+
+    # Follow-ups completed in period (ONLY counted when marked Completed)
+    fu_user_q = {"$or": [{"assigned_to": user_id}, {"created_by": user_id}, {"completed_by": user_id}]}
+    fu_status_q = {"status": "completed"}
+    fu_time_q = {
+        "$or": [
+            {"completed_at": {"$gte": period_start, "$lt": period_end}},
+            {"completed_at": {"$gte": period_start.isoformat(), "$lt": period_end.isoformat()}},
+        ]
+    }
+    follow_ups_count = await fu_col.count_documents({"$and": [fu_user_q, fu_status_q, fu_time_q]})
+
+
+    # ─── Targets & Achievements & Pending ───
     targets = target.get("targets", {})
-    rev_target = float(targets.get("revenue", 0) or 0)
-    pa_target = int(targets.get("pa_count", 0) or 0)
+    t_leads = int(targets.get("leads", 0) or 0)
+    t_calls = int(targets.get("calls", 0) or 0)
+    t_fu = int(targets.get("follow_ups", 0) or 0)
+    t_conv = int(targets.get("conversions", 0) or 0)
+    t_rev = float(targets.get("revenue", 0) or 0)
+    t_pa = int(targets.get("pa_count", 0) or 0)
 
-    rev_pct = round((revenue_total / rev_target * 100), 2) if rev_target > 0 else 0
-    pa_pct = round((pa_count / pa_target * 100), 2) if pa_target > 0 else 0
-    overall = max(rev_pct, pa_pct)
+    rev_pct = round((revenue_total / t_rev * 100), 2) if t_rev > 0 else 0.0
+    pa_pct = round((pa_count / t_pa * 100), 2) if t_pa > 0 else 0.0
+    leads_pct = round((leads_count / t_leads * 100), 2) if t_leads > 0 else 0.0
+    calls_pct = round((calls_count / t_calls * 100), 2) if t_calls > 0 else 0.0
+    fu_pct = round((follow_ups_count / t_fu * 100), 2) if t_fu > 0 else 0.0
+    conv_pct = round((conversions_count / t_conv * 100), 2) if t_conv > 0 else 0.0
+
+    active_percentages = []
+    if t_leads > 0: active_percentages.append(leads_pct)
+    if t_calls > 0: active_percentages.append(calls_pct)
+    if t_fu > 0: active_percentages.append(fu_pct)
+    if t_conv > 0: active_percentages.append(conv_pct)
+    if t_rev > 0: active_percentages.append(rev_pct)
+    if t_pa > 0: active_percentages.append(pa_pct)
+
+    if active_percentages:
+        overall = round(sum(active_percentages) / len(active_percentages), 2)
+    else:
+        overall = max(rev_pct, pa_pct)
+
+    pending = {
+        "leads": max(0, t_leads - leads_count),
+        "calls": max(0, t_calls - calls_count),
+        "follow_ups": max(0, t_fu - follow_ups_count),
+        "conversions": max(0, t_conv - conversions_count),
+        "revenue": round(max(0.0, t_rev - revenue_total), 2),
+        "pa_count": max(0, t_pa - pa_count),
+    }
 
     return {
         "revenue": round(revenue_total, 2),
         "pa_count": pa_count,
+        "leads": leads_count,
+        "calls": calls_count,
+        "follow_ups": follow_ups_count,
+        "conversions": conversions_count,
         "revenue_percentage": rev_pct,
         "pa_count_percentage": pa_pct,
+        "leads_percentage": leads_pct,
+        "calls_percentage": calls_pct,
+        "follow_ups_percentage": fu_pct,
+        "conversions_percentage": conv_pct,
         "overall_percentage": round(overall, 2),
+        "pending": pending,
     }
 
 
@@ -283,12 +504,30 @@ async def _fire_milestone_notification(target: Dict[str, Any], milestone: str, a
 
 def _format_period_label(target: Dict[str, Any]) -> str:
     pt = target.get("period_type")
+    if pt == "daily":
+        d_str = target.get("period_date")
+        if d_str:
+            try:
+                return datetime.strptime(d_str, "%Y-%m-%d").strftime("%d %b %Y")
+            except Exception:
+                return d_str
+        y = target.get("period_year")
+        m = target.get("period_month")
+        d = target.get("period_day") or 1
+        if y and m:
+            names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            return f"{d} {names[m]} {y}"
+        return "Daily"
+    if pt == "weekly":
+        return f"Week {target.get('period_week')}, {target.get('period_year')}"
     if pt == "monthly":
         m = target.get("period_month") or 0
         names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
         return f"{names[m]} {target.get('period_year')}"
     if pt == "quarterly":
         return f"Q{target.get('period_quarter')} {target.get('period_year')}"
+    if pt == "yearly":
+        return f"Year {target.get('period_year')}"
     return ""
 
 
