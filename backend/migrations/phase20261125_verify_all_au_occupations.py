@@ -53,3 +53,6 @@ async def run_migration(db: Any) -> Dict[str, Any]:
         "total_au": total_au,
         "verified_au": verified_au,
     }
+
+run_phase20261125_verify_all_au_occupations = run_migration
+

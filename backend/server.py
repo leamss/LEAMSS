@@ -606,8 +606,10 @@ async def startup():
     try:
         from migrations.phase20261125_verify_all_au_occupations import run_phase20261125_verify_all_au_occupations
         await run_phase20261125_verify_all_au_occupations(db)
+        print("[Migration] Verified all AU occupations in occupation_master")
     except Exception as e:
-        logger.warning(f"phase20261125_verify_all_au_occupations migration warning: {e}")
+        print(f"[Migration WARN] phase20261125_verify_all_au_occupations: {e}")
+
 
 
 
