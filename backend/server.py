@@ -591,7 +591,7 @@ async def startup():
                         if synced_any > 0:
                             await db["integrations"].update_one(
                                 {"id": integ.get("id")},
-                                {"": {"total_leads_synced": synced_any}, "": {"last_synced_at": datetime.now(timezone.utc)}}
+                                {"$inc": {"total_leads_synced": synced_any}, "$set": {"last_synced_at": datetime.now(timezone.utc)}}
                             )
                 except Exception as e_loop:
                     print(f"[Google Sheets Loop Error] {e_loop}")

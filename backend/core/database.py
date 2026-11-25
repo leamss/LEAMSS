@@ -66,6 +66,11 @@ pre_assessments_col = db["pre_assessments"]
 pre_assessment_docs_col = db["pre_assessment_documents"]
 case_deadlines_col = db["case_deadlines"]
 intake_forms_col = db["intake_forms"]
+companies_col = db["companies"]
+integrations_col = db["integrations"]
+crm_meetings_col = db["crm_meetings"]
+follow_ups_col = db["follow_ups"]
+leads_col = db["leads"]
 
 # RBAC Phase 1 — new collections
 departments_col = db["departments"]
@@ -161,4 +166,15 @@ async def init_db():
     await db["partner_product_commissions"].create_index(
         [("partner_id", 1), ("product_id", 1)], unique=True
     )
+        # Multi-Company & Integrations Hub
+    try:
+        await db["companies"].create_index("id", unique=True)
+        await db["integrations"].create_index([("company_id", 1), ("provider", 1)])
+        await db["integrations"].create_index("id", unique=True)
+        await db["integration_sync_logs"].create_index([("integration_id", 1), ("timestamp", -1)])
+        await db["integration_sync_logs"].create_index([("company_id", 1), ("timestamp", -1)])
+        await leads_col.create_index([("company_id", 1), ("phone", 1)])
+        await leads_col.create_index([("company_id", 1), ("email", 1)])
+    except Exception as e:
+        print(f"[Index creation WARN] {e}")
     print("Database indexes created")
