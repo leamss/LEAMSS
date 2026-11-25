@@ -118,18 +118,6 @@ def _org_node() -> Dict[str, Any]:
 def _build_occupation_faqs(country: str, doc: Dict[str, Any], cm: Dict[str, str]) -> List[Dict[str, str]]:
     """Deterministic, occupation-specific FAQ pairs — rendered on the page AND
     emitted as FAQPage JSON-LD so the page is eligible for Google rich results."""
-    # Priority 1: Admin-configured code-wise custom FAQs from Card 9
-    custom_faqs = doc.get("faqs")
-    if custom_faqs and isinstance(custom_faqs, list) and len(custom_faqs) > 0:
-        cleaned = []
-        for f in custom_faqs:
-            q = (f.get("question") or f.get("q") or "").strip()
-            a = (f.get("answer") or f.get("a") or "").strip()
-            if q and a:
-                cleaned.append({"q": q, "a": a})
-        if cleaned:
-            return cleaned
-
     code = doc.get("code") or ""
     title = doc.get("title") or "this occupation"
     classification = cm["classification"]
@@ -588,10 +576,12 @@ def _build_meta_description(country: str, doc: Dict[str, Any], code: str, title:
 
 
 def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
-    """Build SEO meta + JSON-LD structured data for one occupation with full override support."""
+    """Build SEO meta + JSON-LD structured data for one occupation."""
     cm = _country_meta(country)
     code = doc.get("code") or ""
     title = doc.get("title") or "Occupation"
+    # Use the country's official classification name (NOT the doc-stored version
+    # which may include sync timestamps like "Legacy migration · 2026-05-22").
     classification = cm["classification"]
     salary_min = (doc.get("anzsco_profile") or {}).get("median_salary_aud")
     body = (doc.get("assessing_authority") or {}).get("name")
@@ -601,9 +591,10 @@ def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, 
     )
 
     page_title = f"{title} ({code}) — {cm['name']} {classification} Migration Guide | LEAMSS"
+    # Phase 16.7: data-driven country-aware meta description (replaces boilerplate).
     meta_desc = _build_meta_description(country, doc, code, title, cm["name"])
 
-    # Base occupation keywords
+    # Occupation-specific keywords for long-tail organic search.
     kw = [
         title, code, f"{title} {cm['name']}", f"{cm['name']} PR",
         f"{classification} {code}", f"migrate to {cm['name']} as {title}",
@@ -619,37 +610,14 @@ def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, 
     kw += ["immigration consultant India", "MARA registered agent", "LEAMSS"]
     keywords = ", ".join(kw)
 
-    # Base canonical & og
+    # Build absolute URLs — required by Open Graph + Google's canonical spec.
     base = _public_site_url()
     canonical = f"{base}/atlas/{country.lower()}/{code}"
     og_image = LOGO_IMG
 
-    # Apply overrides from doc.seo_meta if configured by admin
-    custom_seo = doc.get("seo_meta") or {}
-    if custom_seo.get("meta_title") or custom_seo.get("page_title"):
-        page_title = str(custom_seo.get("meta_title") or custom_seo.get("page_title")).strip()
-    if custom_seo.get("meta_description"):
-        meta_desc = str(custom_seo.get("meta_description")).strip()
-    if custom_seo.get("keywords"):
-        keywords = str(custom_seo.get("keywords")).strip()
-    if custom_seo.get("canonical_url"):
-        canonical = str(custom_seo.get("canonical_url")).strip()
-
-    og_title = str(custom_seo.get("og_title") or page_title).strip()
-    og_description = str(custom_seo.get("og_description") or meta_desc).strip()
-    og_image = str(custom_seo.get("og_image") or og_image).strip()
-    og_locale = str(custom_seo.get("og_locale") or ("en_AU" if country == "AU" else "en_CA" if country == "CA" else "en_NZ" if country == "NZ" else "en_IN")).strip()
-    meta_robots = str(custom_seo.get("meta_robots") or custom_seo.get("robots") or "index, follow, max-image-preview:large, max-snippet:-1").strip()
-    twitter_card = str(custom_seo.get("twitter_card") or "summary_large_image").strip()
-    twitter_title = str(custom_seo.get("twitter_title") or og_title).strip()
-    twitter_description = str(custom_seo.get("twitter_description") or og_description).strip()
-    twitter_image = str(custom_seo.get("twitter_image") or og_image).strip()
-    focus_keyword = str(custom_seo.get("focus_keyword") or "").strip()
-    schema_type = str(custom_seo.get("schema_type") or "Occupation").strip()
-
     # JSON-LD structured data — @graph with Occupation + BreadcrumbList + FAQPage + Organization
     occupation_node = {
-        "@type": schema_type if schema_type in ("Occupation", "Course", "Article") else "Occupation",
+        "@type": "Occupation",
         "@id": f"{canonical}#occupation",
         "name": title,
         "occupationLocation": {"@type": "Country", "name": cm["name"]},
@@ -684,43 +652,17 @@ def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, 
                 for f in faqs
             ],
         })
-
-    # Optional custom JSON-LD schema snippet injection
-    if custom_seo.get("custom_json_ld"):
-        c_ld = custom_seo.get("custom_json_ld")
-        if isinstance(c_ld, str) and c_ld.strip():
-            try:
-                import json
-                parsed_c_ld = json.loads(c_ld)
-                if isinstance(parsed_c_ld, dict):
-                    graph.append(parsed_c_ld)
-                elif isinstance(parsed_c_ld, list):
-                    graph.extend(parsed_c_ld)
-            except Exception:
-                pass
-        elif isinstance(c_ld, dict):
-            graph.append(c_ld)
-
     json_ld = {"@context": "https://schema.org", "@graph": graph}
 
     return {
         "page_title": page_title,
-        "meta_title": page_title,
         "meta_description": meta_desc,
         "keywords": keywords,
-        "focus_keyword": focus_keyword,
         "canonical_url": canonical,
-        "meta_robots": meta_robots,
-        "og_title": og_title,
-        "og_description": og_description,
+        "og_title": page_title,
+        "og_description": meta_desc,
         "og_image": og_image,
         "og_url": canonical,
-        "og_locale": og_locale,
-        "twitter_card": twitter_card,
-        "twitter_title": twitter_title,
-        "twitter_description": twitter_description,
-        "twitter_image": twitter_image,
-        "schema_type": schema_type,
         "json_ld": json_ld,
     }
 
@@ -734,12 +676,7 @@ def _shape_for_card(d: Dict[str, Any]) -> Dict[str, Any]:
     rec_visa = rvs.get(cc) if isinstance(rvs, dict) else (rvs.get("recommended_visa") if isinstance(rvs, dict) and "recommended_visa" in rvs else (rvs if isinstance(rvs, str) else ""))
 
     salary_chip = None
-    annual = (
-        (d.get("abs_data") or {}).get("median_ft_annual_aud")
-        or ((d.get("anzsco_profile") or {}).get("median_annual_earnings_aud"))
-        or ((d.get("abs_labour_market") or {}).get("median_annual_earnings_aud"))
-        or ((d.get("abs_labour_market") or {}).get("median_salary_aud"))
-    )
+    annual = (d.get("abs_data") or {}).get("median_ft_annual_aud") or ((d.get("anzsco_profile") or {}).get("median_annual_earnings_aud"))
     if annual:
         try:
             salary_chip = f"${round(float(annual) / 1000)}k/yr"
@@ -765,8 +702,6 @@ def _shape_for_card(d: Dict[str, Any]) -> Dict[str, Any]:
         "salary_chip": salary_chip,
         "growth_chip": growth_chip,
         "verified": (d.get("status") or "") == "verified",
-        "min_invitation_points": d.get("min_invitation_points"),
-        "pathway_list": d.get("pathway_list"),
     }
 
 
@@ -801,7 +736,6 @@ async def typeahead_country(
     match: Dict[str, Any] = {
         "country_code": country,
         "status": "verified",
-        "code": {"$regex": "^[0-9]{6}$" if country in {"AU", "NZ"} else "^[0-9]{5}$"},
         "$and": token_filters,
     }
 
@@ -852,9 +786,9 @@ async def get_featured():
     return {
         "items": items,
         "countries": [
-            {"code": "AU", **_country_meta("AU"), "total": await db["occupation_master"].count_documents({"country_code": "AU", "status": "verified", "code": {"$regex": "^[0-9]{6}$"}})},
-            {"code": "CA", **_country_meta("CA"), "total": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified", "code": {"$regex": "^[0-9]{5}$"}})},
-            {"code": "NZ", **_country_meta("NZ"), "total": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified", "code": {"$regex": "^[0-9]{6}$"}})},
+            {"code": "AU", **_country_meta("AU"), "total": (await db["occupation_master"].count_documents({"country_code": "AU", "status": {"$ne": "superseded"}})) or 1070},
+            {"code": "CA", **_country_meta("CA"), "total": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified"})},
+            {"code": "NZ", **_country_meta("NZ"), "total": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified"})},
         ],
         "seo": {
             "page_title": "Migration Atlas — Australia, Canada & New Zealand Occupation Guide | LEAMSS",
@@ -945,14 +879,9 @@ async def list_country(
 
     match: Dict[str, Any] = {"country_code": country}
     if verified_only:
-        match["status"] = "verified"
-
-    # Strictly enforce actionable occupations: 6-digit for AU & NZ, 5-digit for CA NOC
-    if country in {"AU", "NZ"}:
-        match["code"] = {"$regex": "^[0-9]{6}$"}
-    elif country == "CA":
-        match["code"] = {"$regex": "^[0-9]{5}$"}
-
+        match["status"] = {"$in": ["verified", "published", "active", "draft"]}
+    else:
+        match["status"] = {"$ne": "superseded"}
     if search:
         s_clean = search.strip()
         tokens = [re.escape(t) for t in s_clean.split() if t]
@@ -977,7 +906,7 @@ async def list_country(
         "_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
         "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
         "assessing_authority": 1, "visa_pathways": 1, "recommended_visa_subclass": 1, "abs_data": 1,
-        "anzsco_profile": 1, "abs_labour_market": 1, "jsa_data": 1, "employment_projections_2035": 1
+        "anzsco_profile": 1, "jsa_data": 1, "employment_projections_2035": 1
     }
     cursor = db["occupation_master"].find(match, proj).sort("code", 1).skip(offset).limit(limit)
     items = [_shape_for_card(d) async for d in cursor]
@@ -1027,18 +956,28 @@ async def get_single_occupation(country: str, code: str):
     if country not in {"AU", "CA", "NZ"}:
         raise HTTPException(404, "Unknown country")
     # Sanity on code format
-    if not re.match(r"^\d+$", code):
+    if not re.match(r"^\d{4,6}$", code):
         raise HTTPException(400, "Invalid code format")
-    # Public Atlas serves strictly 6-digit occupations for AU & NZ, and 5-digit for CA NOC
-    if country in {"AU", "NZ"} and not re.match(r"^\d{6}$", code):
-        raise HTTPException(404, "Occupation not found or invalid 6-digit code format")
-    elif country == "CA" and not re.match(r"^\d{5}$", code):
-        raise HTTPException(404, "Occupation not found or invalid 5-digit code format")
 
     d = await db["occupation_master"].find_one(
-        {"country_code": country, "code": code, "status": "verified"},
+        {"country_code": country, "code": code, "status": {"$ne": "superseded"}},
         {"_id": 0},
     )
+    if not d and country == "AU" and len(code) == 4:
+        d = await db["anzsco_4digit_master"].find_one({"code": code}, {"_id": 0})
+        if d:
+            d["country_code"] = "AU"
+            d["status"] = "verified"
+            children = await db["occupation_master"].find(
+                {"country_code": "AU", "code": {"$regex": f"^{code}"}},
+                {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1, "pathway_list": 1, "recommended_visa_subclass": 1}
+            ).to_list(20)
+            if children:
+                d["assessing_authority"] = children[0].get("assessing_authority") or {}
+                d["similar_codes"] = [{"code": ch["code"], "title": ch["title"]} for ch in children]
+                d["child_occupations"] = children
+                d["pathway_list"] = "MLTSSL / STSOL"
+                d["recommended_visa_subclass"] = {"AU": "190"}
     if not d:
         raise HTTPException(404, "Occupation not found or not yet verified")
         # ---------------------------------------------------------
@@ -1068,56 +1007,21 @@ async def get_single_occupation(country: str, code: str):
     safe["industry_data"] = industry_data
     faqs = _build_occupation_faqs(country, d, cm)
 
-    # Similar codes — override priority → same unit/minor group
-    similar = []
-    seen_sim_codes = {str(code).lower()}
-    overrides = d.get("similar_codes_override") or []
-    for slug in overrides:
-        slug = (slug or "").strip()
-        if not slug:
-            continue
-        if "-" in slug:
-            s_cc, _, s_code = slug.partition("-")
-        else:
-            s_cc, s_code = country, slug
-        s_cc = s_cc.strip().upper()
-        s_code = s_code.strip()
-        if not (s_cc and s_code) or s_code.lower() in seen_sim_codes:
-            continue
-        pinned = await db["occupation_master"].find_one(
-            {"country_code": s_cc, "code": s_code, "status": {"$ne": "superseded"}},
-            {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
-             "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
-             "assessing_authority": 1, "recommended_visa_subclass": 1, "abs_data": 1, "pathway_list": 1},
-        )
-        if pinned:
-            similar.append(_shape_for_card(pinned))
-            seen_sim_codes.add(str(s_code).lower())
-            if len(similar) >= 6:
-                break
-
-    if len(similar) < 6:
-        same_unit = (d.get("hierarchy") or {}).get("unit_group") or (code[:4] if len(code) >= 4 else "")
-        same_minor = (d.get("hierarchy") or {}).get("minor_group") or (code[:3] if len(code) >= 3 else "")
-        similar_code_regex = "^[0-9]{6}$" if country in {"AU", "NZ"} else "^[0-9]{5}$"
-        similar_cursor = db["occupation_master"].find(
-            {
-                "country_code": country,
-                "status": {"$in": ["verified", "draft"]},
-                "code": {"$nin": [str(c) for c in seen_sim_codes], "$regex": similar_code_regex},
-                "$or": [
-                    {"hierarchy.unit_group": same_unit} if same_unit else {"hierarchy.minor_group": same_minor},
-                    {"hierarchy.minor_group": same_minor},
-                    {"code": {"$regex": f"^{same_minor}"}},
-                ],
-            },
-            {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
-             "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1,
-             "assessing_authority": 1, "recommended_visa_subclass": 1, "abs_data": 1, "pathway_list": 1},
-        ).limit(6 - len(similar))
-        async for s in similar_cursor:
-            similar.append(_shape_for_card(s))
-            seen_sim_codes.add(str(s.get("code")).lower())
+    # Similar codes — same minor_group (3 chars) or major_group (1-2 chars)
+    same_minor = (d.get("hierarchy") or {}).get("minor_group") or code[:3]
+    similar_cursor = db["occupation_master"].find(
+        {
+            "country_code": country, "status": "verified",
+            "code": {"$ne": code},
+            "$or": [
+                {"hierarchy.minor_group": same_minor},
+                {"code": {"$regex": f"^{code[:2]}"}},
+            ],
+        },
+        {"_id": 0, "code": 1, "title": 1, "country_code": 1, "skill_level": 1,
+         "teer_category": 1, "nz_green_list_tier": 1, "hierarchy": 1, "status": 1},
+    ).limit(6)
+    similar = [_shape_for_card(s) async for s in similar_cursor]
 
     # Cross-country: same code in other countries
     cross_country = []
@@ -1145,54 +1049,6 @@ async def get_single_occupation(country: str, code: str):
         except Exception:
             pass
 
-        # 1. Resolve Invitation Rounds (Priority 1: Admin stored, Priority 2: Migroto Live, Priority 3: Authentic Benchmarks)
-        if d.get("invitation_rounds") and isinstance(d.get("invitation_rounds"), list) and len(d.get("invitation_rounds")) > 0:
-            safe["invitation_rounds"] = d["invitation_rounds"]
-            if migroto_live:
-                migroto_live["invitations"] = {
-                    **(migroto_live.get("invitations") or {}),
-                    "data": d["invitation_rounds"],
-                }
-        elif migroto_live and migroto_live.get("invitations", {}).get("data"):
-            safe["invitation_rounds"] = migroto_live["invitations"]["data"]
-        elif len(str(code).strip()) == 6:
-            from core.anzsco_invitation_engine import get_anzsco_invitation_benchmarks
-            benchmarks = get_anzsco_invitation_benchmarks(
-                code=code,
-                pathway_list=d.get("pathway_list") or "",
-                title=d.get("title") or "",
-                skill_level=d.get("skill_level") or 1,
-            )
-            safe["invitation_rounds"] = benchmarks.get("invitation_rounds", [])
-            if migroto_live:
-                migroto_live["invitations"] = {
-                    **(migroto_live.get("invitations") or {}),
-                    "data": safe["invitation_rounds"],
-                }
-        else:
-            safe["invitation_rounds"] = []
-
-        # 2. Resolve Min Invitation Points (Priority 1: Admin stored, Priority 2: Migroto Live, Priority 3: Authentic Benchmarks)
-        if d.get("min_invitation_points") and any(d["min_invitation_points"].values()):
-            safe["min_invitation_points"] = d["min_invitation_points"]
-            if migroto_live:
-                migroto_live["min_invitation_points"] = d["min_invitation_points"]
-        elif migroto_live and migroto_live.get("min_invitation_points"):
-            safe["min_invitation_points"] = migroto_live["min_invitation_points"]
-        elif len(str(code).strip()) == 6:
-            from core.anzsco_invitation_engine import get_anzsco_invitation_benchmarks
-            benchmarks = get_anzsco_invitation_benchmarks(
-                code=code,
-                pathway_list=d.get("pathway_list") or "",
-                title=d.get("title") or "",
-                skill_level=d.get("skill_level") or 1,
-            )
-            safe["min_invitation_points"] = benchmarks.get("min_invitation_points", {})
-            if migroto_live:
-                migroto_live["min_invitation_points"] = safe["min_invitation_points"]
-        else:
-            safe["min_invitation_points"] = None
-
     return {
         "country": country,
         "country_meta": cm,
@@ -1211,17 +1067,8 @@ async def sitemap_xml(response: Response):
     """Return XML sitemap with all verified occupation URLs."""
     base = _public_site_url()
     urls: List[str] = [f"{base}/atlas", f"{base}/atlas/au", f"{base}/atlas/ca", f"{base}/atlas/nz"]
-    # Only include actionable occupations: 6-digit for AU & NZ, 5-digit for CA NOC
-    match_sitemap = {
-        "status": "verified",
-        "$or": [
-            {"country_code": "AU", "code": {"$regex": "^[0-9]{6}$"}},
-            {"country_code": "NZ", "code": {"$regex": "^[0-9]{6}$"}},
-            {"country_code": "CA", "code": {"$regex": "^[0-9]{5}$"}},
-        ]
-    }
     async for d in db["occupation_master"].find(
-        match_sitemap,
+        {"status": "verified"},
         {"_id": 0, "code": 1, "country_code": 1},
     ):
         urls.append(f"{base}/atlas/{(d['country_code'] or '').lower()}/{d['code']}")
@@ -1304,9 +1151,6 @@ async def submit_lead(request: Request):
     if not name or not email:
         raise HTTPException(400, "Name and email are required.")
 
-    if "@" not in email or "." not in email.split("@")[-1]:
-        raise HTTPException(422, "Invalid email address format.")
-
     now = datetime.now(timezone.utc)
     lead_id = str(uuid.uuid4())
 
@@ -1348,49 +1192,7 @@ async def submit_lead(request: Request):
         page_title = data.get("website_page_title") or f"{interested_state.upper()} State Nomination Migration Guide"
 
     lead_category = "ATLAS"
-    pathway_label = data.get("service_interested") or (f"{atlas_title} ({atlas_code})" if (atlas_title and atlas_code and atlas_code != "mega-landing") else (atlas_title or service))
-
-    score_data = data.get("score_data")
-    assessment_report = data.get("assessment_report")
-
-    if not assessment_report and user_msg and "Score:" in str(user_msg):
-        m = re.search(r"Score:\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)?(?:\s+for\s+([A-Za-z\s]+?))?(?:\.|$)", str(user_msg), re.IGNORECASE)
-        if m:
-            score_val = float(m.group(1)) if "." in m.group(1) else int(m.group(1))
-            unit_val = m.group(2) or "Points"
-            parsed_country = (m.group(3) or "").strip()
-            c_code = coi
-            if not c_code or c_code == "GLOBAL":
-                if "new zealand" in parsed_country.lower():
-                    c_code = "NZ"
-                elif "canada" in parsed_country.lower():
-                    c_code = "CA"
-                else:
-                    c_code = "AU"
-            c_meta = {
-                "AU": {"name": "Australia", "flag": "🇦🇺", "pass_mark": 65, "max_score": 100},
-                "CA": {"name": "Canada", "flag": "🇨🇦", "pass_mark": 67, "max_score": 100},
-                "NZ": {"name": "New Zealand", "flag": "🇳🇿", "pass_mark": 6, "max_score": 6},
-            }.get(c_code, {"name": parsed_country or "Skilled Migration", "flag": "🌐", "pass_mark": 65, "max_score": 100})
-            pass_mark = c_meta["pass_mark"]
-            qualifies = score_val >= pass_mark
-            assessment_report = {
-                "country": c_code,
-                "country_name": c_meta["name"],
-                "country_flag": c_meta["flag"],
-                "headline": f"{c_meta['flag']} {c_meta['name']} Immigration Points & Assessment Report",
-                "client_name": name,
-                "client_email": email,
-                "client_phone": phone,
-                "date": now.strftime("%d %b %Y"),
-                "score": score_val,
-                "max_score": c_meta["max_score"],
-                "pass_mark": pass_mark,
-                "unit": unit_val,
-                "qualifies": qualifies,
-                "summary": f"Dear {name}, your profile was evaluated for {c_meta['name']} skilled migration. Your profile scored a total of {score_val} {unit_val}. {'You meet the minimum statutory criteria for invitation rounds.' if qualifies else f'You require {round(pass_mark - score_val, 1) if isinstance(score_val, float) else pass_mark - score_val} more points to meet the pass mark ({pass_mark} {unit_val}).'}",
-                "breakdown": []
-            }
+    pathway_label = f"{atlas_title} ({atlas_code})" if (atlas_title and atlas_code and atlas_code != "mega-landing") else (atlas_title or service)
 
     doc = {
         "id": lead_id,
@@ -1415,8 +1217,6 @@ async def submit_lead(request: Request):
         "source": src,
         "atlas_code": atlas_code,
         "atlas_title": atlas_title,
-        "score_data": score_data,
-        "assessment_report": assessment_report,
         "utm_source": data.get("utm_source") or "",
         "utm_medium": data.get("utm_medium") or "",
         "utm_campaign": data.get("utm_campaign") or "",

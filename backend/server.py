@@ -95,7 +95,6 @@ from routers.sales_occupations import router as sales_occupations_router
 from routers.sales_calculator import router as sales_calculator_router
 from routers.sales_ai_helpers import router as sales_ai_helpers_router
 from routers.sales_assessments import router as sales_assessments_router
-from routers.au_classification_versions import router as au_classification_versions_router
 from routers.occupation_master import router as occupation_master_router, bodies_router as skill_body_master_router
 from routers.occupation_master_import import router as occupation_master_import_router
 from routers.kb_settings import router as kb_settings_router
@@ -114,6 +113,7 @@ from routers.departments import router as departments_router
 from routers.rbac_admin import router as rbac_admin_router
 from routers.admin_users import router as admin_users_router
 from routers.attendance import router as attendance_router
+from routers.totp import router as totp_router
 from routers.leaves import router as leaves_router
 from routers.hr_admin import router as hr_admin_router
 from routers.targets import router as targets_router
@@ -186,6 +186,7 @@ from routers.internal_chat import router as internal_chat_router
 from routers.support_tickets import router as support_tickets_router
 from routers.rbac_v2 import router as rbac_v2_router
 from routers.country_workflows import router as country_workflows_router  # Sweep B.1
+from routers.case_workspace import router as case_workspace_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -204,30 +205,57 @@ from routers.email_templates import router as email_templates_router
 from routers.whatsapp_templates import router as whatsapp_templates_router
 from routers.whatsapp_chat import router as whatsapp_chat_router
 from routers.public_resume import router as public_resume_router
-from routers.migroto import router as migroto_router
-from routers.product_master import router as product_master_router
 from routers.crm_communication import router as crm_communication_router
 from routers.crm_telephony import router as crm_telephony_router
 from routers.crm_activities import router as crm_activities_router
 from routers.crm_sales import router as crm_sales_router
 from routers.crm_website_leads import router as crm_website_leads_router
-from routers.salesperson_activity import router as salesperson_activity_router
+from routers.migroto import router as migroto_router
+from routers.policy_config import router as policy_config_router
+from routers.access_governance import router as access_governance_router
+from routers.shared_deals import router as shared_deals_router
+from routers.scorecards import router as scorecards_router
+from routers.peer_ratings import router as peer_ratings_router
+from routers.incentives import router as incentives_router
+from routers.open_earnings import router as open_earnings_router
+from routers.recognition import router as recognition_router
+from routers.employee_experience import router as employee_experience_router
+from routers.growth_pool import router as growth_pool_router
+from routers.partner_commission_v2 import router as partner_commission_v2_router
+from routers.exit_fnf import router as exit_fnf_router
+from routers.council_disputes import router as council_disputes_router
+from routers.governance_reports import router as governance_reports_router
 from routers.integrations import router as integrations_router
+from routers.salesperson_activity import router as salesperson_activity_router
+from routers.product_master import router as product_master_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://app.leamss.com",
-        "https://api.leamss.com",
-        "https://leamss.com",
+IS_PROD = os.environ.get("ENV") == "production"
+ALLOWED_ORIGINS = [
+    "https://app.leamss.com",
+    "https://api.leamss.com",
+    "https://leamss.com",
+    "https://portal.leamss.com",
+]
+if not IS_PROD:
+    ALLOWED_ORIGINS.extend([
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:8001",
         "http://127.0.0.1:8001",
-    ],
-    allow_origin_regex=r"^https?://((localhost|127\.0\.0\.1)(:\d+)?|([a-zA-Z0-9-]+\.)?leamss\.com)$",
+    ])
+
+ORIGIN_REGEX = (
+    r"^https://([a-zA-Z0-9-]+\.)?leamss\.com$"
+    if IS_PROD
+    else r"^https?://((localhost|127\.0\.0\.1)(:\d+)?|([a-zA-Z0-9-]+\.)?leamss\.com)$"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -348,6 +376,14 @@ async def startup():
     except Exception as e:
         print(f"[Phase4C.2 ERROR] {e}")
 
+    # Website leads metadata sync migration (idempotent — synchronizes USA, Canada, Australia, NZ, UK subclass URLs and titles)
+    try:
+        from migrations.m20261009_website_leads_metadata_fix import run_migration as run_website_leads_meta_migration
+        wlm = await run_website_leads_meta_migration()
+        print(f"[Website Leads Meta] Sync {wlm['status']}: scanned={wlm['scanned']}, updated={wlm['updated']}")
+    except Exception as e:
+        print(f"[Website Leads Meta WARN] {e}")
+
     # Run Phase 4C UNIFICATION — merge product_cost_structures into products (idempotent)
     try:
         from migrations.phase4c_products_unification import run as run_unification
@@ -451,12 +487,47 @@ async def startup():
         except Exception as e:
             print(f"[Fee Master auto-seed ERROR — non-fatal] {e}")
 
-        # Auto-populate and verify all official 1,236 ANZSCO occupations on server startup
+        # Auto-seed complete Australian ANZSCO Skilled Occupations (2013 GSM + 2022 Core Skills) — 100% of all 931 AU occupations
         try:
-            from scripts.populate_all_1236_anzsco import run_population
-            await run_population()
+            from scripts.enrich_all_931_au_occupations import enrich_and_verify_all_931_au_occupations
+            await enrich_and_verify_all_931_au_occupations()
+            print("[ANZSCO AU] 100% Complete Australian skilled occupations enriched and verified on startup.")
         except Exception as e:
-            print(f"[ANZSCO 1236 auto-population ERROR — non-fatal] {e}")
+            print(f"[ANZSCO AU WARN — non-fatal] {e}")
+
+        # Ensure all 1070 Australian occupations in occupation_master have status verified and valid IDs
+        try:
+            from migrations.phase20261125_verify_all_au_occupations import run_migration as run_au_verify_migration
+            from core.database import db as _db_handle
+            au_m_res = await run_au_verify_migration(_db_handle)
+            print(f"[AU 1070 Verify] Migration status: {au_m_res}")
+        except Exception as e:
+            print(f"[AU 1070 Verify WARN — non-fatal] {e}")
+
+        # Auto-seed SkillSelect EOI Backlog data for all AU occupations
+        try:
+            from scripts.seed_eoi_backlog import seed_eoi_backlog
+            await seed_eoi_backlog()
+            print("[EOI Backlog] SkillSelect pool data seeded on startup.")
+        except Exception as e:
+            print(f"[EOI Backlog WARN — non-fatal] {e}")
+
+        # Module M4 — Seed Handbook Policies (18 HR policies + LEAMSS-HR-09) with SHA-256 hashes
+        try:
+            from core.policy_acknowledgment_service import PolicyAcknowledgmentService
+            await PolicyAcknowledgmentService.seed_all_handbook_policies()
+            print("[Handbook] 18 Handbook Policies + LEAMSS-HR-09 verified/seeded on startup.")
+        except Exception as e:
+            print(f"[Handbook Seed WARN — non-fatal] {e}")
+
+        # Module M7 — Migrate legacy tickets to support_tickets (idempotent)
+        try:
+            from migrations.migrate_tickets_to_support_tickets import migrate_legacy_tickets
+            t_res = await migrate_legacy_tickets(dry_run=False)
+            if t_res.get("migrated", 0) > 0:
+                print(f"[Tickets Migration] Migrated {t_res['migrated']} legacy tickets to support_tickets.")
+        except Exception as e:
+            print(f"[Tickets Migration WARN — non-fatal] {e}")
         # Start APScheduler (every 30 min). Disabled in tests via LEAMSS_DISABLE_SCHEDULER env.
         if not os.environ.get("LEAMSS_DISABLE_SCHEDULER"):
             try:
@@ -486,6 +557,91 @@ async def startup():
                         )
                 except Exception:  # noqa: BLE001
                     pass
+
+                # CRM Email Thread IMAP Sync (Every 2 minutes)
+                async def periodic_mailbox_sync():
+                    try:
+                        from core.database import db
+                        from core.mail_sync import sync_user_mailbox
+                        cursor = db["users"].find(
+                            {
+                                "mailbox_settings.smtp_pass": {"$exists": True, "$ne": ""},
+                                "mailbox_settings.last_test_status": {"$ne": "failed"},
+                            },
+                            {"id": 1, "email": 1}
+                        )
+                        users = await cursor.to_list(length=50)
+                        for u in users:
+                            uid = u.get("id") or u.get("email")
+                            if uid:
+                                try:
+                                    await sync_user_mailbox(user_id=uid, limit=20)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+
+                _digest_scheduler.add_job(
+                    periodic_mailbox_sync,
+                    "interval",
+                    minutes=2,
+                    id="crm_mailbox_sync",
+                    replace_existing=True,
+                )
+
+                # Auto-sync live website leads from leamss.com and app.leamss.com export endpoints every 30 seconds
+                async def periodic_website_leads_sync():
+                    try:
+                        import httpx
+                        from services.website_mysql_sync import import_enquiry_rows_batch
+                        headers = {"User-Agent": "curl/8.7.1", "Accept": "*/*"}
+                        async with httpx.AsyncClient(timeout=15.0, verify=False, headers=headers) as client:
+                            # 1. Sync from cPanel MySQL export
+                            try:
+                                resp = await client.get("https://leamss.com/api/crm-website-leads-export")
+                                if resp.status_code == 200:
+                                    data = resp.json()
+                                    gen_rows = data.get("general", []) if isinstance(data, dict) else []
+                                    pop_rows = data.get("popups", []) if isinstance(data, dict) else []
+                                    atlas_rows = (data.get("atlas") or data.get("atlas_leads") or []) if isinstance(data, dict) else []
+                                    if atlas_rows:
+                                        gen_rows = gen_rows + atlas_rows
+                                    if gen_rows:
+                                        await import_enquiry_rows_batch(gen_rows, "general_enquiries")
+                                    if pop_rows:
+                                        await import_enquiry_rows_batch(pop_rows, "popup_enquiries")
+                            except Exception:
+                                pass
+
+                            # 2. Sync from live app.leamss.com Atlas export
+                            try:
+                                resp_atlas = await client.get("https://app.leamss.com/api/public-atlas/export-recent")
+                                if resp_atlas.status_code == 200:
+                                    data_atlas = resp_atlas.json()
+                                    live_atlas_rows = data_atlas.get("atlas", []) if isinstance(data_atlas, dict) else []
+                                    if live_atlas_rows:
+                                        await import_enquiry_rows_batch(live_atlas_rows, "general_enquiries")
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+
+                _digest_scheduler.add_job(
+                    periodic_website_leads_sync,
+                    "interval",
+                    seconds=30,
+                    id="crm_website_leads_auto_sync",
+                    replace_existing=True,
+                )
+
+                # Module M2 — Access Governance: periodic sweep of expired delegated grants
+                from routers.access_governance import sweep_expired_delegations
+                async def periodic_delegations_sweep():
+                    try:
+                        await sweep_expired_delegations(current_user={"id": "system_scheduler", "name": "System Scheduler"})
+                    except Exception as sweep_err:
+                        print(f"[Delegation Sweep WARN] {sweep_err}")
+
                 async def periodic_meeting_reminders_and_followups():
                     try:
                         from services.integrations.calendly_service import (
@@ -505,6 +661,7 @@ async def startup():
                     replace_existing=True,
                 )
 
+                # Auto-sync Calendly bookings into CRM every 45 seconds
                 async def periodic_calendly_sync():
                     try:
                         from services.integrations.calendly_service import sync_calendly_integration
@@ -532,6 +689,9 @@ async def startup():
                 except Exception:
                     pass
                 print("[Phase18.7] Client-error digest scheduler started (30 min interval)")
+                print("[CRM] Background mailbox IMAP synchronization scheduler started (2 min interval)")
+                print("[CRM] Background live website leads auto-sync scheduler started (30 sec interval)")
+                print("[CRM] Background Calendly bookings auto-sync scheduler started (45 sec interval)")
             except Exception as e:
                 print(f"[Phase18.7 scheduler ERROR] {e}")
     except Exception as e:
@@ -553,9 +713,10 @@ async def startup():
                 try:
                     from core.website_sync import sync_from_mysql_database, reconcile_navratri_leads
                     await reconcile_navratri_leads()
-                    res = await sync_from_mysql_database()
-                    if res.get("total_synced", 0) > 0:
-                        print(f"[Auto-Sync Navratri] Synced {res.get('total_synced')} leads")
+                    if os.environ.get("WEBSITE_MYSQL_HOST") or os.environ.get("MYSQL_HOST"):
+                        res = await sync_from_mysql_database()
+                        if res.get("total_synced", 0) > 0:
+                            print(f"[Auto-Sync Navratri] Synced {res.get('total_synced')} leads")
                 except Exception:
                     pass
                 await asyncio.sleep(60)
@@ -603,6 +764,14 @@ async def startup():
     except Exception as e:
         print(f"[Navratri Sync WARN] {e}")
 
+    # Phase 1 M1: Seed initial Policy Configuration if not already present
+    try:
+        from core.policy_engine.store import PolicyStore
+        await PolicyStore().seed_initial_config("incentive_policy")
+        print("[PolicyEngine] Checked/seeded initial incentive_policy configuration v1")
+    except Exception as e:
+        print(f"[PolicyEngine Seed WARN] {e}")
+
 
 # Phase 18.7 — module-level handle to the scheduler so shutdown can stop it
 _digest_scheduler = None
@@ -625,22 +794,26 @@ async def seed_database():
     import uuid
     from datetime import datetime, timezone
     
-    # Create users
-    users = [
-        {"id": str(uuid.uuid4()), "email": "admin@leamss.com", "password": get_password_hash("Admin@123"),
-         "name": "Admin User", "role": "admin", "mobile": "+1-555-0001", "status": "active", "commission_rate": 0.0, "created_at": datetime.now(timezone.utc)},
-        {"id": str(uuid.uuid4()), "email": "manager@leamss.com", "password": get_password_hash("Manager@123"),
-         "name": "Case Manager", "role": "case_manager", "mobile": "+1-555-0002", "status": "active", "commission_rate": 0.0, "created_at": datetime.now(timezone.utc)},
-        {"id": str(uuid.uuid4()), "email": "partner@leamss.com", "password": get_password_hash("Partner@123"),
-         "name": "Partner User", "role": "partner", "mobile": "+1-555-0003", "status": "active", "commission_rate": 10.0, "created_at": datetime.now(timezone.utc)},
-        {"id": str(uuid.uuid4()), "email": "client@leamss.com", "password": get_password_hash("Client@123"),
-         "name": "Jane Smith", "role": "client", "mobile": "+1-555-0004", "status": "active", "commission_rate": 0.0, "created_at": datetime.now(timezone.utc)},
-        {"id": str(uuid.uuid4()), "email": "client2@leamss.com", "password": get_password_hash("Client@123"),
-         "name": "Bob Johnson", "role": "client", "mobile": "+1-555-0005", "status": "active", "commission_rate": 0.0, "created_at": datetime.now(timezone.utc)},
-    ]
-    await users_col.insert_many(users)
-    
-    admin, manager, partner, client1, client2 = users
+    # Phase 0 (C6): Never seed default accounts with known passwords in production
+    if os.environ.get("ENV") == "production":
+        print("[Security] Production environment detected: skipping demo user account seeding.")
+        admin = manager = partner = client1 = client2 = None
+    else:
+        # Create demo users for development / staging
+        users = [
+            {"id": str(uuid.uuid4()), "email": "admin@leamss.com", "password": get_password_hash("Admin@123"),
+             "name": "Admin User", "role": "admin", "mobile": "+1-555-0001", "status": "active", "commission_rate": 0.0, "created_at": datetime.now(timezone.utc)},
+            {"id": str(uuid.uuid4()), "email": "manager@leamss.com", "password": get_password_hash("Manager@123"),
+             "name": "Case Manager", "role": "case_manager", "mobile": "+1-555-0002", "status": "active", "commission_rate": 0.0, "created_at": datetime.now(timezone.utc)},
+            {"id": str(uuid.uuid4()), "email": "partner@leamss.com", "password": get_password_hash("Partner@123"),
+             "name": "Partner User", "role": "partner", "mobile": "+1-555-0003", "status": "active", "commission_rate": 10.0, "created_at": datetime.now(timezone.utc)},
+            {"id": str(uuid.uuid4()), "email": "client@leamss.com", "password": get_password_hash("Client@123"),
+             "name": "Jane Smith", "role": "client", "mobile": "+1-555-0004", "status": "active", "commission_rate": 0.0, "created_at": datetime.now(timezone.utc)},
+            {"id": str(uuid.uuid4()), "email": "client2@leamss.com", "password": get_password_hash("Client@123"),
+             "name": "Bob Johnson", "role": "client", "mobile": "+1-555-0005", "status": "active", "commission_rate": 0.0, "created_at": datetime.now(timezone.utc)},
+        ]
+        await users_col.insert_many(users)
+        admin, manager, partner, client1, client2 = users
     
     # Create products
     products_data = [
@@ -763,7 +936,6 @@ async def seed_database():
 for r in [targets_router, cost_structures_router, auth_router, users_router, products_router,
           # Smart Sales Helper (Phase 6 v2) — MUST be before legacy sales_router so /sales/* paths resolve correctly
           sales_occupations_router, sales_calculator_router, sales_ai_helpers_router, sales_assessments_router,
-          au_classification_versions_router,
           occupation_master_router, skill_body_master_router, occupation_master_import_router,
           kb_settings_router, country_templates_router, country_guides_router,
           protection_policies_router, kb_unified_router, sales_wizard_v2_router,
@@ -806,10 +978,11 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           reimbursements_router, hr_analytics_router, content_studio_router,
           site_audit_router, dev_tracker_router,
           internal_chat_router, support_tickets_router, rbac_v2_router, country_workflows_router,atlas_countries_router,atlas_country_admin_router,
-          eoi_backlog_router, bulk_assessments_router, fee_master_router, email_settings_router, email_templates_router, whatsapp_templates_router, whatsapp_chat_router, public_resume_router, migroto_router,
-          product_master_router,
+          eoi_backlog_router, bulk_assessments_router, fee_master_router, email_settings_router, email_templates_router, whatsapp_templates_router, whatsapp_chat_router, public_resume_router,
           crm_communication_router, crm_telephony_router, crm_activities_router, crm_sales_router,
-          crm_website_leads_router, salesperson_activity_router, integrations_router]:
+          crm_website_leads_router, totp_router, migroto_router, case_workspace_router,
+          policy_config_router, access_governance_router, shared_deals_router, scorecards_router, peer_ratings_router, incentives_router, open_earnings_router, recognition_router, employee_experience_router, growth_pool_router, partner_commission_v2_router, exit_fnf_router, council_disputes_router, governance_reports_router,
+          integrations_router, salesperson_activity_router, product_master_router]:
     app.include_router(r, prefix="/api")
 
 

@@ -12,7 +12,6 @@ Triggered by:
 """
 from __future__ import annotations
 import os
-import re
 import json
 import shutil
 from datetime import datetime, timezone, timedelta
@@ -87,9 +86,8 @@ def _hero_image(cc: str) -> str:
 # Phase 19.1a — Per-country skill-level breakdown (for hub + country pages).
 async def _skill_level_breakdown(cc: str) -> List[Dict[str, Any]]:
     cc = (cc or "").upper()
-    code_regex = "^[0-9]{6}$" if cc in {"AU", "NZ"} else "^[0-9]{5}$"
     pipeline = [
-        {"$match": {"country_code": cc, "status": "verified", "code": {"$regex": code_regex}, "skill_level": {"$nin": [None, ""]}}},
+        {"$match": {"country_code": cc, "status": "verified", "skill_level": {"$nin": [None, ""]}}},
         {"$group": {"_id": "$skill_level", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
     ]
@@ -111,10 +109,7 @@ async def _skill_level_breakdown(cc: str) -> List[Dict[str, Any]]:
 def _build_visa_pathway_chips(occ: Dict[str, Any], recommended: Optional[str]) -> List[Dict[str, Any]]:
     chips: List[Dict[str, Any]] = []
     pw = (occ.get("visa_pathways") or {})
-    elig_list = pw.get("visa_eligibility")
-    if not elig_list and occ.get("eligible_visa_subclasses"):
-        elig_list = [{"visa_subclass": s, "eligible": True} for s in occ["eligible_visa_subclasses"]]
-    for v in (elig_list or []):
+    for v in (pw.get("visa_eligibility") or []):
         sub = v.get("visa_subclass")
         if not sub:
             continue
@@ -130,7 +125,7 @@ def _build_visa_pathway_chips(occ: Dict[str, Any], recommended: Optional[str]) -
 
 def _pathway_list_pills(occ: Dict[str, Any]) -> List[str]:
     """Split `pathway_list` like 'MLTSSL;CSOL' into individual pills."""
-    pls = (occ.get("visa_pathways") or {}).get("pathway_lists") or occ.get("pathway_lists") or []
+    pls = (occ.get("visa_pathways") or {}).get("pathway_lists") or []
     out: List[str] = []
     if isinstance(pls, list):
         for entry in pls:
@@ -175,54 +170,30 @@ def _verification_tone(days: Optional[int]) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 async def _load_occupation_for_ssg(cc: str, code: str) -> Optional[Dict[str, Any]]:
     cc = (cc or "").upper()
-    code_str = str(code).strip()
-    if cc in {"AU", "NZ"} and not re.match(r"^\d{6}$", code_str):
-        return None
-    if cc == "CA" and not re.match(r"^\d{5}$", code_str):
-        return None
-
     doc = await db["occupation_master"].find_one(
-        {"country_code": cc, "code": code_str, "status": {"$in": ["verified", "draft"]}},
+        {"country_code": cc, "code": str(code), "status": "verified"},
         {"_id": 0},
     )
-    if doc and cc == "AU" and len(code_str) == 6:
-        code_4 = code_str[:4]
-        parent = await db["anzsco_4digit_master"].find_one({"code": code_4}, {"_id": 0})
-        if parent:
-            if not doc.get("typical_tasks") and parent.get("tasks"):
-                doc["typical_tasks"] = parent["tasks"]
-            if not doc.get("state_distribution") and parent.get("state_distribution"):
-                doc["state_distribution"] = parent["state_distribution"]
-            if not doc.get("industries_ranked") and parent.get("industries_ranked"):
-                doc["industries_ranked"] = parent["industries_ranked"]
-            p_jsa = parent.get("jsa_data")
-            if p_jsa:
-                cur_jsa = doc.get("jsa_data") or {}
-                emp_curr = (doc.get("abs_labour_market") or {}).get("employed_count")
-                growth_pct = cur_jsa.get("growth_pct_2025_to_2035") if cur_jsa.get("growth_pct_2025_to_2035") is not None else p_jsa.get("growth_pct_2025_to_2035")
-                growth_pct = float(growth_pct) if growth_pct is not None else 0.0
-                future_growth = cur_jsa.get("future_growth") or p_jsa.get("future_growth") or "Stable / Low Growth"
-
-                if emp_curr and isinstance(emp_curr, (int, float)) and emp_curr > 0:
-                    proj_30 = round(emp_curr * (1 + (growth_pct / 100) * 0.5))
-                    proj_35 = round(emp_curr * (1 + (growth_pct / 100)))
-                    doc["jsa_data"] = {
-                        **(p_jsa or {}),
-                        **cur_jsa,
-                        "future_growth": future_growth,
-                        "growth_pct_2025_to_2035": growth_pct,
-                        "employment_2025": int(emp_curr),
-                        "projected_employment_2030": proj_30,
-                        "projected_employment_2035": proj_35,
-                        "_parent_inherited": True,
-                        "_anzsco_4digit_source": code_4
-                    }
-                elif not cur_jsa.get("projected_employment_2030") or not cur_jsa.get("future_growth"):
-                    doc["jsa_data"] = {
-                        **p_jsa,
-                        "_parent_inherited": True,
-                        "_anzsco_4digit_source": code_4
-                    }
+    if not doc and cc == "AU" and len(str(code)) == 4:
+        unit = await db["anzsco_4digit_master"].find_one({"code": str(code)}, {"_id": 0})
+        if unit:
+            children = await db["occupation_master"].find(
+                {"country_code": "AU", "code": {"$regex": f"^{code}"}},
+                {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1, "pathway_list": 1, "recommended_visa_subclass": 1}
+            ).to_list(20)
+            aa = {}
+            for ch in children:
+                if ch.get("assessing_authority"):
+                    aa = ch["assessing_authority"]
+                    break
+            unit["country_code"] = "AU"
+            unit["status"] = "verified"
+            unit["assessing_authority"] = aa
+            unit["similar_codes"] = [{"code": ch["code"], "title": ch["title"]} for ch in children]
+            unit["child_occupations"] = children
+            unit["pathway_list"] = "MLTSSL / STSOL"
+            unit["recommended_visa_subclass"] = {"AU": "190"}
+            return unit
     return doc
 
 
@@ -292,11 +263,12 @@ def _build_faqpage_jsonld(faqs: List[Dict[str, str]]) -> Optional[Dict[str, Any]
 
 
 def _build_seo_dict(occ: Dict[str, Any], country: Dict[str, str], page_url: str) -> Dict[str, Any]:
-    """Phase 19.5 & Unified SEO — builds full SEO attributes incorporating custom seo_meta overrides.
+    """Phase 19.5 — use the data-rich `_build_meta_description` from public_atlas.
 
     Both `meta_description` (SERP) and `og_description` (social cards) share the
     same dynamic, data-driven string so the SERP snippet and the social preview
-    stay in lockstep unless overridden by admin.
+    stay in lockstep. The legacy raw `description` field is no longer used for
+    SEO; it remains on the rendered page body for human readers.
     """
     from routers.public_atlas import _build_meta_description  # avoid circular
     title_short = occ.get("title") or "Occupation"
@@ -304,36 +276,12 @@ def _build_seo_dict(occ: Dict[str, Any], country: Dict[str, str], page_url: str)
     cc = (occ.get("country_code") or country.get("name", "")).upper()[:2]
     dynamic_desc = _build_meta_description(cc, occ, str(code), title_short, country["name"])
 
-    custom_seo = occ.get("seo_meta") or {}
-    page_title = str(custom_seo.get("meta_title") or custom_seo.get("page_title") or f"{title_short} ({country['classification']} {code}) — {country['name']} Migration Pathway | LEAMSS").strip()
-    meta_description = str(custom_seo.get("meta_description") or dynamic_desc).strip()
-    og_title = str(custom_seo.get("og_title") or page_title).strip()
-    og_description = str(custom_seo.get("og_description") or meta_description).strip()
-    canonical_url = str(custom_seo.get("canonical_url") or page_url).strip()
-    meta_robots = str(custom_seo.get("meta_robots") or custom_seo.get("robots") or "index, follow, max-image-preview:large, max-snippet:-1").strip()
-    og_image = str(custom_seo.get("og_image") or "/leamss-logo.png").strip()
-    twitter_card = str(custom_seo.get("twitter_card") or "summary_large_image").strip()
-    twitter_title = str(custom_seo.get("twitter_title") or og_title).strip()
-    twitter_description = str(custom_seo.get("twitter_description") or og_description).strip()
-    twitter_image = str(custom_seo.get("twitter_image") or og_image).strip()
-    og_locale = str(custom_seo.get("og_locale") or ("en_AU" if cc == "AU" else "en_CA" if cc == "CA" else "en_NZ" if cc == "NZ" else "en_IN")).strip()
-    keywords = str(custom_seo.get("keywords") or "").strip()
-
     return {
-        "page_title": page_title,
-        "meta_title": page_title,
-        "meta_description": meta_description,
-        "og_title": og_title,
-        "og_description": og_description,
-        "canonical_url": canonical_url,
-        "meta_robots": meta_robots,
-        "og_image": og_image,
-        "twitter_card": twitter_card,
-        "twitter_title": twitter_title,
-        "twitter_description": twitter_description,
-        "twitter_image": twitter_image,
-        "og_locale": og_locale,
-        "keywords": keywords,
+        "page_title": f"{title_short} ({country['classification']} {code}) — {country['name']} Migration Pathway | LEAMSS",
+        "meta_description": dynamic_desc,
+        "og_title": f"{title_short} — {country['name']} Migration Pathway",
+        "og_description": dynamic_desc,
+        "canonical_url": page_url,
     }
 
 
@@ -350,21 +298,10 @@ def _generate_faqs(occ: Dict[str, Any], country: Dict[str, str]) -> List[Dict[st
     pt = (occ.get("assessing_authority") or {}).get("processing_time_weeks")
 
     out: List[Dict[str, str]] = []
-    q1 = f"How long does {country['classification']} {code} assessment take?"
-    a1 = f"{aa} typically processes {title} assessments in {pt or '8–16'} weeks once all documents are submitted."
-    out.append({"q": q1, "question": q1, "a": a1, "answer": a1})
-
-    q2 = f"Which visa is recommended for {title} in {country['name']}?"
-    a2 = f"The recommended visa subclass for {title} in {country['name']} is {rec_visa}." if rec_visa else "Multiple visa pathways are available depending on points score, age, and English ability."
-    out.append({"q": q2, "question": q2, "a": a2, "answer": a2})
-
-    q3 = f"What documents are required for {title}?"
-    a3 = f"Identity proof, qualifications (degree + transcripts), employment evidence (references + payslips), English test, and {aa}-specific forms. LEAMSS provides a personalised checklist."
-    out.append({"q": q3, "question": q3, "a": a3, "answer": a3})
-
-    q4 = f"Is {title} on the skilled occupation list?"
-    a4 = f"{title} ({code}) is currently a verified occupation on the {country['name']} skilled migration atlas as of the date shown above."
-    out.append({"q": q4, "question": q4, "a": a4, "answer": a4})
+    out.append({"question": f"How long does {country['classification']} {code} assessment take?", "answer": f"{aa} typically processes {title} assessments in {pt or '8–16'} weeks once all documents are submitted."})
+    out.append({"question": f"Which visa is recommended for {title} in {country['name']}?", "answer": (f"The recommended visa subclass for {title} in {country['name']} is {rec_visa}." if rec_visa else f"Multiple visa pathways are available depending on points score, age, and English ability.")})
+    out.append({"question": f"What documents are required for {title}?", "answer": f"Identity proof, qualifications (degree + transcripts), employment evidence (references + payslips), English test, and {aa}-specific forms. LEAMSS provides a personalised checklist."})
+    out.append({"question": f"Is {title} on the skilled occupation list?", "answer": f"{title} ({code}) is currently a verified occupation on the {country['name']} skilled migration atlas as of the date shown above."})
     return out
 
 
@@ -450,8 +387,7 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
         ).limit(6):
             similar.append(s)
 
-    raw_faqs = occ.get("faqs")
-    faqs = raw_faqs if (raw_faqs and isinstance(raw_faqs, list) and len(raw_faqs) > 0) else _generate_faqs(occ, country)
+    faqs = _generate_faqs(occ, country)
     jsonld = _build_occupation_jsonld(occ, country, base, page_url)
     faq_jsonld = _build_faqpage_jsonld(faqs)
 
@@ -463,52 +399,13 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
     visa_pathway_chips = _build_visa_pathway_chips(occ, rec_visa)
     pathway_list_pills = _pathway_list_pills(occ)
 
-    # Phase 19.4c — Top 5 SA4 regions matched to occupation's hiring states (or admin override)
+    # Phase 19.4c — Top 5 SA4 regions with "Strong" rating (AU only, country-wide)
     strong_regions: List[Dict[str, Any]] = []
     if cc == "AU":
-        custom_regions = occ.get("strong_regions")
-        if custom_regions and isinstance(custom_regions, list) and len(custom_regions) > 0:
-            for item in custom_regions:
-                if isinstance(item, dict):
-                    strong_regions.append(item)
-                elif isinstance(item, str):
-                    parts = item.split("·") if "·" in item else item.split("(")
-                    reg_name = parts[0].strip()
-                    st = parts[1].replace(")", "").strip() if len(parts) > 1 else "AU"
-                    strong_regions.append({"region_name": reg_name, "state": st})
-        else:
-            all_regions = await db["regional_labour_market"].find({}, {"_id": 0}).to_list(100)
-            state_dist = occ.get("state_distribution") or {}
-            sorted_states = sorted(
-                [(st, pct) for st, pct in state_dist.items() if pct and pct > 0],
-                key=lambda x: x[1],
-                reverse=True
-            )
-            target_states = [st for st, _ in sorted_states[:3]] if sorted_states else ["NSW", "VIC", "QLD"]
-            
-            primary_ind = (occ.get("industries_ranked") or [""])[0].lower()
-            is_regional_occ = any(kw in primary_ind for kw in ["agri", "farm", "crop", "mining", "forest", "fish"]) or occ.get("pathway_list") == "ROL"
-
-            matched = []
-            if is_regional_occ:
-                matched = [
-                    r for r in all_regions
-                    if r.get("state") in target_states
-                    and not any(r.get("sa4_name", "").startswith(m) for m in ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide"])
-                    and r.get("rating") in ("Strong", "Above average", "Average")
-                ]
-            else:
-                matched = [
-                    r for r in all_regions
-                    if r.get("state") in target_states
-                    and r.get("rating") in ("Strong", "Above average")
-                ]
-
-            if not matched:
-                matched = [r for r in all_regions if r.get("rating") == "Strong"]
-
-            matched.sort(key=lambda x: (x.get("indicators") or {}).get("unemployment_rate_pct", 99))
-            strong_regions = matched[:5]
+        async for r in db["regional_labour_market"].find(
+            {"rating": "Strong"}, {"_id": 0}
+        ).limit(5):
+            strong_regions.append(r)
 
     # Phase 19.4c — Industry name → slug map for cross-linking from top_industries chips
     # Phase 19.4c — Industry name → slug map
@@ -680,71 +577,6 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
                 "subclass": subclass,
             })
 
-    if cc == "CA":
-        jurisdiction_codes = ["ON", "BC", "AB", "SK", "MB", "NS", "NB", "PE", "NL"]
-        default_states = {"ON": 38.5, "BC": 14.5, "AB": 11.8, "MB": 3.6, "SK": 3.1, "NS": 2.8, "NB": 2.1, "NL": 1.3, "PE": 0.3}
-    elif cc == "NZ":
-        jurisdiction_codes = ["AKL", "WGN", "CAN", "WKO", "BOP", "OTA", "MWT", "HKB"]
-        default_states = {"AKL": 35.2, "CAN": 14.8, "WGN": 12.5, "WKO": 9.2, "BOP": 6.4, "OTA": 5.1, "MWT": 4.5, "HKB": 3.8}
-    else:
-        jurisdiction_codes = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"]
-        default_states = {"NSW": 31.1, "VIC": 28.0, "QLD": 19.0, "WA": 11.2, "SA": 6.0, "TAS": 1.9, "NT": 1.7, "ACT": 1.2}
-
-    states = occ.get("state_distribution") or (occ.get("jsa_data") or {}).get("state_distribution")
-    if not states or not any(states.values()):
-        states = default_states
-
-    jsa_ratings = {}
-    for st_code in jurisdiction_codes:
-        r = (ste.get(st_code) or {}).get("rating") or state_ratings.get(st_code) or "NS"
-        jsa_ratings[st_code] = r
-
-    if not occ.get("demand_rationale"):
-        occ_title = occ.get("title") or "This occupation"
-        occ_aa = occ.get("assessing_authority") or {}
-        if cc == "CA":
-            occ["demand_rationale"] = (
-                f"{occ_title} is classified under NOC {code} for Canadian skilled migration. "
-                f"Eligible for Educational Credential Assessment (ECA) through designated authorities like {occ_aa.get('name', 'WES Canada')} "
-                f"for Express Entry (FSWP / CEC) and high-priority Provincial Nominee Program (PNP) streams."
-            )
-        elif cc == "NZ":
-            occ["demand_rationale"] = (
-                f"{occ_title} is classified under ANZSCO {code} for New Zealand skilled immigration. "
-                f"Assessed under Immigration New Zealand instructions for the Accredited Employer Work Visa (AEWV) "
-                f"and Skilled Migrant Category (SMC) 6-point residence pathway."
-            )
-        else:
-            nat_short = occ.get("national_shortage_status") or "No National Shortage (NS)"
-            pathway = occ.get("pathway_list") or "State Nominated / Employer Sponsored (STSOL)"
-            top_ind = (occ.get("industries_ranked") or ["relevant industries"])[0]
-            top_st = sorted(
-                [(k, v) for k, v in (occ.get("state_distribution") or {}).items() if v],
-                key=lambda x: x[1],
-                reverse=True
-            )
-            st_name = f"with primary employment in {top_st[0][0]} ({top_st[0][1]}%)" if top_st else ""
-            occ["demand_rationale"] = (
-                f"{occ_title} is classified under ANZSCO {code} within the {top_ind} industry sector {st_name}. "
-                f"Assessed by {occ_aa.get('name', 'designated authority')} under {pathway} and Core Skills migration streams."
-            )
-
-    migroto_live = None
-    if cc == "AU":
-        try:
-            from services.migroto_service import migroto_service
-            details = await migroto_service.get_occupation_details(code)
-            if details.get("status") == "success":
-                migroto_live = details.get("data")
-        except Exception:
-            pass
-    if migroto_live and occ.get("invitation_rounds"):
-        migroto_live["invitations"] = {
-            **(migroto_live.get("invitations") or {}),
-            "data": occ.get("invitation_rounds"),
-        }
-    occ["migroto_live"] = migroto_live
-
     tmpl = _env.get_template("atlas_occupation_ssr.html")
     return tmpl.render(
         occ=occ,
@@ -771,8 +603,6 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
         strong_regions=strong_regions,
         industry_slug_map=industry_slug_map,
         top_states=top_states,
-        states=states,
-        jsa_ratings=jsa_ratings,
         migroto_live=migroto_live,
         total_189=total_189,
         total_190=total_190,
@@ -794,9 +624,8 @@ async def render_country_index_html(country_code: str) -> str:
     page_url = f"{base}/atlas/{cc.lower()}"
 
     top: List[Dict[str, Any]] = []
-    code_regex = "^[0-9]{6}$" if cc in {"AU", "NZ"} else "^[0-9]{5}$"
     async for o in db["occupation_master"].find(
-        {"country_code": cc, "status": "verified", "code": {"$regex": code_regex}},
+        {"country_code": cc, "status": "verified"},
         {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1,
          "recommended_visa_subclass": 1, "anzsco_major_group_code": 1,
          "skill_level": 1, "teer_category": 1,
@@ -823,7 +652,10 @@ async def render_country_index_html(country_code: str) -> str:
             o["salary_chip"] = None
         o["growth_chip"] = jsa_d.get("future_growth") if jsa_d.get("future_growth") not in (None, "Unknown") else None
         top.append(o)
-    total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified", "code": {"$regex": code_regex}})
+    if cc == "AU":
+        total = (await db["occupation_master"].count_documents({"country_code": cc, "status": {"$ne": "superseded"}})) or 1070
+    else:
+        total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
     skill_breakdown = await _skill_level_breakdown(cc)
 
     # Phase 19.4c — latest Vacancy Report (AU only) for the trust chip
@@ -873,8 +705,10 @@ async def render_atlas_hub_html() -> str:
 
     countries = []
     for cc in ("AU", "CA", "NZ"):
-        code_regex = "^[0-9]{6}$" if cc in {"AU", "NZ"} else "^[0-9]{5}$"
-        n = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified", "code": {"$regex": code_regex}})
+        if cc == "AU":
+            n = (await db["occupation_master"].count_documents({"country_code": cc, "status": {"$ne": "superseded"}})) or 1070
+        else:
+            n = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
         meta = _country_meta(cc)
         skill_breakdown = await _skill_level_breakdown(cc)
         countries.append({
@@ -1096,13 +930,7 @@ async def prune_unverified_files() -> Dict[str, Any]:
         return {"deleted": 0}
     verified_codes: set = set()
     async for d in db["occupation_master"].find({"status": "verified"}, {"_id": 0, "country_code": 1, "code": 1}):
-        cc_val = str(d.get("country_code", "")).lower()
-        code_val = str(d.get("code", "")).strip()
-        if cc_val in {"au", "nz"} and not re.match(r"^\d{6}$", code_val):
-            continue
-        if cc_val == "ca" and not re.match(r"^\d{5}$", code_val):
-            continue
-        verified_codes.add((cc_val, code_val))
+        verified_codes.add((str(d.get("country_code", "")).lower(), str(d.get("code", ""))))
     deleted = 0
     # Phase 19.4c — whitelist non-ANZSCO subdirectories (e.g. /atlas/au/industry/)
     NON_ANZSCO_DIRS = {"industry", "state"}
@@ -1139,12 +967,8 @@ async def regenerate_sitemap() -> Dict[str, Any]:
         {"_id": 0, "country_code": 1, "code": 1, "updated_at": 1},
     ).sort("country_code", 1):
         cc = (d.get("country_code") or "").lower()
-        code = str(d.get("code") or "").strip()
+        code = d.get("code")
         if not cc or not code:
-            continue
-        if cc in {"au", "nz"} and not re.match(r"^\d{6}$", code):
-            continue
-        if cc == "ca" and not re.match(r"^\d{5}$", code):
             continue
         lastmod = d.get("updated_at")
         if hasattr(lastmod, "strftime"):
@@ -1206,21 +1030,17 @@ async def regenerate_all() -> Dict[str, Any]:
             await regenerate_country_index(cc)
         except Exception as e:  # noqa: BLE001
             errors.append({"path": f"/atlas/{cc}", "error": str(e)[:200]})
-    # 3. All verified and active occupations across AU, CA, NZ
+    # 3. All verified occupations
     async for d in db["occupation_master"].find(
-        {"status": {"$in": ["verified", "draft"]}},
+        {"status": "verified"},
         {"_id": 0, "country_code": 1, "code": 1},
     ):
         try:
             cc = d.get("country_code")
-            code = str(d.get("code") or "").strip()
+            code = d.get("code")
             if not cc or not code:
                 continue
-            if cc in {"AU", "NZ"} and not re.match(r"^\d{6}$", code):
-                continue
-            if cc == "CA" and not re.match(r"^\d{5}$", code):
-                continue
-            r = await regenerate_one(cc, code)
+            r = await regenerate_one(cc, str(code))
             if r:
                 written += 1
         except Exception as e:  # noqa: BLE001
