@@ -1622,14 +1622,27 @@ async def update_lead(lead_id: str, data: dict = Body(...), current_user: dict =
         if raw_assign in ["unassigned", "none", "", None]:
             data["assigned_to"] = None
             data["assigned_to_name"] = None
+            data["assigned_to_email"] = None
             data["assigned_at"] = None
             data["assigned_by"] = None
             data["assigned_by_name"] = None
+            data["assigned_sales_rep_id"] = None
+            data["assigned_sales_person_id"] = None
+            data["sales_person_id"] = None
+            data["assigned_sales_person_name"] = None
+            data["sales_person_name"] = None
         else:
             data["assigned_to"] = str(raw_assign).strip()
-            u = await users_col.find_one({"id": data["assigned_to"]}, {"_id": 0, "name": 1})
+            u = await users_col.find_one({"id": data["assigned_to"]}, {"_id": 0, "name": 1, "email": 1})
             if u:
                 data["assigned_to_name"] = u.get("name", "")
+                if u.get("email"):
+                    data["assigned_to_email"] = str(u.get("email")).strip().lower()
+            data["assigned_sales_rep_id"] = data["assigned_to"]
+            data["assigned_sales_person_id"] = data["assigned_to"]
+            data["sales_person_id"] = data["assigned_to"]
+            data["assigned_sales_person_name"] = data.get("assigned_to_name")
+            data["sales_person_name"] = data.get("assigned_to_name")
 
             if data["assigned_to"] != lead.get("assigned_to"):
                 now_assign = datetime.now(timezone.utc)

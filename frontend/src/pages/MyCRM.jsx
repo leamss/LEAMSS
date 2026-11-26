@@ -1116,17 +1116,67 @@ export default function MyCRM() {
         }
       }
 
-      // Fetch users for assignment/handover
-      const usersRes = await axios.get(`${API}/users/`, getAuthHeader()).catch(() => ({ data: [] }));
+      // Fetch users and sales reps for assignment/handover
+      const [usersRes, repsOverviewRes] = await Promise.all([
+        axios.get(`${API}/users/`, getAuthHeader()).catch(() => ({ data: [] })),
+        axios.get(`${API}/crm/sales-reps/overview`, getAuthHeader()).catch(() => ({ data: [] }))
+      ]);
+
+      const repMap = new Map();
+
+      // 1. Add all from /crm/sales-reps/overview (powers Internal & External Salespersons screens)
+      if (Array.isArray(repsOverviewRes.data)) {
+        repsOverviewRes.data.forEach(r => {
+          if (r && r.id) {
+            repMap.set(String(r.id), {
+              id: String(r.id),
+              name: r.name || r.email || 'Salesperson',
+              email: r.email || '',
+              role: r.role || r.role_label || 'salesperson',
+              salesperson_type: r.salesperson_type || (r.is_external ? 'external' : 'internal')
+            });
+          }
+        });
+      }
+
+      // 2. Add/merge from /users/ with comprehensive sales role matching
       if (Array.isArray(usersRes.data)) {
         setCaseManagers(usersRes.data.filter(u => u.role === 'case_manager' || u.rbac_role === 'case_manager'));
-        setSalesReps(usersRes.data.filter(u => {
-          const r = (u.role || '').toLowerCase();
-          const rbac = (u.rbac_role || '').toLowerCase();
-          const salesRoles = ['partner', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_specialist', 'sales_rep', 'admin', 'admin_owner'];
-          return salesRoles.includes(r) || salesRoles.includes(rbac);
-        }));
+        usersRes.data.forEach(u => {
+          if (!u || !u.id || u.role === 'client' || u.user_type === 'client') return;
+          const r = String(u.role || '').toLowerCase().trim();
+          const rbac = String(u.rbac_role || '').toLowerCase().trim();
+          const dept = String(u.department || '').toLowerCase().trim();
+          const desig = String(u.designation || '').toLowerCase().trim();
+          const isSales = (
+            r.includes('sales') ||
+            rbac.includes('sales') ||
+            r.includes('partner') ||
+            rbac.includes('partner') ||
+            r.includes('admin') ||
+            rbac.includes('admin') ||
+            dept === 'sales' ||
+            desig.includes('sales') ||
+            u.user_type === 'external' ||
+            ['partner', 'external_partner', 'external_salesperson', 'sales_executive', 'sr_sales_executive', 'senior_sales_executive', 'sales_manager', 'sales_specialist', 'sales_rep', 'sales_person', 'salesperson', 'sales', 'sales_head', 'internal_salesperson', 'sales_consultant', 'sales_agent', 'admin', 'admin_owner', 'super_admin'].includes(r) ||
+            ['partner', 'external_partner', 'external_salesperson', 'sales_executive', 'sr_sales_executive', 'senior_sales_executive', 'sales_manager', 'sales_specialist', 'sales_rep', 'sales_person', 'salesperson', 'sales', 'sales_head', 'internal_salesperson', 'sales_consultant', 'sales_agent', 'admin', 'admin_owner', 'super_admin'].includes(rbac)
+          );
+          if (isSales) {
+            const uid = String(u.id);
+            if (!repMap.has(uid)) {
+              repMap.set(uid, {
+                id: uid,
+                name: u.name || u.email || 'Salesperson',
+                email: u.email || '',
+                role: u.role || u.rbac_role || 'salesperson',
+                salesperson_type: (u.role === 'partner' || u.user_type === 'external') ? 'external' : 'internal'
+              });
+            }
+          }
+        });
       }
+
+      setSalesReps(Array.from(repMap.values()));
     } catch (err) {
       console.error('Error fetching CRM data:', err);
     } finally {

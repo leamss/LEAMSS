@@ -262,19 +262,55 @@ export default function WebsiteLeadsOverview({
   // Fetch sales reps if not provided
   useEffect(() => {
     if (!salesReps || salesReps.length === 0) {
-      axios.get(`${API}/users/`, getAuthHeader())
-        .then(res => {
-          if (Array.isArray(res.data)) {
-            const reps = res.data.filter(u => {
-              const r = (u.role || '').toLowerCase();
-              const rbac = (u.rbac_role || '').toLowerCase();
-              const salesRoles = ['partner', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_specialist', 'sales_rep', 'admin', 'admin_owner'];
-              return salesRoles.includes(r) || salesRoles.includes(rbac);
-            });
-            setAllSalesReps(reps);
-          }
-        })
-        .catch(err => console.error('Failed to fetch sales reps for website leads:', err));
+      Promise.all([
+        axios.get(`${API}/users/`, getAuthHeader()).catch(() => ({ data: [] })),
+        axios.get(`${API}/crm/sales-reps/overview`, getAuthHeader()).catch(() => ({ data: [] }))
+      ]).then(([usersRes, repsOverviewRes]) => {
+        const repMap = new Map();
+        if (Array.isArray(repsOverviewRes.data)) {
+          repsOverviewRes.data.forEach(r => {
+            if (r && r.id) {
+              repMap.set(String(r.id), {
+                id: String(r.id),
+                name: r.name || r.email || 'Salesperson',
+                email: r.email || '',
+                role: r.role || r.role_label || 'salesperson',
+                salesperson_type: r.salesperson_type || (r.is_external ? 'external' : 'internal')
+              });
+            }
+          });
+        }
+        if (Array.isArray(usersRes.data)) {
+          usersRes.data.forEach(u => {
+            if (!u || !u.id || u.role === 'client' || u.user_type === 'client') return;
+            const r = String(u.role || '').toLowerCase().trim();
+            const rbac = String(u.rbac_role || '').toLowerCase().trim();
+            const dept = String(u.department || '').toLowerCase().trim();
+            const desig = String(u.designation || '').toLowerCase().trim();
+            const isSales = (
+              r.includes('sales') ||
+              rbac.includes('sales') ||
+              r.includes('partner') ||
+              rbac.includes('partner') ||
+              r.includes('admin') ||
+              rbac.includes('admin') ||
+              dept === 'sales' ||
+              desig.includes('sales') ||
+              u.user_type === 'external'
+            );
+            if (isSales && !repMap.has(String(u.id))) {
+              repMap.set(String(u.id), {
+                id: String(u.id),
+                name: u.name || u.email || 'Salesperson',
+                email: u.email || '',
+                role: u.role || u.rbac_role || 'salesperson',
+                salesperson_type: (u.role === 'partner' || u.user_type === 'external') ? 'external' : 'internal'
+              });
+            }
+          });
+        }
+        setAllSalesReps(Array.from(repMap.values()));
+      }).catch(err => console.error('Failed to fetch sales reps for website leads:', err));
     } else {
       setAllSalesReps(salesReps);
     }
