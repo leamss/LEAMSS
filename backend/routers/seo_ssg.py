@@ -86,11 +86,18 @@ def _hero_image(cc: str) -> str:
 # Phase 19.1a — Per-country skill-level breakdown (for hub + country pages).
 async def _skill_level_breakdown(cc: str) -> List[Dict[str, Any]]:
     cc = (cc or "").upper()
+    from routers.public_atlas import AU_1070_CODES
     match_criteria: Dict[str, Any] = {"country_code": cc, "status": "verified", "skill_level": {"$nin": [None, ""]}}
-    if cc in {"AU", "NZ"}:
+    if cc == "AU":
+        if AU_1070_CODES:
+            match_criteria["code"] = {"$in": AU_1070_CODES}
+        else:
+            match_criteria["code"] = {"$regex": r"^\d{6}$"}
+    elif cc == "NZ":
         match_criteria["code"] = {"$regex": r"^\d{6}$"}
     elif cc == "CA":
         match_criteria["code"] = {"$regex": r"^\d{5}$"}
+
 
     pipeline = [
         {"$match": match_criteria},
@@ -630,8 +637,14 @@ async def render_country_index_html(country_code: str) -> str:
     base = _public_base()
     page_url = f"{base}/atlas/{cc.lower()}"
 
+    from routers.public_atlas import AU_1070_CODES
     index_match: Dict[str, Any] = {"country_code": cc, "status": "verified"}
-    if cc in {"AU", "NZ"}:
+    if cc == "AU":
+        if AU_1070_CODES:
+            index_match["code"] = {"$in": AU_1070_CODES}
+        else:
+            index_match["code"] = {"$regex": r"^\d{6}$"}
+    elif cc == "NZ":
         index_match["code"] = {"$regex": r"^\d{6}$"}
     elif cc == "CA":
         index_match["code"] = {"$regex": r"^\d{5}$"}
@@ -665,10 +678,13 @@ async def render_country_index_html(country_code: str) -> str:
             o["salary_chip"] = None
         o["growth_chip"] = jsa_d.get("future_growth") if jsa_d.get("future_growth") not in (None, "Unknown") else None
         top.append(o)
-    if cc in {"AU", "NZ"}:
-        total = (await db["occupation_master"].count_documents({"country_code": cc, "status": {"$ne": "superseded"}, "code": {"$regex": r"^\d{6}$"}})) or (1070 if cc == "AU" else 243)
+    if cc == "AU":
+        total = 1070
+    elif cc == "NZ":
+        total = (await db["occupation_master"].count_documents({"country_code": cc, "status": {"$ne": "superseded"}, "code": {"$regex": r"^\d{6}$"}})) or 243
     else:
         total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified", "code": {"$regex": r"^\d{5}$"}})
+
 
     skill_breakdown = await _skill_level_breakdown(cc)
 

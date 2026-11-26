@@ -73,7 +73,31 @@ def _public_site_url() -> str:
     return base
 
 
+def _load_au_1070_codes() -> List[str]:
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "data", "au_1070_codes.json"),
+        os.path.join(os.getcwd(), "data", "au_1070_codes.json"),
+        os.path.join(os.getcwd(), "backend", "data", "au_1070_codes.json"),
+        "/app/data/au_1070_codes.json",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            try:
+                import json
+                with open(c, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list) and len(data) == 1070:
+                        return data
+            except Exception:
+                pass
+    return []
+
+
+AU_1070_CODES: List[str] = _load_au_1070_codes()
+
+
 # ─── Helpers ────────────────────────────────────────────────────────────────
+
 def _safe_doc(d: Dict[str, Any]) -> Dict[str, Any]:
     """Strip MongoDB internals + verification metadata before exposing publicly."""
     d = dict(d)
@@ -738,10 +762,16 @@ async def typeahead_country(
         "status": "verified",
         "$and": token_filters,
     }
-    if country in {"AU", "NZ"}:
+    if country == "AU":
+        if AU_1070_CODES:
+            match["code"] = {"$in": AU_1070_CODES}
+        else:
+            match["code"] = {"$regex": r"^\d{6}$"}
+    elif country == "NZ":
         match["code"] = {"$regex": r"^\d{6}$"}
     elif country == "CA":
         match["code"] = {"$regex": r"^\d{5}$"}
+
 
 
     proj = {
@@ -791,10 +821,11 @@ async def get_featured():
     return {
         "items": items,
         "countries": [
-            {"code": "AU", **_country_meta("AU"), "total": (await db["occupation_master"].count_documents({"country_code": "AU", "status": {"$ne": "superseded"}, "code": {"$regex": r"^\d{6}$"}})) or 1070},
+            {"code": "AU", **_country_meta("AU"), "total": 1070},
             {"code": "CA", **_country_meta("CA"), "total": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified", "code": {"$regex": r"^\d{5}$"}})},
             {"code": "NZ", **_country_meta("NZ"), "total": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified", "code": {"$regex": r"^\d{6}$"}})},
         ],
+
 
         "seo": {
             "page_title": "Migration Atlas — Australia, Canada & New Zealand Occupation Guide | LEAMSS",
@@ -884,10 +915,16 @@ async def list_country(
         raise HTTPException(404, "Unknown country")
 
     match: Dict[str, Any] = {"country_code": country}
-    if country in {"AU", "NZ"}:
+    if country == "AU":
+        if AU_1070_CODES:
+            match["code"] = {"$in": AU_1070_CODES}
+        else:
+            match["code"] = {"$regex": r"^\d{6}$"}
+    elif country == "NZ":
         match["code"] = {"$regex": r"^\d{6}$"}
     elif country == "CA":
         match["code"] = {"$regex": r"^\d{5}$"}
+
 
     if verified_only:
         match["status"] = {"$in": ["verified", "published", "active", "draft"]}
