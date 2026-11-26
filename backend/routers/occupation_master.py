@@ -18,6 +18,8 @@ Endpoints:
   PATCH  /api/occupation-master/{id}/custom-sections/{sec_id}  — update custom section
   DELETE /api/occupation-master/{id}/custom-sections/{sec_id}  — remove custom section
 """
+import os
+import json
 import uuid
 import re
 from datetime import datetime, timezone
@@ -34,6 +36,27 @@ router = APIRouter(prefix="/occupation-master", tags=["occupation-master"])
 
 OCCUPATION_MASTER = db["occupation_master"]
 SKILL_BODY_MASTER = db["skill_body_master"]
+
+def _load_au_1236_codes() -> List[str]:
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "data", "au_1236_codes.json"),
+        os.path.join(os.getcwd(), "data", "au_1236_codes.json"),
+        os.path.join(os.getcwd(), "backend", "data", "au_1236_codes.json"),
+        "/app/data/au_1236_codes.json",
+        "/home/ubuntu/LEAMSS/backend/data/au_1236_codes.json",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            try:
+                with open(c, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list) and len(data) == 1236:
+                        return data
+            except Exception:
+                pass
+    return []
+
+AU_1236_CODES: List[str] = _load_au_1236_codes()
 
 VALID_STATUSES = {"verified", "draft", "outdated", "superseded"}
 ADMIN_ROLES = {"admin", "admin_owner"}
@@ -314,6 +337,25 @@ async def stats(current_user: dict = Depends(get_current_user)):
         by_country[cc][st] = by_country[cc].get(st, 0) + r["count"]
     pending = by_status["draft"] + by_status["outdated"]
 
+    # Phase 18.1/20261126 - Keep AU stats strictly aligned with official 1,236 ANZSCO codes in admin console
+    if AU_1236_CODES:
+        au_verified = await OCCUPATION_MASTER.count_documents({
+            "country_code": "AU",
+            "status": "verified",
+            "code": {"$in": AU_1236_CODES}
+        })
+        au_draft = await OCCUPATION_MASTER.count_documents({
+            "country_code": "AU",
+            "status": "draft",
+            "code": {"$in": AU_1236_CODES}
+        })
+        au_outdated = await OCCUPATION_MASTER.count_documents({
+            "country_code": "AU",
+            "status": "outdated",
+            "code": {"$in": AU_1236_CODES}
+        })
+        by_country["AU"] = {"verified": au_verified, "draft": au_draft, "outdated": au_outdated}
+
     # Phase 19.6 — split drafts into "raw" (empty body) vs "pending enrichment"
     # (has description OR tasks OR alt titles — admin needs to verify, not enrich).
     # A "raw draft" is the danger-zone bucket from the Phase 19.6 bulk-import bug.
@@ -360,19 +402,12 @@ async def list_occupations(
     skip: int = Query(0, ge=0),
     current_user: dict = Depends(get_current_user),
 ):
-    # If Australia has more than 1,236 codes, auto-purge the legacy duplicates immediately
-    if country and country.upper() == "AU":
-        au_count = await OCCUPATION_MASTER.count_documents({"country_code": "AU"})
-        if au_count > 1236:
-            try:
-                from scripts.populate_all_1236_anzsco import run_population
-                await run_population()
-            except Exception as e:
-                print(f"[WARN] Auto-purge in list_occupations: {e}")
-
     q: dict = {}
     if country:
         q["country_code"] = country.upper()
+        if country.upper() == "AU" and AU_1236_CODES:
+            q["code"] = {"$in": AU_1236_CODES}
+
     _STATUS_WILDCARDS = {"all", "any", "*"}
     if status and status.strip().lower() not in _STATUS_WILDCARDS:
         if status not in VALID_STATUSES:
@@ -381,15 +416,26 @@ async def list_occupations(
     elif status != "superseded":
         # Exclude superseded codes under 'all' and by default
         q["status"] = {"$ne": "superseded"}
+
     if body_id:
         q["assessing_authority.body_id"] = body_id
+
     if search:
         s_esc = re.escape(search.strip())
-        q["$or"] = [
-            {"code": {"$regex": s_esc, "$options": "i"}},
-            {"title": {"$regex": s_esc, "$options": "i"}},
-            {"alternative_titles": {"$regex": s_esc, "$options": "i"}},
-        ]
+        search_cond = {
+            "$or": [
+                {"code": {"$regex": s_esc, "$options": "i"}},
+                {"title": {"$regex": s_esc, "$options": "i"}},
+                {"alternative_titles": {"$regex": s_esc, "$options": "i"}},
+            ]
+        }
+        if "code" in q or "$or" in q or "$and" in q:
+            if "$and" not in q:
+                q["$and"] = []
+            q["$and"].append(search_cond)
+        else:
+            q["$or"] = search_cond["$or"]
+
     cursor = OCCUPATION_MASTER.find(q, {"_id": 0}).sort([("country_code", 1), ("code", 1)]).skip(skip).limit(limit)
     items = [_strip(d) async for d in cursor]
     total = await OCCUPATION_MASTER.count_documents(q)

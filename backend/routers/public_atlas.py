@@ -920,13 +920,18 @@ async def list_country(
             match["code"] = {"$in": AU_1070_CODES}
         else:
             match["code"] = {"$regex": r"^\d{6}$"}
+        if verified_only:
+            match["status"] = "verified"
+        else:
+            match["status"] = {"$ne": "superseded"}
     elif country == "NZ":
         match["code"] = {"$regex": r"^\d{6}$"}
+        if verified_only:
+            match["status"] = {"$in": ["verified", "published", "active", "draft"]}
+        else:
+            match["status"] = {"$ne": "superseded"}
     elif country == "CA":
         match["code"] = {"$regex": r"^\d{5}$"}
-
-
-    if country != "AU":
         if verified_only:
             match["status"] = {"$in": ["verified", "published", "active", "draft"]}
         else:

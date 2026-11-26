@@ -146,8 +146,89 @@ def _find_jsa_profiles_xlsx() -> Optional[str]:
             return os.path.abspath(c)
     return None
 
+def _find_structure_xlsx() -> Optional[str]:
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "data", "anzsco_2021_structure.xlsx"),
+        os.path.join(os.getcwd(), "data", "anzsco_2021_structure.xlsx"),
+        os.path.join(os.getcwd(), "backend", "data", "anzsco_2021_structure.xlsx"),
+        "/app/data/anzsco_2021_structure.xlsx",
+        "/home/ubuntu/LEAMSS/backend/data/anzsco_2021_structure.xlsx",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return os.path.abspath(c)
+    return None
+
+def _load_au_1070_codes() -> List[str]:
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "data", "au_1070_codes.json"),
+        os.path.join(os.getcwd(), "data", "au_1070_codes.json"),
+        os.path.join(os.getcwd(), "backend", "data", "au_1070_codes.json"),
+        "/app/data/au_1070_codes.json",
+        "/home/ubuntu/LEAMSS/backend/data/au_1070_codes.json",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            try:
+                import json
+                with open(c, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list) and len(data) == 1070:
+                        return data
+            except Exception:
+                pass
+    return []
+
+def _parse_table_5_structure(xlsx_path: str) -> Dict[str, Dict[str, Any]]:
+    out = {}
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(xlsx_path, data_only=True)
+        ws = wb["Table 5"]
+        curr_major = ("", "")
+        curr_sub_major = ("", "")
+        curr_minor = ("", "")
+        curr_unit = ("", "")
+        for r in ws.iter_rows(values_only=True):
+            if not r:
+                continue
+            c0 = str(r[0]).strip() if len(r) > 0 and r[0] is not None else ""
+            c1 = str(r[1]).strip() if len(r) > 1 and r[1] is not None else ""
+            c2 = str(r[2]).strip() if len(r) > 2 and r[2] is not None else ""
+            c3 = str(r[3]).strip() if len(r) > 3 and r[3] is not None else ""
+            c4 = str(r[4]).strip() if len(r) > 4 and r[4] is not None else ""
+            c5 = str(r[5]).strip() if len(r) > 5 and r[5] is not None else ""
+            c6 = str(r[6]).strip() if len(r) > 6 and r[6] is not None else ""
+
+            if c0 and c0.isdigit() and len(c0) == 1:
+                curr_major = (c0, c1)
+            if c1 and c1.isdigit() and len(c1) == 2:
+                curr_sub_major = (c1, c2)
+            if c2 and c2.isdigit() and len(c2) == 3:
+                curr_minor = (c2, c3)
+            if c3 and c3.isdigit() and len(c3) == 4:
+                curr_unit = (c3, c4)
+
+            if c4 and c4.isdigit() and len(c4) == 6:
+                out[c4] = {
+                    "code": c4,
+                    "title": c5,
+                    "skill_level": int(c6) if c6.isdigit() else 1,
+                    "major_group": curr_major[0],
+                    "major_name": curr_major[1],
+                    "sub_major_group": curr_sub_major[0],
+                    "sub_major_name": curr_sub_major[1],
+                    "minor_group": curr_minor[0],
+                    "minor_name": curr_minor[1],
+                    "unit_group": curr_unit[0],
+                    "unit_group_name": curr_unit[1],
+                }
+    except Exception as e:
+        print(f"[WARN] Failed to parse Table 5: {e}")
+    return out
+
 async def run_population():
-    print("=== Starting ANZSCO Population of all 1,236 occupations into occupation_master ===")
+    print("=== Starting ANZSCO Population of all 1,236 + 1,070 occupations into occupation_master ===")
     now = datetime.now(timezone.utc)
     
     # 1. Ensure anzsco_4digit_master is populated with all 1,236 records
@@ -177,14 +258,6 @@ async def run_population():
         if c:
             all_1236_codes.add(c)
 
-    # Immediately purge any AU record not part of the official 1,236 ANZSCO dataset
-    if all_1236_codes:
-        del_res = await db["occupation_master"].delete_many(
-            {"country_code": "AU", "code": {"$nin": list(all_1236_codes)}}
-        )
-        if del_res.deleted_count:
-            print(f"Purged {del_res.deleted_count} legacy AU occupations not in official 1,236 ANZSCO dataset.")
-
     # 2. Fetch existing AU occupations in occupation_master
     existing_cursor = db["occupation_master"].find({"country_code": "AU"})
     existing_docs = await existing_cursor.to_list(5000)
@@ -194,6 +267,7 @@ async def run_population():
     inserted_count = 0
     updated_count = 0
     
+    # A. Populate / enrich the 1,236 ANZSCO records
     for item in all_anzsco:
         code = str(item.get("code") or "").strip()
         title = item.get("title") or f"ANZSCO {code}"
@@ -269,6 +343,7 @@ async def run_population():
                 "updated_at": now
             }
             await db["occupation_master"].insert_one(doc)
+            existing_by_code[code] = doc
             inserted_count += 1
         else:
             # Enrich existing record with any missing profile/stats data and ensure verified status
@@ -297,27 +372,107 @@ async def run_population():
                 
             await db["occupation_master"].update_one({"_id": existing["_id"]}, {"$set": update_set})
             updated_count += 1
+
+    # B. Populate any of the 1,070 official ABS occupations that are not yet in occupation_master
+    # (specifically the 234 6-digit occupations that exist in ABS 1,070 but outside JSA 1,236)
+    au_1070_codes = _load_au_1070_codes()
+    struct_path = _find_structure_xlsx()
+    t5_meta = _parse_table_5_structure(struct_path) if struct_path else {}
+    
+    extra_1070_inserted = 0
+    for code_1070 in au_1070_codes:
+        if code_1070 not in existing_by_code:
+            m = t5_meta.get(code_1070, {})
+            title = m.get("title") or f"ANZSCO {code_1070}"
+            skill_level = m.get("skill_level") or _determine_skill_level(code_1070)
+            assessing_auth = _determine_assessing_authority(code_1070, title)
+            visa_pw = _build_visa_pathways(code_1070, skill_level)
+            parent_code = code_1070[:4]
+            parent_doc = existing_by_code.get(parent_code) or {}
             
-    # Purge all legacy/previous AU records not in the official 1,236 ANZSCO dataset
-    # so occupation_master contains ONLY the 1,236 codes (no 1486 codes, no superseded duplicate codes)
-    if all_1236_codes:
+            hierarchy = {
+                "major_group": m.get("major_group") or (code_1070[0] if len(code_1070) >= 1 else ""),
+                "sub_major_group": m.get("sub_major_group") or (code_1070[:2] if len(code_1070) >= 2 else ""),
+                "minor_group": m.get("minor_group") or (code_1070[:3] if len(code_1070) >= 3 else ""),
+                "unit_group": parent_code,
+                "unit_group_name": m.get("unit_group_name") or (parent_doc.get("title") or ""),
+                "four_digit_parent": parent_code
+            }
+            
+            tasks = parent_doc.get("tasks") or parent_doc.get("typical_tasks") or []
+            desc = parent_doc.get("description") or f"Official ANZSCO {code_1070} {title} skilled occupation."
+            anzsco_prof = parent_doc.get("anzsco_profile") or {}
+            ind_ranked = parent_doc.get("industries_ranked") or []
+            state_dist = parent_doc.get("state_distribution") or {}
+            age_prof = parent_doc.get("age_profile") or {}
+            edu_dist = parent_doc.get("education_distribution") or {}
+            abs_data = parent_doc.get("abs_data") or {
+                "median_ft_annual_aud": 85000,
+                "median_weekly_earnings_aud": 1630
+            }
+            jsa_data = parent_doc.get("jsa_data") or {
+                "future_growth": "Moderate",
+                "skill_level": skill_level,
+                "national_shortage": skill_level <= 2,
+                "shortage_rating": "National Shortage" if skill_level <= 2 else "Balanced Market"
+            }
+            
+            doc_1070 = {
+                "occupation_id": f"AU-{code_1070}",
+                "country_code": "AU",
+                "code": code_1070,
+                "title": title,
+                "classification_type": "ANZSCO",
+                "classification_version": "ANZSCO 2021 / 2026",
+                "skill_level": skill_level,
+                "status": "verified",
+                "description": desc,
+                "typical_tasks": tasks,
+                "tasks": tasks,
+                "assessing_authority": assessing_auth,
+                "assessing_body": assessing_auth["code"],
+                "skill_body": assessing_auth["code"],
+                "visa_pathways": visa_pw,
+                "anzsco_profile": anzsco_prof,
+                "industries_ranked": ind_ranked,
+                "state_distribution": state_dist,
+                "age_profile": age_prof,
+                "education_distribution": edu_dist,
+                "hierarchy": hierarchy,
+                "abs_data": abs_data,
+                "jsa_data": jsa_data,
+                "verification": {"is_verified": True, "verified_by": "system_anzsco_sync", "verified_at": now.isoformat()},
+                "created_at": now,
+                "updated_at": now
+            }
+            await db["occupation_master"].insert_one(doc_1070)
+            existing_by_code[code_1070] = doc_1070
+            extra_1070_inserted += 1
+
+    # C. Purge only records that are NEITHER in the official 1,236 ANZSCO list NOR in the official 1,070 ABS list
+    valid_au_codes = set(all_1236_codes) | set(au_1070_codes)
+    if valid_au_codes:
         del_res = await db["occupation_master"].delete_many(
-            {"country_code": "AU", "code": {"$nin": list(all_1236_codes)}}
+            {"country_code": "AU", "code": {"$nin": list(valid_au_codes)}}
         )
         if del_res.deleted_count:
-            print(f"Purged {del_res.deleted_count} legacy AU occupations not in official 1,236 ANZSCO dataset.")
+            print(f"Purged {del_res.deleted_count} legacy AU occupations not in official 1,236 or 1,070 datasets.")
 
-    # Ensure all 1,236 AU ANZSCO occupations are active and verified
+    # D. Ensure all valid AU ANZSCO occupations are active and verified
     await db["occupation_master"].update_many(
-        {"country_code": "AU", "code": {"$in": list(all_1236_codes)}},
+        {"country_code": "AU", "code": {"$in": list(valid_au_codes)}},
         {"$set": {"status": "verified", "updated_at": now}}
     )
 
-    print(f"✔ Completed population: {inserted_count} new occupations inserted, {updated_count} existing occupations updated/verified.")
+    print(f"✔ Completed population: {inserted_count} new 1236 occupations inserted, {extra_1070_inserted} extra 1070 occupations inserted, {updated_count} updated.")
     
-    # Final count check for total AU codes in occupation_master
+    # Final count checks
     total_au_now = await db["occupation_master"].count_documents({"country_code": "AU"})
+    c1070_matched = await db["occupation_master"].count_documents({"country_code": "AU", "code": {"$in": au_1070_codes}}) if au_1070_codes else 0
+    c1236_matched = await db["occupation_master"].count_documents({"country_code": "AU", "code": {"$in": list(all_1236_codes)}}) if all_1236_codes else 0
     print(f"✔ Total AU occupations in occupation_master now: {total_au_now}")
+    print(f"✔ Total AU occupations matching 1,070 set: {c1070_matched}")
+    print(f"✔ Total AU occupations matching 1,236 set: {c1236_matched}")
 
 if __name__ == "__main__":
     asyncio.run(run_population())

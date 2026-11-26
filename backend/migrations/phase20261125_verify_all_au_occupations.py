@@ -111,13 +111,13 @@ async def run_migration(db: Any) -> Dict[str, Any]:
         }
     )
 
-    # 2. Run full 1,236 ANZSCO population to ensure all 1,236 codes (including 4-digit unit groups)
-    # exist, are verified, and any previous non-1236 codes are purged
+    # 2. Run full 1,236 + 1,070 ANZSCO population to ensure all 1,236 codes (for Admin Console)
+    # and all 1,070 codes (for Public Atlas) exist and are verified
     try:
         from scripts.populate_all_1236_anzsco import run_population
         await run_population()
     except Exception as e:
-        print(f"[Migration WARN] Failed running 1236 population: {e}")
+        print(f"[Migration WARN] Failed running ANZSCO population: {e}")
 
     total_au = await coll.count_documents({"country_code": "AU"})
     verified_au = await coll.count_documents({"country_code": "AU", "status": "verified"})
