@@ -389,17 +389,61 @@ async def sync_from_mysql_database(
 
 
 async def reconcile_navratri_leads() -> Dict[str, Any]:
-    """Scans MongoDB leads collection to ensure all Navratri registrations are correctly tagged, attributed, and indexed."""
+    """Scans MongoDB leads collection to ensure all Navratri registrations are correctly tagged, attributed, and indexed,
+    while guaranteeing website general/popup enquiries retain their 'Website' source and are not marked as Navratri."""
     try:
         from pymongo import UpdateOne
+
+        # 1. Cleanup: Immediately revert any website general/popup leads erroneously attributed to Navratri
+        await leads_col.update_many(
+            {
+                "$or": [
+                    {"tags": {"$in": ["general_enquiry", "popup_enquiry"]}},
+                    {"tags": {"$regex": "mysql_general|mysql_popup"}},
+                    {"notes": {"$regex": "general_enquiries|popup_enquiries"}},
+                ],
+                "source": {"$regex": "navratri", "$options": "i"},
+            },
+            {
+                "$set": {
+                    "source": "Website",
+                    "is_navratri": False,
+                    "updated_at": datetime.now(timezone.utc),
+                },
+                "$pull": {
+                    "tags": "Navratri Offer 2026"
+                }
+            }
+        )
+
+        await leads_col.update_many(
+            {
+                "$or": [
+                    {"tags": {"$in": ["general_enquiry", "popup_enquiry"]}},
+                    {"tags": {"$regex": "mysql_general|mysql_popup"}},
+                    {"notes": {"$regex": "general_enquiries|popup_enquiries"}},
+                ],
+                "service_interested": "Navratri Special Offer",
+            },
+            {
+                "$set": {
+                    "service_interested": "General Migration Consultation",
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            }
+        )
+
+        # 2. Query ONLY genuine Navratri registrations (must not contain website general/popup tags)
         query = {
+            "tags": {
+                "$nin": ["general_enquiry", "popup_enquiry", "atlas", "public_atlas"],
+                "$not": {"$regex": "mysql_general|mysql_popup"}
+            },
             "$or": [
-                {"is_navratri": True},
-                {"source": {"$regex": "navratri|website|staging", "$options": "i"}},
-                {"utm_campaign": {"$regex": "navratri", "$options": "i"}},
-                {"service_interested": {"$regex": "navratri|special offer", "$options": "i"}},
-                {"unique_id": {"$regex": "^NN|[0-9]{6}", "$options": "i"}},
-                {"tags": {"$regex": "navratri|website", "$options": "i"}},
+                {"unique_id": {"$regex": "^NN2427", "$options": "i"}},
+                {"utm_campaign": {"$regex": "^navratri", "$options": "i"}},
+                {"notes": {"$regex": "navratri_registrations", "$options": "i"}},
+                {"is_navratri": True, "source": {"$regex": "navratri", "$options": "i"}},
             ]
         }
         leads = await leads_col.find(
@@ -413,6 +457,12 @@ async def reconcile_navratri_leads() -> Dict[str, Any]:
         operations = []
         now = datetime.now(timezone.utc)
         for lead in leads:
+            lead_tags = lead.get("tags") or []
+            if any(t in lead_tags for t in ("general_enquiry", "popup_enquiry", "atlas", "public_atlas")):
+                continue
+            if any("mysql_general" in t or "mysql_popup" in t for t in lead_tags):
+                continue
+
             uid = str(lead.get("unique_id") or "")
             ext_id = str(lead.get("external_id") or "")
             if not uid.startswith("NN") and (ext_id or uid.isdigit()):

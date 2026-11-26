@@ -53,7 +53,7 @@ async def sync_mysql_general_row(row: Dict[str, Any]) -> Optional[Dict[str, Any]
     atlas_code = str(row.get("atlas_code") or row.get("code") or "").strip()
     atlas_title = str(row.get("atlas_title") or row.get("occupation") or "").strip()
     explicit_cat = str(row.get("lead_category") or row.get("category") or "").strip()
-    raw_source = str(row.get("source") or ("public_atlas" if (atlas_code or atlas_title) else "Website")).strip()
+    raw_source = "Website"
 
     row_context = {
         **row,
@@ -90,12 +90,20 @@ async def sync_mysql_general_row(row: Dict[str, Any]) -> Optional[Dict[str, Any]
             "country": country_norm,
             "country_of_interest": country_norm,
             "interested_country": country_norm,
+            "source": "Website",
+            "is_navratri": False,
         }
         if atlas_code:
             upd_fields["atlas_code"] = atlas_code
         if atlas_title:
             upd_fields["atlas_title"] = atlas_title
-        await leads_col.update_one({"_id": existing["_id"]}, {"$set": upd_fields})
+        await leads_col.update_one(
+            {"_id": existing["_id"]},
+            {
+                "$set": upd_fields,
+                "$pull": {"tags": "Navratri Offer 2026"}
+            }
+        )
         return None
 
     lead_number = await _next_lead_number()
@@ -134,7 +142,8 @@ async def sync_mysql_general_row(row: Dict[str, Any]) -> Optional[Dict[str, Any]
         "enquired_for": enquired_for,
         "website_page_title": page_title,
         "website_page_url": page_url,
-        "source": raw_source,
+        "source": "Website",
+        "is_navratri": False,
         "atlas_code": atlas_code or None,
         "atlas_title": atlas_title or None,
         "stage": "new",
@@ -162,9 +171,20 @@ async def sync_mysql_popup_row(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     row_id = str(row.get("id") or "")
     dedup_tag = f"mysql_popup_{row_id}"
 
-    # Check deduplication
+    # Check deduplication & ensure source is Website
     existing = await leads_col.find_one({"tags": dedup_tag}, {"_id": 1})
     if existing:
+        await leads_col.update_one(
+            {"_id": existing["_id"]},
+            {
+                "$set": {
+                    "source": "Website",
+                    "is_navratri": False,
+                    "updated_at": datetime.now(timezone.utc),
+                },
+                "$pull": {"tags": "Navratri Offer 2026"}
+            }
+        )
         return None
 
     name = str(row.get("name") or "Popup Client").strip()
@@ -219,7 +239,8 @@ async def sync_mysql_popup_row(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "enquired_for": "Website Popup",
         "website_page_title": "LEAMSS Official Website - Popup Enquiry",
         "website_page_url": "https://leamss.com",
-        "source": "Website Popup",
+        "source": "Website",
+        "is_navratri": False,
         "stage": "new",
         "status": "new",
         "priority": "medium",
