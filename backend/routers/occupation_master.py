@@ -360,6 +360,16 @@ async def list_occupations(
     skip: int = Query(0, ge=0),
     current_user: dict = Depends(get_current_user),
 ):
+    # If Australia has more than 1,236 codes, auto-purge the legacy duplicates immediately
+    if country and country.upper() == "AU":
+        au_count = await OCCUPATION_MASTER.count_documents({"country_code": "AU"})
+        if au_count > 1236:
+            try:
+                from scripts.populate_all_1236_anzsco import run_population
+                await run_population()
+            except Exception as e:
+                print(f"[WARN] Auto-purge in list_occupations: {e}")
+
     q: dict = {}
     if country:
         q["country_code"] = country.upper()
@@ -368,7 +378,8 @@ async def list_occupations(
         if status not in VALID_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status. Use one of {VALID_STATUSES}")
         q["status"] = status
-    elif not status:
+    elif status != "superseded":
+        # Exclude superseded codes under 'all' and by default
         q["status"] = {"$ne": "superseded"}
     if body_id:
         q["assessing_authority.body_id"] = body_id

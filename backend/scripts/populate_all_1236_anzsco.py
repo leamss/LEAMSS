@@ -177,6 +177,14 @@ async def run_population():
         if c:
             all_1236_codes.add(c)
 
+    # Immediately purge any AU record not part of the official 1,236 ANZSCO dataset
+    if all_1236_codes:
+        del_res = await db["occupation_master"].delete_many(
+            {"country_code": "AU", "code": {"$nin": list(all_1236_codes)}}
+        )
+        if del_res.deleted_count:
+            print(f"Purged {del_res.deleted_count} legacy AU occupations not in official 1,236 ANZSCO dataset.")
+
     # 2. Fetch existing AU occupations in occupation_master
     existing_cursor = db["occupation_master"].find({"country_code": "AU"})
     existing_docs = await existing_cursor.to_list(5000)
