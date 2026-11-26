@@ -42,7 +42,10 @@ import SalesPersonOverview from '@/pages/admin/SalesPersonOverview';
 import WebsiteLeadsOverview from '@/pages/admin/WebsiteLeadsOverview';
 import CRMSalespersonActivityAudit from '@/pages/admin/CRMSalespersonActivityAudit';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com'))
+  ? 'https://api.leamss.com'
+  : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 const STAGES = [
   { key: 'new', label: 'New', color: 'bg-slate-500', bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-300' },
@@ -570,27 +573,31 @@ export default function MyCRM() {
 
   const getResumeUrl = (lead) => {
     if (!lead) return '';
+    const isLive = typeof window !== 'undefined' && window.location.hostname.includes('leamss.com');
+    const backendBase = isLive
+      ? 'https://api.leamss.com'
+      : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001').replace(/\/+$/, '');
+
     const rawUrl = lead.resume_url || lead.resume_path || lead.resume_link || '';
     if (rawUrl) {
+      if (rawUrl.startsWith('/api')) {
+        return `${backendBase}${rawUrl}`;
+      }
       if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-        // If it's hosted on leamss.com (not api.leamss.com), route through proxy to prevent X-Frame-Options: SAMEORIGIN iframe blocking
+        if (isLive && rawUrl.includes('localhost:8001')) {
+          return rawUrl.replace('http://localhost:8001', 'https://api.leamss.com');
+        }
         if (rawUrl.includes('leamss.com') && !rawUrl.includes('api.leamss.com')) {
           const fname = lead.resume_filename || `${(lead.name || 'Candidate').replace(/\s+/g, '_')}_Resume.pdf`;
-          return `${API}/cockpit/resume-proxy?url=${encodeURIComponent(rawUrl)}&filename=${encodeURIComponent(fname)}`;
+          return `${backendBase}/api/cockpit/resume-proxy?url=${encodeURIComponent(rawUrl)}&filename=${encodeURIComponent(fname)}`;
         }
         return rawUrl;
       }
-      const cleanPath = rawUrl.startsWith('/api')
-        ? rawUrl
-        : `/api${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
-      const backendBase = (
-        process.env.REACT_APP_BACKEND_URL ||
-        (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001')
-      ).replace(/\/+$/, '');
-      return `${backendBase}${cleanPath}`;
+      const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+      return `${backendBase}/api${cleanPath}`;
     }
     const fileId = lead.resume_file_id || lead.id || lead.lead_number;
-    return `${API}/cockpit/resume/${fileId}`;
+    return `${backendBase}/api/cockpit/resume/${fileId}`;
   };
 
   const handleOpenResumePreview = (lead) => {
