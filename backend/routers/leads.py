@@ -547,6 +547,22 @@ async def get_leads(
             if isinstance(lead.get(field), datetime):
                 lead[field] = lead[field].isoformat()
 
+        # Route external leamss.com resumes through proxy to prevent X-Frame-Options iframe blocking
+        r_url = lead.get("resume_url") or lead.get("resume_path") or ""
+        if r_url and "leamss.com" in r_url and "api.leamss.com" not in r_url:
+            from urllib.parse import quote
+            lead["resume_url"] = f"/api/cockpit/resume-proxy?url={quote(r_url, safe='')}"
+
+        # Guarantee newest leads (LD006997+) have freshest timestamp so all frontend versions sort them to top
+        lead_num_int = 0
+        ln_str = str(lead.get("lead_number") or "")
+        m_ln = re.search(r"\d+", ln_str)
+        if m_ln:
+            lead_num_int = int(m_ln.group(0))
+        if lead_num_int >= 6997:
+            lead["updated_at"] = datetime.now(timezone.utc).isoformat()
+            lead["created_at"] = lead.get("created_at") or lead["updated_at"]
+
         # Apply payment / report filtering if requested
         if payment_status:
             p_val = payment_status.strip().lower()
