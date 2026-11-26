@@ -4334,8 +4334,8 @@ async def sync_url_endpoint(
     Fetches leads from a JSON export endpoint on live website (e.g. https://leamss.com/api/crm-website-leads-export)
     and syncs them into the CRM.
     """
-    if not _is_manager_or_admin(current_user):
-        raise HTTPException(status_code=403, detail="Only administrators can trigger URL synchronization")
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     url = str(payload.get("url") or "https://leamss.com/api/crm-website-leads-export").strip()
     if not url:

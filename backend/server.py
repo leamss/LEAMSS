@@ -600,8 +600,23 @@ async def startup():
 
         asyncio.create_task(_google_sheets_background_sync_loop())
         print("[Google Sheets Sync] Automated background sync daemon started (15s loop)")
+
+        async def _website_leads_background_sync_loop():
+            await asyncio.sleep(5)
+            while True:
+                try:
+                    from services.website_mysql_sync import sync_live_website_export
+                    res = await sync_live_website_export("https://leamss.com/api/crm-website-leads-export")
+                    if res.get("total_new_leads", 0) > 0:
+                        print(f"[Auto-Sync Website Leads] Ingested {res.get('total_new_leads')} new leads from https://leamss.com")
+                except Exception as e_w:
+                    print(f"[Website Leads Sync Loop Error] {e_w}")
+                await asyncio.sleep(30)
+
+        asyncio.create_task(_website_leads_background_sync_loop())
+        print("[Website Leads Sync] Automated continuous background sync daemon started (30s loop)")
     except Exception as e:
-        print(f"[Navratri Sync WARN] {e}")
+        print(f"[Website Sync WARN] {e}")
 
     try:
         from migrations.phase20261125_verify_all_au_occupations import run_phase20261125_verify_all_au_occupations
