@@ -28,7 +28,7 @@ import {
   Trash2, Split, SlidersHorizontal, Layers, Hash, ArrowRightLeft, CheckSquare, Edit, Pencil, QrCode,
   MessageSquareReply, LayoutTemplate, Settings, Key, Shield, Bell, BellOff, Paperclip, PenTool,
   Copy, ClipboardPaste, ExternalLink, Globe, Target, Instagram, Facebook, MessageSquare, Save,
-  CloudDownload, StickyNote
+  CloudDownload, StickyNote, Loader2
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
@@ -651,27 +651,52 @@ export default function MyCRM() {
     open: false,
     lead: null,
     reportUrl: '',
+    blobUrl: '',
+    loading: false,
+    error: null,
     filename: '',
   });
 
   const getPreAssessmentReportUrl = (lead) => {
     if (!lead) return '';
-    if (lead.pre_assessment_report_url) {
-      if (lead.pre_assessment_report_url.startsWith('http')) return lead.pre_assessment_report_url;
-      const cleanPath = lead.pre_assessment_report_url.startsWith('/api')
-        ? lead.pre_assessment_report_url
-        : `/api${lead.pre_assessment_report_url.startsWith('/') ? '' : '/'}${lead.pre_assessment_report_url}`;
-      const backendBase = (
-        process.env.REACT_APP_BACKEND_URL ||
-        (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001')
-      ).replace(/\/+$/, '');
-      return `${backendBase}${cleanPath}`;
+    const isLive = typeof window !== 'undefined' && window.location.hostname.includes('leamss.com');
+    const backendBase = isLive
+      ? 'https://api.leamss.com'
+      : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001').replace(/\/+$/, '');
+
+    const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('token') || localStorage.getItem('access_token') || '') : '';
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+
+    const rawUrl = lead.pre_assessment_report_url || lead.assessment_report_url || '';
+    if (rawUrl) {
+      if (rawUrl.startsWith('/api')) {
+        return `${backendBase}${rawUrl}`;
+      }
+      if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+        if (isLive && rawUrl.includes('localhost:8001')) {
+          return rawUrl.replace('http://localhost:8001', 'https://api.leamss.com');
+        }
+        if (rawUrl.includes('leamss.com') && !rawUrl.includes('api.leamss.com')) {
+          const fname = lead.assessment_report_filename || `${(lead.name || 'Client').replace(/\s+/g, '_')}_Pre_Assessment_Report.pdf`;
+          return `${backendBase}/api/cockpit/resume-proxy?url=${encodeURIComponent(rawUrl)}&filename=${encodeURIComponent(fname)}`;
+        }
+        return rawUrl;
+      }
+      const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+      return `${backendBase}/api${cleanPath}`;
     }
-    const fileId = lead.assessment_report_file_id || lead.assessment_report_id || lead.id;
-    return `${API}/cockpit/resume/${fileId}`;
+
+    const fileId = lead.assessment_report_file_id || lead.pdf_file_id || lead.assessment_report_id || lead.latest_report_snapshot_id;
+    if (fileId) {
+      return `${backendBase}/api/cockpit/resume/${fileId}`;
+    }
+
+    // Direct lead endpoint with token support
+    const leadKey = lead.id || lead.lead_number || lead.unique_id;
+    return `${backendBase}/api/leads/${leadKey}/pre-assessment-report${tokenQuery}`;
   };
 
-  const handleOpenReportPreview = (lead) => {
+  const handleOpenReportPreview = async (lead) => {
     if (!lead) return;
     const clientName = lead.name || 'Client';
     const currentTimeStr = getFormattedLocalTimeStr();
@@ -695,26 +720,99 @@ export default function MyCRM() {
       }
     }, getAuthHeader()).catch(() => {});
 
-    const url = getPreAssessmentReportUrl(lead);
+    const directUrl = getPreAssessmentReportUrl(lead);
+    const filename = lead.assessment_report_filename || `${(lead.name || 'Client').replace(/\s+/g, '_')}_Pre_Assessment_Report.pdf`;
+
     setReportPreviewModal({
       open: true,
       lead,
-      reportUrl: url,
-      filename: lead.assessment_report_filename || `${lead.name?.replace(/\s+/g, '_') || 'Client'}_Pre_Assessment_Report.pdf`,
+      reportUrl: directUrl,
+      blobUrl: '',
+      loading: true,
+      error: null,
+      filename,
     });
 
+    // Fetch PDF as Blob with auth headers to ensure reliable iframe display and bypass CORS/X-Frame-Options
+    try {
+      const res = await axios.get(directUrl, {
+        ...getAuthHeader(),
+        responseType: 'blob',
+        timeout: 20000,
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
+      setReportPreviewModal((prev) => ({
+        ...prev,
+        blobUrl,
+        loading: false,
+        error: null,
+      }));
+    } catch (err) {
+      console.warn('Primary report URL fetch failed, trying lead fallback endpoint:', err);
+      const isLive = typeof window !== 'undefined' && window.location.hostname.includes('leamss.com');
+      const backendBase = isLive
+        ? 'https://api.leamss.com'
+        : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001').replace(/\/+$/, '');
+      const leadKey = lead.id || lead.lead_number || lead.unique_id;
+      const fallbackUrl = `${backendBase}/api/leads/${leadKey}/pre-assessment-report`;
+
+      try {
+        const fbRes = await axios.get(fallbackUrl, {
+          ...getAuthHeader(),
+          responseType: 'blob',
+          timeout: 20000,
+        });
+        const blob = new Blob([fbRes.data], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        setReportPreviewModal((prev) => ({
+          ...prev,
+          reportUrl: fallbackUrl,
+          blobUrl,
+          loading: false,
+          error: null,
+        }));
+      } catch (fbErr) {
+        console.error('All report fetch attempts failed:', fbErr);
+        setReportPreviewModal((prev) => ({
+          ...prev,
+          loading: false,
+          error: 'Could not load report directly. Click download or open in new window below.',
+        }));
+      }
+    }
   };
 
-  const handleDownloadReport = (lead) => {
+  const handleDownloadReport = async (lead) => {
     if (!lead) return;
     const url = getPreAssessmentReportUrl(lead);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = lead.assessment_report_filename || `${lead.name?.replace(/\s+/g, '_') || 'Client'}_Pre_Assessment_Report.pdf`;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const filename = lead.assessment_report_filename || `${(lead.name || 'Client').replace(/\s+/g, '_')}_Pre_Assessment_Report.pdf`;
+
+    try {
+      const res = await axios.get(url, {
+        ...getAuthHeader(),
+        responseType: 'blob',
+        timeout: 20000,
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    } catch {
+      // Fallback direct link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   // Multi-Selection State for Leads (Bulk Pre-Assessment Report)
@@ -3759,12 +3857,17 @@ export default function MyCRM() {
       if (selectedLead && (selectedLead.id === lead.id || selectedLead._id === lead._id)) {
         setSelectedLead(updatedLead);
       }
+      let localBlobUrl = '';
+      try { localBlobUrl = URL.createObjectURL(file); } catch {}
       setReportPreviewModal((prev) => {
         if (prev.open && (prev.lead?.id === lead.id || prev.lead?._id === lead._id)) {
           return {
             ...prev,
             lead: updatedLead,
             reportUrl: `${API}/cockpit/resume/${res.data.assessment_report_file_id}?t=${Date.now()}`,
+            blobUrl: localBlobUrl || prev.blobUrl,
+            loading: false,
+            error: null,
             filename: res.data.assessment_report_filename || file.name,
           };
         }
@@ -6033,7 +6136,7 @@ _Forwarded via LEAMSS CRM_`;
                                     <Mail className="w-3.5 h-3.5" />
                                   </button>
                                 )}
-                                {lead.assessment_report_file_id || lead.pre_assessment_report_url || lead.report_generated ? (
+                                {(lead.assessment_report_file_id || lead.assessment_report_id || lead.pdf_file_id || lead.latest_report_snapshot_id || lead.pre_assessment_report_url || lead.assessment_report_url || lead.has_pre_assessment_report || lead.report_generated) ? (
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -13918,7 +14021,12 @@ _Forwarded via LEAMSS CRM_`;
       {reportPreviewModal.open && (
         <Dialog
           open={reportPreviewModal.open}
-          onOpenChange={(open) => setReportPreviewModal((prev) => ({ ...prev, open }))}
+          onOpenChange={(open) => {
+            if (!open && reportPreviewModal.blobUrl) {
+              try { URL.revokeObjectURL(reportPreviewModal.blobUrl); } catch {}
+            }
+            setReportPreviewModal((prev) => ({ ...prev, open, blobUrl: open ? prev.blobUrl : '' }));
+          }}
         >
           <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden bg-white rounded-2xl shadow-2xl border border-slate-200 z-[10050]">
             <DialogHeader className="p-4 bg-slate-900 text-white flex flex-row items-center justify-between border-b border-slate-800">
@@ -13978,7 +14086,7 @@ _Forwarded via LEAMSS CRM_`;
 
                 {/* Open External Tab */}
                 <a
-                  href={reportPreviewModal.reportUrl}
+                  href={reportPreviewModal.blobUrl || reportPreviewModal.reportUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
@@ -13991,17 +14099,48 @@ _Forwarded via LEAMSS CRM_`;
 
             {/* Document Viewer Body */}
             <div className="flex-1 w-full bg-slate-100 relative overflow-hidden flex flex-col">
-              {reportPreviewModal.reportUrl ? (
+              {reportPreviewModal.loading ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+                  <p className="text-sm font-semibold text-slate-700">Loading Pre-Assessment Report...</p>
+                  <p className="text-xs text-slate-400 font-mono truncate max-w-sm">{reportPreviewModal.filename}</p>
+                </div>
+              ) : (reportPreviewModal.blobUrl || reportPreviewModal.reportUrl) && !reportPreviewModal.error ? (
                 <iframe
-                  key={reportPreviewModal.reportUrl}
-                  src={`${reportPreviewModal.reportUrl}#toolbar=1&navpanes=0`}
+                  key={reportPreviewModal.blobUrl || reportPreviewModal.reportUrl}
+                  src={`${reportPreviewModal.blobUrl || reportPreviewModal.reportUrl}#toolbar=1&navpanes=0`}
                   title={reportPreviewModal.filename}
                   className="w-full h-full border-0"
                 />
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-2">
-                  <FileText className="w-10 h-10 text-slate-400" />
-                  <p className="text-sm font-medium">No report document loaded</p>
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-6 text-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xl border border-purple-200 shadow-xs">
+                    📊
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{reportPreviewModal.filename}</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md">
+                      {reportPreviewModal.error || 'The Pre-Assessment Report document is attached to this client record.'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={() => handleDownloadReport(reportPreviewModal.lead)}
+                      className="h-8 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Download Report
+                    </Button>
+                    <a
+                      href={reportPreviewModal.reportUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-500" /> Open in New Tab
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
@@ -14021,7 +14160,12 @@ _Forwarded via LEAMSS CRM_`;
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => setReportPreviewModal((prev) => ({ ...prev, open: false }))}
+                  onClick={() => {
+                    if (reportPreviewModal.blobUrl) {
+                      try { URL.revokeObjectURL(reportPreviewModal.blobUrl); } catch {}
+                    }
+                    setReportPreviewModal((prev) => ({ ...prev, open: false, blobUrl: '' }));
+                  }}
                   className="h-7 text-xs text-slate-600 hover:text-slate-900"
                 >
                   Close Preview

@@ -174,10 +174,13 @@ async def get_resume_bytes_and_meta(file_ref: str) -> Optional[Dict[str, Any]]:
             matched_entity_type = "lead"
             matched_entity_id = lead.get("id") or str(lead.get("_id"))
             matched_doc = lead
-            if lead.get("resume_file_id"):
-                m = re.search(r"[a-fA-F0-9]{24}", str(lead["resume_file_id"]))
-                if m:
-                    target_oid = ObjectId(m.group(0))
+            for k in ("assessment_report_file_id", "pdf_file_id", "assessment_report_id", "latest_report_snapshot_id", "resume_file_id"):
+                v = lead.get(k)
+                if v:
+                    m = re.search(r"[a-fA-F0-9]{24}", str(v))
+                    if m:
+                        target_oid = ObjectId(m.group(0))
+                        break
 
     if not target_oid and not matched_doc:
         # 2. Check Pre-Assessments
@@ -251,7 +254,9 @@ async def get_resume_bytes_and_meta(file_ref: str) -> Optional[Dict[str, Any]]:
     candidate_url = None
     if matched_doc:
         candidate_url = (
-            matched_doc.get("resume_url")
+            matched_doc.get("assessment_report_url")
+            or matched_doc.get("pre_assessment_report_url")
+            or matched_doc.get("resume_url")
             or matched_doc.get("resume_path")
             or matched_doc.get("resume_link")
             or matched_doc.get("resume")

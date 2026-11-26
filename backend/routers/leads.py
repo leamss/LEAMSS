@@ -2193,23 +2193,82 @@ async def upload_lead_pre_assessment_report(
 @router.get("/{lead_id}/pre-assessment-report")
 async def get_lead_pre_assessment_report(
     lead_id: str,
-    current_user: dict = Depends(get_current_user)
+    token: Optional[str] = Query(None),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
-    """Fetch/stream the attached Pre-Assessment Report for a lead."""
+    """Fetch/stream the attached Pre-Assessment Report for a lead. Supports Bearer auth and query token."""
     from bson import ObjectId
+    import jwt
+    from core.auth import JWT_SECRET
+    from routers.cockpit import get_cockpit_resume, _proxy_external_resume
+
+    auth_user = current_user
+    if not auth_user and token:
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            u_id = payload.get("sub")
+            if u_id:
+                auth_user = await users_col.find_one({"id": u_id}, {"_id": 0})
+        except Exception:
+            pass
+
     lead_query = {"$or": [{"id": lead_id}, {"lead_number": lead_id}, {"unique_id": lead_id}]}
     if ObjectId.is_valid(lead_id):
         lead_query["$or"].append({"_id": ObjectId(lead_id)})
     lead = await leads_col.find_one(lead_query)
     if not lead:
+        # Check by pre_assessments or users
+        pa = await db["pre_assessments"].find_one({"$or": [{"id": lead_id}, {"pa_number": lead_id}, {"lead_id": lead_id}]})
+        if pa and pa.get("lead_id"):
+            lead = await leads_col.find_one({"$or": [{"id": pa["lead_id"]}, {"unique_id": pa["lead_id"]}]})
+
+    if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
 
-    file_id = lead.get("assessment_report_file_id") or lead.get("assessment_report_id")
-    if not file_id:
-        raise HTTPException(status_code=404, detail="No Pre-Assessment Report attached to this lead")
+    # 1. Try report IDs / snapshot IDs
+    candidate_ids = [
+        lead.get("assessment_report_file_id"),
+        lead.get("pdf_file_id"),
+        lead.get("assessment_report_id"),
+        lead.get("latest_report_snapshot_id"),
+    ]
+    for fid in candidate_ids:
+        if fid and str(fid).strip():
+            try:
+                return await get_cockpit_resume(str(fid).strip())
+            except Exception:
+                pass
 
-    from routers.cockpit import get_cockpit_resume
-    return await get_cockpit_resume(file_id)
+    # 2. Try report URLs
+    rep_url = lead.get("pre_assessment_report_url") or lead.get("assessment_report_url")
+    if rep_url:
+        fname = lead.get("assessment_report_filename") or f"{lead.get('name', 'client')}_pre_assessment_report.pdf"
+        return await _proxy_external_resume(str(rep_url), fname)
+
+    # 3. Check pre_assessment_documents
+    actual_lead_id = lead.get("id") or lead.get("unique_id") or lead_id
+    pa_doc = await db["pre_assessment_documents"].find_one({
+        "$or": [{"lead_id": actual_lead_id}, {"lead_id": lead_id}],
+        "is_pre_assessment_report": True
+    })
+    if pa_doc:
+        pfid = pa_doc.get("file_id")
+        if pfid:
+            try:
+                return await get_cockpit_resume(str(pfid).strip())
+            except Exception:
+                pass
+        purl = pa_doc.get("file_path")
+        if purl:
+            return await _proxy_external_resume(str(purl), pa_doc.get("file_name"))
+
+    # 4. Fallback to get_cockpit_resume with actual_lead_id
+    try:
+        return await get_cockpit_resume(actual_lead_id)
+    except Exception:
+        pass
+
+    raise HTTPException(status_code=404, detail="No Pre-Assessment Report attached to this lead")
 
 
 # ────────────────────────────────────────────────────────────

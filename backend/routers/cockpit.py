@@ -103,8 +103,20 @@ async def proxy_resume_endpoint(url: str = Query(...), filename: Optional[str] =
 
 @router.get("/resume/{file_id}")
 async def get_cockpit_resume(file_id: str):
-    """Stream resume file from GridFS across all candidate buckets, with fallback to lead record or external URL."""
+    """Stream resume or Pre-Assessment Report file from GridFS across all candidate buckets,
+    with fallback to report_snapshots, pre_assessment_documents, lead record, or external URL.
+    """
+    import asyncio
     clean_id = str(file_id or "").strip()
+    if not clean_id or clean_id.lower() in ("null", "undefined", "none"):
+        raise HTTPException(status_code=404, detail="File ID not provided")
+
+    # Strip any URL or path prefix if present
+    if "/cockpit/resume/" in clean_id:
+        clean_id = clean_id.split("/cockpit/resume/")[-1].split("?")[0].strip()
+    elif "/api/cockpit/resume/" in clean_id:
+        clean_id = clean_id.split("/api/cockpit/resume/")[-1].split("?")[0].strip()
+
     m = re.search(r"[a-fA-F0-9]{24}", clean_id)
     oid = None
     if m:
@@ -113,9 +125,10 @@ async def get_cockpit_resume(file_id: str):
         except Exception:
             oid = None
 
+    candidate_buckets = ("bulk_resumes", "resume_files", "assessment_reports", "fs", "resumes", "lead_resumes")
     grid_out = None
     if oid:
-        for bucket_name in ("bulk_resumes", "resume_files", "fs", "resumes", "lead_resumes"):
+        for bucket_name in candidate_buckets:
             try:
                 gridfs = AsyncIOMotorGridFSBucket(db, bucket_name=bucket_name)
                 grid_out = await gridfs.open_download_stream(oid)
@@ -124,17 +137,113 @@ async def get_cockpit_resume(file_id: str):
             except Exception:
                 continue
 
+    # Fallback 1: Check report_snapshots collection (for generated assessment reports)
     if not grid_out:
-        # Fallback: check if file_id matches a lead document in MongoDB
+        snap_doc = await db["report_snapshots"].find_one(
+            {"$or": [{"snapshot_id": clean_id}, {"assessment_id": clean_id}]}
+        )
+        if snap_doc:
+            # Check if PDF binary was uploaded to GridFS
+            for bname in ("fs", "assessment_reports", "bulk_resumes"):
+                try:
+                    gfs = AsyncIOMotorGridFSBucket(db, bucket_name=bname)
+                    async for gfile in gfs.find({"$or": [{"metadata.snapshot_id": clean_id}, {"filename": {"$regex": re.escape(clean_id), "$options": "i"}}]}):
+                        grid_out = await gfs.open_download_stream(gfile._id)
+                        if grid_out:
+                            break
+                    if grid_out:
+                        break
+                except Exception:
+                    pass
+
+            # If not in GridFS, dynamically render PDF v2 from snapshot data
+            if not grid_out:
+                try:
+                    from core.report_v2 import render_pdf_v2
+                    snap_data = snap_doc.get("data") or snap_doc
+                    pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+                    c_name = snap_doc.get("client_name") or "Client"
+                    safe_c_name = re.sub(r"[^A-Za-z0-9_-]", "_", c_name)
+                    fname = f"LEAMSS_Assessment_Report_{safe_c_name}.pdf"
+                    return Response(
+                        content=pdf_bytes,
+                        media_type="application/pdf",
+                        headers={
+                            "Content-Disposition": f'inline; filename="{fname}"',
+                            "Content-Length": str(len(pdf_bytes)),
+                            "Access-Control-Allow-Origin": "*",
+                        }
+                    )
+                except Exception:
+                    pass
+
+    # Fallback 2: Check pre_assessment_documents collection
+    if not grid_out:
+        pa_doc = await db["pre_assessment_documents"].find_one(
+            {"$or": [{"file_id": clean_id}, {"id": clean_id}, {"file_name": clean_id}]}
+        )
+        if pa_doc:
+            p_fid = pa_doc.get("file_id")
+            if p_fid and str(p_fid).strip() != clean_id:
+                try:
+                    return await get_cockpit_resume(str(p_fid).strip())
+                except Exception:
+                    pass
+            p_url = pa_doc.get("file_path")
+            if p_url and (str(p_url).startswith("http://") or str(p_url).startswith("https://") or "leamss.com" in str(p_url)):
+                return await _proxy_external_resume(str(p_url), pa_doc.get("file_name"))
+
+    # Fallback 3: Check sales_assessments collection
+    if not grid_out:
+        sa_doc = await db["sales_assessments"].find_one(
+            {"$or": [{"id": clean_id}, {"snapshot_id": clean_id}]}
+        )
+        if sa_doc:
+            sfid = sa_doc.get("pdf_file_id") or sa_doc.get("snapshot_id")
+            if sfid and str(sfid).strip() != clean_id:
+                try:
+                    return await get_cockpit_resume(str(sfid).strip())
+                except Exception:
+                    pass
+
+    # Fallback 4: Check if file_id matches a lead document in MongoDB
+    if not grid_out:
         lead_doc = await db.leads.find_one(
-            {"$or": [{"id": clean_id}, {"lead_number": clean_id}, {"unique_id": clean_id}, {"external_id": clean_id}]}
+            {"$or": [
+                {"id": clean_id}, {"lead_number": clean_id}, {"unique_id": clean_id}, {"external_id": clean_id},
+                {"assessment_report_file_id": clean_id}, {"assessment_report_id": clean_id},
+                {"latest_report_snapshot_id": clean_id}, {"pdf_file_id": clean_id},
+                {"assessment_report_filename": clean_id},
+                {"resume_file_id": clean_id},
+            ]}
         )
         if lead_doc:
+            # 4a. Check assessment report file IDs and snapshot IDs
+            rep_fids = [
+                lead_doc.get("assessment_report_file_id"),
+                lead_doc.get("pdf_file_id"),
+                lead_doc.get("assessment_report_id"),
+                lead_doc.get("latest_report_snapshot_id"),
+            ]
+            for rfid in rep_fids:
+                if rfid and str(rfid).strip() and str(rfid).strip() != clean_id:
+                    try:
+                        return await get_cockpit_resume(str(rfid).strip())
+                    except Exception:
+                        pass
+
+            # 4b. Check pre-assessment report URLs
+            raw_rep_url = lead_doc.get("pre_assessment_report_url") or lead_doc.get("assessment_report_url")
+            if raw_rep_url and (str(raw_rep_url).startswith("http://") or str(raw_rep_url).startswith("https://") or "leamss.com" in str(raw_rep_url)):
+                fname = lead_doc.get("assessment_report_filename") or f"{lead_doc.get('name', 'client')}_pre_assessment_report.pdf"
+                return await _proxy_external_resume(str(raw_rep_url), fname)
+
+            # 4c. Check resume file ID
             res_fid = lead_doc.get("resume_file_id")
             if res_fid and str(res_fid).strip() != clean_id:
                 try:
                     res_oid = ObjectId(str(res_fid).strip())
-                    for bname in ("bulk_resumes", "resume_files", "fs", "resumes", "lead_resumes"):
+                    for bname in candidate_buckets:
                         try:
                             gfs = AsyncIOMotorGridFSBucket(db, bucket_name=bname)
                             grid_out = await gfs.open_download_stream(res_oid)
@@ -145,16 +254,31 @@ async def get_cockpit_resume(file_id: str):
                 except Exception:
                     pass
 
+            # 4d. Check resume URLs
             if not grid_out:
                 raw_url = lead_doc.get("resume_url") or lead_doc.get("resume_path") or lead_doc.get("resume_link")
-                if raw_url and (str(raw_url).startswith("http://") or str(raw_url).startswith("https://")):
+                if raw_url and (str(raw_url).startswith("http://") or str(raw_url).startswith("https://") or "leamss.com" in str(raw_url)):
                     fname = lead_doc.get("resume_filename") or f"{lead_doc.get('name', 'candidate')}_resume.pdf"
                     return await _proxy_external_resume(str(raw_url), fname)
 
+    # Fallback 5: Check GridFS by exact or regex filename match
     if not grid_out:
-        raise HTTPException(status_code=404, detail="Resume file not found")
+        for bname in candidate_buckets:
+            try:
+                gfs = AsyncIOMotorGridFSBucket(db, bucket_name=bname)
+                async for gfile in gfs.find({"$or": [{"filename": clean_id}, {"filename": {"$regex": re.escape(clean_id), "$options": "i"}}]}):
+                    grid_out = await gfs.open_download_stream(gfile._id)
+                    if grid_out:
+                        break
+                if grid_out:
+                    break
+            except Exception:
+                pass
 
-    filename = grid_out.filename or "resume.pdf"
+    if not grid_out:
+        raise HTTPException(status_code=404, detail="Requested document or report not found")
+
+    filename = grid_out.filename or "document.pdf"
     content_type = (grid_out.metadata or {}).get("contentType") or "application/pdf"
     if filename.lower().endswith(".pdf"):
         content_type = "application/pdf"
