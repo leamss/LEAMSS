@@ -290,13 +290,14 @@ async def run_population():
             await db["occupation_master"].update_one({"_id": existing["_id"]}, {"$set": update_set})
             updated_count += 1
             
-    # Mark any AU record in occupation_master not part of the official 1,236 ANZSCO dataset as superseded
-    # so the Admin Console displays exactly 1,236 codes (including 4-digit unit groups)
+    # Purge all legacy/previous AU records not in the official 1,236 ANZSCO dataset
+    # so occupation_master contains ONLY the 1,236 codes (no 1486 codes, no superseded duplicate codes)
     if all_1236_codes:
-        await db["occupation_master"].update_many(
-            {"country_code": "AU", "code": {"$nin": list(all_1236_codes)}},
-            {"$set": {"status": "superseded", "updated_at": now}}
+        del_res = await db["occupation_master"].delete_many(
+            {"country_code": "AU", "code": {"$nin": list(all_1236_codes)}}
         )
+        if del_res.deleted_count:
+            print(f"Purged {del_res.deleted_count} legacy AU occupations not in official 1,236 ANZSCO dataset.")
 
     # Ensure all 1,236 AU ANZSCO occupations are active and verified
     await db["occupation_master"].update_many(
@@ -306,9 +307,9 @@ async def run_population():
 
     print(f"✔ Completed population: {inserted_count} new occupations inserted, {updated_count} existing occupations updated/verified.")
     
-    # Final count check for active/verified AU codes in admin console
-    total_au_now = await db["occupation_master"].count_documents({"country_code": "AU", "status": {"$ne": "superseded"}})
-    print(f"✔ Total active AU occupations in occupation_master now: {total_au_now}")
+    # Final count check for total AU codes in occupation_master
+    total_au_now = await db["occupation_master"].count_documents({"country_code": "AU"})
+    print(f"✔ Total AU occupations in occupation_master now: {total_au_now}")
 
 if __name__ == "__main__":
     asyncio.run(run_population())

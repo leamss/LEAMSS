@@ -111,137 +111,22 @@ async def run_migration(db: Any) -> Dict[str, Any]:
         }
     )
 
-    # 3. Check if we need to sync from anzsco_2021_structure.xlsx to reach 1,070
-    inserted_count = 0
-    xlsx_path = _find_structure_xlsx()
-    if xlsx_path:
-        try:
-            import openpyxl
-            wb = openpyxl.load_workbook(xlsx_path, data_only=True)
-            if "Table 5" in wb.sheetnames:
-                sheet = wb["Table 5"]
-                rows = list(sheet.iter_rows(values_only=True))
-
-                curr_major = ("", "")
-                curr_sub_major = ("", "")
-                curr_minor = ("", "")
-                curr_unit = ("", "")
-
-                abs_1070 = []
-                for r in rows[8:]:
-                    if r[0] is not None and str(r[0]).strip().isdigit():
-                        curr_major = (str(r[0]).strip(), str(r[1] or "").strip())
-                    if r[1] is not None and str(r[1]).strip().isdigit():
-                        curr_sub_major = (str(r[1]).strip(), str(r[2] or "").strip())
-                    if r[2] is not None and str(r[2]).strip().isdigit():
-                        curr_minor = (str(r[2]).strip(), str(r[3] or "").strip())
-                    if r[3] is not None and str(r[3]).strip().isdigit():
-                        curr_unit = (str(r[3]).strip(), str(r[4] or "").strip())
-                    if r[4] is not None and str(r[4]).strip().isdigit() and len(str(r[4]).strip()) == 6:
-                        code = str(r[4]).strip()
-                        title = str(r[5] or "").strip()
-                        skill_int = _determine_skill_level(r[6])
-                        abs_1070.append({
-                            "code": code,
-                            "title": title,
-                            "skill_level": skill_int,
-                            "hierarchy": {
-                                "major_group": curr_major[0],
-                                "major_group_name": curr_major[1],
-                                "sub_major_group": curr_sub_major[0],
-                                "sub_major_group_name": curr_sub_major[1],
-                                "minor_group": curr_minor[0],
-                                "minor_group_name": curr_minor[1],
-                                "unit_group": curr_unit[0],
-                                "unit_group_name": curr_unit[1],
-                                "four_digit_parent": curr_unit[0],
-                            }
-                        })
-
-                # Check existing codes in database
-                existing_codes = set()
-                async for d in coll.find({"country_code": "AU"}, {"code": 1}):
-                    if d.get("code"):
-                        existing_codes.add(str(d["code"]).strip())
-
-                # Insert missing occupations
-                docs_to_insert = []
-                for item in abs_1070:
-                    code = item["code"]
-                    if code not in existing_codes:
-                        title = item["title"]
-                        skill_level = item["skill_level"]
-                        hierarchy = item["hierarchy"]
-                        auth = _determine_assessing_authority(code, title)
-                        pw = _build_visa_pathways(code, skill_level)
-                        salary_aud = 85000 if skill_level <= 2 else (65000 if skill_level <= 4 else 52000)
-
-                        doc = {
-                            "occupation_id": str(uuid.uuid4()),
-                            "country_code": "AU",
-                            "code": code,
-                            "title": title,
-                            "classification_type": "ANZSCO",
-                            "classification_version": "ANZSCO 2021",
-                            "skill_level": skill_level,
-                            "status": "verified",
-                            "description": f"{title} ({code}) classifies professionals under ANZSCO Unit Group {hierarchy['unit_group']}.",
-                            "typical_tasks": [],
-                            "tasks": [],
-                            "assessing_authority": auth,
-                            "assessing_body": auth["code"],
-                            "skill_body": auth["code"],
-                            "visa_pathways": pw,
-                            "anzsco_profile": {
-                                "median_salary_aud": salary_aud,
-                                "shortage_rating": "National Shortage" if skill_level <= 2 else "Balanced Market",
-                            },
-                            "hierarchy": hierarchy,
-                            "abs_data": {
-                                "median_ft_annual_aud": salary_aud,
-                            },
-                            "jsa_data": {
-                                "future_growth": "Moderate" if skill_level <= 3 else "Stable",
-                                "skill_level": skill_level,
-                                "national_shortage": skill_level <= 2,
-                                "shortage_rating": "National Shortage" if skill_level <= 2 else "Balanced Market",
-                            },
-                            "verification": {
-                                "is_verified": True,
-                                "verified_by": "abs_anzsco_2021_sync",
-                                "verified_at": now_iso,
-                                "source_reference": "ABS ANZSCO 2026 & Department of Home Affairs SOL",
-                            },
-                            "created_at": now_dt,
-                            "updated_at": now_dt,
-                        }
-                        docs_to_insert.append(doc)
-                        existing_codes.add(code)
-
-                if docs_to_insert:
-                    await coll.insert_many(docs_to_insert)
-                    inserted_count = len(docs_to_insert)
-                    print(f"[Migration] Inserted {inserted_count} missing AU occupations from official 1070 ANZSCO list")
-
-        except Exception as e:
-            print(f"[Migration WARN] Error syncing 1070 ANZSCO structure: {e}")
-
-    # 4. Run full 1,236 ANZSCO population to ensure 4-digit unit groups and verified statuses
+    # 2. Run full 1,236 ANZSCO population to ensure all 1,236 codes (including 4-digit unit groups)
+    # exist, are verified, and any previous non-1236 codes are purged
     try:
         from scripts.populate_all_1236_anzsco import run_population
         await run_population()
     except Exception as e:
         print(f"[Migration WARN] Failed running 1236 population: {e}")
 
-    total_au = await coll.count_documents({"country_code": "AU", "status": {"$ne": "superseded"}})
+    total_au = await coll.count_documents({"country_code": "AU"})
     verified_au = await coll.count_documents({"country_code": "AU", "status": "verified"})
 
-    print(f"[Migration] Finished: active AU={total_au}, verified AU={verified_au}, new={inserted_count}")
+    print(f"[Migration] Finished: total AU={total_au}, verified AU={verified_au}")
 
     return {
         "status": "success",
         "backfilled_ids": backfilled_ids,
-        "inserted_count": inserted_count,
         "total_au": total_au,
         "verified_au": verified_au,
     }

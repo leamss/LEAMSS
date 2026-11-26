@@ -1013,17 +1013,25 @@ async def get_single_occupation(country: str, code: str):
     if country != "AU":
         lookup["status"] = {"$ne": "superseded"}
     d = await db["occupation_master"].find_one(lookup, {"_id": 0})
-    if not d and country == "AU" and len(code) == 4:
-        d = await db["anzsco_4digit_master"].find_one({"code": code}, {"_id": 0})
+    if not d and country == "AU":
+        if len(code) == 4:
+            d = await db["anzsco_4digit_master"].find_one({"code": code}, {"_id": 0})
+        elif len(code) == 6:
+            d = await db["occupation_master"].find_one({"country_code": "AU", "code": code[:4]}, {"_id": 0})
+            if not d:
+                d = await db["anzsco_4digit_master"].find_one({"code": code[:4]}, {"_id": 0})
+            if d:
+                d = dict(d)
+                d["code"] = code
         if d:
             d["country_code"] = "AU"
             d["status"] = "verified"
             children = await db["occupation_master"].find(
-                {"country_code": "AU", "code": {"$regex": f"^{code}"}},
+                {"country_code": "AU", "code": {"$regex": f"^{code[:4]}"}},
                 {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1, "pathway_list": 1, "recommended_visa_subclass": 1}
             ).to_list(20)
             if children:
-                d["assessing_authority"] = children[0].get("assessing_authority") or {}
+                d["assessing_authority"] = children[0].get("assessing_authority") or d.get("assessing_authority") or {}
                 d["similar_codes"] = [{"code": ch["code"], "title": ch["title"]} for ch in children]
                 d["child_occupations"] = children
                 d["pathway_list"] = "MLTSSL / STSOL"
