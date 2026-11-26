@@ -133,19 +133,50 @@ def _build_visa_pathways(code: str, skill_level: int) -> Dict[str, Any]:
         "recommended_visa": "190" if is_skilled else "482"
     }
 
+def _find_jsa_profiles_xlsx() -> Optional[str]:
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "data", "jsa_imports", "occupation_profiles_feb_2026.xlsx"),
+        os.path.join(os.getcwd(), "data", "jsa_imports", "occupation_profiles_feb_2026.xlsx"),
+        os.path.join(os.getcwd(), "backend", "data", "jsa_imports", "occupation_profiles_feb_2026.xlsx"),
+        "/app/data/jsa_imports/occupation_profiles_feb_2026.xlsx",
+        "/home/ubuntu/LEAMSS/backend/data/jsa_imports/occupation_profiles_feb_2026.xlsx",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return os.path.abspath(c)
+    return None
+
 async def run_population():
-    print("=== Starting ANZSCO Population into occupation_master ===")
+    print("=== Starting ANZSCO Population of all 1,236 occupations into occupation_master ===")
     now = datetime.now(timezone.utc)
     
-    # Clean up any legacy 4-digit unit groups so occupation_master contains ONLY 6-digit occupations
-    del_res = await db["occupation_master"].delete_many({"country_code": "AU", "code": {"$regex": "^[0-9]{4}$"}})
-    if del_res.deleted_count:
-        print(f"Purged {del_res.deleted_count} legacy 4-digit unit group entries from occupation_master")
+    # 1. Ensure anzsco_4digit_master is populated with all 1,236 records
+    count_4d = await db["anzsco_4digit_master"].count_documents({})
+    if count_4d < 1236:
+        xlsx_path = _find_jsa_profiles_xlsx()
+        if xlsx_path:
+            try:
+                from core.anzsco_excel_importer import import_anzsco_excel
+                print(f"Importing 1,236 ANZSCO profiles from {xlsx_path} into anzsco_4digit_master...")
+                await import_anzsco_excel(xlsx_path, imported_by="system_auto_sync")
+            except Exception as e:
+                print(f"[WARN] Failed to import ANZSCO excel into anzsco_4digit_master: {e}")
 
-    # 1. Fetch all records from anzsco_4digit_master
+    # Fetch all records from anzsco_4digit_master
     all_anzsco = await db["anzsco_4digit_master"].find({}).to_list(2500)
     print(f"Loaded {len(all_anzsco)} records from anzsco_4digit_master")
     
+    if not all_anzsco:
+        print("[WARN] No records found in anzsco_4digit_master; aborting population.")
+        return
+
+    # Track all valid 1,236 codes
+    all_1236_codes = set()
+    for item in all_anzsco:
+        c = str(item.get("code") or "").strip()
+        if c:
+            all_1236_codes.add(c)
+
     # 2. Fetch existing AU occupations in occupation_master
     existing_cursor = db["occupation_master"].find({"country_code": "AU"})
     existing_docs = await existing_cursor.to_list(5000)
@@ -158,8 +189,7 @@ async def run_population():
     for item in all_anzsco:
         code = str(item.get("code") or "").strip()
         title = item.get("title") or f"ANZSCO {code}"
-        # Keep strictly 6-digit actionable occupations on Public Atlas & Master
-        if not code or len(code) != 6:
+        if not code:
             continue
             
         skill_level = _determine_skill_level(code)
@@ -201,7 +231,7 @@ async def run_population():
         }
         
         if code not in existing_by_code:
-            # Create full new occupation_master record
+            # Create full new occupation_master record (both 4-digit unit groups and 6-digit occupations)
             doc = {
                 "occupation_id": f"AU-{code}",
                 "country_code": "AU",
@@ -260,17 +290,25 @@ async def run_population():
             await db["occupation_master"].update_one({"_id": existing["_id"]}, {"$set": update_set})
             updated_count += 1
             
-    # Ensure all official AU ANZSCO occupations (including 6-digit codes like 111111) are active and verified
+    # Mark any AU record in occupation_master not part of the official 1,236 ANZSCO dataset as superseded
+    # so the Admin Console displays exactly 1,236 codes (including 4-digit unit groups)
+    if all_1236_codes:
+        await db["occupation_master"].update_many(
+            {"country_code": "AU", "code": {"$nin": list(all_1236_codes)}},
+            {"$set": {"status": "superseded", "updated_at": now}}
+        )
+
+    # Ensure all 1,236 AU ANZSCO occupations are active and verified
     await db["occupation_master"].update_many(
-        {"country_code": "AU", "status": {"$ne": "verified"}},
+        {"country_code": "AU", "code": {"$in": list(all_1236_codes)}},
         {"$set": {"status": "verified", "updated_at": now}}
     )
 
     print(f"✔ Completed population: {inserted_count} new occupations inserted, {updated_count} existing occupations updated/verified.")
     
-    # Final count check
-    total_au_now = await db["occupation_master"].count_documents({"country_code": "AU", "status": "verified"})
-    print(f"✔ Total verified AU occupations in occupation_master now: {total_au_now}")
+    # Final count check for active/verified AU codes in admin console
+    total_au_now = await db["occupation_master"].count_documents({"country_code": "AU", "status": {"$ne": "superseded"}})
+    print(f"✔ Total active AU occupations in occupation_master now: {total_au_now}")
 
 if __name__ == "__main__":
     asyncio.run(run_population())

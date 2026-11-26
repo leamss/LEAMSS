@@ -91,7 +91,7 @@ export default function OccupationMasterAdmin() {
 function BrowseAndVerify({ headers }) {
   const [list, setList] = useState([]);
   const [filters, setFilters] = useState({ status: 'all', country: 'AU', search: '' });
-  const [limit, setLimit] = useState('1500');
+  const [limit, setLimit] = useState('2000');
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -153,7 +153,8 @@ function BrowseAndVerify({ headers }) {
               <SelectItem value="300">300 codes</SelectItem>
               <SelectItem value="500">500 codes</SelectItem>
               <SelectItem value="1070">1070 codes</SelectItem>
-              <SelectItem value="1500">All (1070+)</SelectItem>
+              <SelectItem value="1236">1236 codes</SelectItem>
+              <SelectItem value="2000">All (1236+)</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" className="h-9" onClick={load} data-testid="browse-refresh">

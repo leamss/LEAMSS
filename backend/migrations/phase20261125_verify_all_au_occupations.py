@@ -226,10 +226,17 @@ async def run_migration(db: Any) -> Dict[str, Any]:
         except Exception as e:
             print(f"[Migration WARN] Error syncing 1070 ANZSCO structure: {e}")
 
-    total_au = await coll.count_documents({"country_code": "AU"})
+    # 4. Run full 1,236 ANZSCO population to ensure 4-digit unit groups and verified statuses
+    try:
+        from scripts.populate_all_1236_anzsco import run_population
+        await run_population()
+    except Exception as e:
+        print(f"[Migration WARN] Failed running 1236 population: {e}")
+
+    total_au = await coll.count_documents({"country_code": "AU", "status": {"$ne": "superseded"}})
     verified_au = await coll.count_documents({"country_code": "AU", "status": "verified"})
 
-    print(f"[Migration] Finished: total AU={total_au}, verified AU={verified_au}, new={inserted_count}")
+    print(f"[Migration] Finished: active AU={total_au}, verified AU={verified_au}, new={inserted_count}")
 
     return {
         "status": "success",

@@ -926,10 +926,11 @@ async def list_country(
         match["code"] = {"$regex": r"^\d{5}$"}
 
 
-    if verified_only:
-        match["status"] = {"$in": ["verified", "published", "active", "draft"]}
-    else:
-        match["status"] = {"$ne": "superseded"}
+    if country != "AU":
+        if verified_only:
+            match["status"] = {"$in": ["verified", "published", "active", "draft"]}
+        else:
+            match["status"] = {"$ne": "superseded"}
 
     if search:
         s_clean = search.strip()
@@ -1008,10 +1009,10 @@ async def get_single_occupation(country: str, code: str):
     if not re.match(r"^\d{4,6}$", code):
         raise HTTPException(400, "Invalid code format")
 
-    d = await db["occupation_master"].find_one(
-        {"country_code": country, "code": code, "status": {"$ne": "superseded"}},
-        {"_id": 0},
-    )
+    lookup = {"country_code": country, "code": code}
+    if country != "AU":
+        lookup["status"] = {"$ne": "superseded"}
+    d = await db["occupation_master"].find_one(lookup, {"_id": 0})
     if not d and country == "AU" and len(code) == 4:
         d = await db["anzsco_4digit_master"].find_one({"code": code}, {"_id": 0})
         if d:
