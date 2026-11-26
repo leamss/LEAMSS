@@ -761,7 +761,7 @@ export default function MyCRM() {
     }
 
     // Case 2: Clients selected -> validate resume attachment before adding to Bulk Assessment
-    const selected = leads.filter(l => selectedLeadIds.has(l.id) || selectedLeadIds.has(l.unique_id));
+    const selected = myLeads.filter(l => selectedLeadIds.has(l.id) || selectedLeadIds.has(l.unique_id));
     const eligible = selected.filter(isLeadResumeAttached);
     const ineligible = selected.filter(l => !isLeadResumeAttached(l));
 
@@ -2218,6 +2218,28 @@ export default function MyCRM() {
     });
   }, [leadEmails, emailSortOrder]);
 
+  // Strict role isolation: Admin sees all leads; Salespersons/Staff only see leads assigned to them
+  const myLeads = useMemo(() => {
+    if (isAdmin || !currentUser) return leads;
+    const myId = String(currentUser.id || '').trim();
+    const myEmail = String(currentUser.email || '').toLowerCase().trim();
+    const myName = String(currentUser.name || '').toLowerCase().trim();
+    const myFirstName = myName ? myName.split(' ')[0] : '';
+    return leads.filter(l => {
+      const assignedTo = String(l.assigned_to || '').trim();
+      const assignedToEmail = String(l.assigned_to_email || '').toLowerCase().trim();
+      const assignedToName = String(l.assigned_to_name || '').toLowerCase().trim();
+      const assignedSalesPersonName = String(l.assigned_sales_person_name || '').toLowerCase().trim();
+
+      return (
+        (myId && (assignedTo === myId || String(l.assigned_sales_rep_id || '').trim() === myId || String(l.assigned_sales_person_id || '').trim() === myId || String(l.sales_person_id || '').trim() === myId || String(l.created_by || '').trim() === myId || String(l.partner_id || '').trim() === myId || String(l.block_assigned_to || '').trim() === myId)) ||
+        (myEmail && (assignedTo.toLowerCase() === myEmail || assignedToEmail === myEmail)) ||
+        (myName && (assignedTo.toLowerCase() === myName || assignedToName === myName || assignedSalesPersonName === myName)) ||
+        (myFirstName && myFirstName.length >= 3 && (assignedTo.toLowerCase() === myFirstName || assignedToName === myFirstName || assignedSalesPersonName === myFirstName))
+      );
+    });
+  }, [leads, isAdmin, currentUser]);
+
   const sourceCounts = useMemo(() => {
     const counts = {};
     const bookedEmails = new Set(
@@ -2233,7 +2255,7 @@ export default function MyCRM() {
         .filter(Boolean)
     );
 
-    leads.forEach(l => {
+    myLeads.forEach(l => {
       const src = (l.source || '').trim();
       let norm = 'Unknown';
       if (!src || src.toLowerCase() === 'unknown') norm = 'Unknown';
@@ -2256,7 +2278,7 @@ export default function MyCRM() {
       }
     });
     return counts;
-  }, [leads, meetings]);
+  }, [myLeads, meetings]);
 
   const isLeadAssignedToday = useCallback((l) => {
     if (!l) return false;
@@ -2290,8 +2312,8 @@ export default function MyCRM() {
   }, []);
 
   const todayAssignedLeads = useMemo(() => {
-    return leads.filter(l => isLeadAssignedToday(l));
-  }, [leads, isLeadAssignedToday]);
+    return myLeads.filter(l => isLeadAssignedToday(l));
+  }, [myLeads, isLeadAssignedToday]);
 
   const filteredLeads = useMemo(() => {
     const bookedEmails = new Set(
@@ -2307,7 +2329,7 @@ export default function MyCRM() {
         .filter(Boolean)
     );
 
-    return leads
+    return myLeads
       .filter(l => {
         // Filter out bot spam and scam promotions
         if (l.is_spam || l.source === 'Sample Leads') return false;
@@ -2316,20 +2338,22 @@ export default function MyCRM() {
         if (lName.includes('scam service') || lName.includes('myxa.cc') || lName.includes('<a href') || lName.includes('[url=') || lName.startsWith('* * *')) return false;
         if (lEmail.includes('merepost.com') || lEmail.includes('myxa.cc') || lEmail.endsWith('@example.com')) return false;
 
-        // Salespersons can only view leads assigned to them; Managers and Admins can view all leads
-        const isManagerOrAdmin = isAdmin || currentUser?.role === 'sales_manager' || currentUser?.role === 'sales_head' || currentUser?.rbac_role === 'sales_manager' || currentUser?.rbac_role === 'sales_head';
-        if (!isManagerOrAdmin && currentUser) {
+        // Salespersons can only view leads assigned to them; Admin can view all leads
+        if (!isAdmin && currentUser) {
           const myId = String(currentUser.id || '').trim();
           const myEmail = String(currentUser.email || '').toLowerCase().trim();
           const myName = String(currentUser.name || '').toLowerCase().trim();
+          const myFirstName = myName ? myName.split(' ')[0] : '';
           const assignedTo = String(l.assigned_to || '').trim();
           const assignedToEmail = String(l.assigned_to_email || '').toLowerCase().trim();
           const assignedToName = String(l.assigned_to_name || '').toLowerCase().trim();
+          const assignedSalesPersonName = String(l.assigned_sales_person_name || '').toLowerCase().trim();
 
           const isAssignedToMe = (
-            (myId && (assignedTo === myId || String(l.assigned_sales_rep_id || '').trim() === myId || String(l.assigned_sales_person_id || '').trim() === myId || String(l.sales_person_id || '').trim() === myId || String(l.created_by || '').trim() === myId)) ||
-            (myEmail && (assignedTo.toLowerCase() === myEmail || assignedToEmail === myEmail || String(l.assigned_sales_person_name || '').toLowerCase() === myName)) ||
-            (myName && (assignedToName === myName || String(l.assigned_sales_person_name || '').toLowerCase() === myName))
+            (myId && (assignedTo === myId || String(l.assigned_sales_rep_id || '').trim() === myId || String(l.assigned_sales_person_id || '').trim() === myId || String(l.sales_person_id || '').trim() === myId || String(l.created_by || '').trim() === myId || String(l.partner_id || '').trim() === myId || String(l.block_assigned_to || '').trim() === myId)) ||
+            (myEmail && (assignedTo.toLowerCase() === myEmail || assignedToEmail === myEmail)) ||
+            (myName && (assignedTo.toLowerCase() === myName || assignedToName === myName || assignedSalesPersonName === myName)) ||
+            (myFirstName && myFirstName.length >= 3 && (assignedTo.toLowerCase() === myFirstName || assignedToName === myFirstName || assignedSalesPersonName === myFirstName))
           );
           if (!isAssignedToMe) return false;
         }
@@ -2415,7 +2439,7 @@ export default function MyCRM() {
         const timeB = Math.max(new Date(b.updated_at || 0).getTime(), new Date(b.created_at || 0).getTime());
         return timeB - timeA;
       });
-  }, [leads, stageFilter, sourceFilter, countryFilter, paymentFilter, reportFilter, salespersonFilter, search, isAdmin, currentUser, meetings, assignedTodayFilter, isLeadAssignedToday, salesReps]);
+  }, [myLeads, stageFilter, sourceFilter, countryFilter, paymentFilter, reportFilter, salespersonFilter, search, isAdmin, currentUser, meetings, assignedTodayFilter, isLeadAssignedToday, salesReps]);
 
   // Action Click Handler for "Actions Waiting for You" cards
   const handleActionWaitingClick = (actionKey) => {
@@ -4484,7 +4508,7 @@ _Forwarded via LEAMSS CRM_`;
                 <ListChecks className="w-4 h-4 text-slate-400" />
                 {sidebarOpen && <span>All Leads</span>}
               </div>
-              {sidebarOpen && <Badge variant="secondary" className="text-xs">{leads.length}</Badge>}
+              {sidebarOpen && <Badge variant="secondary" className="text-xs">{myLeads.length}</Badge>}
             </button>
 
             <button
@@ -4495,7 +4519,7 @@ _Forwarded via LEAMSS CRM_`;
                 <LayoutGrid className="w-4 h-4 text-slate-400" />
                 {sidebarOpen && <span>Leads Board</span>}
               </div>
-              {sidebarOpen && <Badge variant="secondary" className="text-xs">{leads.length}</Badge>}
+              {sidebarOpen && <Badge variant="secondary" className="text-xs">{myLeads.length}</Badge>}
             </button>
 
             <button
@@ -4509,7 +4533,7 @@ _Forwarded via LEAMSS CRM_`;
               </div>
               {sidebarOpen && (
                 <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800">
-                  {leads.filter(l => l.stage === 'converted' || l.status === 'converted' || l.converted || ['won', 'closed_won', 'case_created'].includes(String(l.stage || l.status || '').toLowerCase())).length}
+                  {myLeads.filter(l => l.stage === 'converted' || l.status === 'converted' || l.converted || ['won', 'closed_won', 'case_created'].includes(String(l.stage || l.status || '').toLowerCase())).length}
                 </Badge>
               )}
             </button>
@@ -5228,7 +5252,7 @@ _Forwarded via LEAMSS CRM_`;
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Leads</p>
-                      <h3 className="text-2xl font-bold text-slate-900 mt-1">{leads.length}</h3>
+                      <h3 className="text-2xl font-bold text-slate-900 mt-1">{myLeads.length}</h3>
                       <p className="text-[11px] text-slate-500 mt-2">Active across sales pipeline</p>
                     </div>
                     <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
@@ -5278,7 +5302,7 @@ _Forwarded via LEAMSS CRM_`;
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-emerald-700 transition-colors">Converted Clients</p>
                       <h3 className="text-2xl font-bold text-emerald-600 mt-1">
-                        {leads.filter(l => l.stage === 'converted' || l.status === 'converted' || l.converted || ['won', 'closed_won', 'case_created'].includes(String(l.stage || l.status || '').toLowerCase())).length}
+                        {myLeads.filter(l => l.stage === 'converted' || l.status === 'converted' || l.converted || ['won', 'closed_won', 'case_created'].includes(String(l.stage || l.status || '').toLowerCase())).length}
                       </h3>
                       <p className="text-[11px] text-slate-500 mt-2">
                         Rate: <span className="font-semibold text-slate-900">{stats.conversion_rate || 0}%</span> · <span className="text-emerald-600 font-semibold underline underline-offset-2">View Converted</span>
@@ -5483,12 +5507,12 @@ _Forwarded via LEAMSS CRM_`;
                           recentLeadsTab === 'all' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'
                         }`}
                       >
-                        All Recent ({leads.length})
+                        All Recent ({myLeads.length})
                       </button>
                     </div>
 
                     <div className="space-y-2.5 overflow-y-auto max-h-64">
-                      {((recentLeadsTab === 'assigned_today' ? todayAssignedLeads : leads).slice(0, 4)).map(hl => {
+                      {((recentLeadsTab === 'assigned_today' ? todayAssignedLeads : myLeads).slice(0, 4)).map(hl => {
                         const st = STAGE_MAP[hl.stage] || { label: hl.stage || 'New', bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
                         const isAssignedToday = isLeadAssignedToday(hl);
                         return (
@@ -5520,7 +5544,7 @@ _Forwarded via LEAMSS CRM_`;
                       {recentLeadsTab === 'assigned_today' && todayAssignedLeads.length === 0 && (
                         <p className="text-xs text-slate-400 italic py-6 text-center">No leads assigned today yet.</p>
                       )}
-                      {recentLeadsTab === 'all' && leads.length === 0 && (
+                      {recentLeadsTab === 'all' && myLeads.length === 0 && (
                         <p className="text-xs text-slate-400 italic py-6 text-center">No leads yet.</p>
                       )}
                     </div>
@@ -5571,7 +5595,7 @@ _Forwarded via LEAMSS CRM_`;
                 <Select value={sourceFilter} onValueChange={setSourceFilter}>
                   <SelectTrigger className="w-36 h-8 text-xs bg-slate-50"><SelectValue placeholder="Source" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Sources ({leads.length})</SelectItem>
+                    <SelectItem value="all">All Sources ({myLeads.length})</SelectItem>
                     {SOURCES.map(s => {
                       const count = sourceCounts[s] || 0;
                       const label = s === 'Calendly' ? 'Calendly Bookings' : s;
@@ -5704,7 +5728,7 @@ _Forwarded via LEAMSS CRM_`;
                     <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
                   </Button>
                   <div className="text-xs text-slate-500 font-medium">
-                    Showing <span className="font-bold text-slate-800">{filteredLeads.length}</span> of {leads.length} leads
+                    Showing <span className="font-bold text-slate-800">{filteredLeads.length}</span> of {myLeads.length} leads
                   </div>
                 </div>
               </div>
@@ -6013,7 +6037,7 @@ _Forwarded via LEAMSS CRM_`;
           {view === 'kanban' && (
             <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-180px)]">
               {STAGES.slice(0, 10).map(stage => {
-                const stageLeads = leads.filter(l => l.stage === stage.key || l.status === stage.key);
+                const stageLeads = myLeads.filter(l => l.stage === stage.key || l.status === stage.key);
                 return (
                   <div key={stage.key} className="w-72 flex-shrink-0 bg-slate-100/70 rounded-xl p-3 flex flex-col border border-slate-200">
                     <div className="flex items-center justify-between mb-3 px-1">

@@ -457,8 +457,9 @@ async def get_leads(
     if priority and priority != "all":
         and_conditions.append({"priority": priority})
 
-    # Role check: Internal & External Salespersons can ONLY view leads assigned to them; Managers and Admins can view all and filter by assigned_to
-    if _is_manager_or_admin(current_user):
+    # Role check: ONLY Admin can view all leads and filter by assigned_to;
+    # Non-admins (Salespersons, Sales Executives, Partners, Sales Staff) can ONLY view leads assigned to them.
+    if _is_admin(current_user):
         if assigned_to and assigned_to != "all":
             if assigned_to.lower() == "unassigned":
                 and_conditions.append({
@@ -480,21 +481,34 @@ async def get_leads(
                         {"assigned_to_email": assigned_to.lower()}
                     ]
                 })
-    elif _is_sales_person(current_user) or not _is_admin(current_user):
+    else:
         user_id = str(current_user.get("id") or "").strip()
         user_email = str(current_user.get("email") or "").strip().lower()
         user_name = str(current_user.get("name") or "").strip()
+        user_first = user_name.split()[0] if user_name else ""
         assigned_or = []
         if user_id:
             assigned_or.append({"assigned_to": user_id})
             assigned_or.append({"assigned_sales_rep_id": user_id})
             assigned_or.append({"assigned_sales_person_id": user_id})
+            assigned_or.append({"sales_person_id": user_id})
+            assigned_or.append({"created_by": user_id})
+            assigned_or.append({"partner_id": user_id})
+            assigned_or.append({"block_assigned_to": user_id})
         if user_email:
             assigned_or.append({"assigned_to": user_email})
             assigned_or.append({"assigned_to_email": user_email})
+            assigned_or.append({"assigned_to": {"$regex": f"^{re.escape(user_email)}$", "$options": "i"}})
+            assigned_or.append({"assigned_to_email": {"$regex": f"^{re.escape(user_email)}$", "$options": "i"}})
         if user_name:
+            assigned_or.append({"assigned_to": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
             assigned_or.append({"assigned_to_name": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
             assigned_or.append({"assigned_sales_person_name": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+            assigned_or.append({"created_by_name": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+        if user_first and len(user_first) >= 3:
+            assigned_or.append({"assigned_to": {"$regex": f"^{re.escape(user_first)}$", "$options": "i"}})
+            assigned_or.append({"assigned_to_name": {"$regex": f"^{re.escape(user_first)}$", "$options": "i"}})
+            assigned_or.append({"assigned_sales_person_name": {"$regex": f"^{re.escape(user_first)}$", "$options": "i"}})
         and_conditions.append({"$or": assigned_or if assigned_or else [{"assigned_to": "__none__"}]})
 
     if search:
@@ -596,18 +610,34 @@ async def get_pipeline_stats(current_user: dict = Depends(get_current_user)):
     ]
     stats = {}
     user_query = {}
-    if _is_sales_person(current_user) or not _is_admin(current_user):
+    if not _is_admin(current_user):
         user_id = str(current_user.get("id") or "").strip()
         user_email = str(current_user.get("email") or "").strip().lower()
         user_name = str(current_user.get("name") or "").strip()
+        user_first = user_name.split()[0] if user_name else ""
         assigned_or = []
         if user_id:
             assigned_or.append({"assigned_to": user_id})
+            assigned_or.append({"assigned_sales_rep_id": user_id})
+            assigned_or.append({"assigned_sales_person_id": user_id})
+            assigned_or.append({"sales_person_id": user_id})
+            assigned_or.append({"created_by": user_id})
+            assigned_or.append({"partner_id": user_id})
+            assigned_or.append({"block_assigned_to": user_id})
         if user_email:
             assigned_or.append({"assigned_to": user_email})
             assigned_or.append({"assigned_to_email": user_email})
+            assigned_or.append({"assigned_to": {"$regex": f"^{re.escape(user_email)}$", "$options": "i"}})
+            assigned_or.append({"assigned_to_email": {"$regex": f"^{re.escape(user_email)}$", "$options": "i"}})
         if user_name:
-            assigned_or.append({"assigned_to_name": user_name})
+            assigned_or.append({"assigned_to": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+            assigned_or.append({"assigned_to_name": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+            assigned_or.append({"assigned_sales_person_name": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+            assigned_or.append({"created_by_name": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+        if user_first and len(user_first) >= 3:
+            assigned_or.append({"assigned_to": {"$regex": f"^{re.escape(user_first)}$", "$options": "i"}})
+            assigned_or.append({"assigned_to_name": {"$regex": f"^{re.escape(user_first)}$", "$options": "i"}})
+            assigned_or.append({"assigned_sales_person_name": {"$regex": f"^{re.escape(user_first)}$", "$options": "i"}})
         user_query = {"$or": assigned_or if assigned_or else [{"assigned_to": "__none__"}]}
     
     for stage in stages:
@@ -645,18 +675,34 @@ async def get_pipeline_stats(current_user: dict = Depends(get_current_user)):
 
 async def _get_source_stats(user):
     query = {}
-    if _is_sales_person(user) or not _is_admin(user):
+    if not _is_admin(user):
         user_id = str(user.get("id") or "").strip()
         user_email = str(user.get("email") or "").strip().lower()
         user_name = str(user.get("name") or "").strip()
+        user_first = user_name.split()[0] if user_name else ""
         assigned_or = []
         if user_id:
             assigned_or.append({"assigned_to": user_id})
+            assigned_or.append({"assigned_sales_rep_id": user_id})
+            assigned_or.append({"assigned_sales_person_id": user_id})
+            assigned_or.append({"sales_person_id": user_id})
+            assigned_or.append({"created_by": user_id})
+            assigned_or.append({"partner_id": user_id})
+            assigned_or.append({"block_assigned_to": user_id})
         if user_email:
             assigned_or.append({"assigned_to": user_email})
             assigned_or.append({"assigned_to_email": user_email})
+            assigned_or.append({"assigned_to": {"$regex": f"^{re.escape(user_email)}$", "$options": "i"}})
+            assigned_or.append({"assigned_to_email": {"$regex": f"^{re.escape(user_email)}$", "$options": "i"}})
         if user_name:
-            assigned_or.append({"assigned_to_name": user_name})
+            assigned_or.append({"assigned_to": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+            assigned_or.append({"assigned_to_name": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+            assigned_or.append({"assigned_sales_person_name": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+            assigned_or.append({"created_by_name": {"$regex": f"^{re.escape(user_name)}$", "$options": "i"}})
+        if user_first and len(user_first) >= 3:
+            assigned_or.append({"assigned_to": {"$regex": f"^{re.escape(user_first)}$", "$options": "i"}})
+            assigned_or.append({"assigned_to_name": {"$regex": f"^{re.escape(user_first)}$", "$options": "i"}})
+            assigned_or.append({"assigned_sales_person_name": {"$regex": f"^{re.escape(user_first)}$", "$options": "i"}})
         query = {"$or": assigned_or if assigned_or else [{"assigned_to": "__none__"}]}
     pipeline = []
     if query:
@@ -1480,18 +1526,20 @@ async def get_lead_detail(lead_id: str, current_user: dict = Depends(get_current
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
-    if _is_sales_person(current_user) or not _is_admin(current_user):
+    if not _is_admin(current_user):
         user_id = str(current_user.get("id") or "").strip()
         user_email = str(current_user.get("email") or "").strip().lower()
         user_name = str(current_user.get("name") or "").strip().lower()
+        user_first = user_name.split()[0] if user_name else ""
         lead_assignee = str(lead.get("assigned_to") or "").strip()
-        lead_assignee_name = str(lead.get("assigned_to_name") or "").strip().lower()
+        lead_assignee_name = str(lead.get("assigned_to_name") or lead.get("assigned_sales_person_name") or "").strip().lower()
         lead_assignee_email = str(lead.get("assigned_to_email") or "").strip().lower()
 
         is_assigned_to_me = (
-            (user_id and lead_assignee == user_id) or
+            (user_id and (lead_assignee == user_id or str(lead.get("assigned_sales_rep_id") or "") == user_id or str(lead.get("assigned_sales_person_id") or "") == user_id or str(lead.get("sales_person_id") or "") == user_id or str(lead.get("created_by") or "") == user_id or str(lead.get("partner_id") or "") == user_id or str(lead.get("block_assigned_to") or "") == user_id)) or
             (user_email and (lead_assignee.lower() == user_email or lead_assignee_email == user_email)) or
-            (user_name and lead_assignee_name == user_name)
+            (user_name and (lead_assignee.lower() == user_name or lead_assignee_name == user_name)) or
+            (user_first and len(user_first) >= 3 and (lead_assignee.lower() == user_first or lead_assignee_name == user_first))
         )
         if not is_assigned_to_me:
             raise HTTPException(status_code=403, detail="Access denied. You can only view leads assigned to you.")
@@ -1539,18 +1587,20 @@ async def update_lead(lead_id: str, data: dict = Body(...), current_user: dict =
         raise HTTPException(status_code=404, detail="Lead not found")
     real_lead_id = lead.get("id") or str(lead["_id"])
 
-    if not _is_admin(current_user) and not _is_manager_or_admin(current_user):
+    if not _is_admin(current_user):
         user_id = str(current_user.get("id") or "").strip()
         user_email = str(current_user.get("email") or "").strip().lower()
         user_name = str(current_user.get("name") or "").strip().lower()
+        user_first = user_name.split()[0] if user_name else ""
         lead_assignee = str(lead.get("assigned_to") or "").strip()
-        lead_assignee_name = str(lead.get("assigned_to_name") or "").strip().lower()
+        lead_assignee_name = str(lead.get("assigned_to_name") or lead.get("assigned_sales_person_name") or "").strip().lower()
         lead_assignee_email = str(lead.get("assigned_to_email") or "").strip().lower()
 
         is_assigned_to_me = (
-            (user_id and lead_assignee == user_id) or
+            (user_id and (lead_assignee == user_id or str(lead.get("assigned_sales_rep_id") or "") == user_id or str(lead.get("assigned_sales_person_id") or "") == user_id or str(lead.get("sales_person_id") or "") == user_id or str(lead.get("created_by") or "") == user_id or str(lead.get("partner_id") or "") == user_id or str(lead.get("block_assigned_to") or "") == user_id)) or
             (user_email and (lead_assignee.lower() == user_email or lead_assignee_email == user_email)) or
-            (user_name and lead_assignee_name == user_name) or
+            (user_name and (lead_assignee.lower() == user_name or lead_assignee_name == user_name)) or
+            (user_first and len(user_first) >= 3 and (lead_assignee.lower() == user_first or lead_assignee_name == user_first)) or
             not lead_assignee or lead_assignee in ["unassigned", "none", ""]
         )
         if not is_assigned_to_me:
