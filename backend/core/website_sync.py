@@ -284,12 +284,15 @@ async def upsert_website_lead(data: Dict[str, Any]) -> Tuple[Dict[str, Any], boo
         # Generate new lead ID and sequential lead number
         count = await leads_col.count_documents({})
         lead_number = f"LD{(count + 6620):06d}"
+        now_dt = datetime.now(timezone.utc)
         
         new_lead = {
             "id": str(uuid.uuid4()),
             "lead_number": lead_number,
             **mapped,
-            "notes": [],
+            "created_at": mapped.get("created_at") or now_dt,
+            "updated_at": now_dt,
+            "notes": [f"Imported from cPanel MySQL table 'navratri_registrations' (ID: {mapped.get('external_id')})"],
             "assigned_to": mapped.get("assigned_to"),
             "assigned_to_name": mapped.get("assigned_to_name") or "Unassigned",
         }

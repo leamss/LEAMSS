@@ -33,6 +33,9 @@ const getResumeHref = (url) => {
   if (hex && (str.includes('cockpit') || str.includes('resume') || /^[a-fA-F0-9]{24}$/.test(str))) {
     return `${BACKEND_URL}/api/cockpit/resume/${hex[0]}`;
   }
+  if (str.includes('leamss.com') && !str.includes('api.leamss.com')) {
+    return `${BACKEND_URL}/api/cockpit/resume-proxy?url=${encodeURIComponent(str)}`;
+  }
   if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('blob:') || str.startsWith('data:')) return str;
   if (str.startsWith('/api')) return `${BACKEND_URL}${str}`;
   if (str.startsWith('/')) return `${BACKEND_URL}/api${str}`;

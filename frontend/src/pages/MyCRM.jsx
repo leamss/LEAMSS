@@ -570,18 +570,26 @@ export default function MyCRM() {
 
   const getResumeUrl = (lead) => {
     if (!lead) return '';
-    if (lead.resume_url) {
-      if (lead.resume_url.startsWith('http')) return lead.resume_url;
-      const cleanPath = lead.resume_url.startsWith('/api')
-        ? lead.resume_url
-        : `/api${lead.resume_url.startsWith('/') ? '' : '/'}${lead.resume_url}`;
+    const rawUrl = lead.resume_url || lead.resume_path || lead.resume_link || '';
+    if (rawUrl) {
+      if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+        // If it's hosted on leamss.com (not api.leamss.com), route through proxy to prevent X-Frame-Options: SAMEORIGIN iframe blocking
+        if (rawUrl.includes('leamss.com') && !rawUrl.includes('api.leamss.com')) {
+          const fname = lead.resume_filename || `${(lead.name || 'Candidate').replace(/\s+/g, '_')}_Resume.pdf`;
+          return `${API}/cockpit/resume-proxy?url=${encodeURIComponent(rawUrl)}&filename=${encodeURIComponent(fname)}`;
+        }
+        return rawUrl;
+      }
+      const cleanPath = rawUrl.startsWith('/api')
+        ? rawUrl
+        : `/api${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
       const backendBase = (
         process.env.REACT_APP_BACKEND_URL ||
         (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001')
       ).replace(/\/+$/, '');
       return `${backendBase}${cleanPath}`;
     }
-    const fileId = lead.resume_file_id || lead.id;
+    const fileId = lead.resume_file_id || lead.id || lead.lead_number;
     return `${API}/cockpit/resume/${fileId}`;
   };
 
@@ -2390,6 +2398,12 @@ export default function MyCRM() {
         return true;
       })
       .sort((a, b) => {
+        // Compare lead numbers if they follow LD\d+ pattern (e.g. LD006997 > LD006996) so newest submissions always appear first
+        const numA = parseInt(String(a.lead_number || '').replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt(String(b.lead_number || '').replace(/\D/g, ''), 10) || 0;
+        if (numA && numB && numA !== numB) {
+          return numB - numA;
+        }
         const timeA = Math.max(new Date(a.updated_at || 0).getTime(), new Date(a.created_at || 0).getTime());
         const timeB = Math.max(new Date(b.updated_at || 0).getTime(), new Date(b.created_at || 0).getTime());
         return timeB - timeA;

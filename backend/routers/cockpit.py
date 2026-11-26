@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
 from core.auth import get_current_user
@@ -43,28 +43,113 @@ from core.navratri_automation import (
 
 router = APIRouter(prefix="/cockpit", tags=["Cockpit"])
 
-@router.get("/resume/{file_id}")
-async def get_cockpit_resume(file_id: str):
-    """Stream resume file from GridFS across all candidate buckets."""
-    clean_id = str(file_id or "").strip()
-    m = re.search(r"[a-fA-F0-9]{24}", clean_id)
-    if m:
-        clean_id = m.group(0)
+
+async def _proxy_external_resume(url: str, filename: Optional[str] = None) -> Response:
+    """Fetches an external resume (e.g. from leamss.com) and streams it inline without X-Frame-Options blocking."""
+    import httpx
+    import logging
+    _log = logging.getLogger("cockpit_proxy")
+
+    clean_url = str(url or "").strip()
+    if not clean_url:
+        raise HTTPException(status_code=400, detail="Empty resume URL")
+
+    if not (clean_url.startswith("http://") or clean_url.startswith("https://")):
+        if clean_url.startswith("/"):
+            clean_url = f"https://leamss.com{clean_url}"
+        else:
+            clean_url = f"https://leamss.com/{clean_url}"
+
+    fname = filename or clean_url.split("/")[-1].split("?")[0] or "resume.pdf"
+    if not fname.lower().endswith((".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg")):
+        fname = f"{fname}.pdf"
 
     try:
-        oid = ObjectId(clean_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid file ID")
+        async with httpx.AsyncClient(timeout=25.0, follow_redirects=True, verify=False) as client:
+            resp = await client.get(clean_url)
+            if resp.status_code != 200:
+                _log.warning(f"Upstream resume fetch failed ({resp.status_code}): {clean_url}")
+                raise HTTPException(status_code=resp.status_code, detail=f"Failed to fetch resume: upstream status {resp.status_code}")
+
+            content = resp.content
+            content_type = resp.headers.get("content-type") or "application/pdf"
+            if fname.lower().endswith(".pdf"):
+                content_type = "application/pdf"
+            elif fname.lower().endswith(".docx"):
+                content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            elif fname.lower().endswith(".doc"):
+                content_type = "application/msword"
+
+            headers = {
+                "Content-Disposition": f'inline; filename="{fname}"',
+                "Content-Type": content_type,
+                "Content-Length": str(len(content)),
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=3600",
+            }
+            return Response(content=content, media_type=content_type, headers=headers)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _log.error(f"Error proxying resume: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to proxy resume: {str(e)}")
+
+
+@router.get("/resume-proxy")
+async def proxy_resume_endpoint(url: str = Query(...), filename: Optional[str] = Query(None)):
+    """Proxies external resume URLs (e.g. from leamss.com) to allow in-app iframe preview without X-Frame-Options blocking."""
+    return await _proxy_external_resume(url, filename)
+
+
+@router.get("/resume/{file_id}")
+async def get_cockpit_resume(file_id: str):
+    """Stream resume file from GridFS across all candidate buckets, with fallback to lead record or external URL."""
+    clean_id = str(file_id or "").strip()
+    m = re.search(r"[a-fA-F0-9]{24}", clean_id)
+    oid = None
+    if m:
+        try:
+            oid = ObjectId(m.group(0))
+        except Exception:
+            oid = None
 
     grid_out = None
-    for bucket_name in ("bulk_resumes", "resume_files", "fs", "resumes", "lead_resumes"):
-        try:
-            gridfs = AsyncIOMotorGridFSBucket(db, bucket_name=bucket_name)
-            grid_out = await gridfs.open_download_stream(oid)
-            if grid_out:
-                break
-        except Exception:
-            continue
+    if oid:
+        for bucket_name in ("bulk_resumes", "resume_files", "fs", "resumes", "lead_resumes"):
+            try:
+                gridfs = AsyncIOMotorGridFSBucket(db, bucket_name=bucket_name)
+                grid_out = await gridfs.open_download_stream(oid)
+                if grid_out:
+                    break
+            except Exception:
+                continue
+
+    if not grid_out:
+        # Fallback: check if file_id matches a lead document in MongoDB
+        lead_doc = await db.leads.find_one(
+            {"$or": [{"id": clean_id}, {"lead_number": clean_id}, {"unique_id": clean_id}, {"external_id": clean_id}]}
+        )
+        if lead_doc:
+            res_fid = lead_doc.get("resume_file_id")
+            if res_fid and str(res_fid).strip() != clean_id:
+                try:
+                    res_oid = ObjectId(str(res_fid).strip())
+                    for bname in ("bulk_resumes", "resume_files", "fs", "resumes", "lead_resumes"):
+                        try:
+                            gfs = AsyncIOMotorGridFSBucket(db, bucket_name=bname)
+                            grid_out = await gfs.open_download_stream(res_oid)
+                            if grid_out:
+                                break
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+
+            if not grid_out:
+                raw_url = lead_doc.get("resume_url") or lead_doc.get("resume_path") or lead_doc.get("resume_link")
+                if raw_url and (str(raw_url).startswith("http://") or str(raw_url).startswith("https://")):
+                    fname = lead_doc.get("resume_filename") or f"{lead_doc.get('name', 'candidate')}_resume.pdf"
+                    return await _proxy_external_resume(str(raw_url), fname)
 
     if not grid_out:
         raise HTTPException(status_code=404, detail="Resume file not found")
@@ -95,6 +180,7 @@ async def get_cockpit_resume(file_id: str):
         headers={
             "Content-Disposition": f'inline; filename="{filename}"',
             "Content-Length": str(grid_out.length),
+            "Access-Control-Allow-Origin": "*",
         },
     )
 

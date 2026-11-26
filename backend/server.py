@@ -26,7 +26,8 @@ load_dotenv()
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-from fastapi import FastAPI, Request
+from typing import Optional
+from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from core.database import init_db
 from services.atlas_country_service import seed_atlas_countries
@@ -938,6 +939,13 @@ async def get_expiring_documents():
     
     # For now return empty list as we don't have expiry tracking yet
     return {"documents": [], "count": 0}
+
+
+@app.get("/cockpit/resume-proxy")
+async def direct_cockpit_resume_proxy(url: str = Query(...), filename: Optional[str] = Query(None)):
+    """Direct root fallback to proxy cockpit resume without /api prefix."""
+    from routers.cockpit import proxy_resume_endpoint
+    return await proxy_resume_endpoint(url=url, filename=filename)
 
 
 @app.get("/cockpit/resume/{file_id}")

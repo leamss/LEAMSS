@@ -513,7 +513,7 @@ async def get_leads(
         })
 
     query = {"$and": and_conditions} if and_conditions else {}
-    leads = await leads_col.find(query, {"_id": 0}).sort([("updated_at", -1), ("created_at", -1)]).to_list(limit)
+    leads = await leads_col.find(query, {"_id": 0}).sort([("lead_number", -1), ("updated_at", -1), ("created_at", -1)]).to_list(limit)
     
     from core.navratri_automation import is_lead_paid, has_lead_resume
     enriched_leads = []
