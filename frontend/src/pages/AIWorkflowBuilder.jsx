@@ -279,7 +279,26 @@ const AIWorkflowBuilder = () => {
   const handleSave = async () => {
     if (!workflow) return; setSaving(true);
     try {
-      const r = await axios.post(`${API}/ai-workflow/save`, { product_name: workflow.product_name, description: workflow.description, category: 'immigration', base_fee: 0, commission_rate: 10, steps: workflow.steps || [] }, auth());
+      const payloadCountry = workflow.country || selectedCountry?.name || workflow.product_name?.split(' - ')[0]?.trim() || '';
+      const payloadCategory = (workflow.category && workflow.category !== 'immigration') ? workflow.category : 'skilled_migration';
+      const payloadSubclass = workflow.visa_subclass || workflow.subclass_id || selectedVisa?.subclass_id || '';
+      const payloadVisaType = workflow.visa_type || selectedVisa?.name || selectedVisa?.service_type || 'Immigration / Residency';
+
+      const r = await axios.post(`${API}/ai-workflow/save`, {
+        product_name: workflow.product_name,
+        country: payloadCountry,
+        visa_subclass: payloadSubclass,
+        visa_type: payloadVisaType,
+        description: workflow.description || `Immigration pathway for ${workflow.product_name}`,
+        category: payloadCategory,
+        base_fee: workflow.base_fee || 0,
+        commission_rate: workflow.commission_rate || 10,
+        estimated_government_fees: workflow.estimated_government_fees || '',
+        estimated_total_duration_days: workflow.estimated_total_duration_days || 120,
+        success_tips: workflow.success_tips || [],
+        common_rejection_reasons: workflow.common_rejection_reasons || [],
+        steps: workflow.steps || []
+      }, auth());
       toast.success(`"${workflow.product_name}" saved with ${r.data.steps_created} steps!`); setView('saved');
     } catch (e) { toast.error(e.response?.data?.detail || 'Save failed'); }
     setSaving(false);

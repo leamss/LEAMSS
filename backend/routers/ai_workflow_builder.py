@@ -1422,23 +1422,45 @@ async def save_workflow_as_product(
         raise HTTPException(status_code=403, detail="Admin only")
     
     clean_name = request.product_name.strip()
-    clean_country = (request.country or "").strip()
     clean_subclass = (request.visa_subclass or "").strip()
 
-    # Inferred country and subclass if missing
-    if not clean_country:
-        for c in ("Australia", "Canada", "United Kingdom", "UK", "United States", "USA", "New Zealand", "Germany", "Singapore", "Dubai", "UAE", "Ireland"):
-            if c.lower() in clean_name.lower():
-                clean_country = c
-                break
+    # Import country regulatory helpers
+    from services.country_regulatory_authorities import (
+        resolve_country_meta,
+        get_country_authority_info,
+        get_country_official_portal_url,
+    )
+
+    clean_country, country_code, flag = resolve_country_meta(request.country or "", clean_name)
+    auth_info = get_country_authority_info(clean_country)
+    authority_name = (auth_info.get("authority_name") if isinstance(auth_info, dict) else "") or ""
+    official_portal_url = get_country_official_portal_url(clean_country) or ""
+
     if not clean_subclass:
         match = re.search(r'\b(?:subclass\s*)?(\d{3,4})\b', clean_name, re.IGNORECASE)
         if match:
             clean_subclass = match.group(1)
 
+    # Normalize category for seamless Product Master alignment
+    clean_cat_raw = (request.category or "").strip().lower()
+    if clean_cat_raw in ("skilled_migration", "pr", "immigration", "residence", "permanent_residence", "skilled"):
+        clean_category = "skilled_migration"
+    elif clean_cat_raw in ("work", "work_visa", "employment"):
+        clean_category = "work"
+    elif clean_cat_raw in ("student", "study", "education"):
+        clean_category = "student"
+    elif clean_cat_raw in ("visitor", "tourist", "visit"):
+        clean_category = "visitor"
+    elif clean_cat_raw in ("family", "partner", "spouse"):
+        clean_category = "family"
+    elif clean_cat_raw in ("business", "investor", "investment"):
+        clean_category = "business"
+    else:
+        clean_category = "skilled_migration"
+
     # Deduplicate against existing products
     query: Dict[str, Any] = {"name": clean_name}
-    if clean_country and clean_subclass:
+    if clean_country and clean_country != "Other" and clean_subclass:
         query = {
             "$or": [
                 {"name": clean_name},
@@ -1571,10 +1593,14 @@ async def save_workflow_as_product(
         "name": clean_name,
         "summary": request.description or f"Immigration pathway for {clean_name}",
         "description": request.description or f"Immigration pathway for {clean_name}",
-        "country": clean_country or (existing_product.get("country") if existing_product else ""),
+        "country": clean_country or (existing_product.get("country") if existing_product else "Other"),
+        "country_code": country_code,
+        "flag": flag,
+        "authority_name": authority_name or (existing_product.get("authority_name") if existing_product else ""),
+        "official_portal_url": official_portal_url or (existing_product.get("official_portal_url") if existing_product else ""),
         "visa_type": request.visa_type or (existing_product.get("visa_type") if existing_product else "Immigration / Residency"),
         "visa_subclass": clean_subclass or (existing_product.get("visa_subclass") if existing_product else ""),
-        "category": request.category or (existing_product.get("category") if existing_product else "skilled_migration"),
+        "category": clean_category,
         "status": "active",
         "base_fee": float(request.base_fee or (existing_product.get("base_fee") if existing_product else 150000)),
         "service_price": float(request.base_fee or (existing_product.get("service_price") if existing_product else 150000)),
@@ -1701,6 +1727,9 @@ async def save_workflow_as_product(
         "product_id": prod_id,
         "product_name": clean_name,
         "country": product_doc["country"],
+        "country_code": product_doc.get("country_code", ""),
+        "flag": product_doc.get("flag", "🌐"),
+        "category": product_doc.get("category", "skilled_migration"),
         "visa_subclass": product_doc["visa_subclass"],
         "steps_created": len(saved_steps),
         "checklists_created": len(checklist_template),

@@ -477,10 +477,32 @@ COUNTRY_REGULATORY_AUTHORITIES: Dict[str, Dict[str, Any]] = {
             {"id": "nz_visitor", "name": "Visitor Visa (General Visitor)", "category": "visitor", "service_type": "visitor", "description": "Holiday, tourism, or visiting family and friends for up to 9 months.", "official_url": "https://www.immigration.govt.nz/new-zealand-visas/visas/visa/visitor-visa", "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/", "estimated_fees": "NZD 211"},
         ],
     },
+    "china": {
+        "country_name": "China",
+        "country_code": "CN",
+        "authority_name": "National Immigration Administration (NIA) / Visa For China",
+        "official_portal_url": "https://en.nia.gov.cn",
+        "vfs_url": "https://www.visaforchina.cn",
+        "official_forms": [
+            {"form_id": "china_visa_form", "name": "Form V.2013 - Visa Application Form of the People's Republic of China", "description": "Official statutory application form for entry visa and residence processing", "url": "https://www.visaforchina.cn", "applies_to": ["work", "student", "pr", "visitor", "business"], "category": "application", "mandatory": True},
+            {"form_id": "china_pr_form", "name": "Foreigner Permanent Residence Identity Card Application Form", "description": "Statutory application form for Chinese Permanent Residence (Five-Star Card)", "url": "https://en.nia.gov.cn", "applies_to": ["pr", "permanent_residence"], "category": "application", "mandatory": True},
+            {"form_id": "china_health_form", "name": "Foreigner Physical Examination Record", "description": "Mandatory statutory physical check-up form for Chinese work permits and long-term residence", "url": "https://www.visaforchina.cn", "applies_to": ["work", "student", "pr"], "category": "medical", "mandatory": True},
+        ],
+        "visa_streams": [
+            {"id": "china_pr", "name": "Permanent Residence (Foreign Permanent Resident Identity Card)", "category": "pr", "service_type": "pr", "description": "Chinese Permanent Residence (Five-Star Card) for high-level experts, major investors, and long-term direct contributors.", "official_url": "https://en.nia.gov.cn", "vfs_url": "https://www.visaforchina.cn", "estimated_fees": "CNY 1,800"},
+            {"id": "china_z_visa", "name": "Z Visa - Employment / Work Permit", "category": "work", "service_type": "work", "description": "Work visa for foreign nationals taking up statutory employment in mainland China.", "official_url": "https://www.visaforchina.cn", "vfs_url": "https://www.visaforchina.cn", "estimated_fees": "CNY 140 - CNY 900"},
+            {"id": "china_x1_visa", "name": "X1 Student Visa (Long Term > 180 Days)", "category": "student", "service_type": "student", "description": "Long-term student visa for foreign students studying at accredited Chinese universities.", "official_url": "https://www.visaforchina.cn", "vfs_url": "https://www.visaforchina.cn", "estimated_fees": "CNY 140 - CNY 900"},
+            {"id": "china_m_visa", "name": "M Visa - Commercial / Business Trade", "category": "business", "service_type": "business", "description": "Commercial and business visa for attending trade fairs, client meetings, or commerce.", "official_url": "https://www.visaforchina.cn", "vfs_url": "https://www.visaforchina.cn", "estimated_fees": "CNY 140 - CNY 900"},
+        ],
+    },
 }
 
 # Country alias mapping for seamless query matching
 COUNTRY_ALIASES: Dict[str, str] = {
+    "china": "china",
+    "cn": "china",
+    "prc": "china",
+    "people's republic of china": "china",
     "australia": "australia",
     "aus": "australia",
     "au": "australia",
@@ -617,3 +639,169 @@ def get_all_country_authorities_list() -> List[Dict[str, Any]]:
         })
     out.sort(key=lambda x: x["country"])
     return out
+
+
+def iso_to_flag(code: str) -> str:
+    """Convert a 2-letter ISO country code into Unicode flag emoji."""
+    if not code or len(code) != 2:
+        return "🌐"
+    try:
+        return "".join(chr(127397 + ord(c)) for c in code.upper())
+    except Exception:
+        return "🌐"
+
+
+ALL_COUNTRY_CODES: Dict[str, tuple[str, str, str]] = {
+    "australia": ("Australia", "AU", "🇦🇺"),
+    "aus": ("Australia", "AU", "🇦🇺"),
+    "au": ("Australia", "AU", "🇦🇺"),
+    "canada": ("Canada", "CA", "🇨🇦"),
+    "can": ("Canada", "CA", "🇨🇦"),
+    "ca": ("Canada", "CA", "🇨🇦"),
+    "united kingdom": ("United Kingdom", "GB", "🇬🇧"),
+    "uk": ("United Kingdom", "GB", "🇬🇧"),
+    "great britain": ("United Kingdom", "GB", "🇬🇧"),
+    "gb": ("United Kingdom", "GB", "🇬🇧"),
+    "germany": ("Germany", "DE", "🇩🇪"),
+    "de": ("Germany", "DE", "🇩🇪"),
+    "deutschland": ("Germany", "DE", "🇩🇪"),
+    "united states": ("United States", "US", "🇺🇸"),
+    "usa": ("United States", "US", "🇺🇸"),
+    "us": ("United States", "US", "🇺🇸"),
+    "america": ("United States", "US", "🇺🇸"),
+    "new zealand": ("New Zealand", "NZ", "🇳🇿"),
+    "nz": ("New Zealand", "NZ", "🇳🇿"),
+    "nzl": ("New Zealand", "NZ", "🇳🇿"),
+    "china": ("China", "CN", "🇨🇳"),
+    "cn": ("China", "CN", "🇨🇳"),
+    "prc": ("China", "CN", "🇨🇳"),
+    "people's republic of china": ("China", "CN", "🇨🇳"),
+    "japan": ("Japan", "JP", "🇯🇵"),
+    "jp": ("Japan", "JP", "🇯🇵"),
+    "singapore": ("Singapore", "SG", "🇸🇬"),
+    "sg": ("Singapore", "SG", "🇸🇬"),
+    "france": ("France", "FR", "🇫🇷"),
+    "fr": ("France", "FR", "🇫🇷"),
+    "italy": ("Italy", "IT", "🇮🇹"),
+    "it": ("Italy", "IT", "🇮🇹"),
+    "spain": ("Spain", "ES", "🇪🇸"),
+    "es": ("Spain", "ES", "🇪🇸"),
+    "switzerland": ("Switzerland", "CH", "🇨🇭"),
+    "ch": ("Switzerland", "CH", "🇨🇭"),
+    "netherlands": ("Netherlands", "NL", "🇳🇱"),
+    "nl": ("Netherlands", "NL", "🇳🇱"),
+    "holland": ("Netherlands", "NL", "🇳🇱"),
+    "ireland": ("Ireland", "IE", "🇮🇪"),
+    "ie": ("Ireland", "IE", "🇮🇪"),
+    "uae": ("United Arab Emirates", "AE", "🇦🇪"),
+    "united arab emirates": ("United Arab Emirates", "AE", "🇦🇪"),
+    "dubai": ("United Arab Emirates", "AE", "🇦🇪"),
+    "ae": ("United Arab Emirates", "AE", "🇦🇪"),
+    "south korea": ("South Korea", "KR", "🇰🇷"),
+    "korea": ("South Korea", "KR", "🇰🇷"),
+    "kr": ("South Korea", "KR", "🇰🇷"),
+    "india": ("India", "IN", "🇮🇳"),
+    "in": ("India", "IN", "🇮🇳"),
+    "brazil": ("Brazil", "BR", "🇧🇷"),
+    "br": ("Brazil", "BR", "🇧🇷"),
+    "mexico": ("Mexico", "MX", "🇲🇽"),
+    "mx": ("Mexico", "MX", "🇲🇽"),
+    "portugal": ("Portugal", "PT", "🇵🇹"),
+    "pt": ("Portugal", "PT", "🇵🇹"),
+    "poland": ("Poland", "PL", "🇵🇱"),
+    "pl": ("Poland", "PL", "🇵🇱"),
+    "sweden": ("Sweden", "SE", "🇸🇪"),
+    "se": ("Sweden", "SE", "🇸🇪"),
+    "norway": ("Norway", "NO", "🇳🇴"),
+    "no": ("Norway", "NO", "🇳🇴"),
+    "denmark": ("Denmark", "DK", "🇩🇰"),
+    "dk": ("Denmark", "DK", "🇩🇰"),
+    "finland": ("Finland", "FI", "🇫🇮"),
+    "fi": ("Finland", "FI", "🇫🇮"),
+    "austria": ("Austria", "AT", "🇦🇹"),
+    "at": ("Austria", "AT", "🇦🇹"),
+    "belgium": ("Belgium", "BE", "🇧🇪"),
+    "be": ("Belgium", "BE", "🇧🇪"),
+    "greece": ("Greece", "GR", "🇬🇷"),
+    "gr": ("Greece", "GR", "🇬🇷"),
+    "turkey": ("Turkey", "TR", "🇹🇷"),
+    "tr": ("Turkey", "TR", "🇹🇷"),
+    "thailand": ("Thailand", "TH", "🇹🇭"),
+    "th": ("Thailand", "TH", "🇹🇭"),
+    "malaysia": ("Malaysia", "MY", "🇲🇾"),
+    "my": ("Malaysia", "MY", "🇲🇾"),
+    "indonesia": ("Indonesia", "ID", "🇮🇩"),
+    "id": ("Indonesia", "ID", "🇮🇩"),
+    "philippines": ("Philippines", "PH", "🇵🇭"),
+    "ph": ("Philippines", "PH", "🇵🇭"),
+    "vietnam": ("Vietnam", "VN", "🇻🇳"),
+    "vn": ("Vietnam", "VN", "🇻🇳"),
+    "south africa": ("South Africa", "ZA", "🇿🇦"),
+    "za": ("South Africa", "ZA", "🇿🇦"),
+    "egypt": ("Egypt", "EG", "🇪🇬"),
+    "eg": ("Egypt", "EG", "🇪🇬"),
+    "saudi arabia": ("Saudi Arabia", "SA", "🇸🇦"),
+    "sa": ("Saudi Arabia", "SA", "🇸🇦"),
+    "qatar": ("Qatar", "QA", "🇶🇦"),
+    "qa": ("Qatar", "QA", "🇶🇦"),
+    "bahrain": ("Bahrain", "BH", "🇧🇭"),
+    "bh": ("Bahrain", "BH", "🇧🇭"),
+    "oman": ("Oman", "OM", "🇴🇲"),
+    "om": ("Oman", "OM", "🇴🇲"),
+    "kuwait": ("Kuwait", "KW", "🇰🇼"),
+    "kw": ("Kuwait", "KW", "🇰🇼"),
+    "czech republic": ("Czech Republic", "CZ", "🇨🇿"),
+    "czechia": ("Czech Republic", "CZ", "🇨🇿"),
+    "cz": ("Czech Republic", "CZ", "🇨🇿"),
+    "hungary": ("Hungary", "HU", "🇭🇺"),
+    "hu": ("Hungary", "HU", "🇭🇺"),
+    "hong kong": ("Hong Kong", "HK", "🇭🇰"),
+    "hk": ("Hong Kong", "HK", "🇭🇰"),
+    "taiwan": ("Taiwan", "TW", "🇹🇼"),
+    "tw": ("Taiwan", "TW", "🇹🇼"),
+    "russia": ("Russia", "RU", "🇷🇺"),
+    "ru": ("Russia", "RU", "🇷🇺"),
+    "argentina": ("Argentina", "AR", "🇦🇷"),
+    "ar": ("Argentina", "AR", "🇦🇷"),
+    "chile": ("Chile", "CL", "🇨🇱"),
+    "cl": ("Chile", "CL", "🇨🇱"),
+    "colombia": ("Colombia", "CO", "🇨🇴"),
+    "co": ("Colombia", "CO", "🇨🇴"),
+    "costa rica": ("Costa Rica", "CR", "🇨🇷"),
+    "cr": ("Costa Rica", "CR", "🇨🇷"),
+    "kenya": ("Kenya", "KE", "🇰🇪"),
+    "ke": ("Kenya", "KE", "🇰🇪"),
+    "mauritius": ("Mauritius", "MU", "🇲🇺"),
+    "mu": ("Mauritius", "MU", "🇲🇺"),
+    "nigeria": ("Nigeria", "NG", "🇳🇬"),
+    "ng": ("Nigeria", "NG", "🇳🇬"),
+    "panama": ("Panama", "PA", "🇵🇦"),
+    "pa": ("Panama", "PA", "🇵🇦"),
+}
+
+
+def resolve_country_meta(country_name_or_raw: str, fallback_text: str = "") -> tuple[str, str, str]:
+    """Resolve country canonical name, ISO 2-letter code, and flag emoji from country or product name."""
+    raw = (country_name_or_raw or "").strip().lower()
+    if raw and raw in ALL_COUNTRY_CODES:
+        return ALL_COUNTRY_CODES[raw]
+
+    # Check fallback text (e.g. product name prefix "China - ...")
+    clean_fallback = (fallback_text or "").strip()
+    if " - " in clean_fallback:
+        prefix = clean_fallback.split(" - ")[0].strip().lower()
+        if prefix in ALL_COUNTRY_CODES:
+            return ALL_COUNTRY_CODES[prefix]
+
+    # Check if any country name is contained as a distinct keyword
+    haystack = f" {raw} {clean_fallback.lower()} "
+    for k, v in ALL_COUNTRY_CODES.items():
+        if len(k) > 2 and f" {k} " in haystack:
+            return v
+
+    # Fallback to title-cased name
+    clean_name = (country_name_or_raw or clean_fallback.split(" - ")[0] if " - " in clean_fallback else clean_fallback or "Other").strip().title()
+    code = clean_name[:2].upper() if len(clean_name) >= 2 else "UN"
+    flag = iso_to_flag(code) if len(code) == 2 and code.isalpha() else "🌐"
+    return (clean_name, code, flag)
+

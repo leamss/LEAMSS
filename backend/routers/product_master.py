@@ -338,6 +338,57 @@ async def _sync_existing_products():
                     "version": int(p.get("version") or 1),
                 }
                 await product_master_col.insert_one(doc)
+
+        # Auto-heal / repair existing products missing country or having non-standard categories
+        from services.country_regulatory_authorities import resolve_country_meta, iso_to_flag
+        repair_candidates = await product_master_col.find(
+            {
+                "$or": [
+                    {"country": {"$in": ["", None, "Other"]}},
+                    {"country": {"$exists": False}},
+                    {"category": {"$in": ["immigration", "pr", "residence", "permanent_residence", "", None]}},
+                    {"category": {"$exists": False}},
+                    {"flag": {"$in": ["", None, "🌐"]}},
+                    {"flag": {"$exists": False}},
+                    {"country_code": {"$in": ["", None]}},
+                    {"country_code": {"$exists": False}},
+                ]
+            },
+            {"_id": 0, "id": 1, "name": 1, "country": 1, "category": 1, "flag": 1, "country_code": 1, "status": 1, "ai_generated": 1}
+        ).to_list(length=500)
+
+        for prod in repair_candidates:
+            p_id = prod.get("id")
+            if not p_id:
+                continue
+            p_name = prod.get("name", "")
+            raw_country = prod.get("country", "")
+            resolved_country, code, flag = resolve_country_meta(raw_country, p_name)
+
+            raw_cat = (prod.get("category") or "").lower()
+            if raw_cat in ("immigration", "pr", "residence", "permanent_residence", ""):
+                cat = "skilled_migration"
+            else:
+                cat = prod.get("category") or "skilled_migration"
+
+            update_fields = {}
+            if resolved_country and resolved_country != "Other":
+                if prod.get("country") != resolved_country:
+                    update_fields["country"] = resolved_country
+                if not prod.get("country_code") or prod.get("country_code") != code:
+                    update_fields["country_code"] = code
+                if not prod.get("flag") or prod.get("flag") in ("", "🌐"):
+                    update_fields["flag"] = flag
+
+            if prod.get("category") != cat:
+                update_fields["category"] = cat
+
+            if prod.get("status") in (None, "", "draft") and prod.get("ai_generated"):
+                update_fields["status"] = "active"
+
+            if update_fields:
+                await product_master_col.update_one({"id": p_id}, {"$set": update_fields})
+                await products_col.update_one({"id": p_id}, {"$set": update_fields})
     except Exception as e:
         logger.warning("Product Master auto-sync error: %s", e)
 
@@ -429,6 +480,8 @@ async def get_product_master_taxonomy(current_user: dict = Depends(get_current_u
     category_meta = {
         "skilled_migration": {"name": "Skilled Migration / PR", "icon": "🌟"},
         "pr": {"name": "Skilled Migration / PR", "icon": "🌟"},
+        "immigration": {"name": "Skilled Migration / PR", "icon": "🌟"},
+        "residence": {"name": "Skilled Migration / PR", "icon": "🌟"},
         "work": {"name": "Work Visas", "icon": "💼"},
         "student": {"name": "Student Visas", "icon": "🎓"},
         "visitor": {"name": "Visitor Visas", "icon": "✈️"},
@@ -443,34 +496,39 @@ async def get_product_master_taxonomy(current_user: dict = Depends(get_current_u
         "germany": "DE", "united states": "US", "usa": "US", "new zealand": "NZ",
         "france": "FR", "italy": "IT", "spain": "ES", "switzerland": "CH",
         "netherlands": "NL", "uae": "AE", "singapore": "SG", "ireland": "IE",
+        "china": "CN", "japan": "JP", "south korea": "KR", "india": "IN",
+        "brazil": "BR", "mexico": "MX", "portugal": "PT", "poland": "PL",
+        "sweden": "SE", "norway": "NO", "denmark": "DK", "finland": "FI",
+        "austria": "AT", "belgium": "BE", "greece": "GR", "turkey": "TR",
+        "thailand": "TH", "malaysia": "MY", "indonesia": "ID", "philippines": "PH",
+        "vietnam": "VN", "south africa": "ZA", "egypt": "EG", "saudi arabia": "SA",
     }
 
     country_flags = {
         "AU": "🇦🇺", "CA": "🇨🇦", "GB": "🇬🇧", "DE": "🇩🇪",
         "US": "🇺🇸", "NZ": "🇳🇿", "FR": "🇫🇷", "IT": "🇮🇹",
         "ES": "🇪🇸", "CH": "🇨🇭", "NL": "🇳🇱", "AE": "🇦🇪",
-        "SG": "🇸🇬", "IE": "🇮🇪",
+        "SG": "🇸🇬", "IE": "🇮🇪", "CN": "🇨🇳", "JP": "🇯🇵",
+        "KR": "🇰🇷", "IN": "🇮🇳", "BR": "🇧🇷", "MX": "🇲🇽",
+        "PT": "🇵🇹", "PL": "🇵🇱", "SE": "🇸🇪", "NO": "🇳🇴",
+        "DK": "🇩🇰", "FI": "🇫🇮", "AT": "🇦🇹", "BE": "🇧🇪",
+        "GR": "🇬🇷", "TR": "🇹🇷", "TH": "🇹🇭", "MY": "🇲🇾",
+        "ID": "🇮🇩", "PH": "🇵🇭", "VN": "🇻🇳", "ZA": "🇿🇦",
+        "EG": "🇪🇬", "SA": "🇸🇦",
     }
 
     countries_map: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     country_info: Dict[str, Dict[str, Any]] = {}
 
+    from services.country_regulatory_authorities import resolve_country_meta, iso_to_flag
+
     for it in items:
-        raw_c = (it.get("country") or "Other").strip()
-        c_lower = raw_c.lower()
-        if c_lower in ("uk", "united kingdom", "great britain"):
-            c = "United Kingdom"
-        elif c_lower in ("usa", "united states", "united states of america", "us"):
-            c = "United States"
-        elif c_lower in ("nz", "new zealand"):
-            c = "New Zealand"
-        elif c_lower in ("uae", "united arab emirates"):
-            c = "United Arab Emirates"
-        else:
-            c = raw_c.title()
+        raw_c = (it.get("country") or "").strip()
+        c_resolved, c_iso_resolved, flag_resolved = resolve_country_meta(raw_c, it.get("name", ""))
+        c = c_resolved if (c_resolved and c_resolved != "Other") else (raw_c.title() if raw_c else "Other")
 
         raw_cat = (it.get("category") or "skilled_migration").lower().strip()
-        if raw_cat in ("pr", "skilled", "skilled_worker", "skilled_migration"):
+        if raw_cat in ("pr", "skilled", "skilled_worker", "skilled_migration", "immigration", "residence", "permanent_residence"):
             cat = "skilled_migration"
         elif raw_cat in ("work", "work_visa", "employment"):
             cat = "work"
@@ -483,10 +541,10 @@ async def get_product_master_taxonomy(current_user: dict = Depends(get_current_u
         elif raw_cat in ("business", "investor", "investment"):
             cat = "business"
         else:
-            cat = raw_cat
+            cat = "skilled_migration"
 
-        c_code = (it.get("country_code") or country_iso_map.get(c.lower(), "")).upper()
-        flag = it.get("flag") or country_flags.get(c_code, "🌐")
+        c_code = (it.get("country_code") or c_iso_resolved or country_iso_map.get(c.lower(), "")).upper()
+        flag = it.get("flag") or flag_resolved or country_flags.get(c_code) or iso_to_flag(c_code)
 
         if c not in country_info:
             country_info[c] = {

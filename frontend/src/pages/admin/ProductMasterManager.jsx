@@ -58,6 +58,8 @@ const CATEGORY_META = {
   partner: { name: 'Family & Partner', icon: '👨‍👩‍👧', badge: 'bg-rose-50 text-rose-700 border-rose-200' },
   business: { name: 'Business & Investor', icon: '🏢', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
   investor: { name: 'Business & Investor', icon: '🏢', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  immigration: { name: 'Skilled Migration / PR', icon: '🌟', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  residence: { name: 'Skilled Migration / PR', icon: '🌟', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
 };
 
 const formatINR = (n) => {
